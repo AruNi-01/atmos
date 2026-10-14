@@ -8,10 +8,7 @@ let cachedLocale: "en" | "zh" | null = null;
 let cachedTranslator: any = null;
 
 /** next-intl lookup that works outside the React tree (Milkdown NodeViews). */
-export function mdLiveCopy(
-  key: string,
-  values?: Record<string, string | number | Date>,
-): string {
+export function mdLiveCopy(key: string, values?: Record<string, string | number | Date>): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedTranslator || cachedLocale !== locale) {
     cachedLocale = locale;

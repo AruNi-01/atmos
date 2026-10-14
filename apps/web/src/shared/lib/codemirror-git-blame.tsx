@@ -10,12 +10,13 @@ import {
 import { createRoot, type Root } from "react-dom/client";
 import { useEffect, useRef, useState } from "react";
 import { Popover, PopoverAnchor, PopoverContent } from "@workspace/ui";
-import type { GitBlameCommit, GitCommitDetailResponse, GitFileBlameResponse } from "@/api/ws-api-types";
+import type {
+  GitBlameCommit,
+  GitCommitDetailResponse,
+  GitFileBlameResponse,
+} from "@/api/ws-api-types";
 import { GitBlameHoverCard } from "@/shared/lib/GitBlameHoverCard";
-import {
-  lookupBlameRange,
-  remapBlameRangesForDoc,
-} from "@/shared/lib/codemirror-git-blame-map";
+import { lookupBlameRange, remapBlameRangesForDoc } from "@/shared/lib/codemirror-git-blame-map";
 
 export interface GitBlameStrings {
   notCommittedYet: string;
@@ -54,8 +55,7 @@ function pointRect(x: number, y: number): DOMRect {
 }
 
 function isGitBlameHoverSurface(node: EventTarget | null): boolean {
-  return node instanceof Element
-    && Boolean(node.closest(".cm-git-blame-card, .cm-git-blame-eol"));
+  return node instanceof Element && Boolean(node.closest(".cm-git-blame-card, .cm-git-blame-eol"));
 }
 
 function isGitBlameHoverAtPoint(x: number, y: number): boolean {
@@ -78,7 +78,7 @@ function BlameEolPopover({
   onContentLeave: (relatedTarget: EventTarget | null) => void;
 }) {
   const [detail, setDetail] = useState<GitCommitDetailResponse | null>(null);
-  const commit = commitHash ? host.blame.commits[commitHash] ?? null : null;
+  const commit = commitHash ? (host.blame.commits[commitHash] ?? null) : null;
   const uncommitted = !commitHash;
   const virtualRef = useRef({
     getBoundingClientRect: () => pointRect(origin.x, origin.y),
@@ -108,7 +108,7 @@ function BlameEolPopover({
         sideOffset={6}
         avoidCollisions
         collisionPadding={8}
-        className="cm-git-blame-card w-[min(22rem,calc(100vw-2rem))] max-h-[min(24rem,calc(100dvh-2rem))] rounded-xl shadow-none"
+        className="cm-git-blame-card max-h-[min(24rem,calc(100dvh-2rem))] w-[min(22rem,calc(100vw-2rem))] rounded-xl shadow-none"
         onMouseEnter={onContentEnter}
         onMouseLeave={(event) => onContentLeave(event.relatedTarget)}
       >
@@ -117,11 +117,7 @@ function BlameEolPopover({
           detail={detail}
           uncommitted={uncommitted}
           strings={host.strings}
-          onOpen={
-            host.onOpenCommit && commit
-              ? () => host.onOpenCommit?.(commit)
-              : undefined
-          }
+          onOpen={host.onOpenCommit && commit ? () => host.onOpenCommit?.(commit) : undefined}
         />
       </PopoverContent>
     </Popover>
@@ -150,9 +146,7 @@ class BlameEolWidget extends WidgetType {
 
   eq(other: BlameEolWidget) {
     return (
-      other.text === this.text &&
-      other.host === this.host &&
-      other.commitHash === this.commitHash
+      other.text === this.text && other.host === this.host && other.commitHash === this.commitHash
     );
   }
 
@@ -306,12 +300,7 @@ const blameEolPlugin = ViewPlugin.fromClass(
     update(update: ViewUpdate) {
       const hostChanged =
         update.startState.facet(gitBlameHostFacet) !== update.state.facet(gitBlameHostFacet);
-      if (
-        hostChanged ||
-        update.docChanged ||
-        update.selectionSet ||
-        update.viewportChanged
-      ) {
+      if (hostChanged || update.docChanged || update.selectionSet || update.viewportChanged) {
         this.decorations = this.build(update.view);
       }
     }

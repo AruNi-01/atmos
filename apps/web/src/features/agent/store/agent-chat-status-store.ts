@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { create } from 'zustand';
+import { create } from "zustand";
 
 /**
  * Lightweight global store for the AgentChatPanel to publish its readiness

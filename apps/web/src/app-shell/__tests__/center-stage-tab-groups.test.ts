@@ -63,31 +63,23 @@ describe("collectDiffGroupTabs", () => {
   });
 
   test("places git commit diffs in the diff group after Graph History", () => {
-    const tabs = collectDiffGroupTabs(
-      [file(`${EDITOR_DIFF_GROUP_PREFIX}unstaged`, 1)],
-      {
-        gitHistory: { visible: true, label: "Graph History" },
-        gitCommits: [
-          {
-            id: "git-commit:ws:abc",
-            value: "git-commit:ws:abc",
-            label: "abc Fix",
-          },
-        ],
-      },
-    );
-    expect(tabs.map((tab) => tab.kind)).toEqual([
-      "git-history",
-      "git-commit",
-      "diff-group",
-    ]);
+    const tabs = collectDiffGroupTabs([file(`${EDITOR_DIFF_GROUP_PREFIX}unstaged`, 1)], {
+      gitHistory: { visible: true, label: "Graph History" },
+      gitCommits: [
+        {
+          id: "git-commit:ws:abc",
+          value: "git-commit:ws:abc",
+          label: "abc Fix",
+        },
+      ],
+    });
+    expect(tabs.map((tab) => tab.kind)).toEqual(["git-history", "git-commit", "diff-group"]);
   });
 
   test("omits Graph History when the tab is closed", () => {
-    const tabs = collectDiffGroupTabs(
-      [file(`${EDITOR_DIFF_GROUP_PREFIX}branch`, 1)],
-      { gitHistory: { visible: false, label: "Graph History" } },
-    );
+    const tabs = collectDiffGroupTabs([file(`${EDITOR_DIFF_GROUP_PREFIX}branch`, 1)], {
+      gitHistory: { visible: false, label: "Graph History" },
+    });
     expect(tabs.map((tab) => tab.kind)).toEqual(["diff-group"]);
   });
 });
@@ -113,10 +105,7 @@ describe("collectAgentChatGroupTabs", () => {
       },
     ]);
 
-    expect(tabs.map((tab) => tab.id)).toEqual([
-      "agent-chat:draft:1",
-      "agent-chat:later",
-    ]);
+    expect(tabs.map((tab) => tab.id)).toEqual(["agent-chat:draft:1", "agent-chat:later"]);
     expect(tabs[0]).toMatchObject({
       kind: "agent-chat",
       label: "Chat",

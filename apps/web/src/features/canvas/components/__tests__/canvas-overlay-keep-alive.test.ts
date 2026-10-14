@@ -10,10 +10,7 @@ import { CANVAS_KEEP_ALIVE_TTL_MS } from "../CanvasOverlay";
  * After {@link CANVAS_KEEP_ALIVE_TTL_MS} warm-hidden, full unmount is OK.
  */
 describe("CanvasOverlay keep-alive", () => {
-  const source = readFileSync(
-    join(import.meta.dirname, "../CanvasOverlay.tsx"),
-    "utf8",
-  );
+  const source = readFileSync(join(import.meta.dirname, "../CanvasOverlay.tsx"), "utf8");
 
   it("keeps CanvasView mounted after first open instead of return-null on idle", () => {
     expect(source).toContain("hasMountedCanvas");
@@ -27,14 +24,8 @@ describe("CanvasOverlay keep-alive", () => {
   });
 
   it("pauses work while keep-alive hidden via overlay activity context", () => {
-    const overlaySource = readFileSync(
-      join(import.meta.dirname, "../CanvasOverlay.tsx"),
-      "utf8",
-    );
-    const viewSource = readFileSync(
-      join(import.meta.dirname, "../CanvasView.tsx"),
-      "utf8",
-    );
+    const overlaySource = readFileSync(join(import.meta.dirname, "../CanvasOverlay.tsx"), "utf8");
+    const viewSource = readFileSync(join(import.meta.dirname, "../CanvasView.tsx"), "utf8");
     expect(overlaySource).toContain("CanvasOverlayActiveContext.Provider");
     expect(overlaySource).toContain("value={!isKeepAliveHidden}");
     expect(viewSource).toContain("useCanvasOverlayActive");

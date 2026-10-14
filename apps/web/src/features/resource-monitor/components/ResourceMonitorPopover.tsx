@@ -144,10 +144,7 @@ export function ResourceMonitorPopover({
     [agentSessions, chatTabsByContext, projects],
   );
   const listedProjects = React.useMemo(
-    () =>
-      snapshot
-        ? mergeResourceMonitorChatSessions(snapshot.projects, chatPlacements)
-        : [],
+    () => (snapshot ? mergeResourceMonitorChatSessions(snapshot.projects, chatPlacements) : []),
     [snapshot, chatPlacements],
   );
   const liveDisplays = React.useMemo(() => {
@@ -165,11 +162,7 @@ export function ResourceMonitorPopover({
     direction: ResourceMonitorSortDirection;
   }>({ key: "cpu", direction: "descending" });
   const handleKillLeaked = React.useCallback(
-    (target: {
-      name: string;
-      projectId: string;
-      workspaceId: string | null;
-    }) => {
+    (target: { name: string; projectId: string; workspaceId: string | null }) => {
       const key = `${target.projectId}:${target.workspaceId ?? ""}:${target.name}`;
       if (killingKey) return;
       setKillingKey(key);
@@ -201,8 +194,7 @@ export function ResourceMonitorPopover({
       current.key === key
         ? {
             key,
-            direction:
-              current.direction === "ascending" ? "descending" : "ascending",
+            direction: current.direction === "ascending" ? "descending" : "ascending",
           }
         : { key, direction: defaultResourceMonitorSortDirection(key) },
     );
@@ -219,13 +211,12 @@ export function ResourceMonitorPopover({
   const showUnattributed =
     showSnapshot &&
     snapshot != null &&
-    (isUsageVisible(snapshot.unattributed) ||
-      snapshot.attribution_status === "partial");
+    (isUsageVisible(snapshot.unattributed) || snapshot.attribution_status === "partial");
 
   return (
     <TooltipProvider delayDuration={250}>
       <div
-        className="flex h-full min-h-0 min-w-0 max-h-[min(620px,calc(100vh-1.5rem))] flex-1 flex-col overflow-hidden"
+        className="flex h-full max-h-[min(620px,calc(100vh-1.5rem))] min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
         data-resource-monitor-state={state}
       >
         <header className="shrink-0 px-3 py-2">
@@ -235,11 +226,8 @@ export function ResourceMonitorPopover({
           </div>
         </header>
 
-        <ScrollArea
-          scrollFade
-          className="min-h-0 w-full max-w-full flex-1 overflow-x-hidden"
-        >
-          <div className="min-w-0 max-w-full overflow-x-hidden pb-1">
+        <ScrollArea scrollFade className="min-h-0 w-full max-w-full flex-1 overflow-x-hidden">
+          <div className="max-w-full min-w-0 overflow-x-hidden pb-1">
             <ResourceMonitorHostSection
               host={showSnapshot ? snapshot?.host : undefined}
               isLoading={isLoading}
@@ -262,10 +250,7 @@ export function ResourceMonitorPopover({
                 snapshotDesktopUse={snapshot.desktop_use}
                 snapshotUnattributed={snapshot.unattributed}
                 showUnattributed={showUnattributed}
-                showProjectsEmpty={shouldShowProjectsEmptyCopy(
-                  state,
-                  listedProjects.length,
-                )}
+                showProjectsEmpty={shouldShowProjectsEmptyCopy(state, listedProjects.length)}
                 showDesktop={showDesktop}
                 desktop={desktop}
                 desktopLoading={desktopLoading}

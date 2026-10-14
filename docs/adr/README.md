@@ -9,6 +9,7 @@
 An Architecture Decision Record (ADR) is a document that captures an important architectural decision made along with its context and consequences.
 
 **Purpose**:
+
 - Document WHY a decision was made
 - Provide context for future developers
 - Track architectural evolution
@@ -18,32 +19,32 @@ An Architecture Decision Record (ADR) is a document that captures an important a
 
 ## 📋 ADR Index
 
-| ADR | Title | Status | Date | Decision Makers |
-|-----|-------|--------|------|-----------------|
-| [001](./001-monorepo.md) | Adopt Monorepo Architecture | ✅ Accepted | 2024-01-10 | @alice (Architect), @bob (Tech Lead) |
-| [002](./002-agent-crate-positioning.md) | Agent Crate as Independent Vertical Module | ✅ Accepted | 2025-02-18 | - |
-| [003](./003-terminal-scrolling-and-resize.md) | 终端滚动与 Resize 架构优化 | 🔄 Superseded | 2026-03-17 | - |
-| [004](./004-terminal-tmux-control-mode.md) | 终端改为 tmux Control Mode Transport | ✅ Accepted | 2026-04-19 | Aaryn, Codex |
-| [005](./005-release-download-installation-architecture.md) | 发布、下载与安装架构 | ✅ Accepted | 2026-06-23 | Aaryn, Codex |
+| ADR                                                        | Title                                      | Status        | Date       | Decision Makers                      |
+| ---------------------------------------------------------- | ------------------------------------------ | ------------- | ---------- | ------------------------------------ |
+| [001](./001-monorepo.md)                                   | Adopt Monorepo Architecture                | ✅ Accepted   | 2024-01-10 | @alice (Architect), @bob (Tech Lead) |
+| [002](./002-agent-crate-positioning.md)                    | Agent Crate as Independent Vertical Module | ✅ Accepted   | 2025-02-18 | -                                    |
+| [003](./003-terminal-scrolling-and-resize.md)              | 终端滚动与 Resize 架构优化                 | 🔄 Superseded | 2026-03-17 | -                                    |
+| [004](./004-terminal-tmux-control-mode.md)                 | 终端改为 tmux Control Mode Transport       | ✅ Accepted   | 2026-04-19 | Aaryn, Codex                         |
+| [005](./005-release-download-installation-architecture.md) | 发布、下载与安装架构                       | ✅ Accepted   | 2026-06-23 | Aaryn, Codex                         |
 
 ### Related known debt (not an ADR yet)
 
-| Note | Topic |
-|------|--------|
+| Note                                                                             | Topic                                                                                                   |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | [known-debt-client-transport.md](../architecture/known-debt-client-transport.md) | Web-first HTTP/WS client path on Desktop; future transport abstraction (web WS/HTTP, desktop local IPC) |
 
 ---
 
 ## 📊 Status Definitions
 
-| Status | Meaning |
-|--------|---------|
-| ✅ **Accepted** | Decided and being implemented |
-| 🤔 **Proposed** | Under discussion, not yet decided |
-| ❌ **Rejected** | Decided not to adopt |
+| Status            | Meaning                             |
+| ----------------- | ----------------------------------- |
+| ✅ **Accepted**   | Decided and being implemented       |
+| 🤔 **Proposed**   | Under discussion, not yet decided   |
+| ❌ **Rejected**   | Decided not to adopt                |
 | ⏸️ **Deprecated** | No longer used, but kept for record |
-| 🔄 **Superseded** | Replaced by another ADR |
-| 📝 **Draft** | Being written |
+| 🔄 **Superseded** | Replaced by another ADR             |
+| 📝 **Draft**      | Being written                       |
 
 ---
 
@@ -146,21 +147,25 @@ Add entry to the table above.
 ## 📚 ADR Categories
 
 ### Infrastructure
+
 - Monorepo vs. Polyrepo
 - CI/CD pipeline choices
 - Deployment strategies
 
 ### Technology Stack
+
 - Framework selections
 - Library choices
 - Language decisions
 
 ### Architecture Patterns
+
 - Component structure
 - State management
 - Data flow
 
 ### Development Practices
+
 - Code style standards
 - Testing strategies
 - Documentation approaches
@@ -170,6 +175,7 @@ Add entry to the table above.
 ## 🔍 When to Create an ADR
 
 **DO create an ADR for**:
+
 - ✅ Choosing a major framework or library
 - ✅ Adopting a new architectural pattern
 - ✅ Changing build or deployment processes
@@ -177,6 +183,7 @@ Add entry to the table above.
 - ✅ Decisions that affect multiple teams
 
 **DON'T create an ADR for**:
+
 - ❌ Minor code refactoring
 - ❌ Bug fixes
 - ❌ Routine feature implementations
@@ -187,21 +194,27 @@ Add entry to the table above.
 ## 🎯 Best Practices
 
 ### 1. Be Concise
+
 Keep ADRs short and focused. 1-2 pages is ideal.
 
 ### 2. Be Specific
+
 Clearly state what is being decided, not what might be decided.
 
 ### 3. Document Context
+
 Future readers need to understand WHY, not just WHAT.
 
 ### 4. List Consequences
+
 Be honest about trade-offs. No decision is perfect.
 
 ### 5. Keep It Updated
+
 Update status when decisions change or are superseded.
 
 ### 6. Use Simple Language
+
 Avoid jargon. Write for future team members.
 
 ---
@@ -211,15 +224,15 @@ Avoid jargon. Write for future team members.
 ```
 1. Draft
    └─ Document proposal
-   
+
 2. Proposed
    └─ Share with team
    └─ Gather feedback
-   
+
 3. Accepted / Rejected
    └─ Final decision made
    └─ Implementation begins (if accepted)
-   
+
 4. Deprecated / Superseded (optional)
    └─ Decision no longer valid
    └─ Reference replacement ADR

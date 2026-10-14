@@ -5,13 +5,7 @@ import type { ComponentType, ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { motion } from "motion/react";
 import { cn } from "@/shared/lib/utils";
-import {
-  GuideBridge,
-  LogRow,
-  SOFT_EASE,
-  ShimmerText,
-  useLogMotion,
-} from "./agent-log";
+import { GuideBridge, LogRow, SOFT_EASE, ShimmerText, useLogMotion } from "./agent-log";
 
 /**
  * Web search trail adapted from BoardUI Web Search.
@@ -148,10 +142,7 @@ function SourcesRow({
     if (open && shown >= total) return;
     if (!open && shown === 0) return;
     const delay = open ? (shown === 0 ? ROW_LEAD : ROW_STAGGER) : ROW_CLOSE;
-    const id = window.setTimeout(
-      () => setShown((n) => (open ? n + 1 : n - 1)),
-      skip ? 0 : delay,
-    );
+    const id = window.setTimeout(() => setShown((n) => (open ? n + 1 : n - 1)), skip ? 0 : delay);
     return () => window.clearTimeout(id);
   }, [open, shown, total, skip]);
 
@@ -172,7 +163,9 @@ function SourcesRow({
           aria-expanded={open}
           className="group flex cursor-pointer items-center rounded-md text-start outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="shrink-0 text-[13px] leading-5 text-muted-foreground">{sourcesLabel}</span>
+          <span className="shrink-0 text-[13px] leading-5 text-muted-foreground">
+            {sourcesLabel}
+          </span>
           <motion.span
             data-websearch-stack=""
             className="ms-2 flex shrink-0 items-center"
@@ -230,9 +223,7 @@ function StepContent({ step, active }: { step: WebSearchStep; active: boolean })
       <p className="min-w-0 flex-1 text-[13px] leading-5 text-muted-foreground">
         {active ? <ShimmerText>{step.label}</ShimmerText> : step.label}
         {step.query ? (
-          <span className="ms-1.5 font-mono text-xs text-muted-foreground/80">
-            {step.query}
-          </span>
+          <span className="ms-1.5 font-mono text-xs text-muted-foreground/80">{step.query}</span>
         ) : null}
       </p>
       {step.meta ? (
@@ -268,7 +259,8 @@ export function WebSearch({
       <ul aria-live="polite" className="flex list-none flex-col p-0">
         {steps.map((step, index) => {
           const sources = step.sources ?? [];
-          const showStep = step.label.trim().length > 0 || Boolean(step.query) || Boolean(step.meta);
+          const showStep =
+            step.label.trim().length > 0 || Boolean(step.query) || Boolean(step.meta);
           if (!showStep) {
             if (sources.length === 0) return null;
             return (

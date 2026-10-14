@@ -24,54 +24,57 @@ type WorkspaceWorkflowStatusMeta = {
   value: WorkspaceWorkflowStatus;
 };
 
-const WORKSPACE_WORKFLOW_STATUS_META: Record<WorkspaceWorkflowStatus, WorkspaceWorkflowStatusMeta> = {
-  backlog: {
-    value: "backlog",
-    label: "Backlog",
-    menuSystemImage: "circle.dashed",
-    Icon: StatusBacklogIcon,
-  },
-  todo: {
-    value: "todo",
-    label: "To Do",
-    menuSystemImage: "circle",
-    Icon: StatusTodoIcon,
-  },
-  in_progress: {
-    value: "in_progress",
-    label: "In Progress",
-    menuSystemImage: "circle.lefthalf.filled",
-    Icon: StatusInProgressIcon,
-  },
-  in_review: {
-    value: "in_review",
-    label: "In Review",
-    menuSystemImage: "eye.circle",
-    Icon: StatusInReviewIcon,
-  },
-  blocked: {
-    value: "blocked",
-    label: "Blocked",
-    menuSystemImage: "minus.circle",
-    Icon: StatusBlockedIcon,
-  },
-  completed: {
-    value: "completed",
-    label: "Completed",
-    menuSystemImage: "checkmark.circle",
-    Icon: StatusCompletedIcon,
-  },
-  canceled: {
-    value: "canceled",
-    label: "Canceled",
-    menuSystemImage: "xmark.circle",
-    Icon: StatusCanceledIcon,
-  },
-};
+const WORKSPACE_WORKFLOW_STATUS_META: Record<WorkspaceWorkflowStatus, WorkspaceWorkflowStatusMeta> =
+  {
+    backlog: {
+      value: "backlog",
+      label: "Backlog",
+      menuSystemImage: "circle.dashed",
+      Icon: StatusBacklogIcon,
+    },
+    todo: {
+      value: "todo",
+      label: "To Do",
+      menuSystemImage: "circle",
+      Icon: StatusTodoIcon,
+    },
+    in_progress: {
+      value: "in_progress",
+      label: "In Progress",
+      menuSystemImage: "circle.lefthalf.filled",
+      Icon: StatusInProgressIcon,
+    },
+    in_review: {
+      value: "in_review",
+      label: "In Review",
+      menuSystemImage: "eye.circle",
+      Icon: StatusInReviewIcon,
+    },
+    blocked: {
+      value: "blocked",
+      label: "Blocked",
+      menuSystemImage: "minus.circle",
+      Icon: StatusBlockedIcon,
+    },
+    completed: {
+      value: "completed",
+      label: "Completed",
+      menuSystemImage: "checkmark.circle",
+      Icon: StatusCompletedIcon,
+    },
+    canceled: {
+      value: "canceled",
+      label: "Canceled",
+      menuSystemImage: "xmark.circle",
+      Icon: StatusCanceledIcon,
+    },
+  };
 
 export const WORKSPACE_WORKFLOW_STATUS_OPTIONS = Object.values(WORKSPACE_WORKFLOW_STATUS_META);
 
-export function normalizeWorkspaceWorkflowStatus(status: string | null | undefined): WorkspaceWorkflowStatus {
+export function normalizeWorkspaceWorkflowStatus(
+  status: string | null | undefined,
+): WorkspaceWorkflowStatus {
   if (status && status in WORKSPACE_WORKFLOW_STATUS_META) {
     return status as WorkspaceWorkflowStatus;
   }
@@ -122,7 +125,12 @@ function StatusInProgressIcon({ color, size = 16 }: WorkspaceStatusIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
       <Circle cx="8" cy="8" r="6.5" stroke={color} strokeWidth="1.5" opacity="0.3" />
-      <Path d="M8 1.5 A6.5 6.5 0 0 1 14.5 8" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+      <Path
+        d="M8 1.5 A6.5 6.5 0 0 1 14.5 8"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }
@@ -131,7 +139,12 @@ function StatusInReviewIcon({ color, size = 16 }: WorkspaceStatusIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
       <Circle cx="8" cy="8" r="6.5" stroke={color} strokeWidth="1.5" opacity="0.3" />
-      <Path d="M8 1.5 A6.5 6.5 0 1 1 1.5 8" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+      <Path
+        d="M8 1.5 A6.5 6.5 0 1 1 1.5 8"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }

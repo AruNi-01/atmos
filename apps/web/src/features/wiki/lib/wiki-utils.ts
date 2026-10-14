@@ -106,8 +106,7 @@ export function normalizeCatalog(data: CatalogData): CatalogData {
       ...d,
       project: {
         name: proj.name ?? wikiUtilsT("defaultProjectName"),
-        description:
-          proj.description ?? wikiUtilsT("defaultProjectDescription"),
+        description: proj.description ?? wikiUtilsT("defaultProjectDescription"),
         repository: proj.repository,
       },
     };
@@ -124,9 +123,7 @@ export function normalizeCatalog(data: CatalogData): CatalogData {
       path: item.path,
       order: typeof item.order === "number" ? item.order : idx,
       file: item.file,
-      children: Array.isArray(item.children)
-        ? item.children.map((c, i) => ensure(c, i))
-        : [],
+      children: Array.isArray(item.children) ? item.children.map((c, i) => ensure(c, i)) : [],
       section: item.section as CatalogItem["section"],
       level: item.level as CatalogItem["level"],
       reading_time: item.reading_time,
@@ -183,7 +180,7 @@ export function normalizeCatalog(data: CatalogData): CatalogData {
       title: sectionTitle,
       path: sectionPath,
       order: si,
-      file: hasIndex ? indexFile : children[0]?.file ?? indexFile,
+      file: hasIndex ? indexFile : (children[0]?.file ?? indexFile),
       children,
       section: sec as CatalogItem["section"],
       level: "beginner",
@@ -195,7 +192,9 @@ export function normalizeCatalog(data: CatalogData): CatalogData {
 }
 
 /** Flatten catalog into a list of leaf items (pages) with file paths, sorted by order */
-export function flattenCatalog(catalog: CatalogItem[]): { id: string; title: string; file: string }[] {
+export function flattenCatalog(
+  catalog: CatalogItem[],
+): { id: string; title: string; file: string }[] {
   const result: { id: string; title: string; file: string }[] = [];
 
   function visit(items: CatalogItem[]) {
@@ -272,7 +271,11 @@ function isYamlBlockContinuation(line: string): boolean {
  * Parse YAML-like frontmatter scalars, including folded (`>`, `>-`) and literal
  * (`|`, `|-`) block scalars. Without this, `title: >-` would surface as `>-`.
  */
-function parseYamlScalarLines(lines: string[], startIndex: number, rawValue: string): {
+function parseYamlScalarLines(
+  lines: string[],
+  startIndex: number,
+  rawValue: string,
+): {
   value: string;
   nextIndex: number;
 } {
@@ -287,9 +290,7 @@ function parseYamlScalarLines(lines: string[], startIndex: number, rawValue: str
       collected.push(line.trim());
       i += 1;
     }
-    const value = folded
-      ? collected.filter(Boolean).join(" ")
-      : collected.join("\n").trim();
+    const value = folded ? collected.filter(Boolean).join(" ") : collected.join("\n").trim();
     return { value, nextIndex: i };
   }
 

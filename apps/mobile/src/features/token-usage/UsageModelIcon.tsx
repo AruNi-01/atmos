@@ -26,7 +26,8 @@ export function UsageModelIcon({
     return <MobileAgentIcon agentId={resolved.agentId} size={size} tintColor={color} />;
   }
 
-  const tint = color ?? (resolved.kind === "provider" ? theme.colors.label : theme.colors.secondaryLabel);
+  const tint =
+    color ?? (resolved.kind === "provider" ? theme.colors.label : theme.colors.secondaryLabel);
   if (resolved.kind === "provider") {
     return <ProviderGlyph color={tint} providerId={resolved.providerId} size={size} />;
   }

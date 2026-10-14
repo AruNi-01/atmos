@@ -81,7 +81,8 @@ export const ShareSheet = memo(function ShareSheet({
     setSaveState("idle");
     const start = setTimeout(() => {
       if (!alive) return;
-      void captureRef.current()
+      void captureRef
+        .current()
         .then((shot) => {
           if (!alive) {
             releaseUsageImage(shot.uri);
@@ -94,7 +95,9 @@ export const ShareSheet = memo(function ShareSheet({
         })
         .catch((reason: unknown) => {
           if (!alive) return;
-          setCaptureError(reason instanceof Error ? reason.message : "Could not capture this page.");
+          setCaptureError(
+            reason instanceof Error ? reason.message : "Could not capture this page.",
+          );
         });
     }, SHEET_SETTLE_MS);
     return () => {
@@ -130,57 +133,115 @@ export const ShareSheet = memo(function ShareSheet({
   };
 
   return (
-    <ExpoDrawer detents={SHARE_SHEET_DETENTS} isPresented={open} matchContents={false} onDismiss={onDismiss}>
+    <ExpoDrawer
+      detents={SHARE_SHEET_DETENTS}
+      isPresented={open}
+      matchContents={false}
+      onDismiss={onDismiss}
+    >
       <View style={styles.sheet}>
-      <NativeSegmentedControl
-        onValueChange={setTab}
-        options={[
-          { label: "Share", value: "share" },
-          { label: "Publish", value: "publish" },
-        ]}
-        selectedValue={tab}
-        style={styles.tabs}
-      />
-      {tab === "share" ? (
-        <View style={styles.pane}>
-          <View style={[styles.preview, preview ? null : styles.previewSlot, { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.separator }]}>
-            {preview ? (
-              <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false} style={styles.previewScroll}>
-                <Image resizeMode="contain" source={{ uri: preview.uri }} style={{ aspectRatio: preview.aspect, width: "100%" }} />
-              </ScrollView>
-            ) : captureError ? (
-              <View style={styles.previewMessage}>
-                <Text style={{ color: theme.colors.red, fontSize: 13 }}>{captureError}</Text>
-              </View>
-            ) : (
-              <UsageShareGenerating dark={theme.isDark} />
-            )}
+        <NativeSegmentedControl
+          onValueChange={setTab}
+          options={[
+            { label: "Share", value: "share" },
+            { label: "Publish", value: "publish" },
+          ]}
+          selectedValue={tab}
+          style={styles.tabs}
+        />
+        {tab === "share" ? (
+          <View style={styles.pane}>
+            <View
+              style={[
+                styles.preview,
+                preview ? null : styles.previewSlot,
+                { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.separator },
+              ]}
+            >
+              {preview ? (
+                <ScrollView
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator={false}
+                  style={styles.previewScroll}
+                >
+                  <Image
+                    resizeMode="contain"
+                    source={{ uri: preview.uri }}
+                    style={{ aspectRatio: preview.aspect, width: "100%" }}
+                  />
+                </ScrollView>
+              ) : captureError ? (
+                <View style={styles.previewMessage}>
+                  <Text style={{ color: theme.colors.red, fontSize: 13 }}>{captureError}</Text>
+                </View>
+              ) : (
+                <UsageShareGenerating dark={theme.isDark} />
+              )}
+            </View>
+            <View style={styles.actions}>
+              <Social
+                icon={<XMark color={theme.colors.label} />}
+                label="X"
+                onPress={() =>
+                  openSocial(
+                    `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`,
+                  )
+                }
+              />
+              <Social
+                icon={<RedditMark color={theme.colors.label} />}
+                label="Reddit"
+                onPress={() =>
+                  openSocial(
+                    `https://www.reddit.com/submit?url=${encodeURIComponent(SITE)}&title=${encodeURIComponent(shareText.split("\n")[0] ?? shareText)}`,
+                  )
+                }
+              />
+              <Social
+                icon={<FacebookMark color={theme.colors.label} />}
+                label="Facebook"
+                onPress={() =>
+                  openSocial(
+                    `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(SITE)}`,
+                  )
+                }
+              />
+              <Social
+                icon={<ThreadsMark color={theme.colors.label} />}
+                label="Threads"
+                onPress={() =>
+                  openSocial(
+                    `https://www.threads.net/intent/post?text=${encodeURIComponent(shareText)}`,
+                  )
+                }
+              />
+              <GlassPanel interactive shadow={false} style={styles.socialGlass}>
+                <Pressable
+                  accessibilityLabel={saveState === "saved" ? "Saved to photos" : "Save image"}
+                  accessibilityState={{
+                    busy: saveState === "saving",
+                    disabled: saveState === "saving" || !preview,
+                  }}
+                  disabled={saveState === "saving" || !preview}
+                  onPress={requestSave}
+                  style={styles.socialButton}
+                >
+                  <DownloadIcon color={theme.colors.label} size={16} />
+                </Pressable>
+              </GlassPanel>
+            </View>
+            {saveError ? (
+              <Text style={{ color: theme.colors.red, fontSize: 13 }}>{saveError}</Text>
+            ) : null}
+            {saveState === "saved" ? (
+              <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13 }}>
+                Saved to photos
+              </Text>
+            ) : null}
           </View>
-          <View style={styles.actions}>
-            <Social icon={<XMark color={theme.colors.label} />} label="X" onPress={() => openSocial(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`)} />
-            <Social icon={<RedditMark color={theme.colors.label} />} label="Reddit" onPress={() => openSocial(`https://www.reddit.com/submit?url=${encodeURIComponent(SITE)}&title=${encodeURIComponent(shareText.split("\n")[0] ?? shareText)}`)} />
-            <Social icon={<FacebookMark color={theme.colors.label} />} label="Facebook" onPress={() => openSocial(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(SITE)}`)} />
-            <Social icon={<ThreadsMark color={theme.colors.label} />} label="Threads" onPress={() => openSocial(`https://www.threads.net/intent/post?text=${encodeURIComponent(shareText)}`)} />
-            <GlassPanel interactive shadow={false} style={styles.socialGlass}>
-              <Pressable
-                accessibilityLabel={saveState === "saved" ? "Saved to photos" : "Save image"}
-                accessibilityState={{ busy: saveState === "saving", disabled: saveState === "saving" || !preview }}
-                disabled={saveState === "saving" || !preview}
-                onPress={requestSave}
-                style={styles.socialButton}
-              >
-                <DownloadIcon color={theme.colors.label} size={16} />
-              </Pressable>
-            </GlassPanel>
-          </View>
-          {saveError ? <Text style={{ color: theme.colors.red, fontSize: 13 }}>{saveError}</Text> : null}
-          {saveState === "saved" ? (
-            <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13 }}>Saved to photos</Text>
-          ) : null}
-        </View>
-      ) : (
-        <PublishPane onDone={onDismiss} overview={overview} />
-      )}
+        ) : (
+          <PublishPane onDone={onDismiss} overview={overview} />
+        )}
       </View>
     </ExpoDrawer>
   );
@@ -274,19 +335,31 @@ function PublishPane({
         </Pressable>
       ) : null}
       {error ? <Text style={{ color: theme.colors.red }}>{error}</Text> : null}
-      <Host colorScheme={theme.colorScheme} matchContents={{ vertical: true }} style={{ width: "100%" }}>
+      <Host
+        colorScheme={theme.colorScheme}
+        matchContents={{ vertical: true }}
+        style={{ width: "100%" }}
+      >
         <HStack alignment="center" spacing={8}>
           {live ? (
             <Button
               label={turnOff.isPending ? "Turning off…" : "Turn off"}
-              modifiers={[buttonStyle("glass"), controlSize("regular"), disabled(turnOff.isPending)]}
+              modifiers={[
+                buttonStyle("glass"),
+                controlSize("regular"),
+                disabled(turnOff.isPending),
+              ]}
               onPress={turnOff.isPending ? undefined : () => turnOff.mutate()}
             />
           ) : null}
           <Spacer />
           <Button
             label={publish.isPending ? "Publishing…" : live ? "Update" : "Publish"}
-            modifiers={[buttonStyle("glass"), controlSize("regular"), disabled(publish.isPending || !overview)]}
+            modifiers={[
+              buttonStyle("glass"),
+              controlSize("regular"),
+              disabled(publish.isPending || !overview),
+            ]}
             onPress={publish.isPending || !overview ? undefined : () => publish.mutate()}
           />
         </HStack>
@@ -311,6 +384,14 @@ const styles = StyleSheet.create({
   previewMessage: { alignItems: "center", height: 168, justifyContent: "center" },
   previewScroll: { flexShrink: 0, maxHeight: 360, width: "100%" },
   previewSlot: { height: 168 },
-  socialButton: { alignItems: "center", flexDirection: "row", flexShrink: 0, gap: 6, minHeight: 36, paddingHorizontal: 10, paddingVertical: 8 },
+  socialButton: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexShrink: 0,
+    gap: 6,
+    minHeight: 36,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
   socialGlass: { borderRadius: 999, flexShrink: 0 },
 });

@@ -2,10 +2,7 @@ export { DitherPanel } from "./DitherPanel";
 export type { DitherPanelProps } from "./DitherPanel";
 
 export { DitherGrowth } from "./DitherGrowth";
-export type {
-  DitherGrowthColorStop,
-  DitherGrowthProps,
-} from "./DitherGrowth";
+export type { DitherGrowthColorStop, DitherGrowthProps } from "./DitherGrowth";
 
 export { DitherHeatmap } from "./DitherHeatmap";
 export type {
@@ -29,10 +26,7 @@ export { DitherShareBar } from "./DitherShareBar";
 export type { DitherShareBarProps, DitherShareSegment } from "./DitherShareBar";
 
 export { DitherRevenueLines } from "./DitherRevenueLines";
-export type {
-  DitherRevenueLinesProps,
-  DitherRevenueSeries,
-} from "./DitherRevenueLines";
+export type { DitherRevenueLinesProps, DitherRevenueSeries } from "./DitherRevenueLines";
 
 export { DitherTooltip } from "./DitherTooltip";
 export type {
@@ -43,8 +37,4 @@ export type {
 } from "./DitherTooltip";
 
 export type { DitherTheme } from "../../lib/dither/math";
-export {
-  bandColor,
-  ditherInk,
-  heatmapLevelColor,
-} from "../../lib/dither/math";
+export { bandColor, ditherInk, heatmapLevelColor } from "../../lib/dither/math";

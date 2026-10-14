@@ -1,12 +1,13 @@
-import type { AgentOptionsSnapshot, AgentThinkingSupport } from "@atmos/api-types/ws/dto/agent-chat";
+import type {
+  AgentOptionsSnapshot,
+  AgentThinkingSupport,
+} from "@atmos/api-types/ws/dto/agent-chat";
 
 export type ComposerControlId = "agent" | "model" | "thinking" | "mode" | "permission";
 
 export type ComposerControl = { id: ComposerControlId };
 
-export function hasSelectableThinking(
-  thinking: AgentThinkingSupport | null | undefined,
-): boolean {
+export function hasSelectableThinking(thinking: AgentThinkingSupport | null | undefined): boolean {
   if (!thinking) return false;
   switch (thinking.type) {
     case "none":

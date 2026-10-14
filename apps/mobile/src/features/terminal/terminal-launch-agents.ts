@@ -35,7 +35,15 @@ export function mergeTerminalLaunchAgents(
     const override = overrides.get(agent.id);
     if (override?.enabled === false) return [];
     const cmd = override?.cmd?.trim() || agent.cmd;
-    return [launchAgent(agent.id, override?.label?.trim() || agent.label, cmd, interactiveFlags(agent, override), "built-in")];
+    return [
+      launchAgent(
+        agent.id,
+        override?.label?.trim() || agent.label,
+        cmd,
+        interactiveFlags(agent, override),
+        "built-in",
+      ),
+    ];
   });
   const extra = (custom ?? []).flatMap((agent) => {
     if (builtinIds.has(agent.id) || agent.enabled === false) return [];
@@ -54,7 +62,12 @@ function interactiveFlags(agent: BuiltinLaunchAgent, override: CodeAgentCustomEn
   const defaultParams = agent.yoloParams?.trim() || agent.params?.trim() || "";
   const overrideFlags = override?.flags?.trim();
   if (overrideFlags && overrideFlags !== defaultParams) return overrideFlags;
-  return agent.yoloInteractiveParams?.trim() || agent.interactiveParams?.trim() || agent.params?.trim() || "";
+  return (
+    agent.yoloInteractiveParams?.trim() ||
+    agent.interactiveParams?.trim() ||
+    agent.params?.trim() ||
+    ""
+  );
 }
 
 function launchAgent(

@@ -29,14 +29,14 @@ flowchart LR
 
 Workbench Zustand WS (`apps/web/src/features/connection/hooks/use-websocket.ts`) **never** retargets. Side sessions are owned by Token Usage only.
 
-| Layer | Change |
-|-------|--------|
-| `packages/relay` | `GET /v1/computers` returns `app_device_id`. Concurrent `client_sessions` per user+`server_id` (do not kick workbench/mobile). |
-| `packages/relay-client` | `ComputerRow.app_device_id`. |
-| `crates/runtime-manager` | Public `app_device_id()` for local identity. |
-| `apps/api` | `GET /api/system/runtime-info` includes `app_device_id`. No new WS action. |
-| `apps/web` | Unique-device helper, overview merge, side-session fetch, select + Query keys, i18n. |
-| `crates/token-usage` | Unchanged scan. Merge is **client-side**. |
+| Layer                    | Change                                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/relay`         | `GET /v1/computers` returns `app_device_id`. Concurrent `client_sessions` per user+`server_id` (do not kick workbench/mobile). |
+| `packages/relay-client`  | `ComputerRow.app_device_id`.                                                                                                   |
+| `crates/runtime-manager` | Public `app_device_id()` for local identity.                                                                                   |
+| `apps/api`               | `GET /api/system/runtime-info` includes `app_device_id`. No new WS action.                                                     |
+| `apps/web`               | Unique-device helper, overview merge, side-session fetch, select + Query keys, i18n.                                           |
+| `crates/token-usage`     | Unchanged scan. Merge is **client-side**.                                                                                      |
 
 ```mermaid
 sequenceDiagram
@@ -108,13 +108,13 @@ Pure helper `apps/web/src/features/token-usage/lib/unique-computers.ts`.
 
 ```ts
 type DeviceKey =
-  | `app:${string}`      // app_device_id
-  | `server:${string}`   // legacy null app_device_id
-  | `local:${string}`;   // unregistered local, not in any group
+  | `app:${string}` // app_device_id
+  | `server:${string}` // legacy null app_device_id
+  | `local:${string}`; // unregistered local, not in any group
 
 type UniqueComputer = {
   key: DeviceKey;
-  serverId: string | null;       // representative; null only for unregistered local
+  serverId: string | null; // representative; null only for unregistered local
   label: string;
   isCurrent: boolean;
 };
@@ -161,21 +161,21 @@ Fan-out:
 
 Merge (contributors = successes only):
 
-| Field | Rule |
-|-------|------|
-| `summary.total_tokens` / `total_messages` | Sum |
-| `summary.total_cost_usd` | Sum iff **every** contributor has non-null cost; else `null` |
-| `summary.active_days` | Count of **distinct** `by_day.date` after merge — not sum of `active_days` |
-| `summary.range_start` / `range_end` | Min / max of non-null |
-| `summary.processing_time_ms` | Max |
-| `by_model` | Group `(client_id, provider_id, model_id)`; sum token fields and cost (null cost stays null if any part is null) |
-| `by_client` | Group `client_id`; sum tokens/messages/cost; `model_count` from merged `by_model` |
-| `by_day` / `by_month` | Group date/month; sum breakdowns; union month `models` |
-| `available_years` | Sorted unique union |
-| `generated_at` | Max |
-| `query` | Same as a full-range local overview (`year: null`, default `group_by`) |
-| `partial_warnings` | Unique concat of contributor warnings **plus** one miss line per failed device (display name) |
-| `browser_cookie_access` | **Omit** on All and on other-Computer views |
+| Field                                     | Rule                                                                                                             |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `summary.total_tokens` / `total_messages` | Sum                                                                                                              |
+| `summary.total_cost_usd`                  | Sum iff **every** contributor has non-null cost; else `null`                                                     |
+| `summary.active_days`                     | Count of **distinct** `by_day.date` after merge — not sum of `active_days`                                       |
+| `summary.range_start` / `range_end`       | Min / max of non-null                                                                                            |
+| `summary.processing_time_ms`              | Max                                                                                                              |
+| `by_model`                                | Group `(client_id, provider_id, model_id)`; sum token fields and cost (null cost stays null if any part is null) |
+| `by_client`                               | Group `client_id`; sum tokens/messages/cost; `model_count` from merged `by_model`                                |
+| `by_day` / `by_month`                     | Group date/month; sum breakdowns; union month `models`                                                           |
+| `available_years`                         | Sorted unique union                                                                                              |
+| `generated_at`                            | Max                                                                                                              |
+| `query`                                   | Same as a full-range local overview (`year: null`, default `group_by`)                                           |
+| `partial_warnings`                        | Unique concat of contributor warnings **plus** one miss line per failed device (display name)                    |
+| `browser_cookie_access`                   | **Omit** on All and on other-Computer views                                                                      |
 
 Miss copy is i18n at the UI layer; merge can take `missedLabels: string[]` and the page formats them into `partial_warnings` or a dedicated banner. Prefer a **visible named list** on the Token Usage page (not only buried in `partial_warnings`) so M9 is obvious. Charts still render from the merged overview.
 
@@ -189,10 +189,10 @@ Add:
 
 ```ts
 queryKeys.tokenUsage.scopedOverview(
-  relayScope,          // RelayQueryScope
-  usageKey,            // "all" | DeviceKey
+  relayScope, // RelayQueryScope
+  usageKey, // "all" | DeviceKey
   filters,
-)
+);
 ```
 
 `TokenUsagePage` selection state (React state, default = current device key; not persisted — N1 later):
@@ -251,9 +251,9 @@ No new `WsAction`.
 
 ### Relay REST (existing routes, field / session semantics)
 
-| Call | Change | Why REST |
-|------|--------|----------|
-| `GET /v1/computers` | Add `app_device_id` | Control-plane list already REST (APP-016). |
+| Call                                     | Change                           | Why REST                                                                         |
+| ---------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------- |
+| `GET /v1/computers`                      | Add `app_device_id`              | Control-plane list already REST (APP-016).                                       |
 | `POST /v1/computers/:id/client_sessions` | Keep concurrent sessions (cap 8) | Same control-plane route; required so a usage peek does not steal the workbench. |
 
 No `/v1/usage/*`. No Computer HTTP overview.

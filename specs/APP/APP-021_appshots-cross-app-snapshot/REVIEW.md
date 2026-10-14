@@ -10,27 +10,27 @@
 
 ## Index
 
-| Id | Severity | Area | Title | Status |
-|----|----------|------|-------|--------|
-| REV-001 | P1 | frontend | Automation composer did not resolve shared composer tokens | verified |
-| REV-002 | P2 | backend | Accepted pending captures are not copy-atomic or retryable | verified |
-| REV-003 | P2 | backend | Permission-blocked pending captures never expire | verified |
-| REV-004 | P2 | performance | Preview and history payloads embed full PNGs | verified |
-| REV-005 | P2 | backend | Native capture subprocesses have no timeout | verified |
-| REV-006 | P2 | test | Required history, gating, record, and redaction coverage is missing | verified |
-| REV-007 | P1 | backend | Long target pages can block window lookup and drop screenshots | verified |
+| Id      | Severity | Area        | Title                                                               | Status   |
+| ------- | -------- | ----------- | ------------------------------------------------------------------- | -------- |
+| REV-001 | P1       | frontend    | Automation composer did not resolve shared composer tokens          | verified |
+| REV-002 | P2       | backend     | Accepted pending captures are not copy-atomic or retryable          | verified |
+| REV-003 | P2       | backend     | Permission-blocked pending captures never expire                    | verified |
+| REV-004 | P2       | performance | Preview and history payloads embed full PNGs                        | verified |
+| REV-005 | P2       | backend     | Native capture subprocesses have no timeout                         | verified |
+| REV-006 | P2       | test        | Required history, gating, record, and redaction coverage is missing | verified |
+| REV-007 | P1       | backend     | Long target pages can block window lookup and drop screenshots      | verified |
 
 ---
 
 ## REV-001 · Automation composer did not resolve shared composer tokens
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P1              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -65,13 +65,13 @@ Keep `PromptComposer` shared, update PRD/TECH/TEST to include Automation setup a
 
 ## REV-002 · Accepted pending captures are not copy-atomic or retryable
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -104,13 +104,13 @@ Make pending acceptance resolve atomically from the user perspective. Either cop
 
 ## REV-003 · Permission-blocked pending captures never expire
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -142,13 +142,13 @@ Add an explicit cleanup policy for non-expiring previews. Options include not st
 
 ## REV-004 · Preview and history payloads embed full PNGs
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | performance |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | performance     |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -184,13 +184,13 @@ Use bounded thumbnails or file/blob URLs for UI previews. The native record can 
 
 ## REV-005 · Native capture subprocesses have no timeout
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -222,13 +222,13 @@ Wrap each external process with a bounded timeout and return a partial Appshot w
 
 ## REV-006 · Required history, gating, record, and redaction coverage is missing
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | test |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | test            |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -265,13 +265,13 @@ Add focused tests for the high-risk paths: Header history pagination/copy/delete
 
 ## REV-007 · Long target pages can block window lookup and drop screenshots
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | backend |
-| **Reported by** | dogfood |
-| **Owner** | unassigned |
+| Field           | Value      |
+| --------------- | ---------- |
+| **Status**      | verified   |
+| **Severity**    | P1         |
+| **Area**        | backend    |
+| **Reported by** | dogfood    |
+| **Owner**       | unassigned |
 
 ### Finding
 

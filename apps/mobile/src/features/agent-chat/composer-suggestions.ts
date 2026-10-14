@@ -49,7 +49,10 @@ export function applyComposerPick(text: string, trigger: ComposerTrigger, insert
 }
 
 export function normalizeSlashCommands(
-  commands: Array<{ name?: string | null; description?: string | null; hint?: string | null }> | null | undefined,
+  commands:
+    | Array<{ name?: string | null; description?: string | null; hint?: string | null }>
+    | null
+    | undefined,
 ): SlashCommand[] {
   const seen = new Set<string>();
   const rows: SlashCommand[] = [];
@@ -66,7 +69,10 @@ export function normalizeSlashCommands(
   return rows;
 }
 
-export function mergeSlashCommands(catalog: SlashCommand[], session: SlashCommand[]): SlashCommand[] {
+export function mergeSlashCommands(
+  catalog: SlashCommand[],
+  session: SlashCommand[],
+): SlashCommand[] {
   const byName = new Map<string, SlashCommand>();
   for (const command of catalog) byName.set(command.name.toLowerCase(), command);
   for (const command of session) byName.set(command.name.toLowerCase(), command);
@@ -75,12 +81,14 @@ export function mergeSlashCommands(catalog: SlashCommand[], session: SlashComman
 
 export function filterSlashCommands(commands: SlashCommand[], query: string): SlashCommand[] {
   const needle = query.trim().toLowerCase();
-  const matched = needle.length === 0
-    ? commands
-    : commands.filter((command) =>
-      command.name.toLowerCase().includes(needle)
-      || command.description.toLowerCase().includes(needle),
-    );
+  const matched =
+    needle.length === 0
+      ? commands
+      : commands.filter(
+          (command) =>
+            command.name.toLowerCase().includes(needle) ||
+            command.description.toLowerCase().includes(needle),
+        );
   return matched.slice(0, SLASH_LIMIT);
 }
 
@@ -94,7 +102,10 @@ function relativePath(path: string, rootPath: string): string {
   return normalized;
 }
 
-export function flattenMentionFiles(nodes: FileTreeNode[] | null | undefined, rootPath: string): MentionFile[] {
+export function flattenMentionFiles(
+  nodes: FileTreeNode[] | null | undefined,
+  rootPath: string,
+): MentionFile[] {
   const files: MentionFile[] = [];
   const walk = (node: FileTreeNode) => {
     const path = relativePath(node.path, rootPath);
@@ -109,11 +120,13 @@ export function flattenMentionFiles(nodes: FileTreeNode[] | null | undefined, ro
 
 export function filterMentionFiles(files: MentionFile[], query: string): MentionFile[] {
   const needle = query.trim().toLowerCase();
-  const matched = needle.length === 0
-    ? files
-    : files.filter((file) =>
-      file.path.toLowerCase().includes(needle) || file.name.toLowerCase().includes(needle),
-    );
+  const matched =
+    needle.length === 0
+      ? files
+      : files.filter(
+          (file) =>
+            file.path.toLowerCase().includes(needle) || file.name.toLowerCase().includes(needle),
+        );
   return matched.slice(0, MENTION_LIMIT);
 }
 

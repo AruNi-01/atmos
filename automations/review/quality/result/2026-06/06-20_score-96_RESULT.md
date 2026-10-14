@@ -70,6 +70,7 @@
 ### 低
 
 1. 过滤器应用与空项目列表可能导致空容器渲染
+
 - 提交：`8deec83e`
 - 文件：`apps/web/src/app-shell/use-left-sidebar-workspace-derived.ts:64-67`, `apps/web/src/app-shell/left-sidebar-derived.ts:31-43`
 - 问题：当 `filters.showAutomationWorkspaces === false` 且未选中其他筛选条件时，`shouldApplyWorkspaceFilter` 会变为 `true`，并进入 `getProjectModeProjects` 的过滤路径，但 `hideProjectsWithoutVisibleWorkspaces` 设为 `false` 导致可能保留“空工作区数组”的项目。该行为会让项目列表中出现空分组项，影响侧边栏可读性。
@@ -78,6 +79,7 @@
   - 默认仅隐藏自动化工作区时，额外再加一个专门分支决定是否压掉空项目，避免空容器。
 
 2. 侧边栏菜单中重复控制源导致语义不一致风险
+
 - 提交：`8deec83e`
 - 文件：`apps/web/src/app-shell/sidebar/WorkspaceKanbanFilterMenu.tsx:359-373`
 - 问题：`DropdownMenuCheckboxItem` 已承载勾选状态，但内部又放置 `Switch`（`pointer-events-none` + `aria-hidden`），后续若调整样式类名或 UI 库实现，双重结构更难保证一致行为。

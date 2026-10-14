@@ -31,7 +31,9 @@ describe("center keep-alive panel style", () => {
       centerKeepAlivePanelStyle(true, "pane-b", { "pane-a": box, "pane-b": box }, "pane-a"),
     ).toMatchObject({ width: 0, height: 0 });
     expect(
-      centerKeepAlivePanelStyle(false, "pane-a", { "pane-a": { top: 0, left: 0, width: 0, height: 0 } }),
+      centerKeepAlivePanelStyle(false, "pane-a", {
+        "pane-a": { top: 0, left: 0, width: 0, height: 0 },
+      }),
     ).toMatchObject({ width: 0, height: 0 });
     expect(centerKeepAlivePanelStyle(true, undefined, { "pane-a": box })).toBeUndefined();
   });

@@ -94,12 +94,12 @@ Rename **trait** `prompt` → `send` only. `apps/api/src/api/ws/router/agent_cha
 
 `AgentRuntimeControl` keeps thin wrappers so `service.rs` / `queue.rs` / `apply_event.rs` can migrate without a flag day:
 
-| Wrapper | Dispatches |
-|---------|------------|
-| `send` | core `send` |
-| `cancel` / `close` | core |
+| Wrapper                                       | Dispatches                                    |
+| --------------------------------------------- | --------------------------------------------- |
+| `send`                                        | core `send`                                   |
+| `cancel` / `close`                            | core                                          |
 | `steer` / `respond_permission` / `set_config` | `action(...)` then `Into<AgentProviderError>` |
-| `action` | pass-through |
+| `action`                                      | pass-through                                  |
 
 Remove `prompt`, `steer`, `set_config`, `respond_permission` from the **trait** once wrappers exist. Do not leave both a trait method and an `AgentAction` variant for the same verb.
 
@@ -122,13 +122,13 @@ Host still hides the control (`apps/web` reads `descriptor.capabilities.steer`).
 
 ## Forbidden API
 
-| MUST NOT | Why |
-|----------|-----|
-| `execute(name: &str, json: Value)` or `AgentAction::Execute { .. }` | M5 closed set. Tools are observations (`tools.md`), not host RPCs. |
-| `AgentAction::Fork` / `Compact` / `Rewind` | PRD N4. Codex `thread/fork`, Pi `fork`/`compact`, Claude `rewind_files`, OpenCode summarize stay adapter-private. |
-| Method-union trait (`prompt` + `steer` + `set_config` as required peers) | That is today’s `session.rs`; it grows a control per vendor. |
-| Capability flags for send/cancel/subscribe | Core runtime. |
-| Routing by binary name or `stdoutParser` | Exact `provider_id` only. Custom agent `my-claude` → ACP. |
+| MUST NOT                                                                 | Why                                                                                                               |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `execute(name: &str, json: Value)` or `AgentAction::Execute { .. }`      | M5 closed set. Tools are observations (`tools.md`), not host RPCs.                                                |
+| `AgentAction::Fork` / `Compact` / `Rewind`                               | PRD N4. Codex `thread/fork`, Pi `fork`/`compact`, Claude `rewind_files`, OpenCode summarize stay adapter-private. |
+| Method-union trait (`prompt` + `steer` + `set_config` as required peers) | That is today’s `session.rs`; it grows a control per vendor.                                                      |
+| Capability flags for send/cancel/subscribe                               | Core runtime.                                                                                                     |
+| Routing by binary name or `stdoutParser`                                 | Exact `provider_id` only. Custom agent `my-claude` → ACP.                                                         |
 
 ## Provider routing (M15)
 
@@ -154,12 +154,12 @@ Do not consult `resources/terminal-agents/builtin_agents.json` `params` when cho
 
 Terminal APP-024 keeps `resources/terminal-agents/builtin_agents.json` unchanged:
 
-| `id` | Terminal `params` (do not edit for Chat) | Chat native spawn (adapter `spawn.rs`) |
-|------|------------------------------------------|----------------------------------------|
-| `claude` | `--print --output-format stream-json --verbose --include-partial-messages` | `claude --input-format stream-json --output-format stream-json --verbose --include-partial-messages` (duplex, not `--print`) |
-| `codex` | `exec --json` | `codex app-server` (stdio JSONL) |
-| `opencode` | `run --format json` | `opencode serve --hostname 127.0.0.1 --port 0` (own process; not the user’s TUI) |
-| `pi` | `-p` | `pi --mode rpc` |
+| `id`       | Terminal `params` (do not edit for Chat)                                   | Chat native spawn (adapter `spawn.rs`)                                                                                       |
+| ---------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `claude`   | `--print --output-format stream-json --verbose --include-partial-messages` | `claude --input-format stream-json --output-format stream-json --verbose --include-partial-messages` (duplex, not `--print`) |
+| `codex`    | `exec --json`                                                              | `codex app-server` (stdio JSONL)                                                                                             |
+| `opencode` | `run --format json`                                                        | `opencode serve --hostname 127.0.0.1 --port 0` (own process; not the user’s TUI)                                             |
+| `pi`       | `-p`                                                                       | `pi --mode rpc`                                                                                                              |
 
 Sources for Chat argv (protocol detail in native slices): Claude Agent SDK stream-json; [Codex app-server](https://learn.chatgpt.com/docs/app-server); [OpenCode serve](https://opencode.ai/docs/server/); [Pi RPC](https://pi.dev/docs/latest/rpc). Pin CLI versions in each adapter `testdata/` README, not here.
 
@@ -195,14 +195,14 @@ Unknown vendor methods on an **open** session must not panic the pump (M16; code
 
 ## Host call map (do not grow)
 
-| Product | Service today | Target runtime |
-|---------|---------------|----------------|
-| Send | `send` → `control.prompt` (`service.rs` ~394, `queue.rs` ~100) | `control.send` |
-| Stop | `cancel` → `control.cancel` | `cancel` (core) |
-| Steer | `steer` → `control.steer` | `action(Steer)` after capability + turn match |
-| Permission | `permission_respond` → `control.respond_permission` | `action(RespondPermission)` |
-| Model/thinking/mode live | `apply_event.rs` `apply_live_session_config` → `set_config` | `action(SetConfig)` |
-| Follow-up | `queue.json` → `maybe_dispatch_queue` → `prompt` | `send` only |
+| Product                  | Service today                                                  | Target runtime                                |
+| ------------------------ | -------------------------------------------------------------- | --------------------------------------------- |
+| Send                     | `send` → `control.prompt` (`service.rs` ~394, `queue.rs` ~100) | `control.send`                                |
+| Stop                     | `cancel` → `control.cancel`                                    | `cancel` (core)                               |
+| Steer                    | `steer` → `control.steer`                                      | `action(Steer)` after capability + turn match |
+| Permission               | `permission_respond` → `control.respond_permission`            | `action(RespondPermission)`                   |
+| Model/thinking/mode live | `apply_event.rs` `apply_live_session_config` → `set_config`    | `action(SetConfig)`                           |
+| Follow-up                | `queue.json` → `maybe_dispatch_queue` → `prompt`               | `send` only                                   |
 
 WS stays `agent_chat_send` / `agent_chat_cancel` / `agent_chat_steer` / `agent_chat_permission_respond` (`apps/api/src/api/ws/router/mod.rs`). No new REST chat API. OpenCode HTTP is adapter-private.
 
@@ -222,37 +222,37 @@ MUST NOT enqueue the same item on Pi `follow_up` / `clear_queue` ([Pi RPC](https
 
 <!-- updated: Claude / OpenCode / Grok now inject into the running turn. Generic ACP is still Unsupported. -->
 
-| Provider | `capabilities.steer` | `action(Steer)` |
-|----------|----------------------|-----------------|
-| `codex` | Supported | Vendor `turn/steer` + `expectedTurnId` from adapter map |
-| `pi` | Supported | Vendor `steer` (not `follow_up`) |
-| `claude` | Supported | Second stdin user NDJSON; do not change `running_turn`; overlapping `send` still `turn in flight` |
-| `opencode` | Supported | Second `POST /session/{id}/prompt_async` with `delivery:"steer"`; keep the same Atmos `turn_id` |
-| `grok` | Supported | `_x.ai/interject` `{sessionId,text}` while `session/prompt` is in flight. Not a second `session/prompt`. |
-| ACP (v1 Chat) | Unsupported | `AgentActionError::Unsupported { Steer }`. Do not use a second `session/prompt` as steer. |
+| Provider      | `capabilities.steer` | `action(Steer)`                                                                                          |
+| ------------- | -------------------- | -------------------------------------------------------------------------------------------------------- |
+| `codex`       | Supported            | Vendor `turn/steer` + `expectedTurnId` from adapter map                                                  |
+| `pi`          | Supported            | Vendor `steer` (not `follow_up`)                                                                         |
+| `claude`      | Supported            | Second stdin user NDJSON; do not change `running_turn`; overlapping `send` still `turn in flight`        |
+| `opencode`    | Supported            | Second `POST /session/{id}/prompt_async` with `delivery:"steer"`; keep the same Atmos `turn_id`          |
+| `grok`        | Supported            | `_x.ai/interject` `{sessionId,text}` while `session/prompt` is in flight. Not a second `session/prompt`. |
+| ACP (v1 Chat) | Unsupported          | `AgentActionError::Unsupported { Steer }`. Do not use a second `session/prompt` as steer.                |
 
 ## MUST implement vs MUST NOT
 
-| MUST | MUST NOT |
-|------|----------|
-| Core: `send`, `cancel`, `close`, `next_event` | Extra required trait methods |
-| `AgentAction` = Steer, RespondPermission, SetConfig | `execute(name, json)`, Fork, Compact, Rewind |
-| `AgentActionError::Unsupported` fail closed | Fake steer via queue, interrupt+resend, or Pi `follow_up` |
-| `chat_provider_kind`: four natives, else ACP | Route by argv, parser, or fuzzy name |
-| Chat spawn override in `providers/<id>/spawn.rs` | Edit Terminal `builtin_agents.json` `params` to ship Chat |
-| One process per live `chat_id`; `kill_on_drop` | Spawn on `get` / list / restore |
-| `resume_runtime` only from `spawn_runtime` when handle exists | Treat restore as resume |
-| Host `turn_id` as control epoch; vendor ids private | Persist vendor turn id as Atmos `turn_id` |
-| Queue dispatch → `send` | Dual-write Atmos queue + vendor queue |
+| MUST                                                          | MUST NOT                                                  |
+| ------------------------------------------------------------- | --------------------------------------------------------- |
+| Core: `send`, `cancel`, `close`, `next_event`                 | Extra required trait methods                              |
+| `AgentAction` = Steer, RespondPermission, SetConfig           | `execute(name, json)`, Fork, Compact, Rewind              |
+| `AgentActionError::Unsupported` fail closed                   | Fake steer via queue, interrupt+resend, or Pi `follow_up` |
+| `chat_provider_kind`: four natives, else ACP                  | Route by argv, parser, or fuzzy name                      |
+| Chat spawn override in `providers/<id>/spawn.rs`              | Edit Terminal `builtin_agents.json` `params` to ship Chat |
+| One process per live `chat_id`; `kill_on_drop`                | Spawn on `get` / list / restore                           |
+| `resume_runtime` only from `spawn_runtime` when handle exists | Treat restore as resume                                   |
+| Host `turn_id` as control epoch; vendor ids private           | Persist vendor turn id as Atmos `turn_id`                 |
+| Queue dispatch → `send`                                       | Dual-write Atmos queue + vendor queue                     |
 
 ## Tests (this slice)
 
-| Id | Where | Signal |
-|----|-------|--------|
-| S3 | `crates/agent` action + Claude/OpenCode stub | `action(Steer)` → `Unsupported`; no second send |
-| S7 | trait stub | `send`/`cancel` work with no capability flags |
-| S14 | `cargo test -p core-service --lib agent_chat` | existing restore / queue / steer-match / permission tests stay green |
-| S24 | `chat_provider_kind` + factory | `claude`/`codex`/`opencode`/`pi` native; `grok` ACP; Chat argv ≠ builtin `params` |
+| Id  | Where                                         | Signal                                                                            |
+| --- | --------------------------------------------- | --------------------------------------------------------------------------------- |
+| S3  | `crates/agent` action + Claude/OpenCode stub  | `action(Steer)` → `Unsupported`; no second send                                   |
+| S7  | trait stub                                    | `send`/`cancel` work with no capability flags                                     |
+| S14 | `cargo test -p core-service --lib agent_chat` | existing restore / queue / steer-match / permission tests stay green              |
+| S24 | `chat_provider_kind` + factory                | `claude`/`codex`/`opencode`/`pi` native; `grok` ACP; Chat argv ≠ builtin `params` |
 
 Fixture frames for vendor codecs live under `crates/agent/src/providers/<id>/testdata/` (native slices). Routing tests do not need live CLIs.
 
@@ -269,7 +269,7 @@ Fixture frames for vendor codecs live under `crates/agent/src/providers/<id>/tes
 
 - **Trait rename churn:** `prompt` → `send` touches `service.rs`, `queue.rs`, `testing.rs`, ACP adapter in one cut. Wrappers on `AgentRuntimeControl` keep the service diff small; do not keep `prompt` on the trait.
 - **Factory always-ACP today:** forgetting the match leaves M15 as dead code. S24 must fail if `claude` still constructs `LazyAcpProvider` after natives exist.
-- **Restore vs resume confusion:** `resume_runtime` *does* spawn. The APP-067 invariant is “get does not call it”, not “resume_runtime is a file read”.
+- **Restore vs resume confusion:** `resume_runtime` _does_ spawn. The APP-067 invariant is “get does not call it”, not “resume_runtime is a file read”.
 - **OpenCode process leak:** one `serve` per Chat; close must kill it. Sharing a TUI server is a product bug.
 - **If this breaks:** Terminal one-shot parsers still read builtin argv. Chat can fall back only by routing a given id to ACP — not by rewriting Terminal params.
 

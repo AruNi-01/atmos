@@ -2,13 +2,7 @@
 
 import React from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui";
-import {
-  Eye,
-  GitBranch,
-  GitCommitHorizontal,
-  GitPullRequestArrow,
-  Sparkles,
-} from "lucide-react";
+import { Eye, GitBranch, GitCommitHorizontal, GitPullRequestArrow, Sparkles } from "lucide-react";
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
 import type { ComposerAttachment } from "@/features/welcome/components/AttachmentBar";
@@ -80,7 +74,7 @@ export function WelcomeComposerFooter({
         ) : null}
 
         {summaryItems.length > 0 ? (
-          <div className="scrollbar-on-hover flex min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap pr-1">
+          <div className="scrollbar-on-hover flex min-w-0 items-center gap-1 overflow-x-auto pr-1 whitespace-nowrap">
             {summaryItems.map((item) => (
               <Tooltip key={item.key}>
                 <TooltipTrigger asChild>

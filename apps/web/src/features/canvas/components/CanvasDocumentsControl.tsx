@@ -169,11 +169,7 @@ export function CanvasDocumentsControl({
             <span className="truncate text-xs font-medium">{displayTitle}</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent
-          align="end"
-          sideOffset={8}
-          className="z-[200] w-80 overflow-visible p-0"
-        >
+        <PopoverContent align="end" sideOffset={8} className="z-[200] w-80 overflow-visible p-0">
           <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
             <div className="text-sm font-medium">{t("popoverTitle")}</div>
             <Button
@@ -200,9 +196,7 @@ export function CanvasDocumentsControl({
                     className={cn(
                       // One fused row: hover/active paint the full item including ···
                       "group flex items-center gap-0.5 rounded-lg px-1.5 py-1",
-                      active
-                        ? "bg-accent text-accent-foreground"
-                        : "hover:bg-muted/70",
+                      active ? "bg-accent text-accent-foreground" : "hover:bg-muted/70",
                     )}
                   >
                     <button
@@ -238,8 +232,8 @@ export function CanvasDocumentsControl({
                             // Blend into the row; no separate “chip” background
                             "bg-transparent shadow-none",
                             "hover:bg-foreground/10 hover:text-foreground",
-                            "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
-                            "data-[state=open]:opacity-100 data-[state=open]:bg-foreground/10",
+                            "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100",
+                            "data-[state=open]:bg-foreground/10 data-[state=open]:opacity-100",
                             active && "opacity-70 group-hover:opacity-100",
                           )}
                           disabled={working || isBusy}
@@ -301,12 +295,7 @@ export function CanvasDocumentsControl({
             autoFocus
             disabled={working}
             onKeyDown={(e) => {
-              if (
-                e.key === "Enter" &&
-                !working &&
-                renameTarget &&
-                renameName.trim()
-              ) {
+              if (e.key === "Enter" && !working && renameTarget && renameName.trim()) {
                 e.preventDefault();
                 setWorking(true);
                 void Promise.resolve(onRename(renameTarget, renameName.trim()))
@@ -370,9 +359,7 @@ export function CanvasDocumentsControl({
         <DialogContent className="z-[400] sm:max-w-sm" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>{t("deleteTitle")}</DialogTitle>
-            <DialogDescription>
-              {t("deleteBody", { name: deleteTarget ?? "" })}
-            </DialogDescription>
+            <DialogDescription>{t("deleteBody", { name: deleteTarget ?? "" })}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(null)}>

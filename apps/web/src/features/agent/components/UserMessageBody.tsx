@@ -110,10 +110,11 @@ export function UserMessageBody({
       data-user-message-body=""
       data-transcript-find="user"
       data-user-message-collapsed={collapsed ? "" : undefined}
-      className={[
-        collapsed ? "cursor-pointer" : "",
-        leading ? "flex min-w-0 flex-col gap-2" : "",
-      ].filter(Boolean).join(" ") || undefined}
+      className={
+        [collapsed ? "cursor-pointer" : "", leading ? "flex min-w-0 flex-col gap-2" : ""]
+          .filter(Boolean)
+          .join(" ") || undefined
+      }
       role={collapsed && !leading ? "button" : undefined}
       aria-expanded={canToggle ? !collapsed : undefined}
       tabIndex={collapsed ? 0 : undefined}
@@ -143,7 +144,9 @@ export function UserMessageBody({
             }
             style={
               clipText
-                ? { maxHeight: `${USER_MESSAGE_COLLAPSE_LINES + USER_MESSAGE_COLLAPSE_FADE_LINES}lh` }
+                ? {
+                    maxHeight: `${USER_MESSAGE_COLLAPSE_LINES + USER_MESSAGE_COLLAPSE_FADE_LINES}lh`,
+                  }
                 : undefined
             }
           >
@@ -232,7 +235,7 @@ function PastedTextChip({ lineCount, text }: { lineCount: number; text: string }
       <HoverCardTrigger asChild>
         <span
           data-paste-chip=""
-          className="inline-flex h-5 cursor-pointer select-none items-center gap-1 box-border rounded-full border border-border/70 bg-muted/60 px-1.5 align-middle text-[12px] font-medium leading-none text-foreground"
+          className="box-border inline-flex h-5 cursor-pointer items-center gap-1 rounded-full border border-border/70 bg-muted/60 px-1.5 align-middle text-[12px] leading-none font-medium text-foreground select-none"
         >
           <PasteChipIcon />
           {t("chip", { count: lineCount })}
@@ -245,14 +248,14 @@ function PastedTextChip({ lineCount, text }: { lineCount: number; text: string }
         collisionPadding={12}
         className="w-max max-w-80 p-3 text-xs leading-5"
       >
-        <div className="whitespace-pre-wrap break-words">{preview.head.join("\n")}</div>
+        <div className="break-words whitespace-pre-wrap">{preview.head.join("\n")}</div>
         {preview.more > 0 ? (
           <div className="py-0.5 text-muted-foreground/55">
             {t("moreLines", { count: preview.more })}
           </div>
         ) : null}
         {preview.tail.length > 0 ? (
-          <div className="whitespace-pre-wrap break-words">{preview.tail.join("\n")}</div>
+          <div className="break-words whitespace-pre-wrap">{preview.tail.join("\n")}</div>
         ) : null}
       </HoverCardContent>
     </HoverCard>

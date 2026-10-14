@@ -79,9 +79,7 @@ describe("branding-paths", () => {
     try {
       writeFileSync(join(root, "icon.png"), "full");
       writeFileSync(join(root, "128x128@2x.png"), "notify");
-      expect(resolveDefaultNotificationIcon([root])).toBe(
-        join(root, "128x128@2x.png"),
-      );
+      expect(resolveDefaultNotificationIcon([root])).toBe(join(root, "128x128@2x.png"));
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

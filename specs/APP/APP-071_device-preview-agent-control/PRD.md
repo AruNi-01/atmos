@@ -15,15 +15,15 @@
 
 BRAINSTORM forks resolved here (see [BRAINSTORM.md](./BRAINSTORM.md)):
 
-| Fork | Decision |
-|------|----------|
-| Delivery | System skill `atmos-device-preview` + `atmos simulator …` CLI. Not injected Chat tools. Not MCP. |
-| Start vs claim | v1 **requires a live claim**. Do not auto-boot an emulator from Chat. |
-| Platforms | Same verb set for iOS and Android. Platform-only keys return a typed error, not a silent no-op. |
-| Accessibility / install | Out of v1. Screenshot + pointer + type + hardware keys only. |
-| Device identity | Reuse claim **`udid`** as the public handle. Do not mint a second `device_id` / `claim_id`. `platform` is a filter, not a unique key. |
-| Missing id | Skill **must not guess**. List live claims (with project / workspace) and ask, or wait for `/device-preview` / Copy Agent prompt. |
-| Composer entry | Atmos slash command `/device-preview` (Welcome, Terminal, Agent Chat) inserts a chip; **on send** it expands to the same prompt text as Copy. |
+| Fork                    | Decision                                                                                                                                      |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Delivery                | System skill `atmos-device-preview` + `atmos simulator …` CLI. Not injected Chat tools. Not MCP.                                              |
+| Start vs claim          | v1 **requires a live claim**. Do not auto-boot an emulator from Chat.                                                                         |
+| Platforms               | Same verb set for iOS and Android. Platform-only keys return a typed error, not a silent no-op.                                               |
+| Accessibility / install | Out of v1. Screenshot + pointer + type + hardware keys only.                                                                                  |
+| Device identity         | Reuse claim **`udid`** as the public handle. Do not mint a second `device_id` / `claim_id`. `platform` is a filter, not a unique key.         |
+| Missing id              | Skill **must not guess**. List live claims (with project / workspace) and ask, or wait for `/device-preview` / Copy Agent prompt.             |
+| Composer entry          | Atmos slash command `/device-preview` (Welcome, Terminal, Agent Chat) inserts a chip; **on send** it expands to the same prompt text as Copy. |
 
 ## Goals
 
@@ -74,13 +74,13 @@ flowchart TD
 - **M2**: Control always targets the **current workspace’s live Device Preview claim**. No claim → typed error (`no_claim`) with a fix (“Start the Simulator tab, then retry”). Do not auto-call start/boot as a hidden side effect of tap/screenshot.
 - **M3**: One verb set for both platforms:
 
-  | Verb | Meaning |
-  |------|---------|
+  | Verb         | Meaning                                                       |
+  | ------------ | ------------------------------------------------------------- |
   | `screenshot` | Capture the device screen to a file; return path + pixel size |
-  | `tap` | Tap at normalized coordinates |
-  | `swipe` | Swipe between two normalized points |
-  | `type` | Type text into the focused field |
-  | `press` | Hardware key: `home`, `back`, `recents` |
+  | `tap`        | Tap at normalized coordinates                                 |
+  | `swipe`      | Swipe between two normalized points                           |
+  | `type`       | Type text into the focused field                              |
+  | `press`      | Hardware key: `home`, `back`, `recents`                       |
 
 - **M4**: Coordinates are **normalized 0..1** of the device screen (origin top-left), matching both helpers. Skill teaches: read PNG pixels → divide by returned width/height. Do not use Desktop Use PNG-pixel clicks on the phone.
 - **M5**: `press back` and `press recents` are Android-only. On iOS they return `unsupported_on_platform` with a next step. `press home` works on both. v1 does not expose Power as an agent verb (stopping preview stays a user / `simulator_stop` action).

@@ -39,53 +39,53 @@ diff AGENTS.md CLAUDE.md               # → identical
 
 ## 1.1 Top-level directories
 
-| Directory | Responsibility | Health |
-|---|---|---|
-| `crates/` | Rust backend layers: infra (L1) → core-engine (L2) → core-service (L3) + capability crates (agent, llm, quota-usage, token-usage, local-model-runtime, runtime-manager, tunnel-connector) | Layer story partially followed; see F-01 |
-| `apps/` | Deployables: `api` (Axum server), `web` (Next.js), `desktop` (Tauri shell), `mobile` (Expo), `cli`, `docs`, `landing` | `web` is a 173k-LOC monolith; `api` is a second orchestrator |
-| `packages/` | Shared TS: `ui`, `shared`, `i18n`, `config`, `relay` | `relay` is actually a deployable app; `config` is dead; `i18n` is 36 LOC |
-| `resources/` | Cross-runtime manifests (`terminal-agents/builtin_agents.json`, `local-runtime/version.json`) | Healthy pattern — the only true cross-language shared artifact |
-| `vendor/` | Patched `agent-client-protocol-schema` (43.7k LOC), `tokscale-core` (14.4k LOC) | Documented, intentional; ACP patch pending upstream |
-| `e2e/` | Playwright harness (10 smoke specs; `tests/specs/` is empty) | Smoke-only |
-| `scripts/` | Desktop sidecar, release version checks, Pages deploy, homebrew cask | Overlaps with `.agents/skills/*/scripts` for release orchestration |
-| `specs/` `docs/` `agents/` | Planning specs, stable docs, agent references | 45 `AGENTS.md` files; root `AGENTS.md` ≡ `CLAUDE.md` byte-identical |
-| `.agents/skills/` | 15 repo skills, four of which contain release/deploy scripts wired into `justfile` | Critical ops tooling in an agent-config directory |
+| Directory                  | Responsibility                                                                                                                                                                            | Health                                                                   |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `crates/`                  | Rust backend layers: infra (L1) → core-engine (L2) → core-service (L3) + capability crates (agent, llm, quota-usage, token-usage, local-model-runtime, runtime-manager, tunnel-connector) | Layer story partially followed; see F-01                                 |
+| `apps/`                    | Deployables: `api` (Axum server), `web` (Next.js), `desktop` (Tauri shell), `mobile` (Expo), `cli`, `docs`, `landing`                                                                     | `web` is a 173k-LOC monolith; `api` is a second orchestrator             |
+| `packages/`                | Shared TS: `ui`, `shared`, `i18n`, `config`, `relay`                                                                                                                                      | `relay` is actually a deployable app; `config` is dead; `i18n` is 36 LOC |
+| `resources/`               | Cross-runtime manifests (`terminal-agents/builtin_agents.json`, `local-runtime/version.json`)                                                                                             | Healthy pattern — the only true cross-language shared artifact           |
+| `vendor/`                  | Patched `agent-client-protocol-schema` (43.7k LOC), `tokscale-core` (14.4k LOC)                                                                                                           | Documented, intentional; ACP patch pending upstream                      |
+| `e2e/`                     | Playwright harness (10 smoke specs; `tests/specs/` is empty)                                                                                                                              | Smoke-only                                                               |
+| `scripts/`                 | Desktop sidecar, release version checks, Pages deploy, homebrew cask                                                                                                                      | Overlaps with `.agents/skills/*/scripts` for release orchestration       |
+| `specs/` `docs/` `agents/` | Planning specs, stable docs, agent references                                                                                                                                             | 45 `AGENTS.md` files; root `AGENTS.md` ≡ `CLAUDE.md` byte-identical      |
+| `.agents/skills/`          | 15 repo skills, four of which contain release/deploy scripts wired into `justfile`                                                                                                        | Critical ops tooling in an agent-config directory                        |
 
 ## 1.2 Rust workspace (LOC measured 2026-07-02)
 
-| Crate / app | LOC | Files | Declared role | Path deps |
-|---|---:|---:|---|---|
-| `crates/infra` | 8,873 | 74 | L1: DB (SeaORM), repos, disk cache | — |
-| `crates/core-engine` | 11,161 | 40 | L2: PTY, Git, FS, GitHub, tmux | — |
-| `crates/core-service` | 23,336 | 78 | L3: business orchestration | infra, core-engine, agent, llm, ~~quota-usage~~, ~~local-model-runtime~~ (both unused, F-08) |
-| `crates/agent` | 4,483 | 15 | ACP client + AgentManager | vendored ACP schema |
-| `crates/quota-usage` | 10,692 | 29 | Provider billing/subscription usage | infra |
-| `crates/token-usage` | 1,395 | 5 | Local token analytics | quota-usage, vendor/tokscale-core |
-| `crates/llm` | 1,583 | 9 | Remote LLM HTTP client | — |
-| `crates/local-model-runtime` | 1,828 | 13 | Local model binary manager | — |
-| `crates/runtime-manager` | 2,396 | 11 | Manifest, relay identity, supervisor | — |
-| `crates/tunnel-connector` | 1,742 | 9 | ngrok/CF tunnel providers (ships its own axum) | — |
-| `apps/api` | 18,381 | 82 | HTTP/WS entry (~11k LOC in `api/ws/`) | **all 9 crates** |
-| `apps/cli` | 2,526 | 9 | Host CLI | runtime-manager |
-| `apps/desktop/src-tauri` | 7,604 | 30 | Tauri shell + appshot/preview bridge | runtime-manager, tunnel-connector |
+| Crate / app                  |    LOC | Files | Declared role                                  | Path deps                                                                                    |
+| ---------------------------- | -----: | ----: | ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `crates/infra`               |  8,873 |    74 | L1: DB (SeaORM), repos, disk cache             | —                                                                                            |
+| `crates/core-engine`         | 11,161 |    40 | L2: PTY, Git, FS, GitHub, tmux                 | —                                                                                            |
+| `crates/core-service`        | 23,336 |    78 | L3: business orchestration                     | infra, core-engine, agent, llm, ~~quota-usage~~, ~~local-model-runtime~~ (both unused, F-08) |
+| `crates/agent`               |  4,483 |    15 | ACP client + AgentManager                      | vendored ACP schema                                                                          |
+| `crates/quota-usage`         | 10,692 |    29 | Provider billing/subscription usage            | infra                                                                                        |
+| `crates/token-usage`         |  1,395 |     5 | Local token analytics                          | quota-usage, vendor/tokscale-core                                                            |
+| `crates/llm`                 |  1,583 |     9 | Remote LLM HTTP client                         | —                                                                                            |
+| `crates/local-model-runtime` |  1,828 |    13 | Local model binary manager                     | —                                                                                            |
+| `crates/runtime-manager`     |  2,396 |    11 | Manifest, relay identity, supervisor           | —                                                                                            |
+| `crates/tunnel-connector`    |  1,742 |     9 | ngrok/CF tunnel providers (ships its own axum) | —                                                                                            |
+| `apps/api`                   | 18,381 |    82 | HTTP/WS entry (~11k LOC in `api/ws/`)          | **all 9 crates**                                                                             |
+| `apps/cli`                   |  2,526 |     9 | Host CLI                                       | runtime-manager                                                                              |
+| `apps/desktop/src-tauri`     |  7,604 |    30 | Tauri shell + appshot/preview bridge           | runtime-manager, tunnel-connector                                                            |
 
 **Claimed flow:** `infra → core-engine → core-service → apps/api`.
 **Observed flow:** the lower layers are clean (core-engine has zero `infra` imports; no crate cycles), but `apps/api` frequently skips core-service and drives L2 engines and capability crates directly (43 `core_service` imports vs 23 direct lower-layer imports).
 
 ## 1.3 JS/TS workspace (LOC measured 2026-07-02)
 
-| Package / app | LOC | Files | Actual role | Consumers |
-|---|---:|---:|---|---|
-| `apps/web` | 173,119 | 728 | Main workbench. `features/` 131k (27 modules; canvas 17.4k, agent 15.3k, terminal 11.1k), `app-shell/` 29.8k, `shared/` 7.3k, `api/` 4.1k | — |
-| `apps/mobile` | 12,640 | 127 | Expo remote client with its own WS/relay client layer | — |
-| `apps/desktop` | 0 TS | — | Pure Tauri/Rust shell; embeds `apps/web` static export + `api` sidecar binary | — |
-| `apps/landing` / `apps/docs` | 3,788 / 2,269 | — | Marketing / Fumadocs | — |
-| `packages/ui` (`@workspace/ui`) | 16,919 | 109 | shadcn design system; granular `exports` are on-demand-capable but a root `export *` barrel defeats it (F-20) | web (~307 import sites), landing, docs |
-| `packages/shared` (`@atmos/shared`) | 945 (src) | 15 | time/storage utils, terminal protocol, debug logger | web (18 files), mobile (8 files); landing declares but never imports |
-| `packages/i18n` (`@atmos/i18n`) | 36 | 5 | next-intl routing/locale wiring only (messages stay per-app) | web, landing |
-| `packages/config` (`@atmos/config`) | 0 TS | 2 JSON | TS config presets — **zero consumers** | none |
-| `packages/relay` (`@atmos/relay`) | 5,161 | 16 | Cloudflare Worker + D1 + DO — a deployable, **zero TS imports** from any app | consumed over HTTP/WS at runtime |
-| `e2e` | 1,366 | 18 | Playwright harness | — |
+| Package / app                       |           LOC |  Files | Actual role                                                                                                                               | Consumers                                                            |
+| ----------------------------------- | ------------: | -----: | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `apps/web`                          |       173,119 |    728 | Main workbench. `features/` 131k (27 modules; canvas 17.4k, agent 15.3k, terminal 11.1k), `app-shell/` 29.8k, `shared/` 7.3k, `api/` 4.1k | —                                                                    |
+| `apps/mobile`                       |        12,640 |    127 | Expo remote client with its own WS/relay client layer                                                                                     | —                                                                    |
+| `apps/desktop`                      |          0 TS |      — | Pure Tauri/Rust shell; embeds `apps/web` static export + `api` sidecar binary                                                             | —                                                                    |
+| `apps/landing` / `apps/docs`        | 3,788 / 2,269 |      — | Marketing / Fumadocs                                                                                                                      | —                                                                    |
+| `packages/ui` (`@workspace/ui`)     |        16,919 |    109 | shadcn design system; granular `exports` are on-demand-capable but a root `export *` barrel defeats it (F-20)                             | web (~307 import sites), landing, docs                               |
+| `packages/shared` (`@atmos/shared`) |     945 (src) |     15 | time/storage utils, terminal protocol, debug logger                                                                                       | web (18 files), mobile (8 files); landing declares but never imports |
+| `packages/i18n` (`@atmos/i18n`)     |            36 |      5 | next-intl routing/locale wiring only (messages stay per-app)                                                                              | web, landing                                                         |
+| `packages/config` (`@atmos/config`) |          0 TS | 2 JSON | TS config presets — **zero consumers**                                                                                                    | none                                                                 |
+| `packages/relay` (`@atmos/relay`)   |         5,161 |     16 | Cloudflare Worker + D1 + DO — a deployable, **zero TS imports** from any app                                                              | consumed over HTTP/WS at runtime                                     |
+| `e2e`                               |         1,366 |     18 | Playwright harness                                                                                                                        | —                                                                    |
 
 ## 1.4 Dependency graph
 
@@ -132,17 +132,17 @@ flowchart TB
 
 ## 1.5 Cross-language contract map
 
-| Contract | Rust source of truth | TS copies | Codegen |
-|---|---|---|---|
-| WS envelope + **201 `WsAction`** + **22 `WsEvent`** | `apps/api/src/api/ws/message.rs` | `apps/web/.../use-websocket.ts` (~200 literals, drift confirmed), `apps/web/src/api/ws-api-types.ts`, `apps/mobile/src/api/{ws-actions,types}.ts` | **None** |
-| WS/REST DTOs (~145 pub structs) | `apps/api/src/api/ws/message/*.rs`, `dto.rs` | web 33+ exported types, mobile 28; 12 overlapping type names between web and mobile | **None** |
-| Terminal WS sub-protocol | `terminal_handler.rs` (8 variants) | `apps/web/src/features/terminal/types/index.ts` (8 variants) | **None** |
-| Agent session WS | `agent_handler.rs` | `agent-runtime-socket.ts` | **None** |
-| Relay wire envelope | `apps/api/src/relay/ingest.rs` (`RelayEnvelope`) | `packages/relay/src/server-hub.ts` (`RelayEnvelope`, same shape) | **None** |
-| Relay HTTP gateway body | `apps/api/src/relay/http_gateway.rs` | `packages/relay/src/server-hub.ts` | **None** |
-| Relay client URLs | issued at registration (`runtime-manager/register.rs`) | `packages/relay/src/client-session.ts` **and** re-derived in `apps/web/.../hydrate-relay-session.ts` | **None** |
-| `DEFAULT_RELAY_URL` | `runtime-manager/register.rs`, `apps/cli/src/commands/computer.rs` | `apps/web/.../atmos-computer-local.ts`, `apps/mobile/src/lib/relay-url.ts` | 4 hand copies |
-| Terminal agent built-ins | `include_str!` in core-service | JSON import in web + mobile | **Shared JSON** ✅ |
+| Contract                                            | Rust source of truth                                               | TS copies                                                                                                                                         | Codegen            |
+| --------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| WS envelope + **201 `WsAction`** + **22 `WsEvent`** | `apps/api/src/api/ws/message.rs`                                   | `apps/web/.../use-websocket.ts` (~200 literals, drift confirmed), `apps/web/src/api/ws-api-types.ts`, `apps/mobile/src/api/{ws-actions,types}.ts` | **None**           |
+| WS/REST DTOs (~145 pub structs)                     | `apps/api/src/api/ws/message/*.rs`, `dto.rs`                       | web 33+ exported types, mobile 28; 12 overlapping type names between web and mobile                                                               | **None**           |
+| Terminal WS sub-protocol                            | `terminal_handler.rs` (8 variants)                                 | `apps/web/src/features/terminal/types/index.ts` (8 variants)                                                                                      | **None**           |
+| Agent session WS                                    | `agent_handler.rs`                                                 | `agent-runtime-socket.ts`                                                                                                                         | **None**           |
+| Relay wire envelope                                 | `apps/api/src/relay/ingest.rs` (`RelayEnvelope`)                   | `packages/relay/src/server-hub.ts` (`RelayEnvelope`, same shape)                                                                                  | **None**           |
+| Relay HTTP gateway body                             | `apps/api/src/relay/http_gateway.rs`                               | `packages/relay/src/server-hub.ts`                                                                                                                | **None**           |
+| Relay client URLs                                   | issued at registration (`runtime-manager/register.rs`)             | `packages/relay/src/client-session.ts` **and** re-derived in `apps/web/.../hydrate-relay-session.ts`                                              | **None**           |
+| `DEFAULT_RELAY_URL`                                 | `runtime-manager/register.rs`, `apps/cli/src/commands/computer.rs` | `apps/web/.../atmos-computer-local.ts`, `apps/mobile/src/lib/relay-url.ts`                                                                        | 4 hand copies      |
+| Terminal agent built-ins                            | `include_str!` in core-service                                     | JSON import in web + mobile                                                                                                                       | **Shared JSON** ✅ |
 
 ## 1.6 Build / test / release pipeline
 
@@ -269,7 +269,7 @@ Severity: High / Medium / Low. Fix cost: Small (≤1 day) / Medium (days) / Larg
 
 - **Files:** `packages/ui/src/index.ts` (~144-LOC root barrel: ~60 named re-exports **plus** `export *` of `lucide-react`, `@dnd-kit/{core,sortable,utilities,modifiers}`, `react-resizable-panels`; `ai-elements` re-exported at lines 97–114); `packages/ui/package.json` (no `"sideEffects"` field; `lucide-react` `^1.8.0`; heavy `three`/`postprocessing`/`ai`/`streamdown` deps); `apps/web/next.config.ts:91` (only `transpilePackages: ["@pierre/diffs"]`, no `optimizePackageImports`); ~200+ files import bare `@workspace/ui`.
 - **Problem:** the package is already the shadcn/Turborepo template — its wildcard `exports` (`./components/*`, `./hooks/*`, `./lib/*`) already resolves arbitrarily nested on-demand subpaths — but the root `export *` barrel pulls the whole graph into every bare import. `ai`+`streamdown` reach every consumer (incl. landing/docs) via `ai-elements` in the barrel; `three`+`postprocessing` sit in the dep graph only for `pixel-blast.tsx` (713) / `morph-surface.tsx` (692), which have **zero** consumers repo-wide; `lucide-react` is major-version-split (`^1.8.0` in ui vs `^0.562/0.563` in apps, F-11) and simultaneously `export *`-ed. No `sideEffects` flag + `"use client"` at the barrel top means `export *` disables reliable tree-shaking.
-- **Why it matters:** slow dev/HMR and bloated bundles today; and the stated intent is to add more consumers of `@workspace/ui`, each of which would inherit `ai`/`three` it never uses. "All business-agnostic UI in one package" and "pay only for what you import" are the *same* solution (mainstream shadcn/MUI practice), not a trade-off — the barrel is the only thing breaking it.
+- **Why it matters:** slow dev/HMR and bloated bundles today; and the stated intent is to add more consumers of `@workspace/ui`, each of which would inherit `ai`/`three` it never uses. "All business-agnostic UI in one package" and "pay only for what you import" are the _same_ solution (mainstream shadcn/MUI practice), not a trade-off — the barrel is the only thing breaking it.
 - **Fix:** keep one `@workspace/ui`, no rename; make subpath imports the enforced contract (`@workspace/ui/components/...`); retire the root `export *` barrel (or slim to named-only, third-party-free, side-effect-safe); add `"sideEffects": ["**/*.css"]`; stop re-exporting third-party libs (consumers import `lucide-react`/`@dnd-kit/*`/`react-resizable-panels` directly); confine heavy tiers to their own subpaths (`components/ai/*`, `components/fx/*`) and delete the unused `three` components + deps; add `optimizePackageImports: ["@workspace/ui"]` to web/landing/docs; add eslint `no-restricted-imports` banning bare `@workspace/ui`. Unify `lucide-react` via the F-11 `catalog:` work.
 - **Cost:** Medium (barrel edit + ~25-file subpath codemod — 18 dnd-kit/resizable + 7 ai-elements — plus a lucide codemod; the `sideEffects`/`optimizePackageImports`/eslint-warn guards are Small and land first).
 
@@ -277,7 +277,7 @@ Severity: High / Medium / Low. Fix cost: Small (≤1 day) / Medium (days) / Larg
 
 ### F-15 · `tunnel-connector` embeds axum — a second transport surface in a capability crate — Low / Small
 
-`crates/tunnel-connector/Cargo.toml:9` pulls axum+ws for a desktop-only consumer. Document it as a desktop transport adapter or feature-gate the server half. (Note: tunnel-connector is *not* the relay protocol — that's `packages/relay` + `apps/api/src/relay/`.)
+`crates/tunnel-connector/Cargo.toml:9` pulls axum+ws for a desktop-only consumer. Document it as a desktop transport adapter or feature-gate the server half. (Note: tunnel-connector is _not_ the relay protocol — that's `packages/relay` + `apps/api/src/relay/`.)
 
 ### F-16 · `agent_hooks` name collision across layers — Low / Small
 
@@ -337,9 +337,9 @@ Prerequisite interlock: F-06 (entity leakage) must be fixed for the DTOs you ann
 ## Explicitly not now
 
 - **Splitting `core-service` into multiple crates** — module-level cleanup (F-05) first; premature crate splits harden today's wrong boundaries. Revisit after Phase 2 shows where the real seams are.
-- **Renaming `@workspace/ui` → `@atmos/ui`** — ~307 import sites of churn for zero behavior; only worth batching with some future UI-package restructuring. The F-20 on-demand refactor deliberately keeps the name and only changes the *contract* (subpaths over barrel).
+- **Renaming `@workspace/ui` → `@atmos/ui`** — ~307 import sites of churn for zero behavior; only worth batching with some future UI-package restructuring. The F-20 on-demand refactor deliberately keeps the name and only changes the _contract_ (subpaths over barrel).
 - **Adopting turbo/nx** — the workspace is small enough that bun filters + a correct `ci.yml` suffice; a task graph adds config weight before Phase 0/1 fix the actual gaps. Reconsider if CI wall-time becomes the bottleneck.
-- **Unifying web+mobile UI layers** — mobile's isolation (native controls, no `@workspace/ui`) is a deliberate, documented choice; only the *contract* layer should be shared (Phase 1).
+- **Unifying web+mobile UI layers** — mobile's isolation (native controls, no `@workspace/ui`) is a deliberate, documented choice; only the _contract_ layer should be shared (Phase 1).
 - **Rewriting the relay Worker in Rust / merging with tunnel-connector** — they solve different problems (public rendezvous vs local tunnels); shared types (Phase 1) are the right coupling, not shared code.
 - **Un-vendoring ACP now** — blocked on upstream accepting nullable usage fields; keep the patch and the tracking comment.
 

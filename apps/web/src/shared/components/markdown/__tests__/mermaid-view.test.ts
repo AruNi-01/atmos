@@ -1,9 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  MERMAID_VIEW_MODES,
-  isMermaidFenceLanguage,
-  mermaidCopyContent,
-} from "../mermaid-view";
+import { MERMAID_VIEW_MODES, isMermaidFenceLanguage, mermaidCopyContent } from "../mermaid-view";
 
 describe("mermaid view helpers", () => {
   test("recognizes mermaid fences case-insensitively", () => {

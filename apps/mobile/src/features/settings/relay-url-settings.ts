@@ -19,15 +19,12 @@ function isValidRelayUrlDraft(trimmed: string): boolean {
     }
   }
 
-  const withProtocol = /^https?:\/\//i.test(trimmed)
-    ? trimmed
-    : `https://${trimmed}`;
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 
   try {
     const parsed = new URL(withProtocol);
     return (
-      (parsed.protocol === "http:" || parsed.protocol === "https:") &&
-      parsed.hostname.length > 0
+      (parsed.protocol === "http:" || parsed.protocol === "https:") && parsed.hostname.length > 0
     );
   } catch {
     return false;

@@ -33,13 +33,13 @@ Fresh shell per tool call — re-run full commands; do not rely on exported env 
 
 ## Decision tree (load references on demand)
 
-| User intent | What to do | Load reference |
-|-------------|------------|----------------|
-| Diagram, architecture, cards, labels, arrange | Structured verbs below | *(this file only)* |
-| List / save-as style file ops / rename boards | `docs` / `doc-*` | [`references/documents.md`](references/documents.md) |
-| Clickable UI, keyboard surface, animation, run-on-open | Durable **document script** | [`references/document-scripts.md`](references/document-scripts.md) |
-| One-shot JS probe on live editor | `exec` | [`references/document-scripts.md`](references/document-scripts.md) |
-| Full flag tables / error codes | — | [`references/command-reference.md`](references/command-reference.md) |
+| User intent                                            | What to do                  | Load reference                                                       |
+| ------------------------------------------------------ | --------------------------- | -------------------------------------------------------------------- |
+| Diagram, architecture, cards, labels, arrange          | Structured verbs below      | _(this file only)_                                                   |
+| List / save-as style file ops / rename boards          | `docs` / `doc-*`            | [`references/documents.md`](references/documents.md)                 |
+| Clickable UI, keyboard surface, animation, run-on-open | Durable **document script** | [`references/document-scripts.md`](references/document-scripts.md)   |
+| One-shot JS probe on live editor                       | `exec`                      | [`references/document-scripts.md`](references/document-scripts.md)   |
+| Full flag tables / error codes                         | —                           | [`references/command-reference.md`](references/command-reference.md) |
 
 **Do not** start with `script-put` or `exec` for a normal “draw a flowchart” request.
 
@@ -57,17 +57,17 @@ Fresh shell per tool call — re-run full commands; do not rely on exported env 
 
 ### Quick create / layout
 
-| Verb | Notes |
-|------|--------|
-| `create-geo` | Fixed cards: `--kind rectangle --w --h --text --x --y --color --fill` |
-| `create-note` | Sticky; **no** `--h` |
-| `create-frame` | Section box |
-| `create-arrow` | Prefer `--from-id` / `--to-id` |
-| `move` / `align` / `stack` / `distribute` / `place` | Polish |
-| `layout-row` / `layout-column` / `layout-grid` | Packing |
-| `apply` | Batch ≤ 64 steps |
-| `update-shape` | Patch props |
-| `get-state` / `extract-text` / `lint` / `screenshot` | Read / verify |
+| Verb                                                 | Notes                                                                 |
+| ---------------------------------------------------- | --------------------------------------------------------------------- |
+| `create-geo`                                         | Fixed cards: `--kind rectangle --w --h --text --x --y --color --fill` |
+| `create-note`                                        | Sticky; **no** `--h`                                                  |
+| `create-frame`                                       | Section box                                                           |
+| `create-arrow`                                       | Prefer `--from-id` / `--to-id`                                        |
+| `move` / `align` / `stack` / `distribute` / `place`  | Polish                                                                |
+| `layout-row` / `layout-column` / `layout-grid`       | Packing                                                               |
+| `apply`                                              | Batch ≤ 64 steps                                                      |
+| `update-shape`                                       | Patch props                                                           |
+| `get-state` / `extract-text` / `lint` / `screenshot` | Read / verify                                                         |
 
 Always pass **both** `--x` and `--y`, or omit both (collision spawn).
 
@@ -106,27 +106,27 @@ Never hex-edit an **open** document file; use live CLI or `doc-*` on closed file
 
 ## Anti-patterns (default path)
 
-- ❌ `script-put` for plain diagram asks  
-- ❌ Same `(x,y)` for many shapes then “layout later”  
-- ❌ Unbound diagram arrows  
-- ❌ `set-status idle` mid-turn after a partial lint  
-- ❌ Screenshot full page with terminals when verifying a diagram  
-- ❌ Inventing color tokens  
-- ❌ Assuming `config.js` / custom ShapeUtil exists (not shipped)  
-- ❌ Interactive system as free-floating shapes with no **frame** surface  
-- ❌ Keyboard via bare `window`/`container` keydown or focus stealing instead of **`claimInputScope`**  
+- ❌ `script-put` for plain diagram asks
+- ❌ Same `(x,y)` for many shapes then “layout later”
+- ❌ Unbound diagram arrows
+- ❌ `set-status idle` mid-turn after a partial lint
+- ❌ Screenshot full page with terminals when verifying a diagram
+- ❌ Inventing color tokens
+- ❌ Assuming `config.js` / custom ShapeUtil exists (not shipped)
+- ❌ Interactive system as free-floating shapes with no **frame** surface
+- ❌ Keyboard via bare `window`/`container` keydown or focus stealing instead of **`claimInputScope`**
 - ❌ Using product chrome (`canvas-terminal` / chat) as the script’s input surface
 
 ---
 
 ## Errors (short)
 
-| Code | Recovery |
-|------|----------|
-| `CANVAS_BRIDGE_OFFLINE` | Open Canvas |
-| `BRIDGE_DISABLED` | Enable bridge in Canvas Bot |
-| `STALE_SHAPE_ID` | `get-state` |
-| `RELAY_TIMEOUT` | `get-state`, careful retry |
+| Code                    | Recovery                    |
+| ----------------------- | --------------------------- |
+| `CANVAS_BRIDGE_OFFLINE` | Open Canvas                 |
+| `BRIDGE_DISABLED`       | Enable bridge in Canvas Bot |
+| `STALE_SHAPE_ID`        | `get-state`                 |
+| `RELAY_TIMEOUT`         | `get-state`, careful retry  |
 
 More codes: [`references/command-reference.md`](references/command-reference.md).
 
@@ -134,19 +134,19 @@ More codes: [`references/command-reference.md`](references/command-reference.md)
 
 ## Reporting
 
-- What changed (shape ids or “script installed”).  
-- One verification (`lint` / screenshot path / `script-status`).  
+- What changed (shape ids or “script installed”).
+- One verification (`lint` / screenshot path / `script-status`).
 - If a script was installed: whether user still needs to **Save**.
 
 ---
 
 ## References (on-demand)
 
-| File | Load when |
-|------|-----------|
-| [`references/document-scripts.md`](references/document-scripts.md) | Interactive surfaces, keyboard scope, animation, `exec`, script API/helpers |
-| [`references/documents.md`](references/documents.md) | Multi-board files, `docs` / `doc-*` |
-| [`references/command-reference.md`](references/command-reference.md) | Full flag tables, lint semantics, full error list |
+| File                                                                 | Load when                                                                   |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| [`references/document-scripts.md`](references/document-scripts.md)   | Interactive surfaces, keyboard scope, animation, `exec`, script API/helpers |
+| [`references/documents.md`](references/documents.md)                 | Multi-board files, `docs` / `doc-*`                                         |
+| [`references/command-reference.md`](references/command-reference.md) | Full flag tables, lint semantics, full error list                           |
 
 Skill directory after sync: `~/.atmos/skills/.system/atmos-canvas-agent/`  
 (`atmos canvas skill-dir` prints the path).

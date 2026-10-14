@@ -37,10 +37,7 @@ describe("center pane tab isolation", () => {
   it("keeps agent chat tabs and empty-pane strips inside the owning pane", () => {
     const tabBar = readSibling("CenterStageTabBar.tsx");
     const stage = readSibling("CenterStage.tsx");
-    const layout = readFileSync(
-      join(dir, "../center-pane/center-pane-layout.ts"),
-      "utf8",
-    );
+    const layout = readFileSync(join(dir, "../center-pane/center-pane-layout.ts"), "utf8");
     expect(tabBar).toContain("allowedTabIds?: ReadonlySet<string>");
     expect(tabBar).toContain("agentChatTabs.filter((tab) => allowedTabIds.has(tab.value))");
     expect(tabBar).toContain("for (const tab of paneAgentChatTabs)");
@@ -51,25 +48,22 @@ describe("center pane tab isolation", () => {
   });
 
   it("does not copy the primary strip onto an empty split pane", () => {
-    const layout = splitPane(
-      createDefaultLayout(["terminal", "agent-chat:a", "files"], "files"),
-      { direction: "right" },
-    );
+    const layout = splitPane(createDefaultLayout(["terminal", "agent-chat:a", "files"], "files"), {
+      direction: "right",
+    });
     const secondary = layout.panes.find((pane) => pane.id !== DEFAULT_PANE_ID)!;
     expect(secondary.tabIds).toEqual([]);
     expect(
-      resolvePaneTabStripOrder(secondary.tabIds, [
-        "terminal",
-        "agent-chat:a",
-        "files",
-      ]),
+      resolvePaneTabStripOrder(secondary.tabIds, ["terminal", "agent-chat:a", "files"]),
     ).toEqual([]);
   });
 
   it("keeps tab-group popover open state inside each tab bar", () => {
     const tabBar = readSibling("CenterStageTabBar.tsx");
     const stage = readSibling("CenterStage.tsx");
-    expect(tabBar).toContain("const [tabGroupPopoverOpen, setTabGroupPopoverOpen] = React.useState(false);");
+    expect(tabBar).toContain(
+      "const [tabGroupPopoverOpen, setTabGroupPopoverOpen] = React.useState(false);",
+    );
     expect(stage).not.toContain("const [tabGroupPopoverOpen, setTabGroupPopoverOpen]");
     expect(tabBar).not.toContain("tabGroupPopoverOpen: boolean");
   });
@@ -299,8 +293,8 @@ describe("center pane tab isolation", () => {
     const stage = readSibling("CenterStage.tsx");
     const panels = readSibling("CenterStagePanels.tsx");
     expect(stage).toContain("mosaicHasWiki");
-    expect(stage).toContain("storedLastTab === \"wiki\"");
-    expect(stage).toContain("honorUrlTab && tabFromUrl === \"wiki\"");
+    expect(stage).toContain('storedLastTab === "wiki"');
+    expect(stage).toContain('honorUrlTab && tabFromUrl === "wiki"');
     expect(panels).toContain("paintContextId === effectiveContextId");
     expect(panels).toContain("currentWorkspace?.localPath || currentProject?.mainFilePath");
     expect(panels).not.toContain(": [undefined]");
@@ -308,13 +302,13 @@ describe("center pane tab isolation", () => {
 
   it("does not treat lastTab as membership for closable tool surfaces", () => {
     const stage = readSibling("CenterStage.tsx");
-    expect(stage).not.toContain("storedLastTab === \"files\"");
+    expect(stage).not.toContain('storedLastTab === "files"');
     expect(stage).not.toContain("storedLastTab === tab");
     expect(stage).not.toContain("openToolTab(effectiveContextId, storedLastTab)");
     expect(stage).not.toContain("storedLastTab === SIMULATOR_TAB_VALUE");
     expect(stage).not.toContain("storedLastTab === GIT_HISTORY_TAB_VALUE");
     expect(stage).toContain("createIfMissing: false");
-    expect(stage).toContain("tab.kind === \"overview\"");
+    expect(stage).toContain('tab.kind === "overview"');
   });
 
   it("does not default-open overview in host center chrome", () => {

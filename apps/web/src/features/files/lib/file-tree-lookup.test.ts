@@ -2,11 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { FileTreeNode } from "@/api/ws-api";
 import { findPathInFileTrees, lookupPathInFileTrees } from "./file-tree-lookup";
 
-function node(
-  path: string,
-  isDir: boolean,
-  children?: FileTreeNode[],
-): FileTreeNode {
+function node(path: string, isDir: boolean, children?: FileTreeNode[]): FileTreeNode {
   return {
     name: path.split("/").pop() || path,
     path,
@@ -22,9 +18,7 @@ const trees = [
   {
     rootPath: project,
     tree: [
-      node(`${project}/src`, true, [
-        node(`${project}/src/app.ts`, false),
-      ]),
+      node(`${project}/src`, true, [node(`${project}/src/app.ts`, false)]),
       node(`${project}/package.json`, false),
     ],
   },

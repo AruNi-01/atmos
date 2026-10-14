@@ -55,12 +55,14 @@ export type DocumentScriptHelpers = {
   createShapeId: typeof createShapeId;
   toRichText: typeof toRichText;
   richTextToPlainText: (richText: unknown) => string;
-  createShapeIfMissing: (
-    partial: TLShapePartial & { id: TLShapeId },
-  ) => { id: TLShapeId; created: boolean };
-  createShapesIfMissing: (
-    partials: Array<TLShapePartial & { id: TLShapeId }>,
-  ) => { created: TLShapeId[]; existing: TLShapeId[] };
+  createShapeIfMissing: (partial: TLShapePartial & { id: TLShapeId }) => {
+    id: TLShapeId;
+    created: boolean;
+  };
+  createShapesIfMissing: (partials: Array<TLShapePartial & { id: TLShapeId }>) => {
+    created: TLShapeId[];
+    existing: TLShapeId[];
+  };
   translateShapes: (ids: TLShapeId[], dx: number, dy: number) => void;
   onShapeTranslate: (
     shapeId: TLShapeId,
@@ -131,13 +133,16 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
     if (!el) return false;
     return Boolean(
       el.tagName === "INPUT" ||
-        el.tagName === "TEXTAREA" ||
-        el.isContentEditable ||
-        el.closest?.("[data-canvas-terminal], .xterm"),
+      el.tagName === "TEXTAREA" ||
+      el.isContentEditable ||
+      el.closest?.("[data-canvas-terminal], .xterm"),
     );
   };
 
-  const pointInSurface = (surfaceId: TLShapeId | undefined, pagePoint: { x: number; y: number }) => {
+  const pointInSurface = (
+    surfaceId: TLShapeId | undefined,
+    pagePoint: { x: number; y: number },
+  ) => {
     if (!surfaceId) return true;
     const box = getShapePageBoundsBox(editor, surfaceId);
     if (!box) return false;
@@ -278,10 +283,7 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
       const originalDispatch = editor.dispatch.bind(editor);
 
       const isCapturedKey = (e: { code?: string; key?: string }) =>
-        Boolean(
-          (e.code && captureKeys.has(e.code)) ||
-            (e.key && captureKeys.has(e.key)),
-        );
+        Boolean((e.code && captureKeys.has(e.code)) || (e.key && captureKeys.has(e.key)));
 
       /** Block keys from reaching SelectTool nudge / other editor keyboard tools. */
       const suppressEditorKeyEvent = (e: KeyboardEvent) => {
@@ -305,10 +307,7 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
           (info as { type?: string }).type === "keyboard"
         ) {
           const k = info as { name?: string; code?: string; key?: string };
-          if (
-            (k.name === "key_down" || k.name === "key_repeat") &&
-            isCapturedKey(k)
-          ) {
+          if ((k.name === "key_down" || k.name === "key_repeat") && isCapturedKey(k)) {
             return editor;
           }
         }
@@ -349,9 +348,7 @@ export function createDocumentScriptHelpers(editor: Editor): DocumentScriptHelpe
       const onPointerDown = (info: { name?: string; point?: { x: number; y: number } }) => {
         if (!active || !releaseOnOutsidePointer || !options.surfaceId) return;
         if (info?.name !== "pointer_down") return;
-        const point = info.point
-          ? editor.screenToPage(info.point)
-          : editor.inputs.currentPagePoint;
+        const point = info.point ? editor.screenToPage(info.point) : editor.inputs.currentPagePoint;
         if (!point) return;
         if (!pointInSurface(options.surfaceId, point)) {
           release();

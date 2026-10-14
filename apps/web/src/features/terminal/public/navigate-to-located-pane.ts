@@ -62,11 +62,11 @@ function isValidLocation(
   if (!location) return false;
   return Boolean(
     location.hostId?.trim() &&
-      location.spaceId?.trim() &&
-      location.paintContextId?.trim() &&
-      location.terminalTabId?.trim() &&
-      location.paneId?.trim() &&
-      location.sessionId?.trim(),
+    location.spaceId?.trim() &&
+    location.paintContextId?.trim() &&
+    location.terminalTabId?.trim() &&
+    location.paneId?.trim() &&
+    location.sessionId?.trim(),
   );
 }
 
@@ -137,7 +137,9 @@ export function locationMatchesDestination(
   dest: LocatedPaneDestination,
 ): boolean {
   if (normalizeCenterPathname(href.pathname) !== dest.pathname) return false;
-  const params = new URLSearchParams(href.search.startsWith("?") ? href.search.slice(1) : href.search);
+  const params = new URLSearchParams(
+    href.search.startsWith("?") ? href.search.slice(1) : href.search,
+  );
   if ((params.get("id") ?? "").trim() !== dest.id) return false;
   const currentTab = (params.get("tab") ?? "").trim();
   if (currentTab && currentTab !== dest.tab) return false;
@@ -168,13 +170,15 @@ export async function waitForDestination(
   return locationMatchesDestination(getLocation(), dest);
 }
 
-type PreparedHost = {
-  ok: true;
-  currentHostId: string | null;
-  currentSpaceId: string | null;
-} | {
-  ok: false;
-};
+type PreparedHost =
+  | {
+      ok: true;
+      currentHostId: string | null;
+      currentSpaceId: string | null;
+    }
+  | {
+      ok: false;
+    };
 
 async function prepareHostAndSpace(
   location: LiveResourceSessionLocation,
@@ -192,9 +196,7 @@ async function prepareHostAndSpace(
     };
   }
 
-  const { useCenterSpaceStore } = await import(
-    "@/app-shell/center-space/center-space-store"
-  );
+  const { useCenterSpaceStore } = await import("@/app-shell/center-space/center-space-store");
   const store = useCenterSpaceStore.getState();
   if (!store.hydrated) store.hydrate();
   store.ensureHost(location.hostId);
@@ -218,9 +220,7 @@ async function switchSameHostSpace(
     });
     return;
   }
-  const { switchCenterSpace } = await import(
-    "@/app-shell/center-space/center-space-switch"
-  );
+  const { switchCenterSpace } = await import("@/app-shell/center-space/center-space-switch");
   await switchCenterSpace(location.hostId, location.spaceId, {
     preserveDeepLink: true,
   });
@@ -248,11 +248,9 @@ export async function navigateToLocatedPane(
   },
   deps: NavigateToLocatedPaneDeps = {},
 ): Promise<boolean> {
-  const clearLocate =
-    deps.clearLocate ?? (() => useTerminalPaneLocateStore.getState().clear());
+  const clearLocate = deps.clearLocate ?? (() => useTerminalPaneLocateStore.getState().clear());
   const requestLocate =
-    deps.requestLocate ??
-    ((target) => useTerminalPaneLocateStore.getState().request(target));
+    deps.requestLocate ?? ((target) => useTerminalPaneLocateStore.getState().request(target));
 
   if (!isValidLocation(location)) {
     clearLocate();
@@ -278,9 +276,7 @@ export async function navigateToLocatedPane(
     if (deps.setActiveSpace) {
       deps.setActiveSpace(location.hostId, location.spaceId);
     } else {
-      const { useCenterSpaceStore } = await import(
-        "@/app-shell/center-space/center-space-store"
-      );
+      const { useCenterSpaceStore } = await import("@/app-shell/center-space/center-space-store");
       useCenterSpaceStore.getState().setActiveSpace(location.hostId, location.spaceId);
     }
   }

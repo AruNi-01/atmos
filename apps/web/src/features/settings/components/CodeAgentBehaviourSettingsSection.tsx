@@ -2,11 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import {
-  Input,
-  Switch,
-  cn,
-} from "@workspace/ui";
+import { Input, Switch, cn } from "@workspace/ui";
 import { useAutomationAgentCapabilitiesQuery } from "@/features/automations/hooks/use-automations-query";
 import { WelcomeAgentSelector } from "@/features/welcome/components/WelcomeComposerControls";
 import type { AgentMenuOption } from "@/features/welcome/lib/welcome-page-helpers";
@@ -213,10 +209,7 @@ export function CodeAgentBehaviourSettingsSection({
   );
 
   const summaryRunConfigByAgentId = React.useMemo(
-    () =>
-      summaryAgentSelectValue
-        ? { [summaryAgentSelectValue]: summaryRunConfig }
-        : {},
+    () => (summaryAgentSelectValue ? { [summaryAgentSelectValue]: summaryRunConfig } : {}),
     [summaryAgentSelectValue, summaryRunConfig],
   );
 
@@ -299,191 +292,183 @@ export function CodeAgentBehaviourSettingsSection({
       title={t("behavior.title")}
       description={t("behavior.description")}
     >
-          {/* Idle session cleanup — group row (same level as Need-attention) */}
-          <div className="border-b border-border px-2 py-4">
-            <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-foreground">
-                  {t("behavior.idleCleanupTitle")}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t("behavior.idleCleanupDescription")}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <Input
-                  type="number"
-                  min={1}
-                  max={1440}
-                  value={idleSessionTimeoutMins}
-                  disabled={savingIdleTimeout}
-                  onChange={(event) =>
-                    setIdleSessionTimeoutMins(Math.max(1, Number(event.target.value) || 1))
-                  }
-                  onBlur={() => commitIdleTimeout()}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.currentTarget.blur();
-                    }
-                  }}
-                  className="h-8 w-20 text-center text-sm"
-                />
-                <span className="text-sm text-muted-foreground whitespace-nowrap">
-                  {t("behavior.minutes")}
-                </span>
-              </div>
-            </div>
+      {/* Idle session cleanup — group row (same level as Need-attention) */}
+      <div className="border-b border-border px-2 py-4">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground">{t("behavior.idleCleanupTitle")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("behavior.idleCleanupDescription")}
+            </p>
           </div>
-          <div className="border-b border-border px-2 py-4">
-            <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-foreground">
-                  {t("behavior.observerCleanupTitle")}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t("behavior.observerCleanupDescription")}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <Input
-                  type="number"
-                  min={1}
-                  max={1440}
-                  value={observerSessionTimeoutMins}
-                  disabled={savingIdleTimeout}
-                  onChange={(event) =>
-                    setObserverSessionTimeoutMins(Math.max(1, Number(event.target.value) || 1))
-                  }
-                  onBlur={() => commitObserverTimeout()}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.currentTarget.blur();
-                    }
-                  }}
-                  className="h-8 w-20 text-center text-sm"
-                />
-                <span className="text-sm text-muted-foreground whitespace-nowrap">
-                  {t("behavior.minutes")}
-                </span>
-              </div>
-            </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Input
+              type="number"
+              min={1}
+              max={1440}
+              value={idleSessionTimeoutMins}
+              disabled={savingIdleTimeout}
+              onChange={(event) =>
+                setIdleSessionTimeoutMins(Math.max(1, Number(event.target.value) || 1))
+              }
+              onBlur={() => commitIdleTimeout()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.currentTarget.blur();
+                }
+              }}
+              className="h-8 w-20 text-center text-sm"
+            />
+            <span className="text-sm whitespace-nowrap text-muted-foreground">
+              {t("behavior.minutes")}
+            </span>
           </div>
-          <div className="border-b border-border px-2 py-4">
-            <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-foreground">
-                  {t("behavior.followupTitle")}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t("behavior.followupDescription")}
-                </p>
-              </div>
-              <select
-                className="h-8 rounded-md border border-border bg-background px-2 text-sm"
-                value={followupPolicy}
-                disabled={savingIdleTimeout}
-                aria-label={t("behavior.followupTitle")}
-                onChange={(event) => {
-                  const next = event.target.value === "steer" ? "steer" : "queue";
-                  setFollowupPolicy(next);
-                  commitBehaviour({ followupPolicy: next });
+        </div>
+      </div>
+      <div className="border-b border-border px-2 py-4">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground">
+              {t("behavior.observerCleanupTitle")}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("behavior.observerCleanupDescription")}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Input
+              type="number"
+              min={1}
+              max={1440}
+              value={observerSessionTimeoutMins}
+              disabled={savingIdleTimeout}
+              onChange={(event) =>
+                setObserverSessionTimeoutMins(Math.max(1, Number(event.target.value) || 1))
+              }
+              onBlur={() => commitObserverTimeout()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.currentTarget.blur();
+                }
+              }}
+              className="h-8 w-20 text-center text-sm"
+            />
+            <span className="text-sm whitespace-nowrap text-muted-foreground">
+              {t("behavior.minutes")}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="border-b border-border px-2 py-4">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground">{t("behavior.followupTitle")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("behavior.followupDescription")}
+            </p>
+          </div>
+          <select
+            className="h-8 rounded-md border border-border bg-background px-2 text-sm"
+            value={followupPolicy}
+            disabled={savingIdleTimeout}
+            aria-label={t("behavior.followupTitle")}
+            onChange={(event) => {
+              const next = event.target.value === "steer" ? "steer" : "queue";
+              setFollowupPolicy(next);
+              commitBehaviour({ followupPolicy: next });
+            }}
+          >
+            <option value="queue">{t("behavior.followupQueue")}</option>
+            <option value="steer">{t("behavior.followupSteer")}</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Need-attention auto-summary — group row + nested bordered config */}
+      <div className="border-b border-border px-2 py-4 last:border-b-0">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground">{t("behavior.summaryTitle")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("behavior.summaryDescription")}</p>
+          </div>
+          <Switch
+            checked={attentionSummaryEnabled}
+            disabled={savingIdleTimeout}
+            onCheckedChange={(checked) => {
+              const enabled = !!checked;
+              setAttentionSummaryEnabled(enabled);
+              commitBehaviour({ attentionSummaryEnabled: enabled });
+            }}
+            aria-label={t("behavior.summaryEnabled")}
+          />
+        </div>
+
+        <div
+          className={cn(
+            "mt-4 space-y-4 rounded-xl border border-border p-4",
+            !attentionSummaryEnabled && "pointer-events-none opacity-50",
+          )}
+        >
+          <div className="flex items-center justify-between gap-6">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                {t("behavior.summaryDelayTitle")}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t("behavior.summaryDelayDescription")}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Input
+                type="number"
+                min={1}
+                max={1440}
+                value={attentionSummaryDelayMins}
+                disabled={!attentionSummaryEnabled || savingIdleTimeout}
+                onChange={(event) =>
+                  setAttentionSummaryDelayMins(
+                    Math.min(1440, Math.max(1, Number(event.target.value) || 1)),
+                  )
+                }
+                onBlur={() => commitSummaryDelay()}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
                 }}
-              >
-                <option value="queue">{t("behavior.followupQueue")}</option>
-                <option value="steer">{t("behavior.followupSteer")}</option>
-              </select>
+                className="h-8 w-20 text-center text-sm"
+              />
+              <span className="text-sm whitespace-nowrap text-muted-foreground">
+                {t("behavior.minutes")}
+              </span>
             </div>
           </div>
 
-          {/* Need-attention auto-summary — group row + nested bordered config */}
-          <div className="border-b border-border px-2 py-4 last:border-b-0">
-            <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-foreground">
-                  {t("behavior.summaryTitle")}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t("behavior.summaryDescription")}
-                </p>
-              </div>
-              <Switch
-                checked={attentionSummaryEnabled}
-                disabled={savingIdleTimeout}
-                onCheckedChange={(checked) => {
-                  const enabled = !!checked;
-                  setAttentionSummaryEnabled(enabled);
-                  commitBehaviour({ attentionSummaryEnabled: enabled });
-                }}
-                aria-label={t("behavior.summaryEnabled")}
+          <div className="flex items-center justify-between gap-6">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                {t("behavior.summaryAgentTitle")}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t("behavior.summaryAgentDescription")}
+              </p>
+            </div>
+            <div className="relative shrink-0">
+              <WelcomeAgentSelector
+                availableAgents={summaryAgentOptions}
+                selectedAgentId={summaryAgentSelectValue}
+                runConfigByAgentId={summaryRunConfigByAgentId}
+                onRunConfigChange={handleSummaryRunConfigChange}
+                onSelectAgent={handleSummaryAgentChange}
+                purpose="automation"
+                triggerPlacement="inline"
+                contentAlign="end"
+                hydrateLastPick={false}
               />
             </div>
-
-            <div
-              className={cn(
-                "mt-4 space-y-4 rounded-xl border border-border p-4",
-                !attentionSummaryEnabled && "pointer-events-none opacity-50",
-              )}
-            >
-              <div className="flex items-center justify-between gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">
-                    {t("behavior.summaryDelayTitle")}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t("behavior.summaryDelayDescription")}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={1440}
-                    value={attentionSummaryDelayMins}
-                    disabled={!attentionSummaryEnabled || savingIdleTimeout}
-                    onChange={(event) =>
-                      setAttentionSummaryDelayMins(
-                        Math.min(1440, Math.max(1, Number(event.target.value) || 1)),
-                      )
-                    }
-                    onBlur={() => commitSummaryDelay()}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.currentTarget.blur();
-                      }
-                    }}
-                    className="h-8 w-20 text-center text-sm"
-                  />
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">
-                    {t("behavior.minutes")}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">
-                    {t("behavior.summaryAgentTitle")}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t("behavior.summaryAgentDescription")}
-                  </p>
-                </div>
-                <div className="relative shrink-0">
-                  <WelcomeAgentSelector
-                    availableAgents={summaryAgentOptions}
-                    selectedAgentId={summaryAgentSelectValue}
-                    runConfigByAgentId={summaryRunConfigByAgentId}
-                    onRunConfigChange={handleSummaryRunConfigChange}
-                    onSelectAgent={handleSummaryAgentChange}
-                    purpose="automation"
-                    triggerPlacement="inline"
-                    contentAlign="end"
-                    hydrateLastPick={false}
-                  />
-                </div>
-              </div>
-            </div>
           </div>
+        </div>
+      </div>
     </SettingsGroupCard>
   );
 }

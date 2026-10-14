@@ -101,8 +101,6 @@ describe("pending user echo", () => {
       text: "hello",
     });
     expect(keepPendingUserEchoes([], [pending])).toEqual([pending]);
-    expect(keepPendingUserEchoes([user("a", "hello")], [pending])).toEqual([
-      user("a", "hello"),
-    ]);
+    expect(keepPendingUserEchoes([user("a", "hello")], [pending])).toEqual([user("a", "hello")]);
   });
 });

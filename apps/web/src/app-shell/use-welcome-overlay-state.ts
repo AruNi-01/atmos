@@ -15,8 +15,7 @@ export function useWelcomeOverlayState() {
     centerStageParams.newWorkspace,
   );
   const [isClosing, setIsClosing] = useState(false);
-  const [animationState, setAnimationState] =
-    useState<WelcomeOverlayAnimationState>("idle");
+  const [animationState, setAnimationState] = useState<WelcomeOverlayAnimationState>("idle");
   const prevNewWorkspaceRef = useRef(false);
   const previousFocusRef = useRef<Element | null>(null);
   const closeTimerRef = useRef<number | null>(null);

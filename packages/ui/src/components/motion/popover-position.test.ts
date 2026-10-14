@@ -37,31 +37,27 @@ describe("popoverPortalCoords", () => {
   });
 
   it("scales a wider popover in from the previous width", () => {
-    expect(
-      anchoredSizeScale({ width: 264, height: 320 }, { width: 360, height: 320 }),
-    ).toEqual({ x: 264 / 360, y: 1 });
+    expect(anchoredSizeScale({ width: 264, height: 320 }, { width: 360, height: 320 })).toEqual({
+      x: 264 / 360,
+      y: 1,
+    });
   });
 
   it("scales a narrower popover down from the previous width", () => {
-    expect(
-      anchoredSizeScale({ width: 360, height: 320 }, { width: 264, height: 320 }),
-    ).toEqual({ x: 360 / 264, y: 1 });
+    expect(anchoredSizeScale({ width: 360, height: 320 }, { width: 264, height: 320 })).toEqual({
+      x: 360 / 264,
+      y: 1,
+    });
   });
 
   it("continues from the scale already on screen", () => {
     expect(
-      anchoredSizeScale(
-        { width: 360, height: 320 },
-        { width: 300, height: 320 },
-        { x: 0.8, y: 1 },
-      ),
+      anchoredSizeScale({ width: 360, height: 320 }, { width: 300, height: 320 }, { x: 0.8, y: 1 }),
     ).toEqual({ x: (360 * 0.8) / 300, y: 1 });
   });
 
   it("does not zoom in from an empty box", () => {
-    expect(
-      anchoredSizeScale({ width: 0, height: 0 }, { width: 264, height: 320 }),
-    ).toBeNull();
+    expect(anchoredSizeScale({ width: 0, height: 0 }, { width: 264, height: 320 })).toBeNull();
   });
 
   it("skips a subpixel size change", () => {
@@ -71,9 +67,7 @@ describe("popoverPortalCoords", () => {
   });
 
   it("flips a right-side panel left when it would overflow the viewport", () => {
-    expect(
-      popoverPortalCoords("right", "start", layout, 8, { width: 450, height: 800 }),
-    ).toEqual({
+    expect(popoverPortalCoords("right", "start", layout, 8, { width: 450, height: 800 })).toEqual({
       side: "left",
       left: 40,
       top: 100,

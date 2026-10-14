@@ -48,9 +48,8 @@ describe("listComponentTypes", () => {
 describe("S14 palette vs Agent XML", () => {
   test("defaultNode(button) serializes to the same tag, bbox, and events as xmlExample (ignore id)", () => {
     const palette = defaultNodeFor("button", "palette-id");
-    const example = parsePtx(
-      `<page id="p">${getComponentModule("button").xmlExample}</page>`,
-    ).pages[0]!.nodes[0]!;
+    const example = parsePtx(`<page id="p">${getComponentModule("button").xmlExample}</page>`)
+      .pages[0]!.nodes[0]!;
     expect(palette.type).toBe(example.type);
     expect(palette.width).toBe(example.width);
     expect(palette.height).toBe(example.height);

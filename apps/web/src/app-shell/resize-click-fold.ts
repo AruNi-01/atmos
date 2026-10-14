@@ -9,7 +9,6 @@ export function isResizeClickGesture(
   axis: ResizeClickAxis = "vertical",
   slopPx = RESIZE_CLICK_SLOP_PX,
 ): boolean {
-  const delta =
-    axis === "vertical" ? Math.abs(point.x - start.x) : Math.abs(point.y - start.y);
+  const delta = axis === "vertical" ? Math.abs(point.x - start.x) : Math.abs(point.y - start.y);
   return delta <= slopPx;
 }

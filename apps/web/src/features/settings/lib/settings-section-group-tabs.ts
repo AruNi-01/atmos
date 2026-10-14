@@ -10,9 +10,7 @@ export type SettingsSectionWithGroupTabs = keyof typeof SETTINGS_SECTION_GROUP_T
 export type SettingsGroupTabId =
   (typeof SETTINGS_SECTION_GROUP_TABS)[SettingsSectionWithGroupTabs][number];
 
-const GROUP_TAB_IDS = new Set<string>(
-  Object.values(SETTINGS_SECTION_GROUP_TABS).flat(),
-);
+const GROUP_TAB_IDS = new Set<string>(Object.values(SETTINGS_SECTION_GROUP_TABS).flat());
 
 const SEARCH_TOPIC_TO_GROUP_TAB: Record<string, SettingsGroupTabId> = {
   workspace: "workspace",
@@ -72,9 +70,7 @@ export function rememberSettingsGroupTab(
   lastGroupTabBySection[sectionId] = tab as SettingsGroupTabId;
 }
 
-export function peekLastSettingsGroupTab(
-  sectionId: SettingsSectionId,
-): SettingsGroupTabId | null {
+export function peekLastSettingsGroupTab(sectionId: SettingsSectionId): SettingsGroupTabId | null {
   return lastGroupTabBySection[sectionId] ?? null;
 }
 
@@ -145,9 +141,7 @@ function toCamelCase(value: string): string {
 }
 
 function humanizeTranslationKey(value: string): string {
-  return value
-    .replace(/([A-Z])/g, " $1")
-    .replace(/[._-]+/g, " ");
+  return value.replace(/([A-Z])/g, " $1").replace(/[._-]+/g, " ");
 }
 
 function normalizeSettingsSearchValue(value: string): string {

@@ -67,7 +67,7 @@
 
 ## Risks & Open Questions
 
-- **Risk**: “Group” collides linguistically with existing *grouping modes* — UI copy should say **By Group** / **Groups** for the container entity.
+- **Risk**: “Group” collides linguistically with existing _grouping modes_ — UI copy should say **By Group** / **Groups** for the container entity.
 - **Risk**: Putting a Workspace in a Group while its Project is in another Group may feel dual-homed; mitigated by exclusive membership and dual visibility rule (M4).
 - **Open for TECH**: Exact WS action names, table names, empty-state copy keys.
 

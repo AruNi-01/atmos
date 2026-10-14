@@ -31,10 +31,6 @@ export function PtDesignHostStage({
   }
 
   return (
-    <PtDesignCenterPanel
-      contextId={design}
-      openMode="center-tab"
-      onBack={remembered.closeDesign}
-    />
+    <PtDesignCenterPanel contextId={design} openMode="center-tab" onBack={remembered.closeDesign} />
   );
 }

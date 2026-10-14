@@ -81,10 +81,7 @@ export function capitalizeLeading(value: string): string {
 }
 
 /** `GPT-5 / Openai` — provider is omitted when empty. */
-export function formatModelProviderLabel(
-  model: string,
-  provider?: string | null,
-): string {
+export function formatModelProviderLabel(model: string, provider?: string | null): string {
   const name = model.trim();
   const group = capitalizeLeading(provider ?? "");
   if (!name) return group;
@@ -92,9 +89,7 @@ export function formatModelProviderLabel(
   return `${name} / ${group}`;
 }
 
-export type GroupedPromptRow<T> =
-  | { type: "header"; label: string }
-  | { type: "option"; option: T };
+export type GroupedPromptRow<T> = { type: "header"; label: string } | { type: "option"; option: T };
 
 /** Cluster by `group` so the same header is not repeated, then insert muted labels. */
 export function groupedPromptModelRows<T extends { group?: string }>(

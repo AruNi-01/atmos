@@ -17,7 +17,9 @@ import {
 } from "./md-live-media-path";
 
 const FILTERS: Record<MdLiveMediaOpenKind, NativePathFilter[]> = {
-  image: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "bmp"] }],
+  image: [
+    { name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg", "avif", "bmp"] },
+  ],
   video: [{ name: "Videos", extensions: ["mp4", "webm", "mov", "m4v"] }],
   audio: [{ name: "Audio", extensions: ["mp3", "wav", "flac", "aac", "m4a", "ogg"] }],
   file: [],
@@ -35,9 +37,12 @@ export async function insertMdLiveMedia(options: {
   if (picked.status !== "picked") return null;
   if (picked.path.startsWith("data:")) {
     const kind: MdLiveMediaKind =
-      options.kind === "image" ? "img"
-        : options.kind === "video" ? "video"
-          : options.kind === "audio" ? "audio"
+      options.kind === "image"
+        ? "img"
+        : options.kind === "video"
+          ? "video"
+          : options.kind === "audio"
+            ? "audio"
             : "file";
     return mdLiveMediaMarkdown(kind, options.kind, picked.path);
   }
@@ -57,7 +62,11 @@ export async function insertMdLiveMedia(options: {
 
   const dir = mediaLibraryDir(workspaceRoot, kind);
   await fsApi.createDir(dir);
-  const listing = await fsApi.listDir(dir, { dirsOnly: false, showHidden: true, ignoreNotFound: true });
+  const listing = await fsApi.listDir(dir, {
+    dirsOnly: false,
+    showHidden: true,
+    ignoreNotFound: true,
+  });
   const existing = new Set((listing.entries ?? []).map((entry) => entry.name));
   const destName = nextAvailableName(existing, fileName);
   const destPath = `${dir}/${destName}`;

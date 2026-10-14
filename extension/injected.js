@@ -11,7 +11,9 @@
   function isAllowedOrigin(origin, allowedOrigins) {
     if (!origin) return false;
     if (Array.isArray(allowedOrigins) && allowedOrigins.indexOf(origin) >= 0) return true;
-    return defaultAllowedOrigins.some(function (pattern) { return pattern.test(origin); });
+    return defaultAllowedOrigins.some(function (pattern) {
+      return pattern.test(origin);
+    });
   }
 
   function createController() {
@@ -22,7 +24,7 @@
       showSelectionToolbar: false,
       showHoverLabel: true,
       emit: function (message) {
-        window.parent.postMessage(message, state.parentOrigin || '*');
+        window.parent.postMessage(message, state.parentOrigin || "*");
       },
     });
   }
@@ -36,14 +38,14 @@
   var controller = null;
 
   function emitToParent(message) {
-    window.parent.postMessage(message, state.parentOrigin || '*');
+    window.parent.postMessage(message, state.parentOrigin || "*");
   }
 
   function handleMessage(event) {
     var data = event.data;
-    if (!data || typeof data !== 'object' || typeof data.type !== 'string') return;
+    if (!data || typeof data !== "object" || typeof data.type !== "string") return;
 
-    if (data.type === 'atmos-browser:host-init') {
+    if (data.type === "atmos-browser:host-init") {
       if (!isAllowedOrigin(event.origin, data.allowedOrigins)) return;
       // Re-create the runtime if it was previously destroyed
       if (controller) {
@@ -61,25 +63,25 @@
     if (!controller || !state.sessionId || data.sessionId !== state.sessionId) return;
     if (!isAllowedOrigin(event.origin, state.allowedOrigins)) return;
 
-    if (data.type === 'atmos-browser:ping') {
+    if (data.type === "atmos-browser:ping") {
       emitToParent({
-        type: 'atmos-browser:pong',
+        type: "atmos-browser:pong",
         sessionId: state.sessionId,
         pageUrl: window.location.href,
-        pageTitle: (document.title || '').trim(),
+        pageTitle: (document.title || "").trim(),
       });
-    } else if (data.type === 'atmos-browser:enter-pick-mode') {
+    } else if (data.type === "atmos-browser:enter-pick-mode") {
       controller.enterPickMode(state.sessionId);
-    } else if (data.type === 'atmos-browser:exit-pick-mode') {
+    } else if (data.type === "atmos-browser:exit-pick-mode") {
       // Graceful fallback: older runtimes may not have exitPickMode
-      if (typeof controller.exitPickMode === 'function') {
+      if (typeof controller.exitPickMode === "function") {
         controller.exitPickMode();
       } else {
         controller.clearSelection(false);
       }
-    } else if (data.type === 'atmos-browser:clear-selection') {
+    } else if (data.type === "atmos-browser:clear-selection") {
       controller.clearSelection(false);
-    } else if (data.type === 'atmos-browser:destroy') {
+    } else if (data.type === "atmos-browser:destroy") {
       controller.destroy();
       controller = null;
       state.sessionId = null;
@@ -90,7 +92,7 @@
   function boot() {
     if (!window.__ATMOS_BROWSER_RUNTIME__) return;
     controller = createController();
-    window.addEventListener('message', handleMessage);
+    window.addEventListener("message", handleMessage);
   }
 
   window.__ATMOS_PREVIEW_EXTENSION__ = {
@@ -99,13 +101,13 @@
         controller.destroy();
         controller = null;
       }
-      window.removeEventListener('message', handleMessage);
+      window.removeEventListener("message", handleMessage);
     },
   };
 
   if (window.__ATMOS_BROWSER_RUNTIME__) {
     boot();
   } else {
-    window.addEventListener('atmos-browser-runtime-ready', boot, { once: true });
+    window.addEventListener("atmos-browser-runtime-ready", boot, { once: true });
   }
-}());
+})();

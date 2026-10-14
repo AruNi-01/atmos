@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import {
   Tooltip,
   TooltipTrigger,
@@ -9,47 +9,47 @@ import {
   PopoverContent,
   Button,
   ScrollArea,
-} from '@workspace/ui';
+} from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
-import { agentStatusApi } from '@/api/rest-api';
-import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
+import { agentStatusApi } from "@/api/rest-api";
+import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 
-import { buildUsageCarouselItems } from '@/features/quota-usage/lib/quota-display';
-import { useQuotaOverviewQuery } from '@/features/quota-usage/hooks/use-quota-overview-query';
+import { buildUsageCarouselItems } from "@/features/quota-usage/lib/quota-display";
+import { useQuotaOverviewQuery } from "@/features/quota-usage/hooks/use-quota-overview-query";
 import {
   useAgentStatusStore,
   type AgentStatusRecord,
   AGENT_STATE,
   AGENT_TOOL_LABELS,
   AGENT_TOOL_ICON_IDS,
-} from '@/features/agent/store/agent-status-store';
-import { useAgentAttentionStore } from '@/features/agent/store/agent-attention-store';
-import { useAgentAttentionSummaryStore } from '@/features/agent/store/agent-attention-summary-store';
-import { useWorkspaceAgentGroupingHoldStore } from '@/features/agent/store/workspace-agent-grouping-hold';
-import { useShallow } from 'zustand/react/shallow';
-import { FooterAgentStatusIcon } from '@/features/agent/components/FooterAgentStatusIcon';
-import { AgentIcon } from '@/features/agent/components/AgentIcon';
-import { AnimatePresence, motion } from 'motion/react';
-import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
-import { LayoutDashboard, MessagesSquare, X } from 'lucide-react';
-import { ProviderGlyph } from '@/app-shell/QuotaPopover';
-import { NappingBotIcon } from '@/app-shell/NappingBotIcon';
-import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
-import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
+} from "@/features/agent/store/agent-status-store";
+import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import { useAgentAttentionSummaryStore } from "@/features/agent/store/agent-attention-summary-store";
+import { useWorkspaceAgentGroupingHoldStore } from "@/features/agent/store/workspace-agent-grouping-hold";
+import { useShallow } from "zustand/react/shallow";
+import { FooterAgentStatusIcon } from "@/features/agent/components/FooterAgentStatusIcon";
+import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { AnimatePresence, motion } from "motion/react";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
+import { LayoutDashboard, MessagesSquare, X } from "lucide-react";
+import { ProviderGlyph } from "@/app-shell/QuotaPopover";
+import { NappingBotIcon } from "@/app-shell/NappingBotIcon";
+import { useExperimentSettingsStore } from "@/features/settings/store/experiment-settings-store";
+import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
 
 import { useAgentActivityStore } from "@/features/agent/store/agent-activity-store";
 import { latestTurnPrompt, toolLineText } from "@/features/agent/lib/agent-observer-graph";
-import { useAppRouter } from '@/shared/hooks/use-app-router';
-import { useAgentChatUrl } from '@/features/agent/hooks/use-agent-chat-url';
-import { LocalServicesFooterItem } from '@/features/local-services/components/LocalServicesFooterItem';
-import { ResourceMonitorFooterItem } from '@/features/resource-monitor/components/ResourceMonitorFooterItem';
-import { effectiveShowResourceMonitor as resolveEffectiveShowResourceMonitor } from '@/features/resource-monitor/lib/resource-monitor-footer-visibility';
+import { useAppRouter } from "@/shared/hooks/use-app-router";
+import { useAgentChatUrl } from "@/features/agent/hooks/use-agent-chat-url";
+import { LocalServicesFooterItem } from "@/features/local-services/components/LocalServicesFooterItem";
+import { ResourceMonitorFooterItem } from "@/features/resource-monitor/components/ResourceMonitorFooterItem";
+import { effectiveShowResourceMonitor as resolveEffectiveShowResourceMonitor } from "@/features/resource-monitor/lib/resource-monitor-footer-visibility";
 import {
   isAgentStatusSideChatSession,
   navigateToAgentStatusSession,
   resolveAgentStatusContextNames,
-} from '@/features/agent/lib/agent-status-navigation';
-import { useAgentStatusSessionTitles } from '@/features/agent/hooks/use-agent-status-session-titles';
+} from "@/features/agent/lib/agent-status-navigation";
+import { useAgentStatusSessionTitles } from "@/features/agent/hooks/use-agent-status-session-titles";
 import {
   buildFooterAgentOverview,
   FOOTER_AGENT_OVERVIEW_ORDER,
@@ -60,10 +60,10 @@ import {
   groupFooterOverviewRowsByContext,
   type FooterAgentOverviewBucket,
   type FooterAgentOverviewRow,
-} from '@/features/agent/lib/footer-agent-overview';
+} from "@/features/agent/lib/footer-agent-overview";
 import { sessionsOccupancyFingerprint } from "@/features/agent/lib/agent-status-fingerprint";
-import { useTranslations } from 'next-intl';
-import { APP_FOOTER_HEIGHT_CLASS } from '@/app-shell/sidebar-layout-constants';
+import { useTranslations } from "next-intl";
+import { APP_FOOTER_HEIGHT_CLASS } from "@/app-shell/sidebar-layout-constants";
 
 function groupSessionsByContext(
   rows: FooterAgentOverviewRow[],
@@ -76,17 +76,19 @@ function footerOverviewBadgeClass(bucket: FooterAgentOverviewBucket): string {
 }
 
 function footerOverviewBucketLabel(
-  t: (key: "footer.overviewRunning" | "footer.overviewIdle" | "footer.overviewNeedAttention" | "footer.overviewNeedPermission") => string,
+  t: (
+    key:
+      | "footer.overviewRunning"
+      | "footer.overviewIdle"
+      | "footer.overviewNeedAttention"
+      | "footer.overviewNeedPermission",
+  ) => string,
   bucket: FooterAgentOverviewBucket,
 ): string {
   return footerAgentStatusLabel(t, bucket);
 }
 
-function FooterOverviewBucketIcon({
-  bucket,
-}: {
-  bucket: FooterAgentOverviewBucket;
-}) {
+function FooterOverviewBucketIcon({ bucket }: { bucket: FooterAgentOverviewBucket }) {
   return <FooterAgentStatusIcon bucket={bucket} />;
 }
 
@@ -148,8 +150,11 @@ function SessionStateBadge({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -40, opacity: 0 }}
             transition={springTransition}
-            className="absolute inset-0 flex cursor-pointer items-center justify-center rounded px-1.5 py-px font-mono text-[9px] whitespace-nowrap text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20"
-            onClick={(e) => { e.stopPropagation(); onAction(); }}
+            className="absolute inset-0 flex cursor-pointer items-center justify-center rounded bg-emerald-500/10 px-1.5 py-px font-mono text-[9px] whitespace-nowrap text-emerald-500 hover:bg-emerald-500/20"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAction();
+            }}
           >
             {idleLabel}
           </motion.button>
@@ -160,8 +165,11 @@ function SessionStateBadge({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -40, opacity: 0 }}
             transition={springTransition}
-            className="absolute inset-0 flex cursor-pointer items-center justify-center rounded px-1.5 py-px font-mono text-[9px] whitespace-nowrap text-red-400 bg-red-500/10 hover:bg-red-500/20"
-            onClick={(e) => { e.stopPropagation(); onAction(); }}
+            className="absolute inset-0 flex cursor-pointer items-center justify-center rounded bg-red-500/10 px-1.5 py-px font-mono text-[9px] whitespace-nowrap text-red-400 hover:bg-red-500/20"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAction();
+            }}
           >
             {clearLabel}
           </motion.button>
@@ -204,7 +212,7 @@ function SessionRow({
   const activity = useAgentActivityStore((s) => s.records.get(session.session_id));
   const isIdle = bucket === "idle";
 
-  const hoverAction = !hovered ? null : isIdle ? "clear" as const : "idle" as const;
+  const hoverAction = !hovered ? null : isIdle ? ("clear" as const) : ("idle" as const);
   const handleAction = () => {
     if (isIdle) {
       void removeSession(session.session_id);
@@ -217,11 +225,11 @@ function SessionRow({
   const activityLine =
     session.state === "running"
       ? toolLineText(activity)
-      : latestTurnPrompt(activity) ?? toolLineText(activity);
+      : (latestTurnPrompt(activity) ?? toolLineText(activity));
 
   return (
     <div
-      className="flex items-center justify-between gap-2 px-1 py-0.5 rounded-sm hover:bg-accent/50 cursor-pointer"
+      className="flex cursor-pointer items-center justify-between gap-2 rounded-sm px-1 py-0.5 hover:bg-accent/50"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={onNavigate}
@@ -274,19 +282,22 @@ function SessionRow({
 function useContextDisplayNameResolver() {
   const projects = useProjects();
   const t = useTranslations("appShell");
-  return useCallback((contextKey: string): string => {
-    if (contextKey === "unknown") return t("footer.unknownProject");
-    for (const project of projects) {
-      if (project.id === contextKey) return project.name;
-      for (const ws of project.workspaces) {
-        if (ws.id === contextKey) return `${project.name} / ${ws.branch}`;
+  return useCallback(
+    (contextKey: string): string => {
+      if (contextKey === "unknown") return t("footer.unknownProject");
+      for (const project of projects) {
+        if (project.id === contextKey) return project.name;
+        for (const ws of project.workspaces) {
+          if (ws.id === contextKey) return `${project.name} / ${ws.branch}`;
+        }
       }
-    }
-    if (contextKey.includes("/") || contextKey.includes("\\")) {
-      return contextKey.split(/[\\/]/).slice(-2).join("/");
-    }
-    return contextKey.slice(0, 8);
-  }, [projects, t]);
+      if (contextKey.includes("/") || contextKey.includes("\\")) {
+        return contextKey.split(/[\\/]/).slice(-2).join("/");
+      }
+      return contextKey.slice(0, 8);
+    },
+    [projects, t],
+  );
 }
 
 function useContextNameResolver() {
@@ -299,9 +310,7 @@ function useContextNameResolver() {
 }
 
 function useFooterAgentOverview() {
-  const sessionKey = useAgentStatusStore((s) =>
-    sessionsOccupancyFingerprint(s.sessions),
-  );
+  const sessionKey = useAgentStatusStore((s) => sessionsOccupancyFingerprint(s.sessions));
   const attentionRevision = useAgentAttentionStore((s) => s.revision);
   return useMemo(
     () =>
@@ -335,20 +344,24 @@ export function AgentStatusPopoverContent({
   const resolveContextDisplayName = useContextDisplayNameResolver();
   const resolveContextName = useContextNameResolver();
 
-  const navigateToSessionPane = useCallback((session: AgentStatusRecord) => {
-    if (onNavigateSession) {
-      onNavigateSession(session);
-      return;
-    }
-    navigateToAgentStatusSession(session, router, projects);
-  }, [onNavigateSession, router, projects]);
+  const navigateToSessionPane = useCallback(
+    (session: AgentStatusRecord) => {
+      if (onNavigateSession) {
+        onNavigateSession(session);
+        return;
+      }
+      navigateToAgentStatusSession(session, router, projects);
+    },
+    [onNavigateSession, router, projects],
+  );
 
   if (rows.length === 0) {
     return (
       <div
         className={cn(
-          "px-3 py-2.5 text-[11px] text-muted-foreground whitespace-nowrap",
-          embedded && "flex h-full w-full items-center justify-center text-center whitespace-normal",
+          "px-3 py-2.5 text-[11px] whitespace-nowrap text-muted-foreground",
+          embedded &&
+            "flex h-full w-full items-center justify-center text-center whitespace-normal",
         )}
       >
         {t("footer.noActiveAgentSessions")}
@@ -357,49 +370,50 @@ export function AgentStatusPopoverContent({
   }
 
   return (
-      <ScrollArea
-        scrollFade
-        className={cn(embedded ? "h-full" : "h-auto w-72 max-h-64")}
-        viewportClassName={cn("p-2", !embedded && "h-auto max-h-64")}
-      >
-      <div className="flex items-center justify-between mb-2 px-1">
+    <ScrollArea
+      scrollFade
+      className={cn(embedded ? "h-full" : "h-auto max-h-64 w-72")}
+      viewportClassName={cn("p-2", !embedded && "h-auto max-h-64")}
+    >
+      <div className="mb-2 flex items-center justify-between px-1">
         <span className="text-[11px] font-semibold text-foreground">
           {t("footer.agentSessions", { count: rows.length })}
         </span>
         <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
-          onClick={() => router.push("/agent-observer")}
-        >
-          {t("footer.openAgentObserver")}
-        </Button>
-        {hasIdleSessions && (
           <Button
             variant="ghost"
             size="sm"
-          className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
-          onClick={() => clearIdleSessions()}
-        >
-          <X className="size-3 mr-0.5" />
-          {t("footer.clearIdle")}
-        </Button>
-      )}
+            className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+            onClick={() => router.push("/agent-observer")}
+          >
+            {t("footer.openAgentObserver")}
+          </Button>
+          {hasIdleSessions && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+              onClick={() => clearIdleSessions()}
+            >
+              <X className="mr-0.5 size-3" />
+              {t("footer.clearIdle")}
+            </Button>
+          )}
         </div>
-    </div>
+      </div>
 
       <div className="space-y-2">
         {Array.from(grouped.entries()).map(([contextKey, pathRows]) => {
           const displayName = resolveContextDisplayName(contextKey);
-          const { projectName, workspaceName, workspaceDisplayName } = resolveContextName(contextKey);
+          const { projectName, workspaceName, workspaceDisplayName } =
+            resolveContextName(contextKey);
           const contextLabel = projectName
             ? [projectName, workspaceDisplayName ?? workspaceName].filter(Boolean).join(" / ")
             : displayName;
           return (
             <div key={contextKey} className="space-y-0.5">
               <div
-                className="px-1 text-[10px] font-medium text-muted-foreground truncate"
+                className="truncate px-1 text-[10px] font-medium text-muted-foreground"
                 title={contextKey}
               >
                 {contextLabel}
@@ -495,7 +509,7 @@ function HoverScrollText({ text, active }: { text: string; active: boolean }) {
   return (
     <span
       ref={textRef}
-      className="block overflow-hidden whitespace-nowrap font-medium text-muted-foreground"
+      className="block overflow-hidden font-medium whitespace-nowrap text-muted-foreground"
       title={text}
     >
       {text}
@@ -510,7 +524,7 @@ function AgentStatusOverviewTrigger() {
 
   if (total === 0) {
     return (
-      <span className="text-muted-foreground whitespace-nowrap inline-flex items-center gap-1.5">
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-muted-foreground">
         <NappingBotIcon />
         <span>{t("footer.napping")}</span>
       </span>
@@ -542,7 +556,7 @@ function AgentStatusOverviewTrigger() {
 const Footer: React.FC = () => {
   const t = useTranslations("appShell");
   const [, setAgentChatOpen] = useAgentChatUrl();
-  const connectionState = useWebSocketStore(s => s.connectionState);
+  const connectionState = useWebSocketStore((s) => s.connectionState);
   const launchpadAgentsEnabled = useExperimentSettingsStore((s) => s.launchpadAgentsEnabled);
   const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
   const showLocalServices = useLayoutSettingsStore((s) => s.showLocalServices);
@@ -556,19 +570,17 @@ const Footer: React.FC = () => {
   const showAgentStatus = useLayoutSettingsStore((s) => s.showAgentStatus);
   const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
   const usageQuery = useQuotaOverviewQuery({
-    enabled: connectionState === 'connected' && showUsageCarousel,
+    enabled: connectionState === "connected" && showUsageCarousel,
   });
   const quotaOverview = usageQuery.data ?? null;
   const [usageIndex, setUsageIndex] = useState(0);
   const [isUsageCarouselHovered, setIsUsageCarouselHovered] = useState(false);
 
-  const usageCarouselItems = useMemo(
-    () => buildUsageCarouselItems(quotaOverview),
-    [quotaOverview]
-  );
-  const usageCarouselItem = usageCarouselItems.length > 0
-    ? usageCarouselItems[usageIndex % usageCarouselItems.length]
-    : null;
+  const usageCarouselItems = useMemo(() => buildUsageCarouselItems(quotaOverview), [quotaOverview]);
+  const usageCarouselItem =
+    usageCarouselItems.length > 0
+      ? usageCarouselItems[usageIndex % usageCarouselItems.length]
+      : null;
 
   useEffect(() => {
     void loadExperimentSettings();
@@ -589,10 +601,10 @@ const Footer: React.FC = () => {
   }, [isUsageCarouselHovered, usageCarouselItems.length]);
 
   const statusColors: Record<typeof connectionState, string> = {
-    connected: 'bg-emerald-500',
-    connecting: 'bg-yellow-500',
-    reconnecting: 'bg-orange-500',
-    disconnected: 'bg-red-500',
+    connected: "bg-emerald-500",
+    connecting: "bg-yellow-500",
+    reconnecting: "bg-orange-500",
+    disconnected: "bg-red-500",
   };
 
   const statusText: Record<typeof connectionState, string> = {
@@ -604,7 +616,8 @@ const Footer: React.FC = () => {
 
   const showLeftCarousel = showUsageCarousel && Boolean(usageCarouselItem);
   const showWsStatus = connectionState !== "connected";
-  const showLeft = showWsStatus || showLocalServices || effectiveShowResourceMonitor || showLeftCarousel;
+  const showLeft =
+    showWsStatus || showLocalServices || effectiveShowResourceMonitor || showLeftCarousel;
   const showRightAgent = showAgentStatus;
   const showRightAcp = launchpadAgentsEnabled;
   const showRight = showRightAgent || showRightAcp;
@@ -614,26 +627,33 @@ const Footer: React.FC = () => {
   }
 
   return (
-    <footer className={cn(APP_FOOTER_HEIGHT_CLASS, "flex shrink-0 items-center justify-between px-3 backdrop-blur-md text-[10px] font-mono text-muted-foreground select-none")}>
+    <footer
+      className={cn(
+        APP_FOOTER_HEIGHT_CLASS,
+        "flex shrink-0 items-center justify-between px-3 font-mono text-[10px] text-muted-foreground backdrop-blur-md select-none",
+      )}
+    >
       {showLeft ? (
         <div className="flex items-center space-x-2">
           {showWsStatus ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div
-                  className="flex items-center hover:text-foreground cursor-pointer"
-                >
-                  <div className={cn(
-                    "size-2 rounded-full mr-2",
-                    statusColors[connectionState],
-                    "animate-pulse"
-                  )}></div>
-                  <span className="font-medium text-muted-foreground">{statusText[connectionState]}</span>
+                <div className="flex cursor-pointer items-center hover:text-foreground">
+                  <div
+                    className={cn(
+                      "mr-2 size-2 rounded-full",
+                      statusColors[connectionState],
+                      "animate-pulse",
+                    )}
+                  ></div>
+                  <span className="font-medium text-muted-foreground">
+                    {statusText[connectionState]}
+                  </span>
                 </div>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-xs p-0">
-                <div className="px-3 py-2 text-[11px] font-mono">
-                  <div className="font-semibold mb-1.5 flex items-center justify-between gap-4">
+                <div className="px-3 py-2 font-mono text-[11px]">
+                  <div className="mb-1.5 flex items-center justify-between gap-4 font-semibold">
                     <span>{t("footer.activeWebSocket")}</span>
                   </div>
                   <div className="text-background/90">{t("footer.notConnected")}</div>
@@ -641,24 +661,19 @@ const Footer: React.FC = () => {
               </TooltipContent>
             </Tooltip>
           ) : null}
-          {showWsStatus && (effectiveShowResourceMonitor || showLocalServices || showLeftCarousel) ? (
+          {showWsStatus &&
+          (effectiveShowResourceMonitor || showLocalServices || showLeftCarousel) ? (
             <div className="h-3 w-px bg-border" />
           ) : null}
-          {effectiveShowResourceMonitor ? (
-            <ResourceMonitorFooterItem />
-          ) : null}
+          {effectiveShowResourceMonitor ? <ResourceMonitorFooterItem /> : null}
           {effectiveShowResourceMonitor && (showLocalServices || showLeftCarousel) ? (
             <div className="h-3 w-px bg-border" />
           ) : null}
-          {showLocalServices ? (
-            <LocalServicesFooterItem />
-          ) : null}
-          {showLocalServices && showLeftCarousel ? (
-            <div className="h-3 w-px bg-border" />
-          ) : null}
+          {showLocalServices ? <LocalServicesFooterItem /> : null}
+          {showLocalServices && showLeftCarousel ? <div className="h-3 w-px bg-border" /> : null}
           {showLeftCarousel && usageCarouselItem ? (
             <div
-              className="flex min-w-0 w-[min(360px,38vw)] items-center gap-1.5 text-muted-foreground"
+              className="flex w-[min(360px,38vw)] min-w-0 items-center gap-1.5 text-muted-foreground"
               onMouseEnter={() => setIsUsageCarouselHovered(true)}
               onMouseLeave={() => setIsUsageCarouselHovered(false)}
             >
@@ -683,10 +698,7 @@ const Footer: React.FC = () => {
                   transition={{ duration: 0.18, ease: "easeOut" }}
                   className="min-w-0 flex-1"
                 >
-                  <HoverScrollText
-                    text={usageCarouselItem.text}
-                    active={isUsageCarouselHovered}
-                  />
+                  <HoverScrollText text={usageCarouselItem.text} active={isUsageCarouselHovered} />
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -703,7 +715,7 @@ const Footer: React.FC = () => {
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="flex items-center gap-1.5 hover:text-foreground cursor-pointer"
+                  className="flex cursor-pointer items-center gap-1.5 hover:text-foreground"
                 >
                   <AgentStatusOverviewTrigger />
                 </button>
@@ -717,12 +729,8 @@ const Footer: React.FC = () => {
               </PopoverContent>
             </Popover>
           ) : null}
-          {showRightAgent && showRightAcp ? (
-            <div className="h-3 w-px bg-border" />
-          ) : null}
-          {showRightAcp ? (
-            <AcpChatButton onClick={() => void setAgentChatOpen(true)} />
-          ) : null}
+          {showRightAgent && showRightAcp ? <div className="h-3 w-px bg-border" /> : null}
+          {showRightAcp ? <AcpChatButton onClick={() => void setAgentChatOpen(true)} /> : null}
         </div>
       ) : null}
     </footer>

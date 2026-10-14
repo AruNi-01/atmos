@@ -8,12 +8,7 @@ export type ResourceUsageView = {
   process_count: number;
 };
 
-export type DesktopShellGroupKind =
-  | "main"
-  | "renderer"
-  | "gpu"
-  | "utility"
-  | "other";
+export type DesktopShellGroupKind = "main" | "renderer" | "gpu" | "utility" | "other";
 
 export type DesktopShellGroupMetrics = {
   kind: DesktopShellGroupKind;
@@ -56,9 +51,7 @@ export function canFetchDesktopShellMetrics(
   return isElectron && connectionMode === "local";
 }
 
-export function unsupportedDesktopShellSnapshot(
-  nowMs = Date.now(),
-): DesktopShellMetricsSnapshot {
+export function unsupportedDesktopShellSnapshot(nowMs = Date.now()): DesktopShellMetricsSnapshot {
   return {
     supported: false,
     collected_at_ms: nowMs,
@@ -104,10 +97,7 @@ export function parseDesktopShellMetricsSnapshot(
   if (typeof value.collected_at_ms !== "number" || !Number.isFinite(value.collected_at_ms)) {
     return null;
   }
-  if (
-    typeof value.logical_cpu_count !== "number" ||
-    !Number.isFinite(value.logical_cpu_count)
-  ) {
+  if (typeof value.logical_cpu_count !== "number" || !Number.isFinite(value.logical_cpu_count)) {
     return null;
   }
   if (!isUsageView(value.total) || !Array.isArray(value.groups)) return null;
@@ -130,10 +120,7 @@ export function parseDesktopShellMetricsSnapshot(
 }
 
 export async function fetchDesktopShellMetrics(): Promise<DesktopShellMetricsSnapshot> {
-  if (
-    !isElectronShell() ||
-    useAtmosComputerStore.getState().connectionMode !== "local"
-  ) {
+  if (!isElectronShell() || useAtmosComputerStore.getState().connectionMode !== "local") {
     return unsupportedDesktopShellSnapshot();
   }
 

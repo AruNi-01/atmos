@@ -2,10 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const session = readFileSync(
-  join(import.meta.dir, "../use-agent-chat-session.ts"),
-  "utf8",
-);
+const session = readFileSync(join(import.meta.dir, "../use-agent-chat-session.ts"), "utf8");
 
 describe("composer config defer-until-send", () => {
   it("updates local draft on setConfigOption without calling persistConfig", () => {
@@ -16,10 +13,10 @@ describe("composer config defer-until-send", () => {
     const body = session.slice(start, end);
     expect(body).toContain("setModelId(folded.modelId)");
     expect(body).toContain("fastIdAfterModelChange");
-    expect(body).toContain('setModeId(value)');
-    expect(body).toContain('setPermissionModeId(value)');
-    expect(body).toContain('setThinkingId(value)');
-    expect(body).toContain('setFastId(value)');
+    expect(body).toContain("setModeId(value)");
+    expect(body).toContain("setPermissionModeId(value)");
+    expect(body).toContain("setThinkingId(value)");
+    expect(body).toContain("setFastId(value)");
     expect(body).toContain("persistNewSessionPreferences");
     expect(body).toContain("rememberComposerChromeDraft");
     expect(body).not.toContain("persistConfig");
@@ -60,7 +57,7 @@ describe("composer config defer-until-send", () => {
 
   it("does not write last New Chat config from eager tab create", () => {
     const start = session.indexOf("const ensureCreatedChat = useCallback");
-    const end = session.indexOf("useEffect(() => {\n    if (variant !== \"center\")", start);
+    const end = session.indexOf('useEffect(() => {\n    if (variant !== "center")', start);
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
     const body = session.slice(start, end);

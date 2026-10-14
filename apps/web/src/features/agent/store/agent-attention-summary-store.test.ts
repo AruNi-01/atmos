@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { dismissAttentionSummaryChrome, useAgentAttentionSummaryStore } from "./agent-attention-summary-store";
+import {
+  dismissAttentionSummaryChrome,
+  useAgentAttentionSummaryStore,
+} from "./agent-attention-summary-store";
 import { useAgentAttentionStore } from "./agent-attention-store";
 
 const originalFetch = globalThis.fetch;
@@ -130,12 +133,12 @@ describe("dismissAttentionSummaryChrome", () => {
     rejectFetch(new Error("network"));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(
-      useAgentAttentionSummaryStore.getState().getPane("ws-1:main")?.summary,
-    ).toBe("Keep me if the request fails");
+    expect(useAgentAttentionSummaryStore.getState().getPane("ws-1:main")?.summary).toBe(
+      "Keep me if the request fails",
+    );
     expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(true);
-    expect(
-      useAgentAttentionSummaryStore.getState().getPane("ws-2:other")?.summary,
-    ).toBe("unrelated pane");
+    expect(useAgentAttentionSummaryStore.getState().getPane("ws-2:other")?.summary).toBe(
+      "unrelated pane",
+    );
   });
 });

@@ -70,9 +70,7 @@ export function normalizeCenterLayoutDocument(
   };
 }
 
-export function trimCenterLayoutForDisk(
-  doc: CenterLayoutDocument,
-): CenterLayoutDocument {
+export function trimCenterLayoutForDisk(doc: CenterLayoutDocument): CenterLayoutDocument {
   return {
     ...doc,
     spaces: omitCenterSpaceThumbnails(doc.spaces),
@@ -90,9 +88,7 @@ export function mergeCenterSpaceThumbnails(
       next[hostId] = host;
       continue;
     }
-    const thumbs = new Map(
-      prev.spaces.map((space) => [space.id, space.thumbnailDataUrl]),
-    );
+    const thumbs = new Map(prev.spaces.map((space) => [space.id, space.thumbnailDataUrl]));
     next[hostId] = {
       ...host,
       spaces: host.spaces.map((space) => {
@@ -129,16 +125,11 @@ export function fromCenterLayoutWire(
     mosaics: (raw.mosaics ?? {}) as Record<string, CenterPaneLayout>,
     savedLayouts: raw.saved_layouts as SavedCenterLayout[],
     overviewTabs: raw.overview_tabs,
-    terminals: (raw.terminals ?? {}) as Record<
-      string,
-      PersistedTerminalWorkspaceLayoutDocument
-    >,
+    terminals: (raw.terminals ?? {}) as Record<string, PersistedTerminalWorkspaceLayoutDocument>,
   });
 }
 
-function normalizeMosaics(
-  raw: Record<string, CenterPaneLayout>,
-): Record<string, CenterPaneLayout> {
+function normalizeMosaics(raw: Record<string, CenterPaneLayout>): Record<string, CenterPaneLayout> {
   const byHost = new Map<string, Array<[string, CenterPaneLayout]>>();
   for (const [contextId, layout] of Object.entries(raw)) {
     if (!contextId || !layout || typeof layout !== "object" || !Array.isArray(layout.panes)) {

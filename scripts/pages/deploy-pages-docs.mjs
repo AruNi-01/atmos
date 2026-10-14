@@ -34,7 +34,9 @@ function parseArgs(argv) {
       undefined,
     commitHash: process.env.CF_PAGES_COMMIT_SHA || process.env.GITHUB_SHA || undefined,
     commitMessage:
-      process.env.CF_PAGES_COMMIT_MESSAGE || process.env.GITHUB_EVENT_HEAD_COMMIT_MESSAGE || undefined,
+      process.env.CF_PAGES_COMMIT_MESSAGE ||
+      process.env.GITHUB_EVENT_HEAD_COMMIT_MESSAGE ||
+      undefined,
     commitDirty: process.env.CF_PAGES_COMMIT_DIRTY || undefined,
     skipCaching: false,
   };

@@ -4,7 +4,7 @@
 
 ## Context
 
-Atmos organizes work as **Project** (git repo) → **Workspace** (worktree). Power users accumulate many repos and worktrees across clients, monorepos, and personal experiments. The sidebar’s existing *grouping modes* (`project` / `status` / `time` / `label` / `priority`) only **view-filter** workspaces; they do not let users invent a durable top-level container.
+Atmos organizes work as **Project** (git repo) → **Workspace** (worktree). Power users accumulate many repos and worktrees across clients, monorepos, and personal experiments. The sidebar’s existing _grouping modes_ (`project` / `status` / `time` / `label` / `priority`) only **view-filter** workspaces; they do not let users invent a durable top-level container.
 
 Pain today:
 

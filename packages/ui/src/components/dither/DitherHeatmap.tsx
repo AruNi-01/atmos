@@ -1,17 +1,9 @@
 "use client";
 
-import {
-  useCallback,
-  useRef,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
+import { useCallback, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { cn } from "../../lib/utils";
 import { hash, smoothstep, type DitherTheme } from "../../lib/dither/math";
-import {
-  createSeriesMorph,
-  seriesSignature,
-  type SeriesMorph,
-} from "../../lib/dither/morph";
+import { createSeriesMorph, seriesSignature, type SeriesMorph } from "../../lib/dither/morph";
 import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 
 export type DitherHeatmapCell = {
@@ -205,8 +197,7 @@ export function DitherHeatmap({
       const tAnim = reducedMotion ? 0 : time;
       const levels = morphRef.current!.sample(reducedMotion);
       const nullMask = nullMaskRef.current;
-      const axisMuted =
-        theme === "dark" ? "rgba(255,255,255,0.42)" : "rgba(15,23,42,0.45)";
+      const axisMuted = theme === "dark" ? "rgba(255,255,255,0.42)" : "rgba(15,23,42,0.45)";
 
       // --- Axis labels (month top, weekday left) ---
       ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
@@ -247,8 +238,7 @@ export function DitherHeatmap({
           const isNull = nullMask[idx] ?? cols[w]?.[d]?.level == null;
 
           if (isNull) {
-            ctx.fillStyle =
-              theme === "dark" ? "rgba(34,197,94,0.06)" : "rgba(22,163,74,0.06)";
+            ctx.fillStyle = theme === "dark" ? "rgba(34,197,94,0.06)" : "rgba(22,163,74,0.06)";
             ctx.fillRect(x, y, cellSize, cellSize);
             continue;
           }
@@ -275,8 +265,7 @@ export function DitherHeatmap({
               const jx = tx + cell / 2;
               const jy = ty + cell / 2;
               const jit = hash(jx, jy);
-              const waveRaw =
-                Math.sin(jx * 0.05 + tAnim) + Math.sin(jy * 0.05 + tAnim * 0.7);
+              const waveRaw = Math.sin(jx * 0.05 + tAnim) + Math.sin(jy * 0.05 + tAnim * 0.7);
               const mod = smoothstep(-1.5, 1.5, waveRaw);
               // Density scales with continuous level so low→high fills grow.
               const density = 0.35 + 0.15 * (level / 4);
@@ -327,10 +316,7 @@ export function DitherHeatmap({
     const gridRight = startX + weeksCount * step - GAP;
     const gridBottom = startY + ROWS * step - GAP;
     const outside =
-      lx < startX - GAP ||
-      ly < startY - GAP ||
-      lx > gridRight + GAP ||
-      ly > gridBottom + GAP;
+      lx < startX - GAP || ly < startY - GAP || lx > gridRight + GAP || ly > gridBottom + GAP;
     if (outside) {
       lastCellRef.current = null;
       onCellLeave?.();

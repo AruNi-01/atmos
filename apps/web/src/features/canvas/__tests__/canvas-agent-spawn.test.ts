@@ -97,11 +97,7 @@ describe("findNonOverlappingSpawn", () => {
         const a = shapes[i]!;
         const b = shapes[j]!;
         expect(
-          rectsOverlap(
-            { x: a.x, y: a.y, w: 200, h: 200 },
-            { x: b.x, y: b.y, w: 200, h: 200 },
-            28,
-          ),
+          rectsOverlap({ x: a.x, y: a.y, w: 200, h: 200 }, { x: b.x, y: b.y, w: 200, h: 200 }, 28),
         ).toBe(false);
       }
     }

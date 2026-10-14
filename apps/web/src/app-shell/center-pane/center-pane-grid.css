@@ -116,12 +116,11 @@
 .center-pane-drag-ghost-body {
   min-height: 0;
   flex: 1 1 auto;
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--muted) 55%, transparent),
-      color-mix(in srgb, var(--muted) 20%, transparent)
-    );
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--muted) 55%, transparent),
+    color-mix(in srgb, var(--muted) 20%, transparent)
+  );
 }
 
 .center-pane-drag-ghost-live-clip {

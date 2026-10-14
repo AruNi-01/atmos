@@ -23,10 +23,8 @@ export function indicatorLayoutFromViewport(input: {
   scrollLeft: number;
   scrollTop: number;
 }): TabIndicatorBox {
-  const sx =
-    input.listOffsetWidth === 0 ? 1 : input.listViewportWidth / input.listOffsetWidth;
-  const sy =
-    input.listOffsetHeight === 0 ? 1 : input.listViewportHeight / input.listOffsetHeight;
+  const sx = input.listOffsetWidth === 0 ? 1 : input.listViewportWidth / input.listOffsetWidth;
+  const sy = input.listOffsetHeight === 0 ? 1 : input.listViewportHeight / input.listOffsetHeight;
   return {
     x: (input.tabLeft - input.listLeft) / sx + input.scrollLeft,
     y: (input.tabTop - input.listTop) / sy + input.scrollTop,

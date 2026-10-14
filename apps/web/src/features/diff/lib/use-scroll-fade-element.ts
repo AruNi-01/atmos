@@ -9,15 +9,9 @@ import {
 
 function syncOverflowVars(element: HTMLElement) {
   const yStart = Math.max(0, element.scrollTop);
-  const yEnd = Math.max(
-    0,
-    element.scrollHeight - element.clientHeight - element.scrollTop,
-  );
+  const yEnd = Math.max(0, element.scrollHeight - element.clientHeight - element.scrollTop);
   const xStart = Math.max(0, element.scrollLeft);
-  const xEnd = Math.max(
-    0,
-    element.scrollWidth - element.clientWidth - element.scrollLeft,
-  );
+  const xEnd = Math.max(0, element.scrollWidth - element.clientWidth - element.scrollLeft);
   element.style.setProperty("--scroll-area-overflow-y-start", `${yStart}px`);
   element.style.setProperty("--scroll-area-overflow-y-end", `${yEnd}px`);
   element.style.setProperty("--scroll-area-overflow-x-start", `${xStart}px`);
@@ -27,9 +21,7 @@ function syncOverflowVars(element: HTMLElement) {
 function readDiffStickyHeaders(viewport: HTMLElement): StickyFadeItem[] {
   const extras: StickyFadeItem[] = [];
   for (const host of viewport.querySelectorAll("diffs-container")) {
-    const header = host.shadowRoot?.querySelector<HTMLElement>(
-      "[data-diffs-header][data-sticky]",
-    );
+    const header = host.shadowRoot?.querySelector<HTMLElement>("[data-diffs-header][data-sticky]");
     const item = header ? stickyFadeItemFromElement(header) : null;
     if (item) extras.push(item);
   }

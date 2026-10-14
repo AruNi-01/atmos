@@ -4,19 +4,19 @@
 
 ## Index
 
-| Id | Title | Status | Date |
-|----|-------|--------|------|
-| [IMP-001](#imp-001--scope-agent-chat-history-by-current-cwd) | Scope Agent Chat history by current cwd | mitigated | 2026-05-27 |
+| Id                                                               | Title                                       | Status    | Date       |
+| ---------------------------------------------------------------- | ------------------------------------------- | --------- | ---------- |
+| [IMP-001](#imp-001--scope-agent-chat-history-by-current-cwd)     | Scope Agent Chat history by current cwd     | mitigated | 2026-05-27 |
 | [IMP-002](#imp-002--add-context-filter-to-global-agent-sessions) | Add context filter to global agent sessions | mitigated | 2026-05-27 |
 
 ## IMP-001 · Scope Agent Chat history by current cwd
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-05-27 |
-| **Status** | mitigated |
-| **Reported by** | user |
-| **Severity** | product correctness |
+| Field           | Value               |
+| --------------- | ------------------- |
+| **Date**        | 2026-05-27          |
+| **Status**      | mitigated           |
+| **Reported by** | user                |
+| **Severity**    | product correctness |
 
 ### Problem
 
@@ -40,12 +40,12 @@ In contextual Agent Chat, listed ACP sessions are limited to the current Project
 
 ## IMP-002 · Add context filter to global agent sessions
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-05-27 |
-| **Status** | mitigated |
-| **Reported by** | user |
-| **Severity** | product correctness |
+| Field           | Value               |
+| --------------- | ------------------- |
+| **Date**        | 2026-05-27          |
+| **Status**      | mitigated           |
+| **Reported by** | user                |
+| **Severity**    | product correctness |
 
 ### Problem
 

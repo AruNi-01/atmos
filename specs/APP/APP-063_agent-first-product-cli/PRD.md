@@ -128,7 +128,7 @@ Commands use **resource nouns + verbs**. Global flags: `--api-url`, `--api-token
 - **Primary UX = raw action catalog browsing** — `call` is secondary (including in the skill narrative).
 - **One monolithic skill listing all ~260 wire actions** — live discovery is `atmos` / `actions list` / CLI help, not skill paste.
 - **Merging canvas / desktop-use / browser-use into `atmos-cli`** — different triggers, deps, and failure modes.
-- **Using `cli-design` skill as the Atmos product skill** — `cli-design` is for *authoring* CLIs; `atmos-cli` is for *operating* Atmos.
+- **Using `cli-design` skill as the Atmos product skill** — `cli-design` is for _authoring_ CLIs; `atmos-cli` is for _operating_ Atmos.
 - **Pixel-perfect UI chrome** (canvas pan animation, drag-reorder polish) as CLI commands.
 - **Requiring open Web UI for project/workspace/settings** — must work headless.
 - **Mobile app CLI surface** — same `atmos` binary may run on host; mobile app is not the delivery vehicle.
@@ -138,14 +138,14 @@ Commands use **resource nouns + verbs**. Global flags: `--api-url`, `--api-token
 
 ## Success Metrics
 
-| Metric | Target |
-|--------|--------|
+| Metric        | Target                                                                                                        |
+| ------------- | ------------------------------------------------------------------------------------------------------------- |
 | Headless loop | Agent completes project create → workspace create → terminal create without UI (manual or automated scenario) |
-| Envelope | 100% of product L1 commands return valid envelope (`ok` + required fields) |
-| Coverage | All M10–M16 verbs map to real server handlers; failures are structured, not panics |
-| Discovery | Bare `atmos` lists at least all shipped top-level resources |
-| Divergence | No product business rule implemented only in CLI |
-| Agent skill | `atmos-cli` system skill present after install/sync; SKILL.md stays short; L1 is primary narrative |
+| Envelope      | 100% of product L1 commands return valid envelope (`ok` + required fields)                                    |
+| Coverage      | All M10–M16 verbs map to real server handlers; failures are structured, not panics                            |
+| Discovery     | Bare `atmos` lists at least all shipped top-level resources                                                   |
+| Divergence    | No product business rule implemented only in CLI                                                              |
+| Agent skill   | `atmos-cli` system skill present after install/sync; SKILL.md stays short; L1 is primary narrative            |
 
 Qualitative: agents stop using desktop-use/screenshots for basic Atmos CRUD; agents load `atmos-cli` for product ops.
 
@@ -159,12 +159,12 @@ Qualitative: agents stop using desktop-use/screenshots for basic Atmos CRUD; age
 
 ## Milestones
 
-| Phase | Ships | PRD items |
-|-------|-------|-----------|
-| **P0 Foundation** | Envelope module; root tree; `status`; server RPC; `call` + `actions list`; migrate host plane to envelope; **`atmos-cli` skill skeleton** (envelope + auth + call as secondary + decision tree) | M1–M8, M9 (status), M17–M18, M21–M22 (skeleton) |
-| **P1 Core resources** | `context`, `project`, `workspace`, `group`, `settings`; skill references for those domains + golden path | M9–M12, M15, M20, M22 update |
-| **P2 Terminal + Run** | `terminal`, `run` (+ logs point-in-time); skill terminal-run reference | M13–M14, M22 update |
-| **P3 Git + re-home review/canvas** | `git` core; envelope for review/canvas; skill git + links to canvas/review skills | M16, M19, M22 update |
-| **P4 Expansion** | Typed trees for N2 domains; streaming N1; skill references as needed | N1–N2, M22 update |
+| Phase                              | Ships                                                                                                                                                                                           | PRD items                                       |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| **P0 Foundation**                  | Envelope module; root tree; `status`; server RPC; `call` + `actions list`; migrate host plane to envelope; **`atmos-cli` skill skeleton** (envelope + auth + call as secondary + decision tree) | M1–M8, M9 (status), M17–M18, M21–M22 (skeleton) |
+| **P1 Core resources**              | `context`, `project`, `workspace`, `group`, `settings`; skill references for those domains + golden path                                                                                        | M9–M12, M15, M20, M22 update                    |
+| **P2 Terminal + Run**              | `terminal`, `run` (+ logs point-in-time); skill terminal-run reference                                                                                                                          | M13–M14, M22 update                             |
+| **P3 Git + re-home review/canvas** | `git` core; envelope for review/canvas; skill git + links to canvas/review skills                                                                                                               | M16, M19, M22 update                            |
+| **P4 Expansion**                   | Typed trees for N2 domains; streaming N1; skill references as needed                                                                                                                            | N1–N2, M22 update                               |
 
 P0+P1 is the first **agent-valuable** ship. P2 completes the “click parity” loop for daily agent work. **Skill text ships in the same phases as the commands it documents.**

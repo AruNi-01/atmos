@@ -4,13 +4,13 @@ Official refs: [Installation](https://better-auth.com/docs/installation), [Drizz
 
 ## Env
 
-| Variable | Purpose |
-|----------|---------|
-| `BETTER_AUTH_SECRET` | ≥32 chars |
-| `BETTER_AUTH_URL` | Public Hub URL (`https://hub.atmos.land` / `http://localhost:8787`) |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth app |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth **Web** client |
-| `ALLOWED_ORIGINS` | Browser app origins (comma-separated). **Must include desktop local Server UI**: `http://127.0.0.1:30303` and `http://localhost:30303` (sign-in is CORS + credentials from that origin). |
+| Variable                                    | Purpose                                                                                                                                                                                  |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BETTER_AUTH_SECRET`                        | ≥32 chars                                                                                                                                                                                |
+| `BETTER_AUTH_URL`                           | Public Hub URL (`https://hub.atmos.land` / `http://localhost:8787`)                                                                                                                      |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth app                                                                                                                                                                         |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth **Web** client                                                                                                                                                              |
+| `ALLOWED_ORIGINS`                           | Browser app origins (comma-separated). **Must include desktop local Server UI**: `http://127.0.0.1:30303` and `http://localhost:30303` (sign-in is CORS + credentials from that origin). |
 
 ## Google Cloud Console
 
@@ -53,13 +53,13 @@ Account → **Linked accounts** (see [Security settings](https://better-auth-ui.
 
 Data is **bound to `user_id`**. Hub exposes identity-agnostic routes that accept **session cookie or device Bearer** (same as `/v1/me`):
 
-| UI | Hub API (preferred) | Notes |
-|----|---------------------|--------|
-| List linked providers | `GET /v1/me/accounts` | Reads Better Auth `account` rows for user |
-| Link provider | `GET /v1/oauth/start?mode=link&…` | Web: browser cookie. Desktop/phone: `POST /v1/me/link-ticket` then `link_ticket=`. `accountLinking.allowDifferentEmails: true` so GitHub/Google emails need not match. |
-| Unlink provider | `POST /v1/me/accounts/unlink` | Body: `{ provider_id, account_id? }` |
-| Session cap | max **10** per user | On create (`databaseHooks.session.create`): drop oldest; keep current cookie token when possible. Link `link_ticket` temp sessions are deleted after OAuth start. |
-| Delete account | `POST /v1/me/delete` | Hard-delete user (cascade accounts/sessions/devices/…). UI requires typed phrase. `user.deleteUser.enabled` also on Better Auth. |
+| UI                    | Hub API (preferred)               | Notes                                                                                                                                                                  |
+| --------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| List linked providers | `GET /v1/me/accounts`             | Reads Better Auth `account` rows for user                                                                                                                              |
+| Link provider         | `GET /v1/oauth/start?mode=link&…` | Web: browser cookie. Desktop/phone: `POST /v1/me/link-ticket` then `link_ticket=`. `accountLinking.allowDifferentEmails: true` so GitHub/Google emails need not match. |
+| Unlink provider       | `POST /v1/me/accounts/unlink`     | Body: `{ provider_id, account_id? }`                                                                                                                                   |
+| Session cap           | max **10** per user               | On create (`databaseHooks.session.create`): drop oldest; keep current cookie token when possible. Link `link_ticket` temp sessions are deleted after OAuth start.      |
+| Delete account        | `POST /v1/me/delete`              | Hard-delete user (cascade accounts/sessions/devices/…). UI requires typed phrase. `user.deleteUser.enabled` also on Better Auth.                                       |
 
 Phone and Desktop use the same product APIs via **`requireUser`** (session cookie **or** device Bearer → same `user_id`). Clients attach identity through `@atmos/hub-client` (`hubFetch` / `withHubAuth`) and never branch on cookie vs device in feature code.
 

@@ -4,13 +4,7 @@
  */
 
 import { execFile } from "node:child_process";
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -79,10 +73,7 @@ export function computeWindowCropPixels(
     const s = display.scaleFactor > 0 ? display.scaleFactor : 1;
     const expectedW = Math.round(display.width * s);
     const expectedH = Math.round(display.height * s);
-    if (
-      Math.abs(expectedW - pngWidth) > 8 ||
-      Math.abs(expectedH - pngHeight) > 8
-    ) {
+    if (Math.abs(expectedW - pngWidth) > 8 || Math.abs(expectedH - pngHeight) > 8) {
       return null;
     }
   }
@@ -127,10 +118,7 @@ export function computeWindowCropPixels(
 /**
  * Crop PNG bytes to a pixel rect via `sips` (macOS). Returns null on failure.
  */
-export async function cropPngBytesToRect(
-  png: Buffer,
-  rect: PixelRect,
-): Promise<Buffer | null> {
+export async function cropPngBytesToRect(png: Buffer, rect: PixelRect): Promise<Buffer | null> {
   if (process.platform !== "darwin" || !png.length) return null;
   let dir: string | null = null;
   try {

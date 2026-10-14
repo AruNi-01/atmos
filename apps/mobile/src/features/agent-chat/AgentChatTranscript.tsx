@@ -97,11 +97,7 @@ function MessagePart({
   if (surface === "tour") {
     if (part.type === "tool_call") {
       return (
-        <AgentChatToolCard
-          onPress={() => onOpen(sheetId, model)}
-          part={part}
-          title={model.title}
-        />
+        <AgentChatToolCard onPress={() => onOpen(sheetId, model)} part={part} title={model.title} />
       );
     }
     return (
@@ -110,7 +106,15 @@ function MessagePart({
         onPress={() => onOpen(sheetId, model)}
         style={{ alignItems: "center", flexDirection: "row", gap: 6, paddingVertical: 2 }}
       >
-        <Text numberOfLines={2} style={{ color: theme.colors.secondaryLabel, flexShrink: 1, fontSize: 15, lineHeight: 20 }}>
+        <Text
+          numberOfLines={2}
+          style={{
+            color: theme.colors.secondaryLabel,
+            flexShrink: 1,
+            fontSize: 15,
+            lineHeight: 20,
+          }}
+        >
           {model.title}
         </Text>
         <DisclosureChevron />
@@ -131,15 +135,19 @@ function MessagePart({
     );
   }
   if (!model.sheet) {
-    if (model.kind === "permission") return <AgentChatEventBody model={{ ...model, sheet: null }} />;
+    if (model.kind === "permission")
+      return <AgentChatEventBody model={{ ...model, sheet: null }} />;
     const tone = classified.detail.kind === "session_hint" ? classified.detail.tone : null;
-    const color = model.kind === "session_lifecycle" && classified.detail.kind === "session_lifecycle" && classified.detail.status === "failed"
-      ? theme.colors.red
-      : tone === "error"
+    const color =
+      model.kind === "session_lifecycle" &&
+      classified.detail.kind === "session_lifecycle" &&
+      classified.detail.status === "failed"
         ? theme.colors.red
-        : tone === "warning"
-          ? theme.colors.yellow
-          : theme.colors.secondaryLabel;
+        : tone === "error"
+          ? theme.colors.red
+          : tone === "warning"
+            ? theme.colors.yellow
+            : theme.colors.secondaryLabel;
     return (
       <Text selectable style={{ color, fontSize: 15, lineHeight: 20 }}>
         {model.title}
@@ -148,11 +156,7 @@ function MessagePart({
   }
   if (part.type === "tool_call") {
     return (
-      <AgentChatToolCard
-        onPress={() => onOpen(sheetId, model)}
-        part={part}
-        title={model.title}
-      />
+      <AgentChatToolCard onPress={() => onOpen(sheetId, model)} part={part} title={model.title} />
     );
   }
   return (
@@ -161,7 +165,10 @@ function MessagePart({
       onPress={() => onOpen(sheetId, model)}
       style={{ alignItems: "center", flexDirection: "row", gap: 6, paddingVertical: 2 }}
     >
-      <Text numberOfLines={2} style={{ color: theme.colors.secondaryLabel, flexShrink: 1, fontSize: 15, lineHeight: 20 }}>
+      <Text
+        numberOfLines={2}
+        style={{ color: theme.colors.secondaryLabel, flexShrink: 1, fontSize: 15, lineHeight: 20 }}
+      >
         {model.title}
       </Text>
       <DisclosureChevron />
@@ -171,7 +178,8 @@ function MessagePart({
 
 function visiblePart(part: AgentPart): boolean {
   const classified = classifyTranscriptPart(part);
-  if (classified.visibility === "hidden_chrome" || classified.visibility === "nested_child") return false;
+  if (classified.visibility === "hidden_chrome" || classified.visibility === "nested_child")
+    return false;
   if (classified.visibility === "subagent_wait") return true;
   if (classified.detail.kind === "permission") return classified.detail.shownInTranscript;
   if (classified.detail.kind === "text_part") return classified.detail.text.length > 0;
@@ -201,13 +209,7 @@ function DisclosureChevron() {
   return <ChevronRightIcon color={theme.colors.secondaryLabel} size={12} strokeWidth={2.2} />;
 }
 
-function ToolGroupRow({
-  onPress,
-  parts,
-}: {
-  onPress: () => void;
-  parts: AgentPart[];
-}) {
+function ToolGroupRow({ onPress, parts }: { onPress: () => void; parts: AgentPart[] }) {
   const theme = useMobileTheme();
   return (
     <Pressable
@@ -215,7 +217,10 @@ function ToolGroupRow({
       onPress={onPress}
       style={{ alignItems: "center", flexDirection: "row", gap: 6, paddingVertical: 2 }}
     >
-      <Text numberOfLines={1} style={{ color: theme.colors.secondaryLabel, flexShrink: 1, fontSize: 15, lineHeight: 20 }}>
+      <Text
+        numberOfLines={1}
+        style={{ color: theme.colors.secondaryLabel, flexShrink: 1, fontSize: 15, lineHeight: 20 }}
+      >
         {toolGroupOverview(parts)}
       </Text>
       <DisclosureChevron />
@@ -244,7 +249,15 @@ function ProcessPart({
   part: AgentPart;
   siblings: AgentPart[];
 }) {
-  return <MessagePart messages={messages} onOpen={onOpen} openId={openId} part={part} siblings={siblings} />;
+  return (
+    <MessagePart
+      messages={messages}
+      onOpen={onOpen}
+      openId={openId}
+      part={part}
+      siblings={siblings}
+    />
+  );
 }
 
 function AssistantSegments({
@@ -268,11 +281,13 @@ function AssistantSegments({
           return (
             <ToolGroupRow
               key={segment.indexes.join("-") || `group-${index}`}
-              onPress={() => onOpenGroup(
-                segment.indexes.join("-") || `group-${index}`,
-                title,
-                modelsForParts(segment.parts, siblings, messages),
-              )}
+              onPress={() =>
+                onOpenGroup(
+                  segment.indexes.join("-") || `group-${index}`,
+                  title,
+                  modelsForParts(segment.parts, siblings, messages),
+                )
+              }
               parts={segment.parts}
             />
           );
@@ -332,8 +347,8 @@ function ChatMessage({
 }) {
   const theme = useMobileTheme();
   const isUser = message.role === "user";
-  const hasBody = message.parts.some((part) =>
-    (isUser && part.type === "attachment") || visiblePart(part),
+  const hasBody = message.parts.some(
+    (part) => (isUser && part.type === "attachment") || visiblePart(part),
   );
   const canCollapse = !isUser && shouldCollapseAssistantProcess(message, message.parts);
   if (!hasBody && !message.streaming) return null;
@@ -415,30 +430,42 @@ function ChatMessage({
             label={waitForLabel(waiting.anchors.length)}
             onPress={() => onExpand((state) => activateWaitForBar(state, message.id))}
           />
-          {waitingOpen ? waiting.rows.map((row) => (
-            <MessagePart
-              key={partKey(message.id, row.part, row.index)}
-              messages={messages}
-              onOpen={openEvent}
-              openId={partKey(message.id, row.part, row.index)}
-              part={row.part}
-              siblings={message.parts}
-              surface="tour"
-            />
-          )) : null}
+          {waitingOpen
+            ? waiting.rows.map((row) => (
+                <MessagePart
+                  key={partKey(message.id, row.part, row.index)}
+                  messages={messages}
+                  onOpen={openEvent}
+                  openId={partKey(message.id, row.part, row.index)}
+                  part={row.part}
+                  siblings={message.parts}
+                  surface="tour"
+                />
+              ))
+            : null}
         </View>
       ) : null}
       {canCollapse && process.length > 0 ? (
         <Pressable
           accessibilityRole="button"
-          onPress={() => openGroup(
-            `${message.id}:process`,
-            worked ?? "Process",
-            process.flatMap((segment) => (
-              segment.type === "tool_group" ? segment.parts : [segment.part]
-            )).map((part) => transcriptEventModel(part, message.parts, messages)),
-          )}
-          style={{ alignItems: "center", alignSelf: "flex-start", flexDirection: "row", gap: 4, paddingVertical: 2 }}
+          onPress={() =>
+            openGroup(
+              `${message.id}:process`,
+              worked ?? "Process",
+              process
+                .flatMap((segment) =>
+                  segment.type === "tool_group" ? segment.parts : [segment.part],
+                )
+                .map((part) => transcriptEventModel(part, message.parts, messages)),
+            )
+          }
+          style={{
+            alignItems: "center",
+            alignSelf: "flex-start",
+            flexDirection: "row",
+            gap: 4,
+            paddingVertical: 2,
+          }}
         >
           <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13, lineHeight: 18 }}>
             {worked ?? "Process"}
@@ -447,14 +474,26 @@ function ChatMessage({
         </Pressable>
       ) : process.length > 0 ? (
         <View style={{ gap: 6 }}>
-          <AssistantSegments messages={messages} onOpen={openEvent} onOpenGroup={openGroup} segments={process} siblings={message.parts} />
+          <AssistantSegments
+            messages={messages}
+            onOpen={openEvent}
+            onOpenGroup={openGroup}
+            segments={process}
+            siblings={message.parts}
+          />
         </View>
       ) : null}
       {tail.length > 0 || message.streaming ? (
         <ChatBubble from="assistant">
           <View style={{ gap: 8 }}>
             {message.streaming && cursorIndex < 0 ? <AgentChatMarkdown text="..." /> : null}
-            <AssistantSegments messages={messages} onOpen={openEvent} onOpenGroup={openGroup} segments={tail} siblings={message.parts} />
+            <AssistantSegments
+              messages={messages}
+              onOpen={openEvent}
+              onOpenGroup={openGroup}
+              segments={tail}
+              siblings={message.parts}
+            />
           </View>
         </ChatBubble>
       ) : null}
@@ -494,27 +533,37 @@ export function AgentChatTranscript({
     userDraggedRef.current = true;
   }, []);
 
-  const onContentSizeChange = useCallback((_width: number, height: number) => {
-    if (height <= 0) return;
-    stickToBottom();
-  }, [stickToBottom]);
+  const onContentSizeChange = useCallback(
+    (_width: number, height: number) => {
+      if (height <= 0) return;
+      stickToBottom();
+    },
+    [stickToBottom],
+  );
 
-  const onLayout = useCallback((event: LayoutChangeEvent) => {
-    const height = event.nativeEvent.layout.height;
-    if (height === listHeightRef.current) return;
-    listHeightRef.current = height;
-    stickToBottom();
-  }, [stickToBottom]);
+  const onLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const height = event.nativeEvent.layout.height;
+      if (height === listHeightRef.current) return;
+      listHeightRef.current = height;
+      stickToBottom();
+    },
+    [stickToBottom],
+  );
 
   const [expand, setExpand] = useState<ExpandState>(initialExpandState);
-  const rows = streaming && !messages.some((message) => message.streaming)
-    ? [...messages, {
-        id: "stream-wait",
-        role: "assistant",
-        parts: [{ type: "text" as const, text: "" }],
-        streaming: true,
-      }]
-    : messages;
+  const rows =
+    streaming && !messages.some((message) => message.streaming)
+      ? [
+          ...messages,
+          {
+            id: "stream-wait",
+            role: "assistant",
+            parts: [{ type: "text" as const, text: "" }],
+            streaming: true,
+          },
+        ]
+      : messages;
 
   useEffect(() => {
     stickToBottom();
@@ -531,44 +580,39 @@ export function AgentChatTranscript({
 
   return (
     <View style={{ flex: 1 }}>
-    <FlatList
-      ref={listRef}
-      keyboardDismissMode="interactive"
-      contentContainerStyle={{
-        flexGrow: 1,
-        gap: 12,
-        justifyContent: rows.length === 0 ? "center" : "flex-start",
-        paddingBottom: 12,
-        paddingHorizontal: 18,
-        paddingTop: 12,
-      }}
-      contentInsetAdjustmentBehavior="never"
-      data={rows}
-      keyboardShouldPersistTaps="handled"
-      keyExtractor={(item) => item.id}
-      ListEmptyComponent={<EmptyChat />}
-      onContentSizeChange={onContentSizeChange}
-      onLayout={onLayout}
-      onScroll={onScroll}
-      onScrollBeginDrag={onScrollBeginDrag}
-      onScrollToIndexFailed={({ index }) => {
-        listRef.current?.scrollToOffset({ animated: false, offset: Math.max(0, index) * 80 });
-      }}
-      renderItem={({ item }) => (
-        <ChatMessage
-          expand={expand}
-          message={item}
-          messages={rows}
-          onExpand={setExpand}
-        />
-      )}
-      scrollEventThrottle={16}
-      style={{ backgroundColor: theme.colors.background, flex: 1 }}
-    />
-    <AgentChatDetailSheet
-      onDismiss={() => setExpand((state) => dismissSheet(state))}
-      sheets={expand.sheets}
-    />
+      <FlatList
+        ref={listRef}
+        keyboardDismissMode="interactive"
+        contentContainerStyle={{
+          flexGrow: 1,
+          gap: 12,
+          justifyContent: rows.length === 0 ? "center" : "flex-start",
+          paddingBottom: 12,
+          paddingHorizontal: 18,
+          paddingTop: 12,
+        }}
+        contentInsetAdjustmentBehavior="never"
+        data={rows}
+        keyboardShouldPersistTaps="handled"
+        keyExtractor={(item) => item.id}
+        ListEmptyComponent={<EmptyChat />}
+        onContentSizeChange={onContentSizeChange}
+        onLayout={onLayout}
+        onScroll={onScroll}
+        onScrollBeginDrag={onScrollBeginDrag}
+        onScrollToIndexFailed={({ index }) => {
+          listRef.current?.scrollToOffset({ animated: false, offset: Math.max(0, index) * 80 });
+        }}
+        renderItem={({ item }) => (
+          <ChatMessage expand={expand} message={item} messages={rows} onExpand={setExpand} />
+        )}
+        scrollEventThrottle={16}
+        style={{ backgroundColor: theme.colors.background, flex: 1 }}
+      />
+      <AgentChatDetailSheet
+        onDismiss={() => setExpand((state) => dismissSheet(state))}
+        sheets={expand.sheets}
+      />
     </View>
   );
 }

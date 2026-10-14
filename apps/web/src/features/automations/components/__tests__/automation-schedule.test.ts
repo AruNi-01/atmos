@@ -1,10 +1,7 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it } from "bun:test";
 
-import {
-  buildScheduleInput,
-  parseSchedule,
-} from "@/features/automations/lib/automation-schedule";
+import { buildScheduleInput, parseSchedule } from "@/features/automations/lib/automation-schedule";
 import type { AutomationSummary } from "@/features/automations/types";
 
 function summary(overrides: Partial<AutomationSummary> = {}): AutomationSummary {

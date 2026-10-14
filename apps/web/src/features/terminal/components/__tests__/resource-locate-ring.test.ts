@@ -1,9 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  DEFAULT_CENTER_SPACE_ID,
-} from "@/app-shell/center-space/center-space";
+import { DEFAULT_CENTER_SPACE_ID } from "@/app-shell/center-space/center-space";
 import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/lib/terminal-layout-document";
 import {
   applyResourceLocateArrival,
@@ -98,12 +96,8 @@ describe("resource locate pane helpers", () => {
   });
 
   it("shows the ring only during the active matching phase", () => {
-    expect(
-      shouldShowResourceLocateRing({ phase: "pending", target, candidate }),
-    ).toBe(false);
-    expect(
-      shouldShowResourceLocateRing({ phase: "active", target, candidate }),
-    ).toBe(true);
+    expect(shouldShowResourceLocateRing({ phase: "pending", target, candidate })).toBe(false);
+    expect(shouldShowResourceLocateRing({ phase: "active", target, candidate })).toBe(true);
     expect(
       shouldShowResourceLocateRing({
         phase: "active",
@@ -177,12 +171,8 @@ describe("resource locate pane wiring", () => {
     );
     expect(css.slice(locateAfter, locateAfter + 500)).toContain("border: 1.5px solid transparent");
     expect(css).not.toContain("2400ms ease-out forwards");
-    expect(css).not.toMatch(
-      /\.terminal-pane\.resource-locate-ring::after[\s\S]{0,400}box-shadow/,
-    );
-    expect(css).not.toMatch(
-      /\.resource-locate-ring[\s\S]{0,400}transform:\s*scale/,
-    );
+    expect(css).not.toMatch(/\.terminal-pane\.resource-locate-ring::after[\s\S]{0,400}box-shadow/);
+    expect(css).not.toMatch(/\.resource-locate-ring[\s\S]{0,400}transform:\s*scale/);
     expect(css).toContain("agent-attention-pane-border-pulse 2.4s ease-in-out infinite");
     expect(reducedMotion).toBeGreaterThan(locateAfter);
     const reducedBlock = css.slice(reducedMotion, reducedMotion + 280);

@@ -33,7 +33,11 @@ import {
 import { DEFAULT_CENTER_SPACE_ID } from "@/app-shell/center-space/center-space";
 import { LAUNCHPAD_ITEM_IDS } from "@/features/settings/lib/launchpad-items";
 
-function project(id: string, name: string, workspaces: Array<{ id: string; name: string }>): Project {
+function project(
+  id: string,
+  name: string,
+  workspaces: Array<{ id: string; name: string }>,
+): Project {
   return {
     id,
     name,
@@ -121,9 +125,7 @@ describe("buildObserverGraph", () => {
     expect(ids).toContain("workspace:w1");
     expect(ids).toContain("agent:a");
     expect(ids).toContain("agent:b");
-    const agentParents = graph.nodes
-      .filter((n) => n.kind === "agent")
-      .map((n) => n.parentId);
+    const agentParents = graph.nodes.filter((n) => n.kind === "agent").map((n) => n.parentId);
     expect(agentParents).toEqual(["workspace:w1", "workspace:w1"]);
     const pos = layoutObserverGraph(graph, new Set());
     const atmos = pos.get("atmos");
@@ -145,9 +147,7 @@ describe("buildObserverGraph", () => {
     const upper = agentA.y < agentB.y ? "agent:a" : "agent:b";
     const lower = upper === "agent:a" ? "agent:b" : "agent:a";
     const measured = layoutObserverGraph(graph, new Set(), new Map([[upper, 420]]));
-    expect(measured.get(lower)!.y).toBeGreaterThan(
-      (lower === "agent:a" ? agentA : agentB).y,
-    );
+    expect(measured.get(lower)!.y).toBeGreaterThan((lower === "agent:a" ? agentA : agentB).y);
   });
 
   it("falls back to Unassigned when bind is unknown", () => {
@@ -370,13 +370,13 @@ describe("buildObserverGraph", () => {
     expect(child?.label).toBe("Explore");
     expect(child?.session?.session_id).toBe("lead");
     expect(child?.child?.child_id).toBe("c1");
-    expect(expanded.edges.some((e) => e.source === "agent:lead" && e.target === "child:lead:c1" && e.kind === "spawn")).toBe(
-      true,
-    );
+    expect(
+      expanded.edges.some(
+        (e) => e.source === "agent:lead" && e.target === "child:lead:c1" && e.kind === "spawn",
+      ),
+    ).toBe(true);
     expect(expanded.edges.every((edge) => edge.animated === false)).toBe(true);
-    expect(expanded.nodes.find((n) => n.id === "agent:lead")?.visibleTurns[0]?.prompt).toBe(
-      "one",
-    );
+    expect(expanded.nodes.find((n) => n.id === "agent:lead")?.visibleTurns[0]?.prompt).toBe("one");
     expect(child?.currentToolLine).toBeUndefined();
   });
 
@@ -587,7 +587,10 @@ describe("buildObserverGraph", () => {
       expandedAgentIds: new Set(),
     });
     expect(
-      graph.nodes.filter((node) => node.kind === "subagent").map((node) => node.child?.child_id).sort(),
+      graph.nodes
+        .filter((node) => node.kind === "subagent")
+        .map((node) => node.child?.child_id)
+        .sort(),
     ).toEqual(["kid", "sa-a", "sa-b"]);
     const specs = graph.nodes.find((node) => node.id === "child:lead:sa-a");
     const rust = graph.nodes.find((node) => node.id === "child:lead:sa-b");
@@ -660,7 +663,10 @@ describe("buildObserverGraph", () => {
 
   it("keeps a measured node box when the flow replaces the node object", () => {
     const next = preserveMeasuredNodes(
-      [{ id: "project", measured: { width: 288, height: 112 } }, { id: "gone", measured: { width: 288, height: 80 } }],
+      [
+        { id: "project", measured: { width: 288, height: 112 } },
+        { id: "gone", measured: { width: 288, height: 80 } },
+      ],
       [{ id: "project" }, { id: "agent" }],
     );
     expect(next[0]?.measured).toEqual({ width: 288, height: 112 });
@@ -1075,49 +1081,59 @@ describe("observerLiveHeadline", () => {
   const labels = { thinking: "Thinking", streaming: "Streaming", working: "Generating" };
 
   it("shows the in-flight tool, then generating, then the prompt", () => {
-    expect(observerLiveHeadline({
-      occupancy: "running",
-      liveKind: "tool",
-      currentToolLine: "Read observer-flow.tsx",
-      latestPrompt: "fix the card",
-      fallback: "Claude Code",
-      labels,
-    })).toBe("Read observer-flow.tsx");
-    expect(observerLiveHeadline({
-      occupancy: "running",
-      liveKind: "thinking",
-      latestPrompt: "fix the card",
-      fallback: "Claude Code",
-      labels,
-    })).toBe("Thinking");
-    expect(observerLiveHeadline({
-      occupancy: "running",
-      liveKind: "working",
-      latestPrompt: "fix the card",
-      fallback: "Claude Code",
-      labels,
-    })).toBe("Generating");
-    expect(observerLiveHeadline({
-      occupancy: "idle",
-      latestPrompt: "fix the card",
-      fallback: "Claude Code",
-      labels,
-    })).toBe("fix the card");
+    expect(
+      observerLiveHeadline({
+        occupancy: "running",
+        liveKind: "tool",
+        currentToolLine: "Read observer-flow.tsx",
+        latestPrompt: "fix the card",
+        fallback: "Claude Code",
+        labels,
+      }),
+    ).toBe("Read observer-flow.tsx");
+    expect(
+      observerLiveHeadline({
+        occupancy: "running",
+        liveKind: "thinking",
+        latestPrompt: "fix the card",
+        fallback: "Claude Code",
+        labels,
+      }),
+    ).toBe("Thinking");
+    expect(
+      observerLiveHeadline({
+        occupancy: "running",
+        liveKind: "working",
+        latestPrompt: "fix the card",
+        fallback: "Claude Code",
+        labels,
+      }),
+    ).toBe("Generating");
+    expect(
+      observerLiveHeadline({
+        occupancy: "idle",
+        latestPrompt: "fix the card",
+        fallback: "Claude Code",
+        labels,
+      }),
+    ).toBe("fix the card");
   });
 
   it("prefers the permission action over the tool line", () => {
-    expect(observerLiveHeadline({
-      occupancy: "permission_request",
-      liveKind: "permission",
-      currentToolLine: "Bash",
-      fallback: "Claude Code",
-      pendingPermission: {
-        request_id: "1",
-        tool: "Bash",
-        description: "rm -rf ./tmp",
-      },
-      labels,
-    })).toBe("rm -rf ./tmp");
+    expect(
+      observerLiveHeadline({
+        occupancy: "permission_request",
+        liveKind: "permission",
+        currentToolLine: "Bash",
+        fallback: "Claude Code",
+        pendingPermission: {
+          request_id: "1",
+          tool: "Bash",
+          description: "rm -rf ./tmp",
+        },
+        labels,
+      }),
+    ).toBe("rm -rf ./tmp");
   });
 });
 
@@ -1131,10 +1147,16 @@ describe("observer card menu", () => {
     expect(observerCardCanFold({ kind: "subagent", descendantCount: 0 })).toBe(false);
     expect(observerCardCanFold({ kind: "subagent", descendantCount: 1 })).toBe(true);
 
-    expect(observerCardCanRemove({ kind: "agent", occupancy: "idle", liveKind: "idle" })).toBe(true);
+    expect(observerCardCanRemove({ kind: "agent", occupancy: "idle", liveKind: "idle" })).toBe(
+      true,
+    );
     expect(observerCardCanRemove({ kind: "agent", occupancy: "idle" })).toBe(true);
-    expect(observerCardCanRemove({ kind: "agent", occupancy: "running", liveKind: "working" })).toBe(false);
-    expect(observerCardCanRemove({ kind: "agent", occupancy: "idle", liveKind: "working" })).toBe(false);
+    expect(
+      observerCardCanRemove({ kind: "agent", occupancy: "running", liveKind: "working" }),
+    ).toBe(false);
+    expect(observerCardCanRemove({ kind: "agent", occupancy: "idle", liveKind: "working" })).toBe(
+      false,
+    );
     expect(observerCardCanRemove({ kind: "subagent", occupancy: "idle" })).toBe(false);
     expect(observerCardCanRemove({ kind: "project", occupancy: "idle" })).toBe(false);
     expect(observerCardCanRemove({ kind: "workspace" })).toBe(false);
@@ -1192,9 +1214,7 @@ describe("product name", () => {
       "Hooks only see tool steps. Open the pane for the full turn.",
     );
     expect(en.AgentObserver.noTurns).toBe("No steps yet");
-    expect(en.settings.layoutSection.launchpad.items.agentObserver.title).toBe(
-      "Agent Observer",
-    );
+    expect(en.settings.layoutSection.launchpad.items.agentObserver.title).toBe("Agent Observer");
     expect(LAUNCHPAD_ITEM_IDS).toContain("agent-observer");
   });
 });

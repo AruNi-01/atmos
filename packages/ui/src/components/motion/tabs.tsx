@@ -56,11 +56,7 @@ function boxesNear(a: IndicatorBox, b: IndicatorBox, eps = 0.5) {
   );
 }
 
-function measureSelectedTab(
-  list: HTMLElement,
-  underline: boolean,
-  orientation: Orientation,
-) {
+function measureSelectedTab(list: HTMLElement, underline: boolean, orientation: Orientation) {
   const selected = list.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
   if (!selected) return null;
   const listRect = list.getBoundingClientRect();
@@ -101,13 +97,7 @@ function visualBox(el: HTMLElement, layout: IndicatorBox): IndicatorBox {
   return { x, y, w: layout.w * sx, h: layout.h * sy };
 }
 
-function setIndicatorTransform(
-  el: HTMLElement,
-  x: number,
-  y: number,
-  sx: number,
-  sy: number,
-) {
+function setIndicatorTransform(el: HTMLElement, x: number, y: number, sx: number, sy: number) {
   el.style.transformOrigin = "0 0";
   el.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${sx}, ${sy})`;
 }
@@ -250,8 +240,7 @@ export function TabsList({
     };
 
     const selected = list.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
-    const scroller =
-      list.querySelector<HTMLElement>("[data-center-tabs-scroll]") ?? list;
+    const scroller = list.querySelector<HTMLElement>("[data-center-tabs-scroll]") ?? list;
     const resizeObserver = new ResizeObserver(() => follow(true));
     resizeObserver.observe(list);
     if (scroller !== list) resizeObserver.observe(scroller);
@@ -287,18 +276,13 @@ export function TabsList({
   const listClassName = cn(
     listClasses[variant],
     vertical && "flex-col",
-    vertical && variant === "underline" && "border-b-0 border-r",
+    vertical && variant === "underline" && "border-r border-b-0",
     className,
   );
 
   if (!trailing) {
     return (
-      <div
-        ref={listRef}
-        role="tablist"
-        aria-orientation={orientation}
-        className={listClassName}
-      >
+      <div ref={listRef} role="tablist" aria-orientation={orientation} className={listClassName}>
         {indicator}
         {children}
       </div>
@@ -333,14 +317,12 @@ export function TabsList({
           data-center-tabs-edge-fade=""
           className={
             vertical
-              ? "pointer-events-none absolute inset-x-0 bottom-0 z-10 h-4 bg-gradient-to-t from-background to-transparent backdrop-blur-[4px] [mask-image:linear-gradient(to_top,black,transparent)] [-webkit-mask-image:linear-gradient(to_top,black,transparent)]"
-              : "pointer-events-none absolute inset-y-0 right-0 z-10 w-4 bg-gradient-to-l from-background to-transparent backdrop-blur-[4px] [mask-image:linear-gradient(to_left,black,transparent)] [-webkit-mask-image:linear-gradient(to_left,black,transparent)]"
+              ? "pointer-events-none absolute inset-x-0 bottom-0 z-10 h-4 bg-gradient-to-t from-background to-transparent [mask-image:linear-gradient(to_top,black,transparent)] backdrop-blur-[4px] [-webkit-mask-image:linear-gradient(to_top,black,transparent)]"
+              : "pointer-events-none absolute inset-y-0 right-0 z-10 w-4 bg-gradient-to-l from-background to-transparent [mask-image:linear-gradient(to_left,black,transparent)] backdrop-blur-[4px] [-webkit-mask-image:linear-gradient(to_left,black,transparent)]"
           }
         />
       </div>
-      <div className="relative z-20 flex shrink-0 items-center self-stretch">
-        {trailing}
-      </div>
+      <div className="relative z-20 flex shrink-0 items-center self-stretch">{trailing}</div>
     </div>
   );
 }
@@ -352,49 +334,18 @@ type TabsTriggerProps = {
   indicatorClassName?: string;
 } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "value">;
 
-export const TabsTrigger = forwardRef<HTMLButtonElement, TabsTriggerProps>(
-  function TabsTrigger(
-    {
-      value,
-      children,
-      className,
-      indicatorClassName,
-      onClick,
-      type = "button",
-      ...props
-    },
-    ref,
-  ) {
-    const { value: current, setValue, variant } = useTabs();
-    const active = current === value;
-    const handleClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
-      onClick?.(event);
-      if (!event.defaultPrevented) setValue(value);
-    };
+export const TabsTrigger = forwardRef<HTMLButtonElement, TabsTriggerProps>(function TabsTrigger(
+  { value, children, className, indicatorClassName, onClick, type = "button", ...props },
+  ref,
+) {
+  const { value: current, setValue, variant } = useTabs();
+  const active = current === value;
+  const handleClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    onClick?.(event);
+    if (!event.defaultPrevented) setValue(value);
+  };
 
-    if (variant === "underline") {
-      return (
-        <button
-          {...props}
-          ref={ref}
-          type={type}
-          role="tab"
-          aria-selected={active}
-          data-tab-indicator-class={indicatorClassName}
-          onClick={handleClick}
-          className={cn(
-            "relative isolate z-10 px-3 pb-2.5 pt-1 -mb-px text-sm font-medium min-h-[44px] inline-flex items-center",
-            active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-            className,
-          )}
-        >
-          {children}
-        </button>
-      );
-    }
-
-    const radius = variant === "pill" ? "rounded-full" : "rounded-md";
-
+  if (variant === "underline") {
     return (
       <button
         {...props}
@@ -405,19 +356,38 @@ export const TabsTrigger = forwardRef<HTMLButtonElement, TabsTriggerProps>(
         data-tab-indicator-class={indicatorClassName}
         onClick={handleClick}
         className={cn(
-          "relative isolate z-10 inline-flex items-center justify-center whitespace-nowrap bg-transparent px-3.5 py-1.5 text-sm font-medium outline-none",
-          active
-            ? "text-primary-foreground"
-            : "text-muted-foreground hover:text-foreground",
-          radius,
+          "relative isolate z-10 -mb-px inline-flex min-h-[44px] items-center px-3 pt-1 pb-2.5 text-sm font-medium",
+          active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
           className,
         )}
       >
         {children}
       </button>
     );
-  },
-);
+  }
+
+  const radius = variant === "pill" ? "rounded-full" : "rounded-md";
+
+  return (
+    <button
+      {...props}
+      ref={ref}
+      type={type}
+      role="tab"
+      aria-selected={active}
+      data-tab-indicator-class={indicatorClassName}
+      onClick={handleClick}
+      className={cn(
+        "relative isolate z-10 inline-flex items-center justify-center bg-transparent px-3.5 py-1.5 text-sm font-medium whitespace-nowrap outline-none",
+        active ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+        radius,
+        className,
+      )}
+    >
+      {children}
+    </button>
+  );
+});
 
 export function TabsContent({
   value,

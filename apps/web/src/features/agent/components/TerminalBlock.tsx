@@ -20,26 +20,25 @@ import { AgentToolEmptyBody } from "./tool-results/AgentToolBodies";
 import { AgentCommandLine } from "./AgentCommandLine";
 import { cn } from "@/shared/lib/utils";
 
-function executeFields(part: AgentToolCallPart): { command: string; output: string; cwd?: string | null } {
+function executeFields(part: AgentToolCallPart): {
+  command: string;
+  output: string;
+  cwd?: string | null;
+} {
   const command = part.params?.type === "execute" ? part.params.command : "";
   const cwd = part.params?.type === "execute" ? part.params.cwd : null;
-  const output = part.result?.type === "execute"
-    ? part.result.output
-    : part.result?.type === "text"
-      ? part.result.text
-      : part.result?.type === "error"
-        ? part.result.message
-        : "";
+  const output =
+    part.result?.type === "execute"
+      ? part.result.output
+      : part.result?.type === "text"
+        ? part.result.text
+        : part.result?.type === "error"
+          ? part.result.message
+          : "";
   return { command, output, cwd };
 }
 
-function ExecuteCopyMenu({
-  command,
-  output,
-}: {
-  command: string;
-  output: string;
-}) {
+function ExecuteCopyMenu({ command, output }: { command: string; output: string }) {
   const t = useTranslations("Agent.components.terminalBlock");
   const copy = useCallback((text: string) => {
     const value = text.trimEnd();
@@ -111,7 +110,7 @@ export function TerminalBlock({
     >
       <div className="relative">
         {commandStr || output ? (
-          <div className="absolute right-1.5 top-1.5 z-10">
+          <div className="absolute top-1.5 right-1.5 z-10">
             <ExecuteCopyMenu command={commandStr} output={output} />
           </div>
         ) : null}

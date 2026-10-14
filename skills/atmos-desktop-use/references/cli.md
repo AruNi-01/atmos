@@ -109,14 +109,14 @@ Screenshot JSON includes `screen_width` / `screenshot_width` (and heights). On R
 
 Every successful `drive window-state` JSON includes `result.atmos_surface`:
 
-| Field | Meaning |
-|-------|---------|
-| `kind` | `ax_ok` \| `ax_sparse` \| `ax_heavy` \| `ax_empty` |
-| `electron_likely` | Heuristic for Chromium/Electron-style shells |
-| `preferred_path` | `element_token` or `pixel` |
-| `sample_element_token` | First token if present |
-| `next_steps` / `cli_examples` | Agent-facing ladder copy |
-| `action_ladder` | background AX → pixel → foreground |
+| Field                         | Meaning                                            |
+| ----------------------------- | -------------------------------------------------- |
+| `kind`                        | `ax_ok` \| `ax_sparse` \| `ax_heavy` \| `ax_empty` |
+| `electron_likely`             | Heuristic for Chromium/Electron-style shells       |
+| `preferred_path`              | `element_token` or `pixel`                         |
+| `sample_element_token`        | First token if present                             |
+| `next_steps` / `cli_examples` | Agent-facing ladder copy                           |
+| `action_ladder`               | background AX → pixel → foreground                 |
 
 When `kind=ax_empty`, stop retrying tokens; use screenshot + pixel path.
 
@@ -132,21 +132,21 @@ Pixel-path clicks also set `result.atmos_addressing` with the same ladder remind
 
 ### Click coordinate contract (engine 0.17)
 
-| Flags | Coordinate space | Notes |
-|-------|------------------|-------|
-| `--element-token` | AX handle | Preferred true-background path. Re-run window-state each turn. |
-| `--element-index` + `--snapshot-id` + `--window-id` | AX index | Engine 0.17; prefer token. |
-| `--x --y` only | **PNG pixels** (`--coord-space png`, default) | From `drive screenshot` image. CLI sends `scope=desktop`. |
-| `--x --y --coord-space points` | **Logical points** | Same as window bounds / AX; CLI scales to PNG before the engine. |
-| `--x --y --window-id` | **Window-local** image pixels | Optional `--pid`. |
-| `--x --y --coord-space points --window-id` | Screen or local **points** | CLI converts to window-local PNG (screen-absolute points inside the window are auto-normalized). |
-| `--x --y --pid` (no window_id) | **Ignored pid** | CLI strips bare `--pid` so desktop coords stay valid. |
-| `type --x --y` | Same as click | Pixel-focus then type (needed for empty-AX / custom UI). |
+| Flags                                               | Coordinate space                              | Notes                                                                                            |
+| --------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `--element-token`                                   | AX handle                                     | Preferred true-background path. Re-run window-state each turn.                                   |
+| `--element-index` + `--snapshot-id` + `--window-id` | AX index                                      | Engine 0.17; prefer token.                                                                       |
+| `--x --y` only                                      | **PNG pixels** (`--coord-space png`, default) | From `drive screenshot` image. CLI sends `scope=desktop`.                                        |
+| `--x --y --coord-space points`                      | **Logical points**                            | Same as window bounds / AX; CLI scales to PNG before the engine.                                 |
+| `--x --y --window-id`                               | **Window-local** image pixels                 | Optional `--pid`.                                                                                |
+| `--x --y --coord-space points --window-id`          | Screen or local **points**                    | CLI converts to window-local PNG (screen-absolute points inside the window are auto-normalized). |
+| `--x --y --pid` (no window_id)                      | **Ignored pid**                               | CLI strips bare `--pid` so desktop coords stay valid.                                            |
+| `type --x --y`                                      | Same as click                                 | Pixel-focus then type (needed for empty-AX / custom UI).                                         |
 
 `delivery_mode`:
 
-- `background` (default): no focus steal when possible  
-- `foreground`: briefly front target (`window_id` recommended) for stubborn Electron UIs  
+- `background` (default): no focus steal when possible
+- `foreground`: briefly front target (`window_id` recommended) for stubborn Electron UIs
 
 Avoid `drive front` every turn — only escalate after background pixel fails.
 

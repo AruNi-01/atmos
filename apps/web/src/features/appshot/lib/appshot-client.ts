@@ -39,10 +39,7 @@ function appshotLibT(key: string): string {
   return cachedAppshotLibTranslator(key as never);
 }
 
-async function invokeAppshot<T>(
-  command: string,
-  payload?: Record<string, unknown>,
-): Promise<T> {
+async function invokeAppshot<T>(command: string, payload?: Record<string, unknown>): Promise<T> {
   if (!isDesktopRuntime()) {
     throw new Error(appshotLibT("client.desktopOnly"));
   }
@@ -61,9 +58,7 @@ export async function getAppshotStatus(): Promise<AppshotStatus> {
   return await invokeAppshot<AppshotStatus>("appshot_status");
 }
 
-export async function acceptAppshotPending(
-  previewId: string,
-): Promise<AppshotAcceptResponse> {
+export async function acceptAppshotPending(previewId: string): Promise<AppshotAcceptResponse> {
   return await invokeAppshot<AppshotAcceptResponse>("appshot_accept_pending", {
     previewId,
   });
@@ -94,9 +89,7 @@ export async function listAppshotRecords(): Promise<AppshotRecordListItem[]> {
   return await invokeAppshot<AppshotRecordListItem[]>("appshot_list_records");
 }
 
-export async function readAppshotRecords(
-  timestamps: string[],
-): Promise<AppshotRecordDetail[]> {
+export async function readAppshotRecords(timestamps: string[]): Promise<AppshotRecordDetail[]> {
   if (!isDesktopRuntime() || timestamps.length === 0) {
     return [];
   }
@@ -107,17 +100,13 @@ export async function readAppshotRecords(
   });
 }
 
-export async function readAppshotSnapshot(
-  timestamp: string,
-): Promise<AppshotSnapshotView> {
+export async function readAppshotSnapshot(timestamp: string): Promise<AppshotSnapshotView> {
   return await invokeAppshot<AppshotSnapshotView>("appshot_read_snapshot", {
     timestamp,
   });
 }
 
-export async function copyAppshotRecord(
-  timestamp: string,
-): Promise<AppshotCopyResponse> {
+export async function copyAppshotRecord(timestamp: string): Promise<AppshotCopyResponse> {
   return await invokeAppshot<AppshotCopyResponse>("appshot_copy_record", {
     timestamp,
   });
@@ -127,9 +116,7 @@ export async function deleteAppshotRecord(timestamp: string): Promise<void> {
   await invokeAppshot<void>("appshot_delete_record", { timestamp });
 }
 
-export async function openAppshotPermissionTarget(
-  target: AppshotSettingsTarget,
-): Promise<void> {
+export async function openAppshotPermissionTarget(target: AppshotSettingsTarget): Promise<void> {
   const req: AppshotOpenPermissionsRequest = { target };
   await invokeAppshot<void>("appshot_open_permissions", { req });
 }
@@ -137,12 +124,8 @@ export async function openAppshotPermissionTarget(
 /**
  * Primary path: open Settings → Permission access for OS grants.
  */
-export async function showAppshotPermissionsWindow(
-  _locale = currentAppLocale(),
-): Promise<void> {
-  const { openPermissionAccessSettingsInApp } = await import(
-    "./open-desktop-use-settings"
-  );
+export async function showAppshotPermissionsWindow(_locale = currentAppLocale()): Promise<void> {
+  const { openPermissionAccessSettingsInApp } = await import("./open-desktop-use-settings");
   openPermissionAccessSettingsInApp();
 }
 
@@ -217,10 +200,7 @@ export function getDeniedAppshotPermissions(
   }
 
   const byName = new Map<string, AppshotPermissionState>();
-  for (const permission of [
-    ...status.permissions,
-    ...status.trigger.permissions,
-  ]) {
+  for (const permission of [...status.permissions, ...status.trigger.permissions]) {
     if (permission.granted) {
       continue;
     }

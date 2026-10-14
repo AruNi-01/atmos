@@ -44,15 +44,18 @@ The product therefore needs one user-facing concept that can compile into both i
 Add `model`, `reasoning`, and `extra_args` only to APP-017 automation definitions. Leave New Workspace and other surfaces unchanged.
 
 **Pros**:
+
 - Fastest path to solve the immediate automation need.
 - Minimal data-model churn outside APP-017.
 
 **Cons**:
+
 - Bakes the wrong abstraction into the product.
 - Forces New Workspace and later surfaces to repeat the same work.
 - Leaves saved reusable configs and Settings management unsolved.
 
 **Unknown**:
+
 - How long before the same request appears in Code Review or other terminal-agent surfaces.
 
 ### Option B — Shared run config + Settings-managed saved templates (recommended)
@@ -68,15 +71,18 @@ Introduce one reusable **Terminal Agent Run Config** concept:
 Each surface asks the backend what the selected agent supports, then renders either a select, text input, or no control at all.
 
 **Pros**:
+
 - Matches the actual product shape: one capability, multiple surfaces.
 - Keeps static built-in capability facts in `resources` and user-owned reusable templates in `function_settings.json`.
 - Makes New Workspace, Automations, and future Code Review-style flows reuse the same config story.
 
 **Cons**:
+
 - More plumbing up front because interactive and headless paths both need to understand the config.
 - Needs a deliberate anti-drift story between web-side interactive command building and server-side automation invocation building.
 
 **Unknown**:
+
 - How much structured capability support M1 should offer custom user-defined agents beyond advanced args.
 
 ### Option C — Full agent-native dynamic forms
@@ -84,15 +90,18 @@ Each surface asks the backend what the selected agent supports, then renders eit
 Treat each agent CLI as its own mini platform. Atmos would expose agent-native fields such as `--profile`, provider selection, effort knobs, and any custom extension options through dynamic per-agent schemas.
 
 **Pros**:
+
 - Maximum flexibility.
 - Could model Codex, Claude, Pi, Cursor, and others more faithfully.
 
 **Cons**:
+
 - Overkill for the current problem.
 - Large maintenance burden because Atmos would need to keep pace with every CLI's evolving flag surface.
 - Turns a shared agent picker into an increasingly agent-specific configuration system.
 
 **Unknown**:
+
 - Whether the maintenance cost is acceptable even for built-in agents, let alone user-defined custom agents.
 
 ## Key forks in the road

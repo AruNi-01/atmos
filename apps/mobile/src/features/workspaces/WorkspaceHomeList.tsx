@@ -10,7 +10,12 @@ import Reanimated, {
 import { scheduleOnRN } from "react-native-worklets";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import type { GroupModel, ProjectModel, ProjectWorkspaceBootstrapResponse, WorkspaceModel } from "@/api/types";
+import type {
+  GroupModel,
+  ProjectModel,
+  ProjectWorkspaceBootstrapResponse,
+  WorkspaceModel,
+} from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
@@ -80,7 +85,9 @@ export function WorkspaceHomeList({
     onArchive: (entry: WorkspaceHomeEntry) => {
       setActionError(null);
       void actions.archive(entry.id).catch((error: unknown) => {
-        setActionError(error instanceof Error ? error.message : "Could not archive this workspace.");
+        setActionError(
+          error instanceof Error ? error.message : "Could not archive this workspace.",
+        );
       });
     },
     onDelete: (entry: WorkspaceHomeEntry) => setDeleteEntry(entry),
@@ -112,7 +119,13 @@ export function WorkspaceHomeList({
   return (
     <>
       {actionError ? (
-        <Text style={{ color: theme.colors.red, fontSize: 13, paddingHorizontal: spacing.sectionLabelX }}>
+        <Text
+          style={{
+            color: theme.colors.red,
+            fontSize: 13,
+            paddingHorizontal: spacing.sectionLabelX,
+          }}
+        >
           {actionError}
         </Text>
       ) : null}
@@ -178,7 +191,9 @@ export function WorkspaceHomeList({
                 .remove(entry.id)
                 .then(() => setDeleteEntry(null))
                 .catch((error: unknown) => {
-                  setActionError(error instanceof Error ? error.message : "Could not delete this workspace.");
+                  setActionError(
+                    error instanceof Error ? error.message : "Could not delete this workspace.",
+                  );
                 })
                 .finally(() => setDeleting(false));
             }}
@@ -231,9 +246,13 @@ function CollapsibleRows({ children, open }: { children: ReactNode; open: boolea
     const next = open ? 1 : 0;
     target.set(next);
     progress.set(
-      withTiming(next, { duration: SECTION_MOTION_MS, easing: Easing.out(Easing.cubic) }, (finished) => {
-        if (finished && target.get() === 1) scheduleOnRN(setClipping, false);
-      }),
+      withTiming(
+        next,
+        { duration: SECTION_MOTION_MS, easing: Easing.out(Easing.cubic) },
+        (finished) => {
+          if (finished && target.get() === 1) scheduleOnRN(setClipping, false);
+        },
+      ),
     );
   }, [clipping, open, progress, reducedMotion, target]);
 
@@ -355,7 +374,11 @@ function WorkspaceGroup({
           </Text>
         ) : null}
         <Animated.View style={{ transform: [{ rotate: chevronRotate }] }}>
-          <ChevronDownIcon color={theme.colors.tertiaryLabel} size={SECTION_CHEVRON_SIZE} strokeWidth={2.4} />
+          <ChevronDownIcon
+            color={theme.colors.tertiaryLabel}
+            size={SECTION_CHEVRON_SIZE}
+            strokeWidth={2.4}
+          />
         </Animated.View>
       </Pressable>
       <CollapsibleRows open={open}>

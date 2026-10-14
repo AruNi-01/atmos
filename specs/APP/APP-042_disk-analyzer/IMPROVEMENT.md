@@ -8,37 +8,37 @@
 
 ## How to use this file
 
-| Rule | Detail |
-|------|--------|
+| Rule            | Detail                                                                                                                           |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | **When to add** | After fixing a user-reported bug, reliability issue, quality regression, agent ergonomics gap, or deliberate product parity gap. |
-| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-007**). |
-| **Status** | `open` → `mitigated` → `closed` (or `wont-fix` with reason). |
-| **Do not** | Duplicate full TECH sections; link to TECH/PRD and paste only deltas. |
-| **Versions** | If agent-facing behavior changes, note the relevant Skill / CLI / runtime version in the entry. |
+| **Entry id**    | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-007**).                                                             |
+| **Status**      | `open` → `mitigated` → `closed` (or `wont-fix` with reason).                                                                     |
+| **Do not**      | Duplicate full TECH sections; link to TECH/PRD and paste only deltas.                                                            |
+| **Versions**    | If agent-facing behavior changes, note the relevant Skill / CLI / runtime version in the entry.                                  |
 
 ---
 
 ## Index
 
-| Id | Title | Status | Date |
-|----|-------|--------|------|
-| IMP-001 | Default scan covers machine git worktrees and agent homes | mitigated | 2026-08-13 |
-| IMP-002 | Overview first paint + grouping for worktrees / agent data | mitigated | 2026-08-13 |
-| IMP-003 | Measure agent sessions only, not whole agent homes | mitigated | 2026-08-13 |
+| Id      | Title                                                                     | Status    | Date       |
+| ------- | ------------------------------------------------------------------------- | --------- | ---------- |
+| IMP-001 | Default scan covers machine git worktrees and agent homes                 | mitigated | 2026-08-13 |
+| IMP-002 | Overview first paint + grouping for worktrees / agent data                | mitigated | 2026-08-13 |
+| IMP-003 | Measure agent sessions only, not whole agent homes                        | mitigated | 2026-08-13 |
 | IMP-004 | Cover Grok / OpenCode / Devin and other skill-listed agent session stores | mitigated | 2026-08-13 |
-| IMP-005 | C-end agent session labels hide directories | mitigated | 2026-08-13 |
-| IMP-006 | Decode percent-encoded session folder names | mitigated | 2026-08-13 |
+| IMP-005 | C-end agent session labels hide directories                               | mitigated | 2026-08-13 |
+| IMP-006 | Decode percent-encoded session folder names                               | mitigated | 2026-08-13 |
 
 ---
 
 ## IMP-001 · Default scan covers machine git worktrees and agent homes
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-08-13 |
-| **Status** | mitigated |
-| **Reported by** | user |
-| **Severity** | ergonomics |
+| Field           | Value      |
+| --------------- | ---------- |
+| **Date**        | 2026-08-13 |
+| **Status**      | mitigated  |
+| **Reported by** | user       |
+| **Severity**    | ergonomics |
 
 ### Problem
 
@@ -83,12 +83,12 @@ Default overview lists Atmos roots plus machine worktrees and agent data, labele
 
 ## IMP-002 · Overview first paint + grouping for worktrees / agent data
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-08-13 |
-| **Status** | mitigated |
-| **Reported by** | user |
-| **Severity** | ergonomics |
+| Field           | Value      |
+| --------------- | ---------- |
+| **Date**        | 2026-08-13 |
+| **Status**      | mitigated  |
+| **Reported by** | user       |
+| **Severity**    | ergonomics |
 
 ### Problem
 
@@ -118,12 +118,12 @@ First chart paint is Atmos-shaped; worktrees appear when found. Agent/worktree c
 
 ## IMP-003 · Measure agent sessions only, not whole agent homes
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-08-13 |
-| **Status** | mitigated |
-| **Reported by** | user |
-| **Severity** | ergonomics |
+| Field           | Value      |
+| --------------- | ---------- |
+| **Date**        | 2026-08-13 |
+| **Status**      | mitigated  |
+| **Reported by** | user       |
+| **Severity**    | ergonomics |
 
 ### Problem
 
@@ -158,12 +158,12 @@ Agent data tiles are transcripts/chats. Cursor/Codex worktrees show up in the Gi
 
 ## IMP-004 · Cover Grok / OpenCode / Devin and other skill-listed agent session stores
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-08-13 |
-| **Status** | mitigated |
-| **Reported by** | user |
-| **Severity** | ergonomics |
+| Field           | Value      |
+| --------------- | ---------- |
+| **Date**        | 2026-08-13 |
+| **Status**      | mitigated  |
+| **Reported by** | user       |
+| **Severity**    | ergonomics |
 
 ### Problem
 
@@ -191,12 +191,12 @@ Installed Grok / OpenCode / Devin / Amp / Factory / … session dirs show under 
 
 ## IMP-005 · C-end agent session labels hide directories
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-08-13 |
-| **Status** | mitigated |
-| **Reported by** | user |
-| **Severity** | ergonomics |
+| Field           | Value      |
+| --------------- | ---------- |
+| **Date**        | 2026-08-13 |
+| **Status**      | mitigated  |
+| **Reported by** | user       |
+| **Severity**    | ergonomics |
 
 ### Problem
 
@@ -222,12 +222,12 @@ Users see which agent’s session files a tile is, not where it lives on disk. D
 
 ## IMP-006 · Decode percent-encoded session folder names
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-08-13 |
-| **Status** | mitigated |
-| **Reported by** | user |
-| **Severity** | ergonomics |
+| Field                     | Value                    |
+| ------------------------- | ------------------------ |
+| **Date**                  | 2026-08-13               |
+| **Status**                | mitigated                |
+| **Reported by**           | user                     |
+| **Severity**              | ergonomics               |
 | **Skill / CLI / runtime** | N/A — C-end display only |
 
 ### Problem

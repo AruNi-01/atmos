@@ -71,7 +71,9 @@ describe("terminal shortcuts", () => {
   });
 
   test("wraps clipboard text for bracketed paste", async () => {
-    await expect(getTerminalPasteInput(async () => "first\nsecond")).resolves.toBe("\x1b[200~first\rsecond\x1b[201~");
+    await expect(getTerminalPasteInput(async () => "first\nsecond")).resolves.toBe(
+      "\x1b[200~first\rsecond\x1b[201~",
+    );
   });
 
   test("ignores empty clipboard text", async () => {

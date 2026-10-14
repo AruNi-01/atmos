@@ -235,26 +235,31 @@ bash ./install-local-web-runtime.sh --version <version> --no-start
 ## Quick Reference
 
 ### Dry Run
+
 ```bash
 node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version> --dry-run
 ```
 
 ### Standard Release Prep
+
 ```bash
 node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version>
 ```
 
 ### Validate Versions Directly
+
 ```bash
 node ./scripts/release/check-local-runtime-version.mjs --release-tag local-web-runtime-<version>
 ```
 
 ### Build Local Runtime Archive Directly
+
 ```bash
 node ./scripts/local-runtime/build-runtime.mjs
 ```
 
 ### Monitor Workflow
+
 ```bash
 gh run list --workflow release-local-runtime.yml --limit 5
 gh run watch <run-id>

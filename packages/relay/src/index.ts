@@ -19,10 +19,7 @@ import {
 import { handleGithubWebhook } from "./github-webhook";
 import { ServerHub } from "./server-hub";
 import { PtDesignRoom } from "./pt-design-room";
-import {
-  isValidPtDesignRoomId,
-  parsePtDesignRoomPath,
-} from "./pt-design-room-protocol";
+import { isValidPtDesignRoomId, parsePtDesignRoomPath } from "./pt-design-room-protocol";
 
 export interface Env {
   SERVER_HUB: DurableObjectNamespace<ServerHub>;
@@ -83,20 +80,12 @@ export default {
 
     const path = normalizedPath(url.pathname);
 
-    if (
-      path === "/ws/server" ||
-      path === "/v1/server" ||
-      path === "/v1/machine/server"
-    ) {
+    if (path === "/ws/server" || path === "/v1/server" || path === "/v1/machine/server") {
       const res = await handleServerWebSocket(request, env, url);
       return withCorsWs(res);
     }
 
-    if (
-      path === "/ws/client" ||
-      path === "/v1/client" ||
-      path === "/v1/machine/client"
-    ) {
+    if (path === "/ws/client" || path === "/v1/client" || path === "/v1/machine/client") {
       const res = await handleClientWebSocket(request, env, url, "app");
       return withCorsWs(res);
     }
@@ -120,9 +109,7 @@ export default {
 
     const gateway = matchGatewayPath(path);
     if (gateway) {
-      return withCors(
-        await handleHttpGatewayProxy(request, env, url, gateway),
-      );
+      return withCors(await handleHttpGatewayProxy(request, env, url, gateway));
     }
 
     if (path === "/v1/github/webhook" && request.method === "POST") {
@@ -137,9 +124,7 @@ export default {
     }
 
     if (path === "/github/setup/complete" && request.method === "GET") {
-      return withCors(
-        Response.redirect(githubSetupCompletionUrl(url.searchParams), 302),
-      );
+      return withCors(Response.redirect(githubSetupCompletionUrl(url.searchParams), 302));
     }
 
     return withCors(await handleApi(request, env, url));
@@ -161,10 +146,7 @@ function normalizedPath(pathname: string): string {
 function withCors(res: Response): Response {
   const h = new Headers(res.headers);
   h.set("Access-Control-Allow-Origin", "*");
-  h.set(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-  );
+  h.set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   h.set(
     "Access-Control-Allow-Headers",
     `Content-Type, Authorization, X-Request-Id, ${RELAY_SECRET_HEADER}, X-GitHub-Event, X-GitHub-Delivery, X-Hub-Signature-256`,
@@ -192,10 +174,7 @@ function parseBearerToken(request: Request): string | null {
 }
 
 /** Authenticate Bearer as Hub-minted device credential → user_id. */
-async function deviceAuthFromRequest(
-  request: Request,
-  env: Env,
-): Promise<DeviceAuth | null> {
+async function deviceAuthFromRequest(request: Request, env: Env): Promise<DeviceAuth | null> {
   const token = parseBearerToken(request);
   if (!token) {
     return null;
@@ -210,9 +189,7 @@ async function deviceAuthFromRequest(
     .first<{ device_id: string; user_id: string }>();
   if (!row) return null;
   const now = Math.floor(Date.now() / 1000);
-  await env.DB.prepare(
-    `UPDATE devices SET last_seen_at = ? WHERE device_id = ?`,
-  )
+  await env.DB.prepare(`UPDATE devices SET last_seen_at = ? WHERE device_id = ?`)
     .bind(now, row.device_id)
     .run();
   return {
@@ -222,10 +199,7 @@ async function deviceAuthFromRequest(
   };
 }
 
-async function userIdFromRequest(
-  request: Request,
-  env: Env,
-): Promise<string | null> {
+async function userIdFromRequest(request: Request, env: Env): Promise<string | null> {
   const auth = await deviceAuthFromRequest(request, env);
   return auth?.userId ?? null;
 }
@@ -238,10 +212,7 @@ function json(data: unknown, status = 200): Response {
 }
 
 async function secretHash(secret: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(secret),
-  );
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
@@ -334,18 +305,10 @@ function checkRateLimit(
 }
 
 function checkGithubControlRateLimit(request: Request): boolean {
-  return checkRateLimit(
-    clientIp(request),
-    githubControlRateByIp,
-    GITHUB_CONTROL_RATE_LIMIT,
-  );
+  return checkRateLimit(clientIp(request), githubControlRateByIp, GITHUB_CONTROL_RATE_LIMIT);
 }
 
-async function handleApi(
-  request: Request,
-  env: Env,
-  url: URL,
-): Promise<Response> {
+async function handleApi(request: Request, env: Env, url: URL): Promise<Response> {
   const path = normalizedPath(url.pathname);
 
   try {
@@ -403,14 +366,7 @@ async function handleApi(
            last_seen_at = excluded.last_seen_at,
            revoked_at = NULL`,
       )
-        .bind(
-          deviceId,
-          userIdBody,
-          credentialHash,
-          body?.label ?? null,
-          now,
-          now,
-        )
+        .bind(deviceId, userIdBody, credentialHash, body?.label ?? null, now, now)
         .run();
 
       return json({ ok: true, device_id: deviceId });
@@ -439,9 +395,7 @@ async function handleApi(
       return listGithubInstallations(env, userId);
     }
 
-    const githubReposMatch = path.match(
-      /^\/v1\/github\/installations\/(\d+)\/repositories$/,
-    );
+    const githubReposMatch = path.match(/^\/v1\/github\/installations\/(\d+)\/repositories$/);
     if (githubReposMatch && request.method === "GET") {
       if (!checkGithubControlRateLimit(request)) {
         return json({ error: "rate_limited" }, 429);
@@ -449,11 +403,7 @@ async function handleApi(
       if (!userId) {
         return json({ error: "unauthorized" }, 401);
       }
-      return listGithubInstallationRepositories(
-        env,
-        userId,
-        githubReposMatch[1]!,
-      );
+      return listGithubInstallationRepositories(env, userId, githubReposMatch[1]!);
     }
 
     if (path === "/v1/github/event_routes" && request.method === "POST") {
@@ -466,9 +416,7 @@ async function handleApi(
       return upsertGithubEventRoute(request, env, userId);
     }
 
-    const githubRouteDeleteMatch = path.match(
-      /^\/v1\/github\/event_routes\/([^/]+)$/,
-    );
+    const githubRouteDeleteMatch = path.match(/^\/v1\/github\/event_routes\/([^/]+)$/);
     if (githubRouteDeleteMatch && request.method === "DELETE") {
       if (!checkGithubControlRateLimit(request)) {
         return json({ error: "rate_limited" }, 429);
@@ -476,11 +424,7 @@ async function handleApi(
       if (!userId) {
         return json({ error: "unauthorized" }, 401);
       }
-      return disableGithubEventRoute(
-        env,
-        userId,
-        decodeURIComponent(githubRouteDeleteMatch[1]!),
-      );
+      return disableGithubEventRoute(env, userId, decodeURIComponent(githubRouteDeleteMatch[1]!));
     }
 
     if (path === "/v1/register_tokens" && request.method === "POST") {
@@ -610,14 +554,7 @@ async function handleApi(
                registration_meta = COALESCE(?, registration_meta)
            WHERE server_id = ? AND user_id = ? AND revoked = 0`,
         )
-          .bind(
-            secretHashValue,
-            displayName,
-            now,
-            registrationMetaJson,
-            serverId,
-            row.user_id,
-          )
+          .bind(secretHashValue, displayName, now, registrationMetaJson, serverId, row.user_id)
           .run();
 
         await env.DB.prepare(
@@ -629,9 +566,7 @@ async function handleApi(
           .run();
       } else {
         serverId = await randomUuidLike();
-        displayName =
-          body?.display_name?.trim() ||
-          `Computer ${serverId.slice(0, 8)}`;
+        displayName = body?.display_name?.trim() || `Computer ${serverId.slice(0, 8)}`;
 
         await env.DB.prepare(
           `INSERT INTO computers(server_id, user_id, secret_hash, revoked, display_name, created_at, last_seen_at, updated_at, registration_meta, app_device_id)
@@ -742,9 +677,7 @@ async function handleApi(
         .bind(now, serverId, userId)
         .run();
 
-      await env.DB.prepare(
-        "DELETE FROM client_sessions WHERE server_id = ? AND user_id = ?",
-      )
+      await env.DB.prepare("DELETE FROM client_sessions WHERE server_id = ? AND user_id = ?")
         .bind(serverId, userId)
         .run();
 
@@ -783,8 +716,7 @@ async function handleApi(
       )
         .bind(serverId, userId)
         .first<{ count: number }>();
-      const overflow =
-        (sessionCountRow?.count ?? 0) + 1 - CLIENT_SESSIONS_PER_COMPUTER_LIMIT;
+      const overflow = (sessionCountRow?.count ?? 0) + 1 - CLIENT_SESSIONS_PER_COMPUTER_LIMIT;
       if (overflow > 0) {
         await env.DB.prepare(
           `DELETE FROM client_sessions WHERE rowid IN (
@@ -808,14 +740,7 @@ async function handleApi(
         `INSERT INTO client_sessions(token_hash, user_id, server_id, device_id, expires_at, created_at)
          VALUES (?, ?, ?, ?, ?, ?)`,
       )
-        .bind(
-          tokenHash,
-          userId,
-          serverId,
-          deviceAuth?.deviceId ?? null,
-          expiresAt,
-          now,
-        )
+        .bind(tokenHash, userId, serverId, deviceAuth?.deviceId ?? null, expiresAt, now)
         .run();
 
       const sessionUrls = buildClientSessionUrls({
@@ -841,10 +766,7 @@ async function handleApi(
   return json({ error: "not_found", path }, 404);
 }
 
-async function requireRelaySecret(
-  request: Request,
-  env: Env,
-): Promise<Response | null> {
+async function requireRelaySecret(request: Request, env: Env): Promise<Response | null> {
   const configuredSecret = env.RELAY_SECRET_KEY?.trim();
   if (!configuredSecret) {
     return null;
@@ -873,12 +795,8 @@ async function requireRelaySecret(
 }
 
 /** Hub service → Relay device projection auth. */
-async function requireHubSyncAuth(
-  request: Request,
-  env: Env,
-): Promise<Response | null> {
-  const configured =
-    env.RELAY_HUB_SYNC_SECRET?.trim() || env.RELAY_SECRET_KEY?.trim() || "";
+async function requireHubSyncAuth(request: Request, env: Env): Promise<Response | null> {
+  const configured = env.RELAY_HUB_SYNC_SECRET?.trim() || env.RELAY_SECRET_KEY?.trim() || "";
   if (!configured) {
     return json({ error: "hub_sync_not_configured" }, 503);
   }
@@ -931,11 +849,7 @@ async function handleHttpGatewayProxy(
   const stub = env.SERVER_HUB.get(id);
 
   let bodyB64: string | null = null;
-  if (
-    request.method !== "GET" &&
-    request.method !== "HEAD" &&
-    request.body
-  ) {
+  if (request.method !== "GET" && request.method !== "HEAD" && request.body) {
     const bytes = new Uint8Array(await request.arrayBuffer());
     let binary = "";
     for (const b of bytes) {
@@ -963,11 +877,7 @@ async function handleHttpGatewayProxy(
   return stub.fetch(forward);
 }
 
-async function handlePtDesignRoom(
-  request: Request,
-  env: Env,
-  roomId: string,
-): Promise<Response> {
+async function handlePtDesignRoom(request: Request, env: Env, roomId: string): Promise<Response> {
   if (!isValidPtDesignRoomId(roomId)) {
     return json({ error: "invalid_room" }, 400);
   }
@@ -982,18 +892,17 @@ async function handlePtDesignRoom(
   return stub.fetch(request);
 }
 
-async function handleServerWebSocket(
-  request: Request,
-  env: Env,
-  url: URL,
-): Promise<Response> {
+async function handleServerWebSocket(request: Request, env: Env, url: URL): Promise<Response> {
   if (request.headers.get("Upgrade") !== "websocket") {
     return new Response("Expected WebSocket Upgrade", { status: 426 });
   }
 
   const serverId = url.searchParams.get("server_id");
   const bearer =
-    request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "").trim() ?? "";
+    request.headers
+      .get("Authorization")
+      ?.replace(/^Bearer\s+/i, "")
+      .trim() ?? "";
 
   if (!serverId || !bearer) {
     return json({ error: "missing_server_credentials" }, 401);
@@ -1060,9 +969,7 @@ async function handleClientWebSocket(
     return json({ error: "bad_client_token" }, 403);
   }
 
-  const comp = await env.DB.prepare(
-    "SELECT revoked FROM computers WHERE server_id = ? LIMIT 1",
-  )
+  const comp = await env.DB.prepare("SELECT revoked FROM computers WHERE server_id = ? LIMIT 1")
     .bind(serverId)
     .first<{ revoked: number }>();
 
@@ -1082,9 +989,7 @@ async function handleClientWebSocket(
   return stub.fetch(forward);
 }
 
-function parseRegistrationMeta(
-  raw: string | null,
-): Record<string, unknown> | null {
+function parseRegistrationMeta(raw: string | null): Record<string, unknown> | null {
   if (!raw?.trim()) {
     return null;
   }

@@ -106,8 +106,8 @@ export function useExcalidrawCollab(input: {
   const [room, setRoom] = React.useState<CollabRoom | null>(initial);
   const [mode, setModeState] = React.useState<CollabMode>(() => readStoredMode());
   const [users, setUsers] = React.useState<CollabUser[]>([]);
-  const [shareUrl, setShareUrl] = React.useState<string | null>(
-    () => (initial ? inviteUrlForRoom(initial) : null),
+  const [shareUrl, setShareUrl] = React.useState<string | null>(() =>
+    initial ? inviteUrlForRoom(initial) : null,
   );
   const [username, setUsernameState] = React.useState(() => readStoredName(input.username));
   const clientRef = React.useRef<CollabClient | null>(null);
@@ -217,14 +217,11 @@ export function useExcalidrawCollab(input: {
     setShareUrl(null);
   }, []);
 
-  const setMode = React.useCallback(
-    (next: CollabMode) => {
-      if (next === modeRef.current) return;
-      storeMode(next);
-      setModeState(next);
-    },
-    [],
-  );
+  const setMode = React.useCallback((next: CollabMode) => {
+    if (next === modeRef.current) return;
+    storeMode(next);
+    setModeState(next);
+  }, []);
 
   const setUsername = React.useCallback((next: string) => {
     const resolved = next.trim() || readStoredName();

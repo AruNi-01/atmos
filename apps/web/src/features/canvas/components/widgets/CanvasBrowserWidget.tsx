@@ -12,15 +12,10 @@ import { isGlobalCanvasContext } from "@/features/canvas/lib/canvas-widget-shape
 
 type CanvasBrowserWidgetSource = Extract<CanvasWidgetSourceRef, { type: "browser" }>;
 
-export function CanvasBrowserWidget({
-  shape,
-}: {
-  shape: CanvasWidgetShape;
-}) {
+export function CanvasBrowserWidget({ shape }: { shape: CanvasWidgetShape }) {
   // APP-053: in-DOM <webview> — no native bounds sync. Keep a ref for API
   // compatibility with BrowserPanel (controller is a no-op stub now).
-  const canvasViewportControllerRef =
-    React.useRef<BrowserCanvasViewportController | null>(null);
+  const canvasViewportControllerRef = React.useRef<BrowserCanvasViewportController | null>(null);
   const source = shape.props.source as CanvasBrowserWidgetSource;
 
   if (source.type !== "browser") {
@@ -36,8 +31,8 @@ export function CanvasBrowserWidget({
   const projectId = isGlobalCanvasContext(context)
     ? undefined
     : context.contextScope === "project"
-      ? context.projectId ?? undefined
-      : context.projectId ?? undefined;
+      ? (context.projectId ?? undefined)
+      : (context.projectId ?? undefined);
 
   return (
     <div className="h-full min-h-0 overflow-hidden bg-background">

@@ -28,8 +28,7 @@ function getTerminalWsBaseUrl() {
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     if (process.env.NODE_ENV === "development") {
       const isLocal =
-        window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1";
+        window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
       if (!isLocal) {
         return `${wsProtocol}//${window.location.hostname}:30303`;
       }

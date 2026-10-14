@@ -68,10 +68,7 @@ export type LocalServicesScanResponse = {
 
 export type LocalServiceStopMode = "listener" | "tree";
 
-export type LocalServiceStopEscalationReason =
-  | "still_listening"
-  | "respawned"
-  | "term_ignored";
+export type LocalServiceStopEscalationReason = "still_listening" | "respawned" | "term_ignored";
 
 export type LocalServiceProcessNode = {
   pid: number;

@@ -21,10 +21,7 @@ import {
   cn,
 } from "@workspace/ui";
 import { LogIn, LogOut, RefreshCw } from "lucide-react";
-import {
-  HUB_AUTH_DONE_CHANNEL,
-  HUB_AUTH_DONE_MESSAGE,
-} from "@/app/hub-auth/hub-auth-channel";
+import { HUB_AUTH_DONE_CHANNEL, HUB_AUTH_DONE_MESSAGE } from "@/app/hub-auth/hub-auth-channel";
 import {
   clearStoredDeviceCredential,
   getStoredDeviceCredential,
@@ -33,11 +30,7 @@ import {
   storeDeviceCredential,
   type HubMe,
 } from "@/api/hub-client";
-import {
-  getHubAuthClient,
-  hubGetSession,
-  hubSignOut,
-} from "@/api/hub-auth-client";
+import { getHubAuthClient, hubGetSession, hubSignOut } from "@/api/hub-auth-client";
 import {
   HUB_OAUTH_STARTED_EVENT,
   HubAuthUIProvider,
@@ -63,9 +56,7 @@ export function AccountSettingsSection() {
     return (
       <SettingsSection title={t("title")}>
         <SettingsGroup>
-          <p className="px-2 py-3 text-sm text-muted-foreground">
-            {t("hubNotConfigured")}
-          </p>
+          <p className="px-2 py-3 text-sm text-muted-foreground">{t("hubNotConfigured")}</p>
         </SettingsGroup>
       </SettingsSection>
     );
@@ -82,9 +73,7 @@ function AccountSettingsBody() {
   const t = useTranslations("settings.accountSection");
   const qc = useQueryClient();
   // Electron/Tauri preload, or desktop static export build (packaged UI).
-  const desktop =
-    isDesktopRuntime() ||
-    process.env.NEXT_PUBLIC_BUILD_TARGET === "desktop";
+  const desktop = isDesktopRuntime() || process.env.NEXT_PUBLIC_BUILD_TARGET === "desktop";
 
   const sessionQuery = useQuery({
     queryKey: ["hub", "session"],
@@ -131,11 +120,7 @@ function AccountSettingsBody() {
       try {
         if (desktop) {
           const disk = await loadComputerClientSettingsFromDisk();
-          const cred = (
-            disk?.device_credential ||
-            disk?.access_token ||
-            ""
-          ).trim();
+          const cred = (disk?.device_credential || disk?.access_token || "").trim();
           if (cred.length >= 32 && !cancelled) {
             storeDeviceCredential({
               device_id: disk?.device_id ?? "device",
@@ -186,9 +171,7 @@ function AccountSettingsBody() {
     const onDone = () => {
       void qc.invalidateQueries({ queryKey: ["hub"] });
       // Web login tab: mint/sync device for Linear + local API (no manual Trust).
-      void ensureLocalHubDevice().then(() =>
-        qc.invalidateQueries({ queryKey: ["hub"] }),
-      );
+      void ensureLocalHubDevice().then(() => qc.invalidateQueries({ queryKey: ["hub"] }));
     };
     let bc: BroadcastChannel | null = null;
     try {
@@ -216,11 +199,7 @@ function AccountSettingsBody() {
     void (async () => {
       try {
         const disk = await loadComputerClientSettingsFromDisk();
-        const cred = (
-          disk?.device_credential ||
-          disk?.access_token ||
-          ""
-        ).trim();
+        const cred = (disk?.device_credential || disk?.access_token || "").trim();
         if (cred.length >= 32) {
           storeDeviceCredential({
             device_id: disk?.device_id ?? "device",
@@ -258,9 +237,8 @@ function AccountSettingsBody() {
       await hubSignOut();
       clearStoredDeviceCredential();
       try {
-        const { clearComputerClientSettingsOnDisk } = await import(
-          "@/features/connection/lib/sync-computer-client-settings"
-        );
+        const { clearComputerClientSettingsOnDisk } =
+          await import("@/features/connection/lib/sync-computer-client-settings");
         await clearComputerClientSettingsOnDisk();
         await applyIdentityBearingComputerSettings({
           accessToken: "",
@@ -287,8 +265,7 @@ function AccountSettingsBody() {
     fallbackName: t("signedIn"),
   });
 
-  const identityPending =
-    (sessionQuery.isLoading || meQuery.isLoading) && !signedIn;
+  const identityPending = (sessionQuery.isLoading || meQuery.isLoading) && !signedIn;
 
   return (
     <SettingsPageStack>
@@ -317,16 +294,11 @@ function AccountSettingsBody() {
               {desktop ? t("waitingBrowser") : t("waitingBrowserWeb")}
             </p>
           ) : null}
-          {error ? (
-            <p className="text-xs text-destructive">{error}</p>
-          ) : null}
+          {error ? <p className="text-xs text-destructive">{error}</p> : null}
         </SettingsSection>
       ) : (
         <>
-          <SettingsGroupCard
-            title={t("profileTitle")}
-            description={t("profileDescription")}
-          >
+          <SettingsGroupCard title={t("profileTitle")} description={t("profileDescription")}>
             <div className="flex flex-wrap items-center justify-between gap-4 px-2 py-3">
               {profileUser ? (
                 <UserView
@@ -349,15 +321,11 @@ function AccountSettingsBody() {
                   <RefreshCw
                     className={cn(
                       "size-3.5",
-                      (sessionQuery.isFetching || meQuery.isFetching) &&
-                        "animate-spin",
+                      (sessionQuery.isFetching || meQuery.isFetching) && "animate-spin",
                     )}
                   />
                 </Button>
-                <Popover
-                  open={signOutConfirmOpen}
-                  onOpenChange={setSignOutConfirmOpen}
-                >
+                <Popover open={signOutConfirmOpen} onOpenChange={setSignOutConfirmOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       type="button"
@@ -403,9 +371,7 @@ function AccountSettingsBody() {
                 </Popover>
               </div>
             </div>
-            {error ? (
-              <p className="px-2 py-3 text-xs text-destructive">{error}</p>
-            ) : null}
+            {error ? <p className="px-2 py-3 text-xs text-destructive">{error}</p> : null}
           </SettingsGroupCard>
 
           {cookieUser ? (
@@ -435,9 +401,7 @@ function AccountSettingsBody() {
           <DialogHeader className="sr-only">
             <DialogTitle>{t("signInDialogTitle")}</DialogTitle>
             <DialogDescription>
-              {desktop
-                ? t("signInDialogDescriptionDesktop")
-                : t("signInDialogDescriptionWeb")}
+              {desktop ? t("signInDialogDescriptionDesktop") : t("signInDialogDescriptionWeb")}
             </DialogDescription>
           </DialogHeader>
           <div className="overflow-hidden rounded-xl border border-border bg-background shadow-lg">
@@ -445,9 +409,7 @@ function AccountSettingsBody() {
               view="SIGN_IN"
               socialLayout="vertical"
               className="w-full max-w-none"
-              redirectTo={
-                typeof window !== "undefined" ? window.location.origin : "/"
-              }
+              redirectTo={typeof window !== "undefined" ? window.location.origin : "/"}
               localization={{
                 SIGN_IN: t("signInDialogTitle"),
                 DISABLED_CREDENTIALS_DESCRIPTION: desktop

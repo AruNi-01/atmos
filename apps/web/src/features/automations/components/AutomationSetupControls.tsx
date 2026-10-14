@@ -2,11 +2,7 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
-import {
-  Button,
-  Input,
-  Label,
-} from "@workspace/ui";
+import { Button, Input, Label } from "@workspace/ui";
 import { LoaderCircle, PencilLine } from "lucide-react";
 
 import { AutomationEnvironmentPicker } from "@/features/automations/components/AutomationEnvironmentPicker";
@@ -16,10 +12,7 @@ type EnvironmentPickerProps = Omit<
   React.ComponentProps<typeof AutomationEnvironmentPicker>,
   "surface"
 >;
-type TriggerPickerProps = Omit<
-  React.ComponentProps<typeof AutomationTriggerPicker>,
-  "surface"
->;
+type TriggerPickerProps = Omit<React.ComponentProps<typeof AutomationTriggerPicker>, "surface">;
 
 export function AutomationSetupControls({
   displayName,
@@ -41,7 +34,10 @@ export function AutomationSetupControls({
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <PencilLine className="size-4 text-muted-foreground" />
-          <Label htmlFor="automation-display-name" className="text-sm font-semibold text-foreground">
+          <Label
+            htmlFor="automation-display-name"
+            className="text-sm font-semibold text-foreground"
+          >
             {t("name.label")}
           </Label>
         </div>

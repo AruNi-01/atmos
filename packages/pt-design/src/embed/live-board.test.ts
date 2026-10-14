@@ -1,7 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { fireAgentActions } from "../components/groups/form/runtime";
-import { parsePtx, PtDesignError, serializePtx, type HandleElement, type PtDocument } from "../protocol";
+import {
+  parsePtx,
+  PtDesignError,
+  serializePtx,
+  type HandleElement,
+  type PtDocument,
+} from "../protocol";
 import {
   applySceneCameraNever,
   armSkipInkAfterImmediate,
@@ -19,7 +25,12 @@ import {
   type Capture,
   type ExcalidrawHost,
 } from "./live-board";
-import { applyHistoryInversePartial, createPtRestampState, excalidrawStrippedElementDelta, toExcalidrawCompatElements } from "./scene-bridge";
+import {
+  applyHistoryInversePartial,
+  createPtRestampState,
+  excalidrawStrippedElementDelta,
+  toExcalidrawCompatElements,
+} from "./scene-bridge";
 
 const VALID_PTX = `<page id="p">
   <button id="run" label="Run" value="ready" x="300" y="260" width="100" height="40"/>
@@ -27,7 +38,12 @@ const VALID_PTX = `<page id="p">
 
 type SceneCall = {
   elements?: HandleElement[];
-  appState?: { viewModeEnabled?: boolean; scrollX?: number; scrollY?: number; zoom?: { value: number } };
+  appState?: {
+    viewModeEnabled?: boolean;
+    scrollX?: number;
+    scrollY?: number;
+    zoom?: { value: number };
+  };
   captureUpdate: Capture;
 };
 
@@ -36,7 +52,12 @@ function createRestoreDropHost(): {
   wipe: () => void;
 } {
   let elements: HandleElement[] = [];
-  let appState = { scrollX: 0, scrollY: 0, zoom: { value: 1 }, viewModeEnabled: false as boolean | undefined };
+  let appState = {
+    scrollX: 0,
+    scrollY: 0,
+    zoom: { value: 1 },
+    viewModeEnabled: false as boolean | undefined,
+  };
   const host: ExcalidrawHost = {
     getSceneElements: () => elements.map((el) => ({ ...el })),
     getAppState: () => appState,
@@ -89,7 +110,12 @@ function createStripHistoryHost(initial: HandleElement[] = []): {
   let snapshot: HandleElement[] = initial.map((el) => deepCopyElement(el) as HandleElement);
   const inverses: Array<Map<string, Record<string, unknown>>> = [];
   const lastImmediateCustomDataKeys: string[] = [];
-  let appState = { scrollX: 0, scrollY: 0, zoom: { value: 1 }, viewModeEnabled: false as boolean | undefined };
+  let appState = {
+    scrollX: 0,
+    scrollY: 0,
+    zoom: { value: 1 },
+    viewModeEnabled: false as boolean | undefined,
+  };
   const calls: SceneCall[] = [];
   const cleared = { count: 0 };
   const host: ExcalidrawHost = {
@@ -152,7 +178,10 @@ function createStripHistoryHost(initial: HandleElement[] = []): {
       elements = elements.map((el) => {
         const inserted = inverse.get(el.id);
         if (!inserted) return el;
-        return applyHistoryInversePartial(el as unknown as Record<string, unknown>, inserted) as HandleElement;
+        return applyHistoryInversePartial(
+          el as unknown as Record<string, unknown>,
+          inserted,
+        ) as HandleElement;
       });
     },
   };
@@ -165,7 +194,12 @@ function createFakeHost(initial: HandleElement[] = []): {
   setElements: (next: HandleElement[]) => void;
 } {
   let elements: HandleElement[] = [...initial];
-  let appState = { scrollX: 0, scrollY: 0, zoom: { value: 1 }, viewModeEnabled: false as boolean | undefined };
+  let appState = {
+    scrollX: 0,
+    scrollY: 0,
+    zoom: { value: 1 },
+    viewModeEnabled: false as boolean | undefined,
+  };
   const calls: SceneCall[] = [];
   const cleared = { count: 0 };
   const host: ExcalidrawHost = {
@@ -204,7 +238,12 @@ function createStaleAfterImmediateHost(initial: HandleElement[] = []): {
   cleared: { count: number };
 } {
   let elements: HandleElement[] = [...initial];
-  let appState = { scrollX: 0, scrollY: 0, zoom: { value: 1 }, viewModeEnabled: false as boolean | undefined };
+  let appState = {
+    scrollX: 0,
+    scrollY: 0,
+    zoom: { value: 1 },
+    viewModeEnabled: false as boolean | undefined,
+  };
   const calls: SceneCall[] = [];
   const cleared = { count: 0 };
   const host: ExcalidrawHost = {
@@ -237,9 +276,9 @@ function createStaleAfterImmediateHost(initial: HandleElement[] = []): {
  * intentionally not `serializePtx(parsePtx(edited))` — live Excalidraw hydrate
  * can diverge the same way. Skip must use incoming canonical, not extract.
  */
-function createExtractRoundtripMismatchHost(initial: HandleElement[] = []): ReturnType<
-  typeof createStripHistoryHost
-> {
+function createExtractRoundtripMismatchHost(
+  initial: HandleElement[] = [],
+): ReturnType<typeof createStripHistoryHost> {
   const inner = createStripHistoryHost(initial);
   let mismatchExtract = false;
   const storedGet = inner.host.getSceneElements;
@@ -345,7 +384,9 @@ describe("createLiveBoard applyDocument / extract", () => {
       pages: [
         {
           id: page.id,
-          nodes: page.nodes.map((item) => (item.id === "run" ? { ...item, value: "gemini" } : item)),
+          nodes: page.nodes.map((item) =>
+            item.id === "run" ? { ...item, value: "gemini" } : item,
+          ),
         },
       ],
     };
@@ -389,7 +430,9 @@ describe("createLiveBoard setMode", () => {
     expect(editModeHandlesKeyboardGlobally(false)).toBe(true);
     expect(editModeHandlesKeyboardGlobally(true)).toBe(false);
     const board = readFileSync(new URL("./ExcalidrawBoard.tsx", import.meta.url), "utf8");
-    expect(board).toContain("handleKeyboardGlobally={editModeHandlesKeyboardGlobally(viewModeEnabled)}");
+    expect(board).toContain(
+      "handleKeyboardGlobally={editModeHandlesKeyboardGlobally(viewModeEnabled)}",
+    );
     expect(board).not.toContain("handleKeyboardGlobally={false}");
   });
 
@@ -938,10 +981,9 @@ describe("ptx-only persist load", () => {
     board.loadPersist({ ptx: SEEDED_PTX });
     expect(cleared.count).toBe(1);
     expect(board.onHostChange().echo).toBe(true);
-    const edited = board.extractPtx().replace(
-      "</select>",
-      `    <option value="deepseek">DeepSeek</option>\n  </select>`,
-    );
+    const edited = board
+      .extractPtx()
+      .replace("</select>", `    <option value="deepseek">DeepSeek</option>\n  </select>`);
     board.applyPtx(edited, "IMMEDIATELY");
     expect(calls.at(-1)!.captureUpdate).toBe("IMMEDIATELY");
     expect(cleared.count).toBe(1);
@@ -984,13 +1026,14 @@ describe("ptx-only persist load", () => {
       ...el,
       customData: el.customData ? { pt: { ...el.customData.pt } } : el.customData,
     }));
-    const edited = board.extractPtx().replace(
-      "</select>",
-      `    <option value="deepseek">DeepSeek</option>\n  </select>`,
-    );
+    const edited = board
+      .extractPtx()
+      .replace("</select>", `    <option value="deepseek">DeepSeek</option>\n  </select>`);
     board.applyPtx(edited, "IMMEDIATELY");
     expect(calls.at(-1)!.captureUpdate).toBe("IMMEDIATELY");
-    const appliedModel = (calls.at(-1)!.elements ?? []).find((el) => el.customData?.pt?.id === "model");
+    const appliedModel = (calls.at(-1)!.elements ?? []).find(
+      (el) => el.customData?.pt?.id === "model",
+    );
     const preModel = preApply.find((el) => el.customData?.pt?.id === "model");
     expect(appliedModel?.customData).not.toBe(preModel?.customData);
     expect(appliedModel?.customData?.pt).not.toBe(preModel?.customData?.pt);
@@ -1014,10 +1057,9 @@ describe("ptx-only persist load", () => {
     board.loadPersist({ ptx: SEEDED_PTX });
     expect(board.onHostChange().echo).toBe(true);
     const preApply = host.getSceneElements().map((el) => ({ ...el }));
-    const edited = board.extractPtx().replace(
-      "</select>",
-      `    <option value="deepseek">DeepSeek</option>\n  </select>`,
-    );
+    const edited = board
+      .extractPtx()
+      .replace("</select>", `    <option value="deepseek">DeepSeek</option>\n  </select>`);
     board.applyPtx(edited, "IMMEDIATELY");
     expect(board.extractPtx()).toContain("deepseek");
     expect(board.onHostChange().echo).toBe(true);
@@ -1040,7 +1082,12 @@ describe("ptx-only persist load", () => {
   test("bindHostApi restamp after restoring full pre-apply elements does not refill deepseek", () => {
     const restamp = createPtRestampState();
     let elements: HandleElement[] = [];
-    let appState = { scrollX: 0, scrollY: 0, zoom: { value: 1 }, viewModeEnabled: false as boolean | undefined };
+    let appState = {
+      scrollX: 0,
+      scrollY: 0,
+      zoom: { value: 1 },
+      viewModeEnabled: false as boolean | undefined,
+    };
     const host = {
       getSceneElements: () => restamp.restamp(elements),
       getAppState: () => appState,
@@ -1062,10 +1109,9 @@ describe("ptx-only persist load", () => {
       ...el,
       customData: el.customData ? { pt: { ...el.customData.pt } } : el.customData,
     }));
-    const edited = board.extractPtx().replace(
-      "</select>",
-      `    <option value="deepseek">DeepSeek</option>\n  </select>`,
-    );
+    const edited = board
+      .extractPtx()
+      .replace("</select>", `    <option value="deepseek">DeepSeek</option>\n  </select>`);
     board.applyPtx(edited, "IMMEDIATELY");
     expect(board.extractPtx()).toContain("deepseek");
     expect(board.onHostChange().echo).toBe(true);
@@ -1107,10 +1153,9 @@ describe("ptx-only persist load", () => {
     board.loadPersist({ ptx: SEEDED_PTX });
     expect(cleared.count).toBe(1);
     expect(board.onHostChange().echo).toBe(true);
-    const edited = board.extractPtx().replace(
-      "</select>",
-      `    <option value="deepseek">DeepSeek</option>\n  </select>`,
-    );
+    const edited = board
+      .extractPtx()
+      .replace("</select>", `    <option value="deepseek">DeepSeek</option>\n  </select>`);
     board.applyPtx(edited, "IMMEDIATELY");
     expect(calls.at(-1)!.captureUpdate).toBe("IMMEDIATELY");
     expect(lastImmediateCustomDataKeys).toContain("customData");
@@ -1132,15 +1177,15 @@ describe("ptx-only persist load", () => {
   });
 
   test("applyPtx IMMEDIATELY then NEVER camera does not add undo; one undo drops deepseek", () => {
-    const { host, calls, cleared, undo, undoDepth, lastImmediateCustomDataKeys } = createStripHistoryHost();
+    const { host, calls, cleared, undo, undoDepth, lastImmediateCustomDataKeys } =
+      createStripHistoryHost();
     const board = createLiveBoard(host);
     board.loadPersist({ ptx: SEEDED_PTX });
     expect(cleared.count).toBe(1);
     expect(board.onHostChange().echo).toBe(true);
-    const edited = board.extractPtx().replace(
-      "</select>",
-      `    <option value="deepseek">DeepSeek</option>\n  </select>`,
-    );
+    const edited = board
+      .extractPtx()
+      .replace("</select>", `    <option value="deepseek">DeepSeek</option>\n  </select>`);
     board.applyPtx(edited, "IMMEDIATELY");
     expect(calls.at(-1)!.captureUpdate).toBe("IMMEDIATELY");
     expect(lastImmediateCustomDataKeys).toContain("customData");
@@ -1214,10 +1259,9 @@ describe("ptx-only persist load", () => {
     board.applyPtx(before, "IMMEDIATELY");
     expect(calls.filter((c) => c.captureUpdate === "IMMEDIATELY")).toHaveLength(0);
 
-    const edited = board.extractPtx().replace(
-      "</select>",
-      `    <option value="deepseek">DeepSeek</option>\n  </select>`,
-    );
+    const edited = board
+      .extractPtx()
+      .replace("</select>", `    <option value="deepseek">DeepSeek</option>\n  </select>`);
     expect(serializePtx(parsePtx(edited))).not.toBe(board.extractPtx());
     board.applyPtx(edited, "IMMEDIATELY");
     expect(calls.filter((c) => c.captureUpdate === "IMMEDIATELY")).toHaveLength(1);
@@ -1267,10 +1311,9 @@ describe("ptx-only persist load", () => {
     board.loadPersist({ ptx: SEEDED_PTX });
     expect(cleared.count).toBe(1);
     expect(board.onHostChange().echo).toBe(true);
-    edited = board.extractPtx().replace(
-      "</select>",
-      `    <option value="deepseek">DeepSeek</option>\n  </select>`,
-    );
+    edited = board
+      .extractPtx()
+      .replace("</select>", `    <option value="deepseek">DeepSeek</option>\n  </select>`);
     expect(serializePtx(parsePtx(edited))).not.toBe(board.extractPtx());
     board.applyPtx(edited, "IMMEDIATELY");
     expect(reenteredBeforeCommit).toBe(true);
@@ -1297,10 +1340,9 @@ describe("ptx-only persist load", () => {
     board.loadPersist({ ptx: SEEDED_PTX });
     expect(cleared.count).toBe(1);
     expect(board.onHostChange().echo).toBe(true);
-    const edited = board.extractPtx().replace(
-      "</select>",
-      `    <option value="deepseek">DeepSeek</option>\n  </select>`,
-    );
+    const edited = board
+      .extractPtx()
+      .replace("</select>", `    <option value="deepseek">DeepSeek</option>\n  </select>`);
     expect(serializePtx(parsePtx(edited))).not.toBe(board.extractPtx());
     board.applyPtx(edited, "IMMEDIATELY");
     expect(calls.filter((c) => c.captureUpdate === "IMMEDIATELY")).toHaveLength(1);
@@ -1317,10 +1359,9 @@ describe("ptx-only persist load", () => {
     board.loadPersist({ ptx: SEEDED_PTX });
     expect(cleared.count).toBe(1);
     expect(board.onHostChange().echo).toBe(true);
-    const edited = board.extractPtx().replace(
-      "</select>",
-      `    <option value="deepseek">DeepSeek</option>\n  </select>`,
-    );
+    const edited = board
+      .extractPtx()
+      .replace("</select>", `    <option value="deepseek">DeepSeek</option>\n  </select>`);
     board.applyPtx(edited, "IMMEDIATELY");
     board.applyPtx(edited, "IMMEDIATELY");
     expect(calls.filter((c) => c.captureUpdate === "IMMEDIATELY")).toHaveLength(1);
@@ -1342,10 +1383,9 @@ describe("ptx-only persist load", () => {
     board.loadPersist({ ptx: SEEDED_PTX });
     expect(cleared.count).toBe(1);
     expect(board.onHostChange().echo).toBe(true);
-    const edited = board.extractPtx().replace(
-      "</select>",
-      `    <option value="deepseek">DeepSeek</option>\n  </select>`,
-    );
+    const edited = board
+      .extractPtx()
+      .replace("</select>", `    <option value="deepseek">DeepSeek</option>\n  </select>`);
     board.applyPtx(edited, "IMMEDIATELY");
     expect(calls.filter((c) => c.captureUpdate === "IMMEDIATELY")).toHaveLength(1);
     expect(board.extractPtx()).toContain("deepseek");

@@ -3,12 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
-import {
-  HTMLContainer,
-  useEditor,
-  useValue,
-  type TLShapeId,
-} from "tldraw";
+import { HTMLContainer, useEditor, useValue, type TLShapeId } from "tldraw";
 import { ArrowUpRight, PinOff, Plus, SquareTerminal, X } from "lucide-react";
 import { cn, toastManager } from "@workspace/ui";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
@@ -54,10 +49,7 @@ import {
   navigateToCanvasTerminalSource,
   resolveCanvasTerminalSourceTarget,
 } from "../lib/canvas-terminal-source";
-import {
-  areShapeIdListsEqual,
-  promoteRenderedShapeId,
-} from "../lib/canvas-terminal-rendering";
+import { areShapeIdListsEqual, promoteRenderedShapeId } from "../lib/canvas-terminal-rendering";
 import {
   registerCanvasTerminalRef,
   useCanvasTerminalRefs,
@@ -104,8 +96,9 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const t = useTranslations("Canvas.chrome");
   const [sessionId] = React.useState(() => crypto.randomUUID());
   const [portalRoot, setPortalRoot] = React.useState<HTMLElement | null>(null);
-  const [terminalViewport, setTerminalViewport] =
-    React.useState<TerminalOverlayViewport | null>(null);
+  const [terminalViewport, setTerminalViewport] = React.useState<TerminalOverlayViewport | null>(
+    null,
+  );
   const { board } = useCanvasBoard();
   const { tmuxWindowName, contextScope } = shape.props;
   const sourceTarget = React.useMemo(
@@ -127,14 +120,14 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const terminalRefs = useCanvasTerminalRefs();
   const activeShapeId = useCanvasRuntimeStore((state) => state.activeShapeId);
   const renderedShapeIds = useCanvasRuntimeStore((state) => state.renderedShapeIds);
-  const consumePendingTerminalRun = useCanvasRuntimeStore((state) => state.consumePendingTerminalRun);
+  const consumePendingTerminalRun = useCanvasRuntimeStore(
+    (state) => state.consumePendingTerminalRun,
+  );
   const setActiveShapeId = useCanvasRuntimeStore((state) => state.setActiveShapeId);
   const setRenderedShapeIds = useCanvasRuntimeStore((state) => state.setRenderedShapeIds);
   const removeRenderedShapeId = useCanvasRuntimeStore((state) => state.removeRenderedShapeId);
   const maxRenderedTerminals = useCanvasSettingsStore((state) => state.maxRenderedTerminals);
-  const richInputActive = useTerminalRichInputSettingsStore(
-    (s) => s.loaded && s.enabled,
-  );
+  const richInputActive = useTerminalRichInputSettingsStore((s) => s.loaded && s.enabled);
   const configuredAgents = React.useContext(CanvasAgentContext);
   const createRelatedTerminal = useCreateRelatedCanvasTerminal(shape);
   const markCanvasOverlayInteractionHandled = React.useCallback(
@@ -147,13 +140,13 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const storeWrite = React.useMemo(
     () =>
       contextScope === "workspace" || contextScope === "project"
-        ? ({
+        ? {
             kind: "tmux-window" as const,
             workspaceId: sourceTarget.paintContextId,
             tmuxWindowName,
             contextScope,
-          })
-        : ({ kind: "none" as const }),
+          }
+        : { kind: "none" as const },
     [contextScope, sourceTarget.paintContextId, tmuxWindowName],
   );
 
@@ -177,28 +170,22 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const isRendered = renderedShapeIds.includes(shape.id);
   // Same stable pane key as center-stage terminal panes (`hostId:tmuxWindowName`).
   // Agent hooks + sticky attention are keyed by this id, so canvas terminals must reuse it.
-  const stablePaneId = stableAgentPaneId(
-    sourceTarget.hostId,
-    shape.props.tmuxWindowName,
-  );
+  const stablePaneId = stableAgentPaneId(sourceTarget.hostId, shape.props.tmuxWindowName);
   const sourcePaneId = stablePaneId;
-  const attentionReason = useAgentAttentionStore(
-    (s) => s.panes.get(stablePaneId)?.reason ?? null,
-  );
+  const attentionReason = useAgentAttentionStore((s) => s.panes.get(stablePaneId)?.reason ?? null);
   const agentForSubmit = shape.props.paneAgent ?? toolbarAgent;
   const agentSubmitMode = resolveTerminalAgentSubmitMode(agentForSubmit);
   const sideChatAgentOptions = React.useMemo(() => {
     const options = [...configuredAgents];
-    if (agentForSubmit?.command?.trim() && !options.some((agent) => agent.id === agentForSubmit.id)) {
+    if (
+      agentForSubmit?.command?.trim() &&
+      !options.some((agent) => agent.id === agentForSubmit.id)
+    ) {
       options.unshift(agentForSubmit);
     }
     return options;
   }, [agentForSubmit, configuredAgents]);
-  const {
-    sideChatDots,
-    sideChatLayer,
-    startSideChat,
-  } = useTerminalSideChats({
+  const { sideChatDots, sideChatLayer, startSideChat } = useTerminalSideChats({
     workspaceId: sourceTarget.hostId,
     // Host id for tmux/API. Do not set projectRootPath for workplace
     // terminals — equating it to localPath makes side-chat skills treat every
@@ -207,8 +194,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     projectName: shape.props.projectName,
     workspaceName: shape.props.workspaceName,
     localPath: shape.props.localPath || null,
-    projectRootPath:
-      shape.props.contextScope === "project" ? shape.props.localPath || null : null,
+    projectRootPath: shape.props.contextScope === "project" ? shape.props.localPath || null : null,
     sourcePaneId,
     sourceSessionId: sessionId,
     sourceSurfaceKind: "canvas_terminal",
@@ -414,7 +400,9 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
 
     window.addEventListener("keydown", handleCanvasTerminalAgentInputShortcut, { capture: true });
     return () => {
-      window.removeEventListener("keydown", handleCanvasTerminalAgentInputShortcut, { capture: true });
+      window.removeEventListener("keydown", handleCanvasTerminalAgentInputShortcut, {
+        capture: true,
+      });
     };
   }, []);
 
@@ -491,10 +479,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
         type: "success",
       });
     },
-    [
-      createRelatedTerminal,
-      t,
-    ],
+    [createRelatedTerminal, t],
   );
 
   const bindTerminalRef = React.useCallback(
@@ -517,7 +502,15 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
         setActiveShapeId(null);
       }
     },
-    [activeShapeId, board?.guid, editor, removeRenderedShapeId, setActiveShapeId, shape.id, shape.props.pinKey],
+    [
+      activeShapeId,
+      board?.guid,
+      editor,
+      removeRenderedShapeId,
+      setActiveShapeId,
+      shape.id,
+      shape.props.pinKey,
+    ],
   );
 
   const handleCloseTerminal = React.useCallback(
@@ -630,7 +623,9 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
               ref={agentInputOverlayRef}
               activeProjectId={shape.props.contextScope === "project" ? sourceTarget.hostId : null}
               agent={agentForSubmit ?? null}
-              getTerminalCursorClientPoint={() => terminalApiRef.current?.getCursorClientPoint() ?? null}
+              getTerminalCursorClientPoint={() =>
+                terminalApiRef.current?.getCursorClientPoint() ?? null
+              }
               isTerminalReady={isTerminalReady}
               localPath={shape.props.localPath || null}
               onInteraction={markCanvasOverlayInteractionHandled}
@@ -656,116 +651,113 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
 
   return (
     <>
-    <div
-      className={cn(
-        "flex h-full flex-col overflow-hidden border bg-background text-foreground shadow-sm",
-        isSelected ? "border-transparent" : "border-border",
-        attentionBorderClass(attentionReason),
-      )}
-      style={{ borderRadius: CANVAS_CARD_CORNER_RADIUS }}
-    >
       <div
-        className="flex items-center justify-between gap-3 border-b border-border/70 bg-background px-4 py-3"
-        onPointerDown={() => {
-          activateTerminal();
-        }}
+        className={cn(
+          "flex h-full flex-col overflow-hidden border bg-background text-foreground shadow-sm",
+          isSelected ? "border-transparent" : "border-border",
+          attentionBorderClass(attentionReason),
+        )}
+        style={{ borderRadius: CANVAS_CARD_CORNER_RADIUS }}
       >
-        <div className="min-w-0 flex items-center gap-2">
-          <TerminalTitleWithAgent
-            displayTitle={displayTitle}
-            toolbarAgent={toolbarAgent}
-            className="gap-1.5 text-sm font-semibold text-foreground"
-          />
-          {contextLabel ? (
-            <span className="text-xs whitespace-nowrap text-muted-foreground">
-              ({contextLabel})
-            </span>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <TerminalPaneAgentStatus
-            paneId={stablePaneId}
-            contextId={sourceTarget.hostId}
-          />
-          <button
-            type="button"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={handleCreateRelatedTerminal}
-            aria-label={t("terminalCard.newTerminal")}
-            title={t("terminalCard.newTerminal")}
-            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <Plus className="size-3.5" />
-          </button>
-          {shape.props.isPinned && (
+        <div
+          className="flex items-center justify-between gap-3 border-b border-border/70 bg-background px-4 py-3"
+          onPointerDown={() => {
+            activateTerminal();
+          }}
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            <TerminalTitleWithAgent
+              displayTitle={displayTitle}
+              toolbarAgent={toolbarAgent}
+              className="gap-1.5 text-sm font-semibold text-foreground"
+            />
+            {contextLabel ? (
+              <span className="text-xs whitespace-nowrap text-muted-foreground">
+                ({contextLabel})
+              </span>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <TerminalPaneAgentStatus paneId={stablePaneId} contextId={sourceTarget.hostId} />
             <button
               type="button"
               onPointerDown={(event) => event.stopPropagation()}
-              onClick={handleUnpin}
-              aria-label={t("terminalCard.unpinFromCanvas")}
-              title={t("common.unpin")}
+              onClick={handleCreateRelatedTerminal}
+              aria-label={t("terminalCard.newTerminal")}
+              title={t("terminalCard.newTerminal")}
               className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
             >
-              <PinOff className="size-3.5" />
+              <Plus className="size-3.5" />
             </button>
-          )}
-          <button
-            type="button"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={handleCloseTerminal}
-            aria-label={t("terminalCard.closeTerminal")}
-            title={t("terminalCard.closeTerminal")}
-            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/12 hover:text-destructive"
-          >
-            <X className="size-3.5" />
-          </button>
-          <button
-            type="button"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={handleRevealSource}
-            aria-label={t("terminalCard.openSourceTerminal")}
-            title={t("common.source")}
-            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <ArrowUpRight className="size-3.5" />
-          </button>
+            {shape.props.isPinned && (
+              <button
+                type="button"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={handleUnpin}
+                aria-label={t("terminalCard.unpinFromCanvas")}
+                title={t("common.unpin")}
+                className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <PinOff className="size-3.5" />
+              </button>
+            )}
+            <button
+              type="button"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={handleCloseTerminal}
+              aria-label={t("terminalCard.closeTerminal")}
+              title={t("terminalCard.closeTerminal")}
+              className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/12 hover:text-destructive"
+            >
+              <X className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={handleRevealSource}
+              aria-label={t("terminalCard.openSourceTerminal")}
+              title={t("common.source")}
+              className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <ArrowUpRight className="size-3.5" />
+            </button>
+          </div>
         </div>
-      </div>
-      <div
-        ref={terminalHostRef}
-        className="min-h-0 flex-1 overflow-hidden bg-background"
-        style={{
-          borderBottomLeftRadius: CANVAS_CARD_CORNER_RADIUS - 1,
-          borderBottomRightRadius: CANVAS_CARD_CORNER_RADIUS - 1,
-          overscrollBehavior: "contain",
-        }}
-        onPointerDown={markTerminalInteractionHandled}
-        onPointerMove={stopCanvasInteractionWhileActive}
-        onPointerUp={stopCanvasInteractionWhileActive}
-        onDoubleClick={markTerminalInteractionHandled}
-        onMouseDown={markTerminalInteractionHandled}
-        onKeyDown={stopCanvasInteractionWhileActive}
-      >
-        {isRendered ? (
-          <div className="h-full bg-background" aria-hidden />
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-            <SquareTerminal className="size-8 text-muted-foreground" />
-            <div className="space-y-1">
-              <div className="text-sm font-medium text-foreground">
-                {isSelected
-                  ? t("terminalCard.activateThisCardToOpenLiveTerminal")
-                  : t("terminalCard.selectThisCardToActivateLiveTerminal")}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {shape.props.localPath || t("terminalCard.attachedTmuxWindow")}
+        <div
+          ref={terminalHostRef}
+          className="min-h-0 flex-1 overflow-hidden bg-background"
+          style={{
+            borderBottomLeftRadius: CANVAS_CARD_CORNER_RADIUS - 1,
+            borderBottomRightRadius: CANVAS_CARD_CORNER_RADIUS - 1,
+            overscrollBehavior: "contain",
+          }}
+          onPointerDown={markTerminalInteractionHandled}
+          onPointerMove={stopCanvasInteractionWhileActive}
+          onPointerUp={stopCanvasInteractionWhileActive}
+          onDoubleClick={markTerminalInteractionHandled}
+          onMouseDown={markTerminalInteractionHandled}
+          onKeyDown={stopCanvasInteractionWhileActive}
+        >
+          {isRendered ? (
+            <div className="h-full bg-background" aria-hidden />
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+              <SquareTerminal className="size-8 text-muted-foreground" />
+              <div className="space-y-1">
+                <div className="text-sm font-medium text-foreground">
+                  {isSelected
+                    ? t("terminalCard.activateThisCardToOpenLiveTerminal")
+                    : t("terminalCard.selectThisCardToActivateLiveTerminal")}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {shape.props.localPath || t("terminalCard.attachedTmuxWindow")}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
-    {terminalPortal}
+      {terminalPortal}
     </>
   );
 }

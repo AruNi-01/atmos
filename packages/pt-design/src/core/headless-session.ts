@@ -15,8 +15,7 @@ function emptyDocument(): PtDocument {
 }
 
 export function createHeadlessSession(initial?: { ptx?: string }): HeadlessSession {
-  let document: PtDocument =
-    initial?.ptx !== undefined ? parsePtx(initial.ptx) : emptyDocument();
+  let document: PtDocument = initial?.ptx !== undefined ? parsePtx(initial.ptx) : emptyDocument();
 
   return {
     getPtx() {

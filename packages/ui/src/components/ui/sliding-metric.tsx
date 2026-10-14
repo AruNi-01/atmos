@@ -39,10 +39,7 @@ function roundTo(value: number, decimals: number): number {
  * Compact SI-style parts (K / M / B). For `zh*` locales uses 万 / 亿.
  * Keeps mantissa small so SlidingNumber stays readable.
  */
-export function compactSlidingParts(
-  value: number,
-  locale = "en",
-): SlidingMetricParts {
+export function compactSlidingParts(value: number, locale = "en"): SlidingMetricParts {
   const decimalSeparator = localeDecimalSeparator(locale);
   const safe = Number.isFinite(value) ? value : 0;
   const abs = Math.abs(safe);
@@ -181,11 +178,7 @@ function AffixSlot({ children }: { children?: ReactNode }) {
         "inline-flex shrink-0 items-baseline leading-none",
         empty && "pointer-events-none overflow-hidden border-0 p-0",
       )}
-      style={
-        empty
-          ? { width: 0, height: 0, minWidth: 0, minHeight: 0, margin: 0 }
-          : undefined
-      }
+      style={empty ? { width: 0, height: 0, minWidth: 0, minHeight: 0, margin: 0 } : undefined}
       aria-hidden={empty || undefined}
     >
       {empty ? null : children}
@@ -209,16 +202,12 @@ export function SlidingMetric({
     <span
       className={cn(
         // items-baseline: `$` / `B` sit on the digit baseline (no optical gap).
-        "inline-flex items-baseline justify-end tabular-nums leading-none",
+        "inline-flex items-baseline justify-end leading-none tabular-nums",
         className,
       )}
     >
       <AffixSlot>{prefix}</AffixSlot>
-      <SlidingNumber
-        value={value}
-        decimals={decimals}
-        decimalSeparator={decimalSeparator}
-      />
+      <SlidingNumber value={value} decimals={decimals} decimalSeparator={decimalSeparator} />
       <AffixSlot>{suffix}</AffixSlot>
     </span>
   );

@@ -13,10 +13,7 @@ function publishCatalog(agentId: string, catalog: TerminalAgentOptions) {
   rememberTerminalAgentCatalog(agentId, catalog.models);
 }
 
-export type {
-  TerminalAgentOptions,
-  TerminalAgentOption,
-} from "@atmos/api-types/ws/dto/settings";
+export type { TerminalAgentOptions, TerminalAgentOption } from "@atmos/api-types/ws/dto/settings";
 
 export function useTerminalAgentOptions(agentId: string, enabled: boolean) {
   const t = useTranslations("agent.modelCatalog");
@@ -44,9 +41,9 @@ export function useTerminalAgentOptions(agentId: string, enabled: boolean) {
           if (
             current &&
             current.models.length > 0 &&
-            (nextCatalog.status === "error"
-              || nextCatalog.status === "unsupported"
-              || nextCatalog.models.length === 0)
+            (nextCatalog.status === "error" ||
+              nextCatalog.status === "unsupported" ||
+              nextCatalog.models.length === 0)
           ) {
             return current;
           }
@@ -95,9 +92,9 @@ export function useTerminalAgentOptions(agentId: string, enabled: boolean) {
         if (
           current &&
           current.models.length > 0 &&
-          (incoming.status === "error"
-            || incoming.status === "unsupported"
-            || incoming.models.length === 0)
+          (incoming.status === "error" ||
+            incoming.status === "unsupported" ||
+            incoming.models.length === 0)
         ) {
           return current;
         }

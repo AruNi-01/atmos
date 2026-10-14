@@ -1,12 +1,6 @@
 "use client";
 
-import React, {
-  useCallback,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Button,
@@ -81,16 +75,12 @@ export const ReviewActions: React.FC = () => {
       compareReviewTimestamps(a.created_at, b.created_at),
     );
     const idx = sorted.findIndex((r) => r.guid === currentRevision.guid);
-    return idx >= 0
-      ? t("revision.versionLabel", { number: idx + 1 })
-      : t("revision.fallback");
+    return idx >= 0 ? t("revision.versionLabel", { number: idx + 1 }) : t("revision.fallback");
   }, [currentRevision, currentSession, t]);
 
   const getSortedRevisions = useCallback(
     (session: ReviewSessionDto) =>
-      [...session.revisions].sort((a, b) =>
-        compareReviewTimestamps(b.created_at, a.created_at),
-      ),
+      [...session.revisions].sort((a, b) => compareReviewTimestamps(b.created_at, a.created_at)),
     [],
   );
 
@@ -103,7 +93,8 @@ export const ReviewActions: React.FC = () => {
     [setArtifactPreview, setSelectedRevisionGuid, setSelectedSessionGuid],
   );
 
-  const fixDisabled = !canEdit || openRevisionComments.length === 0 || !!activeFixRun || !!activeReviewRun;
+  const fixDisabled =
+    !canEdit || openRevisionComments.length === 0 || !!activeFixRun || !!activeReviewRun;
   const reviewDisabled = !canEdit || !!activeReviewRun || !!activeFixRun;
   const [archivedOpen, setArchivedOpen] = useState(false);
 
@@ -187,13 +178,10 @@ export const ReviewActions: React.FC = () => {
     }
   }, [loadSessions, loadComments]);
 
-  const [renameSessionGuid, setRenameSessionGuid] = useState<string | null>(
-    null,
-  );
+  const [renameSessionGuid, setRenameSessionGuid] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const getErrorDescription = useCallback(
-    (error: unknown) =>
-      error instanceof Error ? error.message : t("errors.unknown"),
+    (error: unknown) => (error instanceof Error ? error.message : t("errors.unknown")),
     [t],
   );
   const handleOpenRename = useCallback((session: ReviewSessionDto) => {
@@ -279,21 +267,16 @@ export const ReviewActions: React.FC = () => {
           <DropdownMenuSubTrigger
             onClick={() => selectRevision(s.guid, s.current_revision_guid)}
             className={cn(
-              "flex max-w-full items-center gap-2 text-xs cursor-pointer",
+              "flex max-w-full cursor-pointer items-center gap-2 text-xs",
               activeSession && "[&>svg:last-child]:hidden",
             )}
           >
-            <span className="flex-1 truncate">
-              {s.title?.trim() || t("session.untitled")}
-            </span>
-            {activeSession && (
-              <Check className="size-3.5 shrink-0 text-foreground" />
-            )}
+            <span className="flex-1 truncate">{s.title?.trim() || t("session.untitled")}</span>
+            {activeSession && <Check className="size-3.5 shrink-0 text-foreground" />}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="min-w-[10rem]">
             {sortedRevisions.map((rev, idx) => {
-              const activeRevision =
-                activeSession && rev.guid === currentRevision?.guid;
+              const activeRevision = activeSession && rev.guid === currentRevision?.guid;
               const label = t("revision.versionLabel", {
                 number: sortedRevisions.length - idx,
               });
@@ -302,20 +285,16 @@ export const ReviewActions: React.FC = () => {
                 <DropdownMenuItem
                   key={rev.guid}
                   onClick={() => selectRevision(s.guid, rev.guid)}
-                  className="flex items-center gap-2 text-xs cursor-pointer"
+                  className="flex cursor-pointer items-center gap-2 text-xs"
                 >
-                  <span className="font-medium shrink-0">
-                    {label}
-                  </span>
+                  <span className="shrink-0 font-medium">{label}</span>
                   <span className="flex-1 truncate text-muted-foreground">
                     {rev.title?.trim() || t("revision.fallback")}
                   </span>
                   <Check
                     className={cn(
                       "size-3.5 shrink-0",
-                      activeRevision
-                        ? "text-foreground"
-                        : "invisible",
+                      activeRevision ? "text-foreground" : "invisible",
                     )}
                   />
                 </DropdownMenuItem>
@@ -355,7 +334,7 @@ export const ReviewActions: React.FC = () => {
               }}
             >
               <DropdownMenuSubTrigger
-                className="text-xs cursor-pointer"
+                className="cursor-pointer text-xs"
                 disabled={s.status !== "active"}
               >
                 <span className="flex-1">{t("actions.rename")}</span>
@@ -375,18 +354,18 @@ export const ReviewActions: React.FC = () => {
                   }}
                   className="text-xs"
                 />
-                <div className="flex justify-end gap-1.5 mt-2">
+                <div className="mt-2 flex justify-end gap-1.5">
                   <button
                     type="button"
                     onClick={() => setRenameSessionGuid(null)}
-                    className="px-2.5 py-1 text-xs rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-sidebar-accent cursor-pointer"
+                    className="cursor-pointer rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
                   >
                     {t("actions.cancel")}
                   </button>
                   <button
                     type="button"
                     onClick={() => void handleSubmitRename()}
-                    className="px-2.5 py-1 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+                    className="cursor-pointer rounded-md bg-primary px-2.5 py-1 text-xs text-primary-foreground hover:bg-primary/90"
                   >
                     {t("actions.save")}
                   </button>
@@ -415,7 +394,7 @@ export const ReviewActions: React.FC = () => {
   return (
     <div ref={containerRef} className="flex min-w-0 flex-1 items-center gap-1 px-2">
       <div ref={innerRef} className="flex min-w-0 flex-1 items-center gap-1">
-        <div className="flex min-w-0 max-w-[60%] shrink items-center">
+        <div className="flex max-w-[60%] min-w-0 shrink items-center">
           <DropdownMenu
             onOpenChange={(open) => {
               if (!open) setRenameSessionGuid(null);
@@ -427,7 +406,7 @@ export const ReviewActions: React.FC = () => {
                 variant="ghost"
                 size="xs"
                 title={currentSession?.title?.trim() || t("session.title")}
-                className="min-w-0 max-w-full justify-start gap-1 rounded-md px-2 text-xs text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-foreground"
+                className="max-w-full min-w-0 justify-start gap-1 rounded-md px-2 text-xs text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-foreground"
               >
                 <span className="shrink-0 font-medium text-foreground">{revisionLabel}</span>
                 <span className="min-w-0 truncate">
@@ -438,7 +417,7 @@ export const ReviewActions: React.FC = () => {
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
-              className="w-max min-w-[12rem] max-w-[min(24rem,calc(100vw-2rem))]"
+              className="w-max max-w-[min(24rem,calc(100vw-2rem))] min-w-[12rem]"
             >
               <DropdownMenuItem
                 onClick={handleCreateSession}
@@ -453,13 +432,11 @@ export const ReviewActions: React.FC = () => {
 
                 return (
                   <React.Fragment key={group.status}>
-                    {(groupIndex > 0 || sessions.length > 0) && (
-                      <DropdownMenuSeparator />
-                    )}
+                    {(groupIndex > 0 || sessions.length > 0) && <DropdownMenuSeparator />}
                     <div
                       className={cn(
                         "py-1 text-[11px] font-medium text-muted-foreground",
-                        isArchived ? "pl-1 pr-2" : "px-2",
+                        isArchived ? "pr-2 pl-1" : "px-2",
                       )}
                     >
                       {isArchived ? (
@@ -470,7 +447,7 @@ export const ReviewActions: React.FC = () => {
                             event.stopPropagation();
                             setArchivedOpen((open) => !open);
                           }}
-                          className="flex w-full items-center gap-1 text-left hover:text-foreground cursor-pointer"
+                          className="flex w-full cursor-pointer items-center gap-1 text-left hover:text-foreground"
                         >
                           <ChevronRight
                             className={cn(

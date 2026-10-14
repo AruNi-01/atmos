@@ -43,6 +43,7 @@ export const localeNames: Record<Locale, string> = {
 ```
 
 **Usage**:
+
 ```tsx
 import { locales, defaultLocale, localeNames } from "@atmos/i18n/config";
 
@@ -70,6 +71,7 @@ export const routing = defineRouting({
 ```
 
 **Usage in Middleware**:
+
 ```typescript
 // middleware.ts
 import { routing } from "@atmos/i18n/routing";
@@ -93,24 +95,22 @@ Type-safe navigation utilities.
 import { createNavigation } from "next-intl/navigation";
 import { routing } from "./routing";
 
-export const { Link, redirect, usePathname, useRouter } = 
-  createNavigation(routing);
+export const { Link, redirect, usePathname, useRouter } = createNavigation(routing);
 ```
 
 **Usage in Components**:
+
 ```tsx
 import { Link, useRouter, usePathname } from "@atmos/i18n/navigation";
 
 export function MyComponent() {
   const router = useRouter();
   const pathname = usePathname();
-  
+
   return (
     <>
       <Link href="/about">About</Link>
-      <button onClick={() => router.push("/contact")}>
-        Contact
-      </button>
+      <button onClick={() => router.push("/contact")}>Contact</button>
       <p>Current path: {pathname}</p>
     </>
   );
@@ -144,6 +144,7 @@ export default getRequestConfig(async ({ requestLocale }) => {
 ```
 
 **Usage in Next.js Config**:
+
 ```typescript
 // next.config.ts
 import type { NextConfig } from "next";
@@ -156,6 +157,7 @@ export default nextConfig;
 ```
 
 **Reference in App**:
+
 ```typescript
 // i18n/request.ts (in app)
 import request from "@atmos/i18n/request";
@@ -195,6 +197,7 @@ apps/web/
 ```
 
 **Example Translation File**:
+
 ```json
 // messages/en.json
 {
@@ -236,7 +239,7 @@ import { getTranslations } from "next-intl/server";
 
 export default async function Page() {
   const t = await getTranslations("HomePage");
-  
+
   return <h1>{t("title")}</h1>;
 }
 ```
@@ -249,7 +252,7 @@ import { useTranslations } from "next-intl";
 
 export function ClientComponent() {
   const t = useTranslations("HomePage");
-  
+
   return <h1>{t("title")}</h1>;
 }
 ```
@@ -406,9 +409,11 @@ touch messages/ja.json
 ## 📦 Dependencies
 
 ### Production Dependencies
+
 - `next-intl`: Internationalization for Next.js
 
 ### Peer Dependencies
+
 - `next`: Next.js framework
 - `react`: React library
 

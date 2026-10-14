@@ -80,7 +80,9 @@ export function parsePlanOverviewFromMarkdown(
   };
 }
 
-function toolPathFromPart(part: Extract<AgentMessage["parts"][number], { type: "tool_call" }>): string | null {
+function toolPathFromPart(
+  part: Extract<AgentMessage["parts"][number], { type: "tool_call" }>,
+): string | null {
   const params = part.params;
   if (params?.type === "read" || params?.type === "edit" || params?.type === "delete") {
     return params.path?.trim() || null;

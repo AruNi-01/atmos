@@ -8,9 +8,6 @@ import type { RelayClientKind } from "@atmos/relay-client";
 import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
 
 /** `desktop` in Electron shell; `web` in browser (hosted or loopback). */
-export function workbenchRelayClientKind(): Extract<
-  RelayClientKind,
-  "web" | "desktop"
-> {
+export function workbenchRelayClientKind(): Extract<RelayClientKind, "web" | "desktop"> {
   return isDesktopRuntime() ? "desktop" : "web";
 }

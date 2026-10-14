@@ -177,27 +177,30 @@ export interface TerminalAgentInputOverlayHandle {
 export const TerminalAgentInputOverlay = React.forwardRef<
   TerminalAgentInputOverlayHandle,
   TerminalAgentInputOverlayProps
->(function TerminalAgentInputOverlay({
-  activeProjectId,
-  agent,
-  stablePaneId = null,
-  getSideChatFlyTargetClientPoint,
-  getTerminalCursorClientPoint,
-  isTerminalReady = true,
-  localPath,
-  onHide,
-  onInteraction,
-  onSendEnter,
-  onSendText,
-  onStartSideChat,
-  onSpawn,
-  sideChatAgent,
-  sideChatAgentOptions = [],
-  sideChatDots,
-  skillsContext = null,
-  submitMode = "text-enter",
-  surfaceActive = true,
-}, ref) {
+>(function TerminalAgentInputOverlay(
+  {
+    activeProjectId,
+    agent,
+    stablePaneId = null,
+    getSideChatFlyTargetClientPoint,
+    getTerminalCursorClientPoint,
+    isTerminalReady = true,
+    localPath,
+    onHide,
+    onInteraction,
+    onSendEnter,
+    onSendText,
+    onStartSideChat,
+    onSpawn,
+    sideChatAgent,
+    sideChatAgentOptions = [],
+    sideChatDots,
+    skillsContext = null,
+    submitMode = "text-enter",
+    surfaceActive = true,
+  },
+  ref,
+) {
   const t = useTranslations("terminal.agentInput");
   const { effectiveContextId, workspaceId: routeWorkspaceId } = useContextParams();
   const {
@@ -267,7 +270,8 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     Record<string, TerminalAgentRunConfigInput | null>
   >({});
   const isOverlayVisible = isOpen || isSendAnimating || isSendExiting;
-  const canSubmit = isTerminalReady && text.trim().length > 0 && !isSending && !isSendAnimating && !isSendExiting;
+  const canSubmit =
+    isTerminalReady && text.trim().length > 0 && !isSending && !isSendAnimating && !isSendExiting;
 
   const runnableSideChatAgents = React.useMemo(
     () => getRunnableUniqueSideChatAgents(sideChatAgentOptions),
@@ -290,17 +294,17 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     [onSpawn, promptContexts, text],
   );
   const isContextCommandActive = isSideCommandActive || isSpawnCommandActive;
-  const effectiveSelectedSideChatAgentId = selectedSideChatAgentId || detectedSideChatAgent?.id || "";
-  const selectedSideChatAgent = React.useMemo(
-    () => {
-      if (!effectiveSelectedSideChatAgentId) return null;
-      return (
-        runnableSideChatAgents.find((agent) => agent.id === effectiveSelectedSideChatAgentId) ??
-        (detectedSideChatAgent?.id === effectiveSelectedSideChatAgentId ? detectedSideChatAgent : null)
-      );
-    },
-    [detectedSideChatAgent, effectiveSelectedSideChatAgentId, runnableSideChatAgents],
-  );
+  const effectiveSelectedSideChatAgentId =
+    selectedSideChatAgentId || detectedSideChatAgent?.id || "";
+  const selectedSideChatAgent = React.useMemo(() => {
+    if (!effectiveSelectedSideChatAgentId) return null;
+    return (
+      runnableSideChatAgents.find((agent) => agent.id === effectiveSelectedSideChatAgentId) ??
+      (detectedSideChatAgent?.id === effectiveSelectedSideChatAgentId
+        ? detectedSideChatAgent
+        : null)
+    );
+  }, [detectedSideChatAgent, effectiveSelectedSideChatAgentId, runnableSideChatAgents]);
   const shouldShowSideChatAgentSelector =
     isContextCommandActive && sideChatAgentMenuOptions.length > 0;
 
@@ -445,28 +449,34 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     return context;
   }, [upsertPromptContext]);
 
-  const insertTerminalSelectionContext = React.useCallback((snapshot: TerminalSelectionSnapshot) => {
-    if (!richInputActive) return;
-    const context = createTerminalSelectionContextFromSnapshot(snapshot);
-    upsertPromptContext(context);
-    setIsOpen(true);
-    window.requestAnimationFrame(() => {
-      composerRef.current?.focus();
-      composerRef.current?.insertTerminalSelectionContext(context.contextId);
-    });
-  }, [richInputActive, upsertPromptContext]);
+  const insertTerminalSelectionContext = React.useCallback(
+    (snapshot: TerminalSelectionSnapshot) => {
+      if (!richInputActive) return;
+      const context = createTerminalSelectionContextFromSnapshot(snapshot);
+      upsertPromptContext(context);
+      setIsOpen(true);
+      window.requestAnimationFrame(() => {
+        composerRef.current?.focus();
+        composerRef.current?.insertTerminalSelectionContext(context.contextId);
+      });
+    },
+    [richInputActive, upsertPromptContext],
+  );
 
-  const insertSideChatForTerminalSelection = React.useCallback((snapshot: TerminalSelectionSnapshot) => {
-    if (!richInputActive) return;
-    const context = createTerminalSelectionContextFromSnapshot(snapshot);
-    upsertPromptContext(context);
-    setIsOpen(true);
-    window.requestAnimationFrame(() => {
-      composerRef.current?.focus();
-      composerRef.current?.insertSideChatCommand(context.contextId);
-      composerRef.current?.insertTerminalSelectionContext(context.contextId);
-    });
-  }, [richInputActive, upsertPromptContext]);
+  const insertSideChatForTerminalSelection = React.useCallback(
+    (snapshot: TerminalSelectionSnapshot) => {
+      if (!richInputActive) return;
+      const context = createTerminalSelectionContextFromSnapshot(snapshot);
+      upsertPromptContext(context);
+      setIsOpen(true);
+      window.requestAnimationFrame(() => {
+        composerRef.current?.focus();
+        composerRef.current?.insertSideChatCommand(context.contextId);
+        composerRef.current?.insertTerminalSelectionContext(context.contextId);
+      });
+    },
+    [richInputActive, upsertPromptContext],
+  );
 
   const stopOverlayInteractionPropagation = React.useCallback(
     (event: React.SyntheticEvent) => {
@@ -476,13 +486,23 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     [onInteraction],
   );
 
-  React.useImperativeHandle(ref, () => ({
-    focus: focusInput,
-    toggle: toggleInput,
-    togglePin,
-    addTerminalSelectionContext: insertTerminalSelectionContext,
-    startSideChatForTerminalSelection: insertSideChatForTerminalSelection,
-  }), [focusInput, insertSideChatForTerminalSelection, insertTerminalSelectionContext, toggleInput, togglePin]);
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      focus: focusInput,
+      toggle: toggleInput,
+      togglePin,
+      addTerminalSelectionContext: insertTerminalSelectionContext,
+      startSideChatForTerminalSelection: insertSideChatForTerminalSelection,
+    }),
+    [
+      focusInput,
+      insertSideChatForTerminalSelection,
+      insertTerminalSelectionContext,
+      toggleInput,
+      togglePin,
+    ],
+  );
 
   const {
     attachments,
@@ -498,11 +518,10 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     (item: { relativePath: string }) => {
       const popover = mentionPopover;
       if (!popover) return;
-      composerRef.current?.applyMentionAtRange(
-        popover.atOffset,
-        popover.query.length,
-        { kind: "file", relativePath: item.relativePath },
-      );
+      composerRef.current?.applyMentionAtRange(popover.atOffset, popover.query.length, {
+        kind: "file",
+        relativePath: item.relativePath,
+      });
       setMentionPopover(null);
     },
     [mentionPopover],
@@ -516,11 +535,10 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         selectMentionFile(item.file);
         return;
       }
-      composerRef.current?.applyMentionAtRange(
-        popover.atOffset,
-        popover.query.length,
-        { kind: item.type, number: item.type === "issue" ? item.issue.number : item.pr.number },
-      );
+      composerRef.current?.applyMentionAtRange(popover.atOffset, popover.query.length, {
+        kind: item.type,
+        number: item.type === "issue" ? item.issue.number : item.pr.number,
+      });
       setMentionPopover(null);
     },
     [mentionPopover, selectMentionFile],
@@ -540,29 +558,24 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     selectedProjectPath: localPath ?? null,
   });
 
-  const {
-    allSkills,
-    filteredAgents,
-    filteredProjects,
-    filteredSkills,
-    isSkillsLoading,
-  } = useWelcomeSlashSearch({
-    availableAgents: [],
-    activeProjectId: activeProjectId ?? null,
-    popover: slashPopover,
-    projects: [],
-  });
+  const { allSkills, filteredAgents, filteredProjects, filteredSkills, isSkillsLoading } =
+    useWelcomeSlashSearch({
+      availableAgents: [],
+      activeProjectId: activeProjectId ?? null,
+      popover: slashPopover,
+      projects: [],
+    });
 
   const selectSlashSkill = React.useCallback(
     (skill: { path: string; name: string; status?: string }) => {
       if (skill.status === "disabled") return;
       const popover = slashPopover;
       if (!popover) return;
-      composerRef.current?.applySlashAtRange(
-        popover.slashOffset,
-        popover.query.length,
-        { kind: "skill", absolutePath: skill.path, name: skill.name },
-      );
+      composerRef.current?.applySlashAtRange(popover.slashOffset, popover.query.length, {
+        kind: "skill",
+        absolutePath: skill.path,
+        name: skill.name,
+      });
       setSlashPopover(null);
       setSlashPopoverView("menu");
       setSkillDisableFilter("");
@@ -575,10 +588,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     if (!popover || !skillsContext) return;
     suppressSlashCancelRef.current = true;
     setSkillDisableSessionActions([]);
-    composerRef.current?.applySkillDisableCommandAtRange(
-      popover.slashOffset,
-      popover.query.length,
-    );
+    composerRef.current?.applySkillDisableCommandAtRange(popover.slashOffset, popover.query.length);
     slashPopoverViewRef.current = "disable_skills";
     setSlashPopoverView("disable_skills");
     setSkillDisableFilter("");
@@ -649,16 +659,14 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         if (!popover) return;
         setSlashPopover(null);
         setSlashPopoverView("menu");
-        void loadDevicePreviewPrompt(routeWorkspaceId ?? effectiveContextId).then(
-          (promptText) => {
-            composerRef.current?.applyAiContextAtRange(
-              popover.slashOffset,
-              popover.query.length,
-              "device-preview",
-              promptText,
-            );
-          },
-        );
+        void loadDevicePreviewPrompt(routeWorkspaceId ?? effectiveContextId).then((promptText) => {
+          composerRef.current?.applyAiContextAtRange(
+            popover.slashOffset,
+            popover.query.length,
+            "device-preview",
+            promptText,
+          );
+        });
         return;
       }
       if (command.id === BROWSER_USE_SLASH_COMMAND_ID) {
@@ -675,15 +683,11 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         setSlashPopover(null);
         setSlashPopoverView("menu");
         const insertSkill = () => {
-          composerRef.current?.applySlashAtRange(
-            popover.slashOffset,
-            popover.query.length,
-            {
-              kind: "skill",
-              absolutePath: skill.absolutePath,
-              name: skill.name,
-            },
-          );
+          composerRef.current?.applySlashAtRange(popover.slashOffset, popover.query.length, {
+            kind: "skill",
+            absolutePath: skill.absolutePath,
+            name: skill.name,
+          });
         };
         if (!browserUseSlashNeedsDesktopUseGate()) {
           insertSkill();
@@ -715,15 +719,11 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           ({ gateDesktopUseFeature }) => {
             gateDesktopUseFeature("slash", {
               onReady: () => {
-                composerRef.current?.applySlashAtRange(
-                  popover.slashOffset,
-                  popover.query.length,
-                  {
-                    kind: "skill",
-                    absolutePath: skill.absolutePath,
-                    name: skill.name,
-                  },
-                );
+                composerRef.current?.applySlashAtRange(popover.slashOffset, popover.query.length, {
+                  kind: "skill",
+                  absolutePath: skill.absolutePath,
+                  name: skill.name,
+                });
               },
             });
           },
@@ -852,9 +852,8 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         composerRef.current?.focus();
       }
       for (const item of items) {
-        const path = item.kind === "directory" && !item.path.endsWith("/")
-          ? `${item.path}/`
-          : item.path;
+        const path =
+          item.kind === "directory" && !item.path.endsWith("/") ? `${item.path}/` : item.path;
         composerRef.current?.insertFileMention(path);
       }
       const nextText = composerRef.current?.getText() ?? text;
@@ -930,63 +929,74 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     };
   }, []);
 
-  const launchFlyingMessage = React.useCallback((
-    messageText: string,
-    targetOverride?: { x: number; y: number } | null,
-  ) => {
-    const message = buildTerminalAgentFlyingMessage({
-      id: flyingMessageIdRef.current + 1,
-      messageText,
-      shell: inputShellRef.current,
-      target: targetOverride ?? getTerminalCursorClientPoint?.(),
-    });
-    if (!message) return;
+  const launchFlyingMessage = React.useCallback(
+    (messageText: string, targetOverride?: { x: number; y: number } | null) => {
+      const message = buildTerminalAgentFlyingMessage({
+        id: flyingMessageIdRef.current + 1,
+        messageText,
+        shell: inputShellRef.current,
+        target: targetOverride ?? getTerminalCursorClientPoint?.(),
+      });
+      if (!message) return;
 
-    setFlyingMessage(message);
-    flyingMessageIdRef.current = message.id;
-  }, [getTerminalCursorClientPoint]);
+      setFlyingMessage(message);
+      flyingMessageIdRef.current = message.id;
+    },
+    [getTerminalCursorClientPoint],
+  );
 
-  const startSuccessfulSubmitAnimation = React.useCallback((
-    messageText: string,
-    targetOverride?: { x: number; y: number } | null,
-  ) => {
-    launchFlyingMessage(messageText, targetOverride);
-    setIsOpen(true);
-    setIsSendAnimating(true);
-    composerRef.current?.clear();
-    clearAttachments();
-    setPromptContexts([]);
-    setMentionPopover(null);
-    setSlashPopover(null);
-    setPendingSidePrompt(null);
-    setPendingSideContexts([]);
-    setSideChatAgentSelectorOpen(false);
-  }, [clearAttachments, launchFlyingMessage]);
+  const startSuccessfulSubmitAnimation = React.useCallback(
+    (messageText: string, targetOverride?: { x: number; y: number } | null) => {
+      launchFlyingMessage(messageText, targetOverride);
+      setIsOpen(true);
+      setIsSendAnimating(true);
+      composerRef.current?.clear();
+      clearAttachments();
+      setPromptContexts([]);
+      setMentionPopover(null);
+      setSlashPopover(null);
+      setPendingSidePrompt(null);
+      setPendingSideContexts([]);
+      setSideChatAgentSelectorOpen(false);
+    },
+    [clearAttachments, launchFlyingMessage],
+  );
 
-  const runSideChat = React.useCallback(async (
-    prompt: string,
-    agent: TerminalPaneAgent,
-    runConfig?: TerminalAgentRunConfigInput | null,
-    contexts: TerminalPromptContext[] = [],
-  ) => {
-    if (!onStartSideChat) return;
-    await onStartSideChat(prompt, agent, sanitizeRunConfig(runConfig), contexts);
-    const flyTarget = await resolveSideChatFlyTarget(getSideChatFlyTargetClientPoint);
-    startSuccessfulSubmitAnimation(prompt, flyTarget);
-    if (stablePaneId) dismissAttentionSummaryChrome(stablePaneId);
-  }, [getSideChatFlyTargetClientPoint, onStartSideChat, stablePaneId, startSuccessfulSubmitAnimation]);
+  const runSideChat = React.useCallback(
+    async (
+      prompt: string,
+      agent: TerminalPaneAgent,
+      runConfig?: TerminalAgentRunConfigInput | null,
+      contexts: TerminalPromptContext[] = [],
+    ) => {
+      if (!onStartSideChat) return;
+      await onStartSideChat(prompt, agent, sanitizeRunConfig(runConfig), contexts);
+      const flyTarget = await resolveSideChatFlyTarget(getSideChatFlyTargetClientPoint);
+      startSuccessfulSubmitAnimation(prompt, flyTarget);
+      if (stablePaneId) dismissAttentionSummaryChrome(stablePaneId);
+    },
+    [
+      getSideChatFlyTargetClientPoint,
+      onStartSideChat,
+      stablePaneId,
+      startSuccessfulSubmitAnimation,
+    ],
+  );
 
-  const runSpawn = React.useCallback(async (
-    prompt: string,
-    agent: TerminalPaneAgent,
-    runConfig?: TerminalAgentRunConfigInput | null,
-    contexts: TerminalPromptContext[] = [],
-  ) => {
-    if (!onSpawn) return;
-    await onSpawn(prompt, agent, sanitizeRunConfig(runConfig), contexts);
-    startSuccessfulSubmitAnimation(prompt);
-    if (stablePaneId) dismissAttentionSummaryChrome(stablePaneId);
-  }, [onSpawn, stablePaneId, startSuccessfulSubmitAnimation]);
+  const runSpawn = React.useCallback(
+    async (
+      prompt: string,
+      agent: TerminalPaneAgent,
+      runConfig?: TerminalAgentRunConfigInput | null,
+      contexts: TerminalPromptContext[] = [],
+    ) => {
+      if (!onSpawn) return;
+      await onSpawn(prompt, agent, sanitizeRunConfig(runConfig), contexts);
+      startSuccessfulSubmitAnimation(prompt);
+      if (stablePaneId) dismissAttentionSummaryChrome(stablePaneId);
+    },
+    [onSpawn, stablePaneId, startSuccessfulSubmitAnimation],
+  );
 
   const sideChatRunConfigsRef = React.useRef(sideChatRunConfigs);
   sideChatRunConfigsRef.current = sideChatRunConfigs;
@@ -1022,12 +1032,20 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         void runSideChat(pendingPrompt, agent, runConfig, contexts);
       }
     },
-    [pendingCommandKind, pendingSideContexts, pendingSidePrompt, runnableSideChatAgents, runSideChat, runSpawn],
+    [
+      pendingCommandKind,
+      pendingSideContexts,
+      pendingSidePrompt,
+      runnableSideChatAgents,
+      runSideChat,
+      runSpawn,
+    ],
   );
 
   const submit = React.useCallback(async () => {
     const rawText = stripSkillDisableSession(composerRef.current?.getText() ?? text);
-    if (!isTerminalReady || !rawText.trim() || isSending || isSendAnimating || isSendExiting) return;
+    if (!isTerminalReady || !rawText.trim() || isSending || isSendAnimating || isSendExiting)
+      return;
     setIsSending(true);
     try {
       const resolvedText = await resolveTerminalAgentPrompt({
@@ -1274,7 +1292,11 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           footerEndControl={
             shouldShowSideChatAgentSelector ? (
               <div className="flex items-center gap-1">
-                <div className={agentSelectorAttention ? "terminal-agent-selector-attention" : undefined}>
+                <div
+                  className={
+                    agentSelectorAttention ? "terminal-agent-selector-attention" : undefined
+                  }
+                >
                   <WelcomeAgentSelector
                     availableAgents={sideChatAgentMenuOptions}
                     contentAlign="end"
@@ -1294,29 +1316,18 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           }
         />
 
-        <div
-          className={cn(
-            TERMINAL_BOTTOM_TRIGGER_ROW_CLASS,
-            triggerBarVisible && "gap-1.5",
-          )}
-        >
+        <div className={cn(TERMINAL_BOTTOM_TRIGGER_ROW_CLASS, triggerBarVisible && "gap-1.5")}>
           {triggerBarVisible ? (
             <button
               type="button"
               aria-label="Open agent input"
               data-attention-summary={
-                isSummaryActive
-                  ? isSummarySummarizing
-                    ? "summarizing"
-                    : "ready"
-                  : undefined
+                isSummaryActive ? (isSummarySummarizing ? "summarizing" : "ready") : undefined
               }
               data-stable-pane-id={stablePaneId ?? undefined}
               className={cn(
                 "h-1 w-28 rounded-full shadow-[0_0_2px_rgba(0,0,0,0.16)] transition-[opacity,box-shadow] duration-200",
-                isSummaryActive
-                  ? "terminal-agent-input-trigger--summary"
-                  : "bg-foreground/25",
+                isSummaryActive ? "terminal-agent-input-trigger--summary" : "bg-foreground/25",
                 isSummaryActive && !isOverlayVisible && "terminal-agent-input-trigger--pulse",
                 isOverlayVisible
                   ? "opacity-0"
@@ -1524,9 +1535,7 @@ function SideChatAgentPicker({
           </button>
         ))
       ) : (
-        <div className="px-2.5 py-2 text-xs text-muted-foreground">
-          {t("noAgent")}
-        </div>
+        <div className="px-2.5 py-2 text-xs text-muted-foreground">{t("noAgent")}</div>
       )}
       <button
         type="button"

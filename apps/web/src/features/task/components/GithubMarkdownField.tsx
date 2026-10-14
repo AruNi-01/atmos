@@ -72,16 +72,18 @@ export function GithubMarkdownField({
       ) : (
         <div className={cn("p-3", minHeightClassName)}>
           {value.trim() ? (
-            <MarkdownRenderer className="prose prose-sm max-w-none text-[13px] dark:prose-invert">
+            <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px]">
               {value}
             </MarkdownRenderer>
           ) : (
-            <p className="text-xs italic text-muted-foreground">{t("markdown.nothingToPreview")}</p>
+            <p className="text-xs text-muted-foreground italic">{t("markdown.nothingToPreview")}</p>
           )}
         </div>
       )}
       {error ? (
-        <p className="border-t border-border/60 px-3 py-1.5 text-[11px] text-destructive">{error}</p>
+        <p className="border-t border-border/60 px-3 py-1.5 text-[11px] text-destructive">
+          {error}
+        </p>
       ) : null}
     </div>
   );

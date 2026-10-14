@@ -1,72 +1,80 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CodeView,
   EditProvider,
   useWorkerPool,
   type CodeViewHandle,
   type CreateEditor,
-} from '@pierre/diffs/react';
-import type { CodeViewItem, SelectedLineRange } from '@pierre/diffs';
-import { parseDiffFromFile } from '@pierre/diffs';
-import { Editor } from '@pierre/diffs/edit';
-import { useTranslations } from 'next-intl';
-import { useTheme } from 'next-themes';
-import { Loader2 } from 'lucide-react';
-import { gitApi } from '@/api/ws-api';
-import { useGitStore } from '@/features/git/store/use-git-store';
+} from "@pierre/diffs/react";
+import type { CodeViewItem, SelectedLineRange } from "@pierre/diffs";
+import { parseDiffFromFile } from "@pierre/diffs";
+import { Editor } from "@pierre/diffs/edit";
+import { useTranslations } from "next-intl";
+import { useTheme } from "next-themes";
+import { Loader2 } from "lucide-react";
+import { gitApi } from "@/api/ws-api";
+import { useGitStore } from "@/features/git/store/use-git-store";
 import {
   useGitChangedFilesQuery,
   GIT_WORKTREE_PARAMS,
-} from '@/features/git/hooks/use-git-changed-files-query';
-import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
-import { computeCompareParams, selectCompareChangedFiles, isCompareQueryEnabled, EMPTY_CHANGED_FILES } from '@/features/git/lib/git-query-options';
-import { useEditorStore, type FileNavigationTarget } from '@/features/editor/store/use-editor-store';
-import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
-import { useContextParams } from '@/shared/hooks/use-context-params';
+} from "@/features/git/hooks/use-git-changed-files-query";
+import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
+import {
+  computeCompareParams,
+  selectCompareChangedFiles,
+  isCompareQueryEnabled,
+  EMPTY_CHANGED_FILES,
+} from "@/features/git/lib/git-query-options";
+import {
+  useEditorStore,
+  type FileNavigationTarget,
+} from "@/features/editor/store/use-editor-store";
+import { useDiffSettingsStore } from "@/features/settings/store/diff-settings-store";
+import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
   DIFF_GROUP_TAB_LABELS,
   type DiffChangeGroupKind,
   getDiffGroupKind,
   getFilesForDiffGroup,
-} from '@/features/diff/lib/diff-editor-paths';
-import { useDiffWorkerPoolReady } from '@/features/diff/components/DiffWorkerPoolProvider';
-import { DiffCodeViewSettingsMenu } from '@/features/diff/components/DiffCodeViewSettingsMenu';
-import { DiffCodeViewScaffold } from '@/features/diff/components/DiffCodeViewScaffold';
-import { CenterExplorerToggle } from '@/app-shell/CenterExplorerToggle';
+} from "@/features/diff/lib/diff-editor-paths";
+import { useDiffWorkerPoolReady } from "@/features/diff/components/DiffWorkerPoolProvider";
+import { DiffCodeViewSettingsMenu } from "@/features/diff/components/DiffCodeViewSettingsMenu";
+import { DiffCodeViewScaffold } from "@/features/diff/components/DiffCodeViewScaffold";
+import { CenterExplorerToggle } from "@/app-shell/CenterExplorerToggle";
 import {
   useDiffPromptStash,
   type LoadedDiffContents,
-} from '@/features/diff/components/useDiffPromptStash';
-import { DiffWorktreeEditToolbar } from '@/features/diff/components/DiffWorktreeEditToolbar';
-import { useDiffWorktreeEdit } from '@/features/diff/components/useDiffWorktreeEdit';
-import type { AgentFixContextRef } from '@/features/agent-fix/types';
-import { sortByDiffTreePath } from '@/features/diff/lib/diff-file-order';
+} from "@/features/diff/components/useDiffPromptStash";
+import { DiffWorktreeEditToolbar } from "@/features/diff/components/DiffWorktreeEditToolbar";
+import { useDiffWorktreeEdit } from "@/features/diff/components/useDiffWorktreeEdit";
+import type { AgentFixContextRef } from "@/features/agent-fix/types";
+import { sortByDiffTreePath } from "@/features/diff/lib/diff-file-order";
 import {
   applyCollapseModeToItems,
   diffSideCacheKey,
   type DiffListAnnotationMeta,
-} from '@/features/diff/lib/diff-code-view-shared';
-import { primePierreFileDiff } from '@/features/diff/lib/pierre-diff-hunks-guard';
+} from "@/features/diff/lib/diff-code-view-shared";
+import { primePierreFileDiff } from "@/features/diff/lib/pierre-diff-hunks-guard";
 import {
   binaryDiffPlaceholders,
   isLikelyBinaryPath,
   isNonTextDiff,
-} from '@/features/diff/lib/diff-content-kind';
-import type { GitFileDiffResponse } from '@/api/ws-api-types';
+} from "@/features/diff/lib/diff-content-kind";
+import type { GitFileDiffResponse } from "@/api/ws-api-types";
 import {
   ATMOS_DIFF_THEME,
   buildSharedDiffViewOptions,
   CODE_VIEW_HOST_CLASS,
   getAtmosDiffThemeType,
-} from '@/features/diff/lib/diff-view-constants';
-import { useScrollFadeRef } from '@/features/diff/lib/use-scroll-fade-element';
+} from "@/features/diff/lib/diff-view-constants";
+import { useScrollFadeRef } from "@/features/diff/lib/use-scroll-fade-element";
 import {
   findDiffItemIdForViewport,
   renderDiffHeaderPrefix,
   scrollCodeViewToItem,
-} from '@/features/diff/lib/code-view-ui';
+} from "@/features/diff/lib/code-view-ui";
 
 const CODE_VIEW_BATCH_SIZE = 25;
 const FULL_COMMIT_HASH_RE = /^[0-9a-f]{40}$/i;
@@ -97,16 +105,15 @@ export function ChangesCodeView({
   navigationTarget: navigationTargetProp,
   showChangesExplorerToggle = false,
 }: ChangesCodeViewProps) {
-  const t = useTranslations('diff.codeView');
-  const loadChangesFallbackRef = useRef(t('errors.loadChangesFallback'));
+  const t = useTranslations("diff.codeView");
+  const loadChangesFallbackRef = useRef(t("errors.loadChangesFallback"));
   const { resolvedTheme } = useTheme();
   const groupKind = getDiffGroupKind(groupPath);
   const { effectiveContextId } = useContextParams();
   const activeContextId = contextId ?? effectiveContextId;
   const compareMode = useGitStore((s) => s.compareMode);
   const compareBaseRef = useGitStore((s) => s.compareBaseRef);
-  const effectiveGroupKind =
-    groupKind === 'compared' && compareBaseRef ? 'commit' : groupKind;
+  const effectiveGroupKind = groupKind === "compared" && compareBaseRef ? "commit" : groupKind;
 
   const statusQuery = useGitStatusQuery(repoPath);
   const defaultBranch = statusQuery.data?.default_branch ?? null;
@@ -133,9 +140,7 @@ export function ChangesCodeView({
     activeContextId ? s.diffGroupActiveFiles[activeContextId]?.[groupPath] : undefined,
   );
   const storeNavigationTarget = useEditorStore((s) =>
-    activeContextId
-      ? s.navigationTargets[activeContextId]?.[groupPath] ?? null
-      : null,
+    activeContextId ? (s.navigationTargets[activeContextId]?.[groupPath] ?? null) : null,
   );
   const navigationTarget =
     navigationTargetProp === undefined ? storeNavigationTarget : navigationTargetProp;
@@ -147,13 +152,9 @@ export function ChangesCodeView({
   const [hasLoadedAllItems, setHasLoadedAllItems] = useState(false);
   const [loadedItemVersion, setLoadedItemVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [initialItems, setInitialItems] = useState<CodeViewItem<DiffListAnnotationMeta>[]>(
-    [],
-  );
+  const [initialItems, setInitialItems] = useState<CodeViewItem<DiffListAnnotationMeta>[]>([]);
   const stashedPromptScope = `${repoPath}:${groupPath}`;
-  const [pathByFileName, setPathByFileName] = useState<Map<string, string>>(
-    () => new Map(),
-  );
+  const [pathByFileName, setPathByFileName] = useState<Map<string, string>>(() => new Map());
   const [viewerKey, setViewerKey] = useState(0);
   const [viewerMounted, setViewerMounted] = useState(false);
   const {
@@ -169,9 +170,7 @@ export function ChangesCodeView({
     setWordWrap,
     setDiffIndicators,
   } = useDiffSettingsStore();
-  const [collapseMode, setCollapseMode] = useState<'expanded' | 'collapsed'>(
-    'expanded',
-  );
+  const [collapseMode, setCollapseMode] = useState<"expanded" | "collapsed">("expanded");
   const codeViewRef = useRef<CodeViewHandle<DiffListAnnotationMeta>>(null);
   const setCodeViewHost = useScrollFadeRef<HTMLDivElement>();
   const lastHandledNavRef = useRef<string | null>(null);
@@ -180,21 +179,20 @@ export function ChangesCodeView({
   const scrollActiveIdRef = useRef<string | null>(null);
   const loadedContentsRef = useRef<Map<string, LoadedDiffContents>>(new Map());
   const collapseModeRef = useRef(collapseMode);
-  const { openCopyAnnotation, renderAnnotation, stashedPromptChip } =
-    useDiffPromptStash({
-      agentFixContext,
-      scope: stashedPromptScope,
-      repoPath,
-      viewerRef: codeViewRef,
-      loadedContentsRef,
-    });
+  const { openCopyAnnotation, renderAnnotation, stashedPromptChip } = useDiffPromptStash({
+    agentFixContext,
+    scope: stashedPromptScope,
+    repoPath,
+    viewerRef: codeViewRef,
+    loadedContentsRef,
+  });
 
   useEffect(() => {
     void loadDiffSettings();
   }, [loadDiffSettings]);
 
   useEffect(() => {
-    loadChangesFallbackRef.current = t('errors.loadChangesFallback');
+    loadChangesFallbackRef.current = t("errors.loadChangesFallback");
   }, [t]);
 
   useEffect(() => {
@@ -254,42 +252,40 @@ export function ChangesCodeView({
       })),
     [groupFiles],
   );
-  const groupLabel = effectiveGroupKind
-    ? DIFF_GROUP_TAB_LABELS[effectiveGroupKind]
-    : '';
+  const groupLabel = effectiveGroupKind ? DIFF_GROUP_TAB_LABELS[effectiveGroupKind] : "";
   const displayReferenceLabel =
-    effectiveGroupKind === 'commit'
-      ? compareBaseRef ?? compareRef
-        ? t('commitRef', {
+    effectiveGroupKind === "commit"
+      ? (compareBaseRef ?? compareRef)
+        ? t("commitRef", {
             commitRef: formatCommitRefLabel((compareBaseRef ?? compareRef)!),
           })
         : null
       : compareRef
-        ? t('compareRef', { compareRef })
+        ? t("compareRef", { compareRef })
         : null;
   const diffRequestOptions = useMemo(() => {
     switch (effectiveGroupKind) {
-      case 'branch':
-      case 'compared':
+      case "branch":
+      case "compared":
         return {
           againstIndex: false,
           baseRef: compareRef,
           commitRef: null,
         };
-      case 'commit':
+      case "commit":
         return {
           againstIndex: false,
           baseRef: null,
           commitRef: compareBaseRef ?? compareRef,
         };
-      case 'unstaged':
+      case "unstaged":
         return {
           againstIndex: true,
           baseRef: null,
           commitRef: null,
         };
-      case 'staged':
-      case 'untracked':
+      case "staged":
+      case "untracked":
       default:
         return {
           againstIndex: false,
@@ -377,9 +373,7 @@ export function ChangesCodeView({
             try {
               const result = resultByPath.get(file.path);
               if (!result?.diff) {
-                throw new Error(
-                  result?.error ?? `Missing diff result for ${file.path}`,
-                );
+                throw new Error(result?.error ?? `Missing diff result for ${file.path}`);
               }
               const diff = result.diff as GitFileDiffResponse;
 
@@ -387,8 +381,11 @@ export function ChangesCodeView({
                 // Keep binary files inside pierre CodeView: non-empty placeholder
                 // hunks + BinaryDiffCard annotations. Modified files get two
                 // annotations so split layout places Previous left / Current right.
-                const { oldText, newText, annotations: binaryAnns } =
-                  binaryDiffPlaceholders(diff.status);
+                const {
+                  oldText,
+                  newText,
+                  annotations: binaryAnns,
+                } = binaryDiffPlaceholders(diff.status);
                 const fileDiff = parseDiffFromFile(
                   {
                     name: file.path,
@@ -415,14 +412,14 @@ export function ChangesCodeView({
                 primePierreFileDiff(workerPool, fileDiff);
                 codeItems.push({
                   id: file.path,
-                  type: 'diff',
+                  type: "diff",
                   fileDiff,
-                  collapsed: collapseModeRef.current === 'collapsed',
+                  collapsed: collapseModeRef.current === "collapsed",
                   annotations: binaryAnns.map((ann) => ({
                     side: ann.side,
                     lineNumber: ann.lineNumber,
                     metadata: {
-                      kind: 'binary' as const,
+                      kind: "binary" as const,
                       filePath: file.path,
                       diff,
                       panel: ann.panel,
@@ -454,9 +451,9 @@ export function ChangesCodeView({
               primePierreFileDiff(workerPool, fileDiff);
               codeItems.push({
                 id: file.path,
-                type: 'diff',
+                type: "diff",
                 fileDiff,
-                collapsed: collapseModeRef.current === 'collapsed',
+                collapsed: collapseModeRef.current === "collapsed",
               } as CodeViewItem<DiffListAnnotationMeta>);
             } catch (err) {
               console.error(`Failed to load diff for ${file.path}:`, err);
@@ -476,10 +473,7 @@ export function ChangesCodeView({
             setIsLoading(false);
             await yieldToBrowser();
           } else {
-            itemIdsRef.current = [
-              ...itemIdsRef.current,
-              ...codeItems.map((item) => item.id),
-            ];
+            itemIdsRef.current = [...itemIdsRef.current, ...codeItems.map((item) => item.id)];
             const viewer = codeViewRef.current;
             if (viewer != null) {
               viewer.addItems(codeItems);
@@ -563,13 +557,9 @@ export function ChangesCodeView({
         range: SelectedLineRange | null,
         context: { item: CodeViewItem<DiffListAnnotationMeta> },
       ) {
-        if (!range || context.item.type !== 'diff') return;
+        if (!range || context.item.type !== "diff") return;
         // Binary placeholder lines are anchors for BinaryDiffCard only.
-        if (
-          context.item.annotations?.some(
-            (a) => a.metadata?.kind === 'binary',
-          )
-        ) {
+        if (context.item.annotations?.some((a) => a.metadata?.kind === "binary")) {
           return;
         }
         openCopyAnnotation(context.item.id, range);
@@ -578,12 +568,8 @@ export function ChangesCodeView({
         range: SelectedLineRange,
         context: { item: CodeViewItem<DiffListAnnotationMeta> },
       ) {
-        if (context.item.type !== 'diff') return;
-        if (
-          context.item.annotations?.some(
-            (a) => a.metadata?.kind === 'binary',
-          )
-        ) {
+        if (context.item.type !== "diff") return;
+        if (context.item.annotations?.some((a) => a.metadata?.kind === "binary")) {
           return;
         }
         openCopyAnnotation(context.item.id, range);
@@ -600,16 +586,13 @@ export function ChangesCodeView({
     ],
   );
 
-  const handleViewerRef = useCallback(
-    (handle: CodeViewHandle<DiffListAnnotationMeta> | null) => {
-      codeViewRef.current = handle;
-      setViewerMounted(handle != null);
-    },
-    [],
-  );
+  const handleViewerRef = useCallback((handle: CodeViewHandle<DiffListAnnotationMeta> | null) => {
+    codeViewRef.current = handle;
+    setViewerMounted(handle != null);
+  }, []);
 
   const handleToggleCollapseMode = useCallback(() => {
-    const next = collapseMode === 'expanded' ? 'collapsed' : 'expanded';
+    const next = collapseMode === "expanded" ? "collapsed" : "expanded";
     setCollapseMode(next);
     applyCollapseModeToItems(codeViewRef, itemIdsRef.current, next);
   }, [collapseMode]);
@@ -620,10 +603,7 @@ export function ChangesCodeView({
 
     return instance.subscribeToScroll((scrollTop, viewer) => {
       if (itemIdsRef.current.length === 0) return;
-      const activeId = findDiffItemIdForViewport(
-        viewer,
-        itemIdsRef.current,
-      );
+      const activeId = findDiffItemIdForViewport(viewer, itemIdsRef.current);
       if (activeId == null || activeId === scrollActiveIdRef.current) return;
       scrollActiveIdRef.current = activeId;
       setDiffGroupActiveFile(groupPath, activeId, activeContextId);
@@ -633,19 +613,14 @@ export function ChangesCodeView({
   const navigationScrollKey = navigationTarget?.diffFilePath
     ? [
         navigationTarget.diffFilePath,
-        navigationTarget.line ?? '',
-        navigationTarget.reviewCommentGuid ?? '',
-        navigationTarget.reviewMessageGuid ?? '',
-      ].join(':')
+        navigationTarget.line ?? "",
+        navigationTarget.reviewCommentGuid ?? "",
+        navigationTarget.reviewMessageGuid ?? "",
+      ].join(":")
     : null;
 
   useEffect(() => {
-    if (
-      !navigationTarget?.diffFilePath ||
-      isLoading ||
-      !navigationScrollKey ||
-      !viewerMounted
-    ) {
+    if (!navigationTarget?.diffFilePath || isLoading || !navigationScrollKey || !viewerMounted) {
       return;
     }
     const fileId = navigationTarget.diffFilePath;
@@ -662,7 +637,7 @@ export function ChangesCodeView({
       lastHandledNavRef.current = navigationScrollKey;
       scrollCodeViewToItem(codeViewRef.current, fileId, {
         line: navigationTarget.line,
-        behavior: 'smooth',
+        behavior: "smooth",
       });
       if (
         navigationTargetProp === undefined &&
@@ -690,7 +665,7 @@ export function ChangesCodeView({
   if (!groupKind) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        {t('unknownChangesGroup')}
+        {t("unknownChangesGroup")}
       </div>
     );
   }
@@ -701,7 +676,7 @@ export function ChangesCodeView({
         <DiffCodeViewScaffold
           items={treeItems}
           selectedPath={selectedPath}
-          ariaLabel={t('fileTreeAria', { label: groupLabel })}
+          ariaLabel={t("fileTreeAria", { label: groupLabel })}
           loading
           loadingTreeLabel={groupLabel}
           defaultTreeVisible={false}
@@ -734,7 +709,7 @@ export function ChangesCodeView({
     return (
       <div className="flex h-full items-center justify-center bg-background">
         <div className="text-center">
-          <p className="text-red-500 mb-2">{t('errors.loadChangesTitle')}</p>
+          <p className="mb-2 text-red-500">{t("errors.loadChangesTitle")}</p>
           <p className="text-sm text-muted-foreground">{error}</p>
         </div>
       </div>
@@ -743,8 +718,8 @@ export function ChangesCodeView({
 
   if (initialItems.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center bg-background text-muted-foreground text-sm">
-        {t('noFilesInGroup')}
+      <div className="flex h-full items-center justify-center bg-background text-sm text-muted-foreground">
+        {t("noFilesInGroup")}
       </div>
     );
   }
@@ -753,32 +728,29 @@ export function ChangesCodeView({
     if (activeContextId) {
       setDiffGroupActiveFile(groupPath, path, activeContextId);
     }
-    scrollCodeViewToItem(codeViewRef.current, path, { behavior: 'smooth' });
+    scrollCodeViewToItem(codeViewRef.current, path, { behavior: "smooth" });
   };
 
   const editTargetPath = editingPath ?? selectedPath ?? null;
   const editTargetIsBinary =
     editTargetPath != null &&
     (treeItems.find((file) => file.path === editTargetPath)?.isBinary ?? false);
-  const canStartOrToggleEdit =
-    canEditWorktree && editTargetPath != null && !editTargetIsBinary;
+  const canStartOrToggleEdit = canEditWorktree && editTargetPath != null && !editTargetIsBinary;
   const showEditControls = canEditWorktree && editTargetPath != null;
   const toolbar = (
     <div className="flex items-center gap-2">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <span className="truncate text-sm font-medium text-foreground">{groupLabel}</span>
         <span className="shrink-0 text-xs text-muted-foreground">
-          {t('fileCount', { count: treeItems.length })}
+          {t("fileCount", { count: treeItems.length })}
         </span>
         {displayReferenceLabel ? (
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {displayReferenceLabel}
-          </span>
+          <span className="shrink-0 text-xs text-muted-foreground">{displayReferenceLabel}</span>
         ) : null}
         {stashedPromptChip}
       </div>
       {(totalStats.additions > 0 || totalStats.deletions > 0) && (
-        <div className="flex shrink-0 items-center gap-2 text-[11px] font-mono font-medium">
+        <div className="flex shrink-0 items-center gap-2 font-mono text-[11px] font-medium">
           <span className="text-emerald-500">+{totalStats.additions}</span>
           <span className="text-red-500">-{totalStats.deletions}</span>
         </div>
@@ -822,7 +794,7 @@ export function ChangesCodeView({
       <DiffCodeViewScaffold
         items={treeItems}
         selectedPath={selectedPath}
-        ariaLabel={t('fileTreeAria', { label: groupLabel })}
+        ariaLabel={t("fileTreeAria", { label: groupLabel })}
         toolbar={toolbar}
         defaultTreeVisible={false}
         showFileTree={!showChangesExplorerToggle}

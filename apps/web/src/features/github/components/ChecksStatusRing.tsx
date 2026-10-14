@@ -74,19 +74,10 @@ type ArcVisual = {
   visible: boolean;
 };
 
-function buildArcs(
-  counts: Record<RingTone, number>,
-  circumference: number,
-): ArcVisual[] {
-  const total = Math.max(
-    counts.success + counts.running + counts.neutral + counts.failure,
-    1,
-  );
+function buildArcs(counts: Record<RingTone, number>, circumference: number): ArcVisual[] {
+  const total = Math.max(counts.success + counts.running + counts.neutral + counts.failure, 1);
   const nonEmpty = DRAW_ORDER.filter((tone) => counts[tone] > 0);
-  const gapPx =
-    nonEmpty.length > 1
-      ? Math.min(2.5, circumference / nonEmpty.length / 8)
-      : 0;
+  const gapPx = nonEmpty.length > 1 ? Math.min(2.5, circumference / nonEmpty.length / 8) : 0;
   const usable = circumference - gapPx * nonEmpty.length;
 
   let cursorDeg = 0;
@@ -112,9 +103,7 @@ function buildArcs(
  * Lerp display counts toward the latest target so arc lengths / rotations
  * ease instead of snapping when check rollup updates.
  */
-function useAnimatedCounts(
-  target: Record<RingTone, number>,
-): Record<RingTone, number> {
+function useAnimatedCounts(target: Record<RingTone, number>): Record<RingTone, number> {
   const [display, setDisplay] = React.useState(target);
   const displayRef = React.useRef(display);
   const rafRef = React.useRef<number | null>(null);
@@ -215,10 +204,7 @@ export function ChecksStatusRing({
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
-  const arcs = React.useMemo(
-    () => buildArcs(counts, circumference),
-    [counts, circumference],
-  );
+  const arcs = React.useMemo(() => buildArcs(counts, circumference), [counts, circumference]);
 
   return (
     <svg

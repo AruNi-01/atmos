@@ -95,17 +95,10 @@ import {
 } from "@/features/resource-monitor/lib/resource-monitor-sort";
 import type { LiveResourceSessionPanes } from "@/features/terminal/public";
 
-const PROCESS_ROW =
-  "flex min-h-8 w-full items-start gap-2 px-4 py-1 text-[12px] transition-none";
+const PROCESS_ROW = "flex min-h-8 w-full items-start gap-2 px-4 py-1 text-[12px] transition-none";
 const EMPTY_CENTER_SPACES: CenterSpaceRecord[] = [];
 
-function NameLabel({
-  name,
-  className,
-}: {
-  name: string;
-  className?: string;
-}) {
+function NameLabel({ name, className }: { name: string; className?: string }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -154,8 +147,7 @@ function SortHeaderButton({
   onClick: () => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
-  const directionLabel =
-    direction === "ascending" ? t("sortAscending") : t("sortDescending");
+  const directionLabel = direction === "ascending" ? t("sortAscending") : t("sortDescending");
   return (
     <button
       type="button"
@@ -250,12 +242,7 @@ function KillLeakedButton({
       >
         <p className="text-[11px] text-foreground">{t("killLeakedConfirm")}</p>
         <div className="mt-2 flex justify-end gap-1.5">
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            onClick={() => setConfirmOpen(false)}
-          >
+          <Button type="button" variant="ghost" size="xs" onClick={() => setConfirmOpen(false)}>
             {t("killLeakedCancel")}
           </Button>
           <Button
@@ -303,7 +290,7 @@ function ProcessRow({
         className={cn(RM_NAME, "flex min-w-0 items-start")}
         style={{ paddingLeft: indent * 12 }}
       >
-        <span className="flex min-w-0 max-h-9 flex-wrap content-start items-center gap-x-1 gap-y-0.5 overflow-hidden">
+        <span className="flex max-h-9 min-w-0 flex-wrap content-start items-center gap-x-1 gap-y-0.5 overflow-hidden">
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="truncate text-muted-foreground">{name}</span>
@@ -330,9 +317,7 @@ function ProcessRow({
                   {formatListeningPort(port)}
                 </span>
               </TooltipTrigger>
-              <TooltipContent side="top">
-                {t("listeningPort", { port })}
-              </TooltipContent>
+              <TooltipContent side="top">{t("listeningPort", { port })}</TooltipContent>
             </Tooltip>
           ))}
           <Tooltip>
@@ -349,11 +334,7 @@ function ProcessRow({
         </span>
       </span>
       {process.leaked && onKillLeaked ? (
-        <KillLeakedButton
-          name={name}
-          killing={killing}
-          onKillLeaked={onKillLeaked}
-        />
+        <KillLeakedButton name={name} killing={killing} onKillLeaked={onKillLeaked} />
       ) : null}
       <MetricCells usage={process.usage} />
     </div>
@@ -372,11 +353,7 @@ function SessionName({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <ResourceMonitorSessionName
-          name={name}
-          toolbarAgent={toolbarAgent}
-          showIcon={showIcon}
-        />
+        <ResourceMonitorSessionName name={name} toolbarAgent={toolbarAgent} showIcon={showIcon} />
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-xs">
         {name}
@@ -418,21 +395,13 @@ function SessionCollapseTrigger({
 function SessionKindChip({ kind }: { kind: ResourceMonitorSessionUiKind }) {
   const t = useTranslations("resourceMonitor.popover");
   return (
-    <Badge
-      variant="secondary"
-      className={RM_CHIP}
-      data-resource-monitor-session-kind={kind}
-    >
+    <Badge variant="secondary" className={RM_CHIP} data-resource-monitor-session-kind={kind}>
       {kind === "chat" ? t("kindChatUi") : t("kindTui")}
     </Badge>
   );
 }
 
-function SessionSpaceBadge({
-  badge,
-}: {
-  badge: ResourceMonitorSessionSpaceBadge;
-}) {
+function SessionSpaceBadge({ badge }: { badge: ResourceMonitorSessionSpaceBadge }) {
   const t = useTranslations("resourceMonitor.popover");
   return (
     <Badge
@@ -477,16 +446,10 @@ function SessionRow({
   const chatSession = isResourceMonitorChatSession(session) ? session : null;
   const location = chatSession
     ? null
-    : findResourceMonitorSessionLocation(
-        workspacePanes,
-        hostId,
-        session.session_id,
-      );
+    : findResourceMonitorSessionLocation(workspacePanes, hostId, session.session_id);
   const locatable =
     onNavigate != null &&
-    (chatSession
-      ? canLocateResourceMonitorChatSession(chatSession, hostId)
-      : location != null);
+    (chatSession ? canLocateResourceMonitorChatSession(chatSession, hostId) : location != null);
   const spaces = useCenterSpaceStore(
     (state) => state.byHost[hostId]?.spaces ?? EMPTY_CENTER_SPACES,
   );
@@ -517,10 +480,7 @@ function SessionRow({
   };
   const kindChip = <SessionKindChip kind={kind} />;
   const nameCell = (
-    <span
-      className={cn(RM_NAME, "flex items-center gap-1.5")}
-      style={{ paddingLeft: indent * 12 }}
-    >
+    <span className={cn(RM_NAME, "flex items-center gap-1.5")} style={{ paddingLeft: indent * 12 }}>
       <SessionName name={name} toolbarAgent={display.toolbarAgent} />
       {kindChip}
       {spaceBadge ? <SessionSpaceBadge badge={spaceBadge} /> : null}
@@ -576,12 +536,7 @@ function SessionRow({
       data-resource-monitor-session-kind={kind}
     >
       <div
-        className={cn(
-          RM_ROW,
-          RM_ROW_INTERACTIVE,
-          "group/session",
-          locatable && "cursor-pointer",
-        )}
+        className={cn(RM_ROW, RM_ROW_INTERACTIVE, "group/session", locatable && "cursor-pointer")}
         data-resource-monitor-session-row=""
         onClick={locatable ? goToSession : undefined}
       >
@@ -589,10 +544,7 @@ function SessionRow({
           className={cn(RM_NAME, "flex items-center gap-1.5")}
           style={{ paddingLeft: indent * 12 }}
         >
-          <SessionCollapseTrigger
-            name={name}
-            toolbarAgent={display.toolbarAgent}
-          />
+          <SessionCollapseTrigger name={name} toolbarAgent={display.toolbarAgent} />
           {locatable ? (
             <button
               type="button"
@@ -604,18 +556,10 @@ function SessionRow({
                 goToSession();
               }}
             >
-              <SessionName
-                name={name}
-                toolbarAgent={display.toolbarAgent}
-                showIcon={false}
-              />
+              <SessionName name={name} toolbarAgent={display.toolbarAgent} showIcon={false} />
             </button>
           ) : (
-            <SessionName
-              name={name}
-              toolbarAgent={display.toolbarAgent}
-              showIcon={false}
-            />
+            <SessionName name={name} toolbarAgent={display.toolbarAgent} showIcon={false} />
           )}
           {kindChip}
           {spaceBadge ? <SessionSpaceBadge badge={spaceBadge} /> : null}
@@ -692,11 +636,7 @@ function StaticRow({
   );
 }
 
-function leakKillKey(
-  projectId: string,
-  workspaceId: string | null,
-  name: string,
-): string {
+function leakKillKey(projectId: string, workspaceId: string | null, name: string): string {
   return `${projectId}:${workspaceId ?? ""}:${name}`;
 }
 
@@ -726,19 +666,11 @@ function ScopeSections({
   projectId: string;
   workspaceId: string | null;
   killingKey: string | null;
-  onKillLeaked?: (target: {
-    name: string;
-    projectId: string;
-    workspaceId: string | null;
-  }) => void;
+  onKillLeaked?: (target: { name: string; projectId: string; workspaceId: string | null }) => void;
   onNavigate?: (target: ResourceMonitorSessionNavigationTarget) => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
-  const sections = buildResourceMonitorScopeSections(
-    sessions,
-    otherUsage,
-    otherProcesses,
-  );
+  const sections = buildResourceMonitorScopeSections(sessions, otherUsage, otherProcesses);
   return (
     <>
       {sections.map((section) => {
@@ -780,9 +712,7 @@ function ScopeSections({
                 key={`other:${process.name}`}
                 process={process}
                 indent={indent}
-                killing={
-                  killingKey === leakKillKey(projectId, workspaceId, process.name)
-                }
+                killing={killingKey === leakKillKey(projectId, workspaceId, process.name)}
                 onKillLeaked={
                   onKillLeaked
                     ? () =>
@@ -828,11 +758,7 @@ function WorkspaceBlock({
   liveDisplays: ReadonlyMap<string, ResourceMonitorSessionDisplay>;
   workspacePanes: LiveResourceSessionPanes | null;
   killingKey: string | null;
-  onKillLeaked?: (target: {
-    name: string;
-    projectId: string;
-    workspaceId: string | null;
-  }) => void;
+  onKillLeaked?: (target: { name: string; projectId: string; workspaceId: string | null }) => void;
   onNavigate?: (target: ResourceMonitorSessionNavigationTarget) => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
@@ -844,11 +770,7 @@ function WorkspaceBlock({
       defaultOpen={workspaceDefaultOpen()}
       dataAttr={{ "data-resource-monitor-workspace": workspace.workspace_id }}
       trailingBadge={
-        <Badge
-          variant="secondary"
-          className={RM_CHIP}
-          data-resource-monitor-workspace-badge=""
-        >
+        <Badge variant="secondary" className={RM_CHIP} data-resource-monitor-workspace-badge="">
           {t("workspaceBadge")}
         </Badge>
       }
@@ -886,11 +808,7 @@ function ProjectBlock({
   workspacePanes: LiveResourceSessionPanes | null;
   defaultOpen: boolean;
   killingKey: string | null;
-  onKillLeaked?: (target: {
-    name: string;
-    projectId: string;
-    workspaceId: string | null;
-  }) => void;
+  onKillLeaked?: (target: { name: string; projectId: string; workspaceId: string | null }) => void;
   onNavigate?: (target: ResourceMonitorSessionNavigationTarget) => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
@@ -981,7 +899,7 @@ function AtmosBlock({
     <Collapsible
       open={open}
       onOpenChange={setOpen}
-      className="min-w-0 w-full"
+      className="w-full min-w-0"
       data-resource-monitor-atmos=""
     >
       <CollapsibleTrigger
@@ -1001,16 +919,10 @@ function AtmosBlock({
           <>
             <SectionLabel indent={1}>{t("desktop")}</SectionLabel>
             {desktopLoading ? (
-              <div className={RM_NESTED_COPY}>
-                {t("desktopLoading")}
-              </div>
+              <div className={RM_NESTED_COPY}>{t("desktopLoading")}</div>
             ) : desktop?.supported ? (
               <>
-                <StaticRow
-                  name={t("desktopTotal")}
-                  usage={desktop.total}
-                  indent={1}
-                />
+                <StaticRow name={t("desktopTotal")} usage={desktop.total} indent={1} />
                 {desktopGroups.map((group) => (
                   <StaticRow
                     key={group.kind}
@@ -1021,19 +933,13 @@ function AtmosBlock({
                 ))}
               </>
             ) : (
-              <div className={RM_NESTED_COPY}>
-                {t("desktopUnsupported")}
-              </div>
+              <div className={RM_NESTED_COPY}>{t("desktopUnsupported")}</div>
             )}
           </>
         ) : null}
         <StaticRow name={t("server")} usage={snapshotServer} indent={1} />
         {isUsageVisible(snapshotDesktopUse) ? (
-          <StaticRow
-            name={t("desktopUse")}
-            usage={snapshotDesktopUse}
-            indent={1}
-          />
+          <StaticRow name={t("desktopUse")} usage={snapshotDesktopUse} indent={1} />
         ) : null}
         <StaticRow name={t("sharedRuntime")} usage={snapshotShared} indent={1} />
       </CollapsibleContent>
@@ -1041,13 +947,7 @@ function AtmosBlock({
   );
 }
 
-function SectionLabel({
-  children,
-  indent = 0,
-}: {
-  children: React.ReactNode;
-  indent?: number;
-}) {
+function SectionLabel({ children, indent = 0 }: { children: React.ReactNode; indent?: number }) {
   return (
     <div
       className="px-3 pt-2 pb-0.5 text-[10px] font-medium text-muted-foreground"
@@ -1094,11 +994,7 @@ export function ResourceMonitorHierarchy({
   liveDisplays: ReadonlyMap<string, ResourceMonitorSessionDisplay>;
   workspacePanes: LiveResourceSessionPanes | null;
   killingKey?: string | null;
-  onKillLeaked?: (target: {
-    name: string;
-    projectId: string;
-    workspaceId: string | null;
-  }) => void;
+  onKillLeaked?: (target: { name: string; projectId: string; workspaceId: string | null }) => void;
   onNavigate?: (target: ResourceMonitorSessionNavigationTarget) => void;
 }) {
   const t = useTranslations("resourceMonitor.popover");
@@ -1132,7 +1028,7 @@ export function ResourceMonitorHierarchy({
   return (
     <div className="min-w-0" data-resource-monitor-table="">
       <div
-        className={cn(RM_ROW, "w-full sticky top-0 z-10 bg-popover px-2")}
+        className={cn(RM_ROW, "sticky top-0 z-10 w-full bg-popover px-2")}
         data-resource-monitor-sort=""
         aria-label={t("sortBy")}
       >

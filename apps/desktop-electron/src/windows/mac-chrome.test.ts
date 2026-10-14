@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-  MAC_TRAFFIC_LIGHTS,
-  isMacChromeVariant,
-  macWindowChromeOptions,
-} from "./mac-chrome.ts";
+import { MAC_TRAFFIC_LIGHTS, isMacChromeVariant, macWindowChromeOptions } from "./mac-chrome.ts";
 
 describe("mac-chrome", () => {
   test("isMacChromeVariant accepts known keys only", () => {
@@ -16,9 +12,7 @@ describe("mac-chrome", () => {
   });
 
   test("browser lights sit higher than primary shell header", () => {
-    expect(MAC_TRAFFIC_LIGHTS.browser.y).toBeLessThan(
-      MAC_TRAFFIC_LIGHTS.primary.y,
-    );
+    expect(MAC_TRAFFIC_LIGHTS.browser.y).toBeLessThan(MAC_TRAFFIC_LIGHTS.primary.y);
     expect(MAC_TRAFFIC_LIGHTS.browser.x).toBe(MAC_TRAFFIC_LIGHTS.primary.x);
   });
 

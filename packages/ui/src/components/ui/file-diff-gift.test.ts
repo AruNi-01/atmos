@@ -30,13 +30,8 @@ describe("truncateFileDiffLines", () => {
 
   it("returns a prefix of joined line content", () => {
     // "ab\nc…" — four chars yields the first line plus one char of the next.
-    expect(truncateFileDiffLines(lines, 4).map((line) => line.content)).toEqual([
-      "ab",
-      "c",
-    ]);
-    expect(truncateFileDiffLines(lines, 3).map((line) => line.content)).toEqual([
-      "ab",
-    ]);
+    expect(truncateFileDiffLines(lines, 4).map((line) => line.content)).toEqual(["ab", "c"]);
+    expect(truncateFileDiffLines(lines, 3).map((line) => line.content)).toEqual(["ab"]);
   });
 
   it("returns empty for zero chars", () => {

@@ -130,9 +130,8 @@ export function listInboundResponses(sessions: ObservedAppWsSession[]): Array<{
     for (const frame of session.frames) {
       if (frame.direction !== "in") continue;
       if (!isWsResponseEnvelope(frame.parsed)) continue;
-      const payload = (
-        frame.parsed as { payload: { request_id: string; success: boolean } }
-      ).payload;
+      const payload = (frame.parsed as { payload: { request_id: string; success: boolean } })
+        .payload;
       out.push({ requestId: payload.request_id, success: payload.success });
     }
   }

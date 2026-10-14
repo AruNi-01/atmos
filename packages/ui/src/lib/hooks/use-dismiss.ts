@@ -30,10 +30,7 @@ export interface DismissOptions {
  */
 const openScopes = new Set<(target: Element) => boolean>();
 
-function claimedByAnotherScope(
-  self: (target: Element) => boolean,
-  target: Element,
-) {
+function claimedByAnotherScope(self: (target: Element) => boolean, target: Element) {
   for (const scope of openScopes) {
     if (scope !== self && scope(target)) return true;
   }
@@ -84,11 +81,7 @@ export function useDismiss(
   open: boolean,
   onDismiss: () => void,
   ref: RefObject<HTMLElement | null> | null,
-  {
-    behavior = "pass-through",
-    escape: dismissOnEscape = true,
-    ignore,
-  }: DismissOptions = {},
+  { behavior = "pass-through", escape: dismissOnEscape = true, ignore }: DismissOptions = {},
 ) {
   useEffect(() => {
     if (!open) return;

@@ -48,6 +48,7 @@ packages/shared/
 Pure utility functions with no dependencies.
 
 **Examples**:
+
 ```typescript
 // src/utils/format.ts
 export function formatDate(date: Date): string { ... }
@@ -59,6 +60,7 @@ export function isValidUrl(url: string): boolean { ... }
 ```
 
 **Usage**:
+
 ```tsx
 import { formatDate, formatCurrency } from "@atmos/shared/utils/format";
 import { isValidEmail } from "@atmos/shared/utils/validation";
@@ -71,6 +73,7 @@ import { isValidEmail } from "@atmos/shared/utils/validation";
 Shared React hooks for common functionality.
 
 **Examples**:
+
 ```typescript
 // src/hooks/use-local-storage.ts
 export function useLocalStorage<T>(key: string, initialValue: T) { ... }
@@ -80,6 +83,7 @@ export function useDebounce<T>(value: T, delay: number) { ... }
 ```
 
 **Usage**:
+
 ```tsx
 import { useLocalStorage } from "@atmos/shared/hooks/use-local-storage";
 import { useDebounce } from "@atmos/shared/hooks/use-debounce";
@@ -97,11 +101,10 @@ function MyComponent() {
 Shared TypeScript types and interfaces.
 
 **Examples**:
+
 ```typescript
 // src/types/common.ts
-export type Result<T, E = Error> = 
-  | { ok: true; value: T }
-  | { ok: false; error: E };
+export type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
 
 // src/types/user.ts
 export interface User {
@@ -112,6 +115,7 @@ export interface User {
 ```
 
 **Usage**:
+
 ```tsx
 import type { Result, User } from "@atmos/shared/types";
 ```
@@ -123,6 +127,7 @@ import type { Result, User } from "@atmos/shared/types";
 Application-wide constants.
 
 **Examples**:
+
 ```typescript
 // src/constants/routes.ts
 export const ROUTES = {
@@ -139,6 +144,7 @@ export const CONFIG = {
 ```
 
 **Usage**:
+
 ```tsx
 import { ROUTES, CONFIG } from "@atmos/shared/constants";
 ```
@@ -150,6 +156,7 @@ import { ROUTES, CONFIG } from "@atmos/shared/constants";
 Core libraries and client implementations.
 
 **Examples**:
+
 ```typescript
 // src/lib/api-client.ts
 export class ApiClient {
@@ -165,6 +172,7 @@ export const logger = {
 ```
 
 **Usage**:
+
 ```tsx
 import { ApiClient } from "@atmos/shared/lib/api-client";
 import { logger } from "@atmos/shared/lib/logger";
@@ -195,6 +203,7 @@ Configure in `package.json`:
 ## 🎯 Design Principles
 
 ### 1. Pure Functions
+
 Utilities should be pure functions with no side effects.
 
 ```typescript
@@ -212,6 +221,7 @@ export function formatDate(date: Date): string {
 ```
 
 ### 2. Framework Agnostic
+
 Utils and types should work in any environment.
 
 ```typescript
@@ -225,6 +235,7 @@ export function useDebounce<T>(value: T, delay: number) { ... }
 ```
 
 ### 3. Type Safety
+
 Always provide full TypeScript types.
 
 ```typescript
@@ -272,6 +283,7 @@ packages/shared/
 ```
 
 **Example Test**:
+
 ```typescript
 import { formatDate } from "../src/utils/format";
 
@@ -288,10 +300,12 @@ describe("formatDate", () => {
 ## 📦 Dependencies
 
 ### Production Dependencies
+
 - Minimal dependencies (prefer zero-dependency utils)
 - Only add if truly necessary
 
 ### Development Dependencies
+
 - `typescript`: Type checking
 - `@types/*`: Type definitions
 - `@atmos/config`: Shared configs

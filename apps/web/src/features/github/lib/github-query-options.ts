@@ -1,10 +1,7 @@
 "use client";
 
 import { queryKeys } from "@/api/query/query-keys";
-import {
-  wsInfiniteQueryOptions,
-  wsQueryOptions,
-} from "@/api/query/computer-query-options";
+import { wsInfiniteQueryOptions, wsQueryOptions } from "@/api/query/computer-query-options";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
 import {
   wsGithubApi,
@@ -158,8 +155,7 @@ export function repoPrListQueryOptions(
     scope,
     connectionState,
     queryKey: queryKeys.computer.githubRepoPrList(scope, { owner, repo, state, limit }),
-    queryFn: (): Promise<GithubPrPayload[]> =>
-      wsGithubApi.listPrs({ owner, repo, state, limit }),
+    queryFn: (): Promise<GithubPrPayload[]> => wsGithubApi.listPrs({ owner, repo, state, limit }),
     // PR lists are small — keep across workspace hops (no full-screen reload).
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
@@ -214,8 +210,7 @@ export function githubIssueDetailQueryOptions(
     scope,
     connectionState,
     queryKey: queryKeys.computer.githubIssueDetail(scope, { owner, repo, issueNumber }),
-    queryFn: (): Promise<GithubIssuePayload> =>
-      wsGithubApi.getIssue({ owner, repo, issueNumber }),
+    queryFn: (): Promise<GithubIssuePayload> => wsGithubApi.getIssue({ owner, repo, issueNumber }),
     staleTime: 60_000,
     enabled: (options?.enabled ?? true) && Boolean(owner && repo && issueNumber),
   });
@@ -234,12 +229,20 @@ export function githubIssueTimelineInfiniteQueryOptions(
     queryKey: queryKeys.computer.githubIssueTimeline(scope, { owner, repo, issueNumber }),
     queryFn: async ({ pageParam }): Promise<GithubPrTimelinePage> => {
       const result = await wsRequest("github_issue_timeline_page", {
-        owner, repo, issue_number: issueNumber, page: Number(pageParam), per_page: GITHUB_PR_TIMELINE_PER_PAGE,
+        owner,
+        repo,
+        issue_number: issueNumber,
+        page: Number(pageParam),
+        per_page: GITHUB_PR_TIMELINE_PER_PAGE,
       });
-      return { items: Array.isArray(result?.items) ? result.items : [], has_more: Boolean(result?.has_more) };
+      return {
+        items: Array.isArray(result?.items) ? result.items : [],
+        has_more: Boolean(result?.has_more),
+      };
     },
     initialPageParam: 1,
-    getNextPageParam: (lastPage, _pages, lastPageParam) => lastPage.has_more ? lastPageParam + 1 : undefined,
+    getNextPageParam: (lastPage, _pages, lastPageParam) =>
+      lastPage.has_more ? lastPageParam + 1 : undefined,
     staleTime: 60_000,
     enabled: (options?.enabled ?? true) && Boolean(owner && repo && issueNumber),
   });
@@ -448,8 +451,7 @@ export function githubUserCardQueryOptions(
     scope,
     connectionState,
     queryKey: queryKeys.computer.githubUserCard(scope, { login }),
-    queryFn: (): Promise<GithubUserCardPayload> =>
-      wsRequest("github_user_card", { login }),
+    queryFn: (): Promise<GithubUserCardPayload> => wsRequest("github_user_card", { login }),
     staleTime: 60 * 60_000,
     gcTime: 2 * 60 * 60_000,
     enabled: (options?.enabled ?? true) && Boolean(login),
@@ -491,9 +493,7 @@ export function githubPrFilesQueryOptions(
         pr_number: prNumber,
       });
       if (!Array.isArray(result)) return [];
-      const { classifyPrFileWithoutPatch } = await import(
-        "@/features/diff/lib/diff-content-kind"
-      );
+      const { classifyPrFileWithoutPatch } = await import("@/features/diff/lib/diff-content-kind");
       return (result as PrFile[]).map((file) => {
         if (file.patch) {
           return { ...file, kind: "text" as const, preview_kind: "none" as const };
@@ -573,10 +573,7 @@ export function githubActionsDetailQueryOptions(
     connectionState,
     queryKey: queryKeys.computer.githubActionsDetail(scope, { owner, repo, runId }),
     queryFn: ({ signal }): Promise<GithubActionsDetailPayload> =>
-      withQuerySignal(
-        wsRequest("github_actions_detail", { owner, repo, run_id: runId }),
-        signal,
-      ),
+      withQuerySignal(wsRequest("github_actions_detail", { owner, repo, run_id: runId }), signal),
     // A completed run's jobs, annotations, artifacts, and workflow source are immutable.
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
@@ -626,8 +623,7 @@ export function githubCiStatusQueryOptions(
     connectionState,
     queryKey: queryKeys.computer.githubCiStatus(scope, { owner, repo, branch }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    queryFn: (): Promise<any> =>
-      wsRequest("github_ci_status", { owner, repo, branch }),
+    queryFn: (): Promise<any> => wsRequest("github_ci_status", { owner, repo, branch }),
     // Pending runs still poll every 30 seconds through useGithubCIStatus.
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
@@ -653,9 +649,7 @@ export function githubCommitDetailQueryOptions(
       if (!result || typeof result !== "object") return null;
       // Classify files like PR files
       const files = Array.isArray(result.files) ? result.files : [];
-      const { classifyPrFileWithoutPatch } = await import(
-        "@/features/diff/lib/diff-content-kind"
-      );
+      const { classifyPrFileWithoutPatch } = await import("@/features/diff/lib/diff-content-kind");
       const classifiedFiles = (files as PrFile[]).map((file) => {
         if (file.patch) {
           return { ...file, kind: "text" as const, preview_kind: "none" as const };

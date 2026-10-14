@@ -3,6 +3,7 @@
 Use this as the concise maintainer checklist for an Atmos desktop release.
 
 Use this file for:
+
 - pre-release review
 - release sign-off
 - quick recovery guidance
@@ -43,17 +44,20 @@ If any layer disagrees, the release is not complete.
 ## Pre-release checklist
 
 ### Repository state
+
 - [ ] On the intended release branch
 - [ ] Working tree is clean, or any dirty state is intentional
 - [ ] Recent commits were reviewed
 - [ ] No unrelated work is mixed into the release
 
 ### Version planning
+
 - [ ] Target version is correct
 - [ ] Version format is valid
 - [ ] Intended tag is clear, for example `desktop-2026.7.2`
 
 ### Secrets and access
+
 - [ ] Push permission is available
 - [ ] GitHub authentication works
 - [ ] Required secrets are configured
@@ -71,11 +75,13 @@ Before tagging, confirm all of the following:
 - [ ] Release tag matches the same version
 
 Typical commands:
+
 - `just bump-desktop-version <version>`
 - `just check-desktop-version`
 - `node ./scripts/release/check-desktop-version.mjs --release-tag desktop-<version>`
 
 Example for `2026.7.2`:
+
 - files = `2026.7.2`
 - tag = `desktop-2026.7.2`
 
@@ -84,18 +90,21 @@ Example for `2026.7.2`:
 ## Standard release checklist
 
 ### Prepare
+
 - [ ] Dry run reviewed if needed
 - [ ] Version bump applied
 - [ ] Version checks passed
 - [ ] Diff reviewed
 
 ### Git actions
+
 - [ ] Release-prep commit created
 - [ ] Release-prep commit pushed
 - [ ] `desktop-<version>` tag created
 - [ ] `desktop-<version>` tag pushed
 
 ### Automation
+
 - [ ] `release-desktop.yml` started
 - [ ] `release-desktop.yml` passed
 - [ ] GitHub Release was created
@@ -103,6 +112,7 @@ Example for `2026.7.2`:
 - [ ] `sync-homebrew-tap.yml` passed
 
 ### Distribution
+
 - [ ] macOS DMGs exist
 - [ ] DMG names match intended version
 - [ ] Shared tap updated
@@ -118,6 +128,7 @@ For version `2026.7.2`, expect:
 - `Atmos_2026.7.2_x64.dmg`
 
 Verify:
+
 - [ ] both DMGs exist
 - [ ] both DMGs use the same version
 - [ ] DMG version matches the tag version
@@ -130,6 +141,7 @@ If tag and DMG version disagree, stop and treat the release as invalid.
 ## Minimum tap checks
 
 Verify:
+
 - [ ] tap sync workflow succeeded
 - [ ] `Casks/atmos.rb` was updated
 - [ ] cask points at the intended `desktop-<version>` release
@@ -154,47 +166,62 @@ If release assets and cask metadata disagree, Homebrew distribution is not valid
 ## Common failure cases
 
 ### Version mismatch
+
 Symptoms:
+
 - version check fails
 - tag alignment check fails
 
 Action:
+
 - fix version files first
 - do not create or push the tag
 
 ### Tag already exists
+
 Symptoms:
+
 - local or remote tag conflict
 
 Action:
+
 - inspect prior release state
 - do not force through blindly
 
 ### Release workflow failed
+
 Symptoms:
+
 - `release-desktop.yml` did not complete
 
 Action:
+
 - inspect workflow logs
 - fix the root cause
 - do not patch downstream metadata by hand
 
 ### Tap sync failed
+
 Symptoms:
+
 - release exists
 - tap did not update
 
 Action:
+
 - verify tap credentials
 - inspect tap sync logs
 - rerun tap sync if the release itself is valid
 
 ### Wrong DMG version
+
 Symptoms:
+
 - tag is correct
 - DMG version is old or inconsistent
 
 Action:
+
 - treat as release integrity failure
 - prefer a corrective follow-up release
 
@@ -203,6 +230,7 @@ Action:
 ## Rollback guidance
 
 Be conservative. A desktop tag may already have triggered:
+
 - GitHub Release publication
 - DMG publication
 - tap sync
@@ -211,6 +239,7 @@ Be conservative. A desktop tag may already have triggered:
 Prefer a corrective follow-up release if public artifacts already exist.
 
 Only consider destructive rollback if:
+
 - the release did not fully escape
 - downstream systems were not updated
 - deleting tag/release is clearly safe
@@ -220,20 +249,24 @@ Only consider destructive rollback if:
 ## Quick command reminders
 
 Release prep:
+
 - `just bump-desktop-version <version>`
 - `just check-desktop-version`
 - `node ./scripts/release/check-desktop-version.mjs --release-tag desktop-<version>`
 
 Release helper:
+
 - `just release-desktop <version>`
 - `just release-desktop-dry-run <version>`
 
 Monitoring:
+
 - `gh release view desktop-<version>`
 - `gh run list --limit 10`
 - `gh run view --web`
 
 Homebrew:
+
 - `brew install --cask AruNi-01/tap/atmos`
 - `brew upgrade --cask atmos`
 

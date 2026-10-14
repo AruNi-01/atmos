@@ -16,8 +16,7 @@ export type PublicTokData = {
 
 export function hubPublicOrigin(): string {
   return (
-    process.env.NEXT_PUBLIC_ATMOS_HUB_URL?.trim().replace(/\/$/, "") ||
-    "https://hub.atmos.land"
+    process.env.NEXT_PUBLIC_ATMOS_HUB_URL?.trim().replace(/\/$/, "") || "https://hub.atmos.land"
   );
 }
 
@@ -48,14 +47,11 @@ export type PublicLeaderboards = {
 export async function fetchPublicLeaderboards(
   viewer?: string | null,
 ): Promise<PublicLeaderboards | null> {
-  const query = viewer
-    ? `?viewer=${encodeURIComponent(viewer.replace(/^@+/, ""))}`
-    : "";
+  const query = viewer ? `?viewer=${encodeURIComponent(viewer.replace(/^@+/, ""))}` : "";
   try {
-    const res = await fetch(
-      `${hubPublicOrigin()}/v1/public/tok-leaderboards${query}`,
-      { cache: "no-store" },
-    );
+    const res = await fetch(`${hubPublicOrigin()}/v1/public/tok-leaderboards${query}`, {
+      cache: "no-store",
+    });
     if (res.ok) {
       const data = (await res.json()) as PublicLeaderboards;
       if (
@@ -175,10 +171,7 @@ export async function fetchPublicTok(
 ): Promise<PublicTokData | null> {
   const slug = handle.replace(/^@+/, "");
   if (!slug) return null;
-  if (
-    process.env.NODE_ENV === "development" &&
-    slug === PUBLIC_TOK_PREVIEW_HANDLE
-  ) {
+  if (process.env.NODE_ENV === "development" && slug === PUBLIC_TOK_PREVIEW_HANDLE) {
     return buildPublicTokPreview();
   }
   const query = k ? `?k=${encodeURIComponent(k)}` : "";

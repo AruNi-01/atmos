@@ -17,12 +17,8 @@ let cachedLocale: AutomationsLocale | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedTranslator: any = null;
 
-function automationsT(
-  key: string,
-  values?: Record<string, string | number>,
-): string {
-  const locale: AutomationsLocale =
-    currentAppLocale("en") === "zh" ? "zh" : "en";
+function automationsT(key: string, values?: Record<string, string | number>): string {
+  const locale: AutomationsLocale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedTranslator || cachedLocale !== locale) {
     cachedLocale = locale;
     cachedTranslator = createTranslator({

@@ -1,9 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { AgentHookInstallReport, AgentHookToolStatus } from "@/api/rest-api";
-import {
-  AGENT_HOOK_TOOL_KEYS,
-  summarizeAgentHookInstall,
-} from "../agent-hook-tools";
+import { AGENT_HOOK_TOOL_KEYS, summarizeAgentHookInstall } from "../agent-hook-tools";
 
 function status(overrides: Partial<AgentHookToolStatus> = {}): AgentHookToolStatus {
   return { detected: true, installed: false, ...overrides };

@@ -1,5 +1,13 @@
 import { useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import {
   encodeTerminalKey,
   NO_TERMINAL_MODIFIERS,
@@ -76,9 +84,26 @@ const KEY_NAME: Record<string, string> = {
 
 type KeyDef = { flex?: number; id: string };
 
-const SYMBOLS: KeyDef[] = ["-", "+", "{", "}", "[", "]", "\\", "|", ";", ":", "'", '"', "<", ",", ">", ".", "?", "/"].map(
-  (id) => ({ id }),
-);
+const SYMBOLS: KeyDef[] = [
+  "-",
+  "+",
+  "{",
+  "}",
+  "[",
+  "]",
+  "\\",
+  "|",
+  ";",
+  ":",
+  "'",
+  '"',
+  "<",
+  ",",
+  ">",
+  ".",
+  "?",
+  "/",
+].map((id) => ({ id }));
 const NUMBERS: KeyDef[] = "1234567890".split("").map((id) => ({ id }));
 const QWERTY: KeyDef[] = "qwertyuiop".split("").map((id) => ({ id }));
 const ASDF: KeyDef[] = "asdfghjkl".split("").map((id) => ({ id }));
@@ -204,7 +229,12 @@ export function TerminalBuiltinKeyboard({ onKey }: { onKey: (result: TerminalKey
               onPressOut={() => setModifierHeld(name, false)}
               style={({ pressed }) => [styles.modifier, (pressed || active) && styles.keyActive]}
             >
-              <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1} style={styles.modifierLabel}>
+              <Text
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+                numberOfLines={1}
+                style={styles.modifierLabel}
+              >
                 {MODIFIER_LABEL[name]}
               </Text>
             </Pressable>
@@ -265,7 +295,13 @@ function TypingBoard({ onEmit }: { onEmit: (id: string) => void }) {
           <KeyRow keys={ASDF} onEmit={onEmit} />
           <KeyRow keys={ZXCV} onEmit={onEmit} />
         </View>
-        <KeyButton fill label="Enter" name="Enter" onPress={() => onEmit("enter")} style={styles.enterKey} />
+        <KeyButton
+          fill
+          label="Enter"
+          name="Enter"
+          onPress={() => onEmit("enter")}
+          style={styles.enterKey}
+        />
       </View>
     </View>
   );
@@ -275,7 +311,12 @@ function FunctionBoard({ caps, onEmit }: { caps: boolean; onEmit: (id: string) =
   return (
     <View style={styles.board}>
       {FUNCTION_ROWS.map((keys) => (
-        <KeyRow activeId={caps ? "caps" : undefined} key={keys.map((key) => key.id).join("-")} keys={keys} onEmit={onEmit} />
+        <KeyRow
+          activeId={caps ? "caps" : undefined}
+          key={keys.map((key) => key.id).join("-")}
+          keys={keys}
+          onEmit={onEmit}
+        />
       ))}
     </View>
   );
@@ -349,7 +390,12 @@ function KeyButton({
         style,
       ]}
     >
-      <Text adjustsFontSizeToFit minimumFontScale={0.65} numberOfLines={1} style={[styles.keyLabel, small && styles.keyLabelSmall]}>
+      <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.65}
+        numberOfLines={1}
+        style={[styles.keyLabel, small && styles.keyLabelSmall]}
+      >
         {label}
       </Text>
     </Pressable>

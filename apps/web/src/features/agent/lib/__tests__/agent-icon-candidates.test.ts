@@ -3,8 +3,6 @@ import { getAgentIconCandidates } from "@/features/agent/lib/agent-icon-candidat
 
 describe("agent icon candidates", () => {
   it("maps DeepSeek Harness onto the local DeepSeek brand asset", () => {
-    expect(getAgentIconCandidates("deepseek-harness")).toEqual([
-      "/agents/deepseek.svg",
-    ]);
+    expect(getAgentIconCandidates("deepseek-harness")).toEqual(["/agents/deepseek.svg"]);
   });
 });

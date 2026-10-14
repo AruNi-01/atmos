@@ -9,16 +9,9 @@ type HostSessionListQueryValue = {
 
 const HostSessionListQueryContext = createContext<HostSessionListQueryValue | null>(null);
 
-export function HostSessionListQueryProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export function HostSessionListQueryProvider({ children }: { children: React.ReactNode }) {
   const [listQuery, setListQuery] = useState("");
-  const value = useMemo(
-    () => ({ listQuery, setListQuery }),
-    [listQuery],
-  );
+  const value = useMemo(() => ({ listQuery, setListQuery }), [listQuery]);
   return (
     <HostSessionListQueryContext.Provider value={value}>
       {children}

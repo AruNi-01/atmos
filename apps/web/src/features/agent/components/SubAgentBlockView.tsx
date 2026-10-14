@@ -7,11 +7,7 @@ import { getToolKindIcon } from "@/features/agent/lib/chat-helpers";
 import { subagentTaskStatus, subagentTaskSummary } from "@/features/agent/lib/subagent-tasks";
 import { useSubagentOverlay } from "./subagent-overlay-context";
 
-export function SubAgentBlockView({
-  part,
-}: {
-  part: AgentToolCallPart;
-}) {
+export function SubAgentBlockView({ part }: { part: AgentToolCallPart }) {
   const t = useTranslations("Agent.components");
   const { selectedId, open } = useSubagentOverlay();
   const title = t("subAgent.ranTitle", { name: subagentTaskSummary(part) });
@@ -25,7 +21,7 @@ export function SubAgentBlockView({
       aria-pressed={selected}
       onClick={() => open(part.tool_call_id)}
       className={cn(
-        "group inline-flex min-w-0 max-w-full cursor-pointer items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground hover:text-foreground",
+        "group inline-flex max-w-full min-w-0 cursor-pointer items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground hover:text-foreground",
         selected && "text-foreground",
         status === "failed" && "text-destructive",
       )}

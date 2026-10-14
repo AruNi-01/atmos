@@ -21,7 +21,9 @@ describe("mobile css variables", () => {
 
   test("light defaults match colors.ts", () => {
     for (const [key, value] of Object.entries(lightColors)) {
-      expect(mobileLightCssVariables[mobileColorKeyToCssVar(key as keyof typeof lightColors)]).toBe(value);
+      expect(mobileLightCssVariables[mobileColorKeyToCssVar(key as keyof typeof lightColors)]).toBe(
+        value,
+      );
     }
   });
 

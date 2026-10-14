@@ -47,9 +47,7 @@ describe("collectIdleSessionIdsForPane", () => {
   });
 
   test("returns empty for blank pane id", () => {
-    const sessions = new Map([
-      ["ws-1:main", idleSession({ session_id: "ws-1:main" })],
-    ]);
+    const sessions = new Map([["ws-1:main", idleSession({ session_id: "ws-1:main" })]]);
     expect(collectIdleSessionIdsForPane(sessions, "  ")).toEqual([]);
   });
 });
@@ -107,10 +105,7 @@ describe("findSessionForPaneId", () => {
 describe("resolveAgentStateForPaneId", () => {
   test("resolves running state by map key / session_id", () => {
     const sessions = new Map([
-      [
-        "ws-1:main",
-        { session_id: "ws-1:main", state: "running", pane_id: "ws-1:main" },
-      ],
+      ["ws-1:main", { session_id: "ws-1:main", state: "running", pane_id: "ws-1:main" }],
     ]);
     expect(resolveAgentStateForPaneId(sessions, "ws-1:main")).toBe("running");
   });
@@ -126,9 +121,7 @@ describe("resolveAgentStateForPaneId", () => {
         },
       ],
     ]);
-    expect(resolveAgentStateForPaneId(sessions, "ws-1:main")).toBe(
-      "permission_request",
-    );
+    expect(resolveAgentStateForPaneId(sessions, "ws-1:main")).toBe("permission_request");
   });
 
   test("does not attribute side-chat running state to the source pane", () => {

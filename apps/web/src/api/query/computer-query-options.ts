@@ -30,11 +30,7 @@ export function restComputerQueryEnabled(
 
 function resolveWsRetry<TError>(
   connectionState: ConnectionState,
-  retry:
-    | boolean
-    | number
-    | ((failureCount: number, error: TError) => boolean)
-    | undefined,
+  retry: boolean | number | ((failureCount: number, error: TError) => boolean) | undefined,
   failureCount: number,
   error: TError,
 ): boolean {
@@ -62,8 +58,7 @@ export function wsQueryOptions<
   return {
     ...rest,
     enabled: (enabled ?? true) && connectionEnabled,
-    retry: (failureCount, error) =>
-      resolveWsRetry(connectionState, retry, failureCount, error),
+    retry: (failureCount, error) => resolveWsRetry(connectionState, retry, failureCount, error),
   };
 }
 
@@ -85,8 +80,7 @@ export function wsInfiniteQueryOptions<
   return {
     ...rest,
     enabled: (enabled ?? true) && connectionEnabled,
-    retry: (failureCount, error) =>
-      resolveWsRetry(connectionState, retry, failureCount, error),
+    retry: (failureCount, error) => resolveWsRetry(connectionState, retry, failureCount, error),
   };
 }
 
@@ -105,7 +99,7 @@ export function restComputerQueryOptions<
   const { scope, runtimeReady, enabled, ignoreActiveInstance, ...rest } = options;
   const isEnabled = ignoreActiveInstance
     ? runtimeReady
-    : (Boolean(scope?.activeInstanceId) && runtimeReady);
+    : Boolean(scope?.activeInstanceId) && runtimeReady;
   return {
     ...rest,
     enabled: (enabled ?? true) && isEnabled,

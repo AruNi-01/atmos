@@ -25,12 +25,12 @@ crates/agent  AgentDescriptor + AgentTool   (never on a second socket)
 
 Two Atmos transports stay distinct:
 
-| Path | Protocol | This slice |
-|------|----------|------------|
-| Client ↔ Atmos | main `/ws` `agent_chat_*` + `agent_chat_event` | **yes** — DTO evolution |
-| Atmos ↔ OpenCode | vendor HTTP+SSE inside `providers/opencode` | **no** — not an Atmos REST chat API |
-| Atmos ↔ Claude/Codex/Pi | vendor stdio | **no** |
-| Atmos ↔ other agents | ACP stdio in `providers/acp` | **no** — not a browser ACP socket |
+| Path                    | Protocol                                       | This slice                          |
+| ----------------------- | ---------------------------------------------- | ----------------------------------- |
+| Client ↔ Atmos          | main `/ws` `agent_chat_*` + `agent_chat_event` | **yes** — DTO evolution             |
+| Atmos ↔ OpenCode        | vendor HTTP+SSE inside `providers/opencode`    | **no** — not an Atmos REST chat API |
+| Atmos ↔ Claude/Codex/Pi | vendor stdio                                   | **no**                              |
+| Atmos ↔ other agents    | ACP stdio in `providers/acp`                   | **no** — not a browser ACP socket   |
 
 ```mermaid
 sequenceDiagram
@@ -64,13 +64,13 @@ Handlers in `apps/api/src/api/ws/router/agent_chat.rs` stay thin: parse request 
 
 Returned by `agent_chat_create` / `rename` / `configure`; nested in `agent_chat_get` snapshot.
 
-| Today (remove from wire) | Replacement | Notes |
-|--------------------------|-------------|-------|
-| `supports_steer: boolean` | `descriptor.capabilities.steer` (`"supported"` \| `"unsupported"`) | Closed capability struct. Send/cancel are **not** flags. |
-| `session_config_options` (`SessionAdvertisedOption[]`) | `descriptor.supported_options` | ACP option bags stay adapter-internal. Delete the public TS type if unused. |
-| `selected_model` `selected_thinking` `selected_mode` | `descriptor.current_config.{model,thinking,mode}` | One copy. Live refresh via `config_updated`. |
-| *(never ship)* `native` sidecar | — | Forbidden next to mapped descriptor. |
-| *(not in TS today, still serde-leaked)* `applied_model` `applied_thinking` `applied_mode` | persist-only | Strip from WS JSON. |
+| Today (remove from wire)                                                                  | Replacement                                                        | Notes                                                                       |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| `supports_steer: boolean`                                                                 | `descriptor.capabilities.steer` (`"supported"` \| `"unsupported"`) | Closed capability struct. Send/cancel are **not** flags.                    |
+| `session_config_options` (`SessionAdvertisedOption[]`)                                    | `descriptor.supported_options`                                     | ACP option bags stay adapter-internal. Delete the public TS type if unused. |
+| `selected_model` `selected_thinking` `selected_mode`                                      | `descriptor.current_config.{model,thinking,mode}`                  | One copy. Live refresh via `config_updated`.                                |
+| _(never ship)_ `native` sidecar                                                           | —                                                                  | Forbidden next to mapped descriptor.                                        |
+| _(not in TS today, still serde-leaked)_ `applied_model` `applied_thinking` `applied_mode` | persist-only                                                       | Strip from WS JSON.                                                         |
 
 **Keep:** `id` `created_at` `updated_at` `deleted` `title` `cwd` `workspace_id` `project_id` `space_id` `origin` `provider_id` `last_message_at` `last_event_seq` `persistence_handle` `runtime_status` `available_commands` `session_usage`.
 
@@ -137,8 +137,17 @@ export type AgentDescriptor = {
 };
 
 export type AgentToolKind =
-  | "read" | "edit" | "delete" | "move" | "search"
-  | "web_search" | "execute" | "fetch" | "skill" | "subagent" | "other";
+  | "read"
+  | "edit"
+  | "delete"
+  | "move"
+  | "search"
+  | "web_search"
+  | "execute"
+  | "fetch"
+  | "skill"
+  | "subagent"
+  | "other";
 
 export type AgentToolStatus = "pending" | "running" | "completed" | "failed";
 
@@ -150,7 +159,13 @@ export type AgentToolParams =
   | { type: "move"; from: string; to: string }
   | { type: "search"; query: string; path?: string | null; glob?: string | null }
   | { type: "web_search"; query: string }
-  | { type: "execute"; command: string; cwd?: string | null; background: boolean; task_id?: string | null }
+  | {
+      type: "execute";
+      command: string;
+      cwd?: string | null;
+      background: boolean;
+      task_id?: string | null;
+    }
   | { type: "fetch"; url: string }
   | { type: "skill"; skill: string }
   | { type: "subagent"; description: string; agent_type?: string | null }
@@ -161,8 +176,18 @@ export type AgentToolResult =
   | { type: "file_content"; path: string; text: string }
   | { type: "diff_stats"; path: string; additions: number; deletions: number }
   | { type: "execute"; output: string; exit_code?: number | null }
-  | { type: "web_search"; query: string; links: Array<{ url: string; title: string; snippet?: string | null }> }
-  | { type: "web_fetch"; url: string; title?: string | null; markdown?: string | null; text?: string | null }
+  | {
+      type: "web_search";
+      query: string;
+      links: Array<{ url: string; title: string; snippet?: string | null }>;
+    }
+  | {
+      type: "web_fetch";
+      url: string;
+      title?: string | null;
+      markdown?: string | null;
+      text?: string | null;
+    }
   | { type: "other"; value: unknown }
   | { type: "error"; message: string }
   | { type: "empty" };
@@ -184,12 +209,12 @@ export type AgentTool = {
 
 Folded part (`MessagePart::ToolCall` in `types.rs`) and `AgentToolCall` / `AgentTool` on `tool_call_started|updated|completed|failed` **share one shape**.
 
-| Today | After | Dual-write? |
-|-------|-------|-------------|
-| `input` | `params` (`AgentToolParams`, tagged `type`) | **No.** Drop `input`. |
-| `output` | `result` (`AgentToolResult` \| `null` while running) | **No.** Drop `output`. |
-| `content` | gone | ACP leftover. Drop. |
-| `native` | gone | Never add. |
+| Today     | After                                                | Dual-write?            |
+| --------- | ---------------------------------------------------- | ---------------------- |
+| `input`   | `params` (`AgentToolParams`, tagged `type`)          | **No.** Drop `input`.  |
+| `output`  | `result` (`AgentToolResult` \| `null` while running) | **No.** Drop `output`. |
+| `content` | gone                                                 | ACP leftover. Drop.    |
+| `native`  | gone                                                 | Never add.             |
 
 **Keep on the part:** `type: "tool_call"` plus `AgentTool` fields (`status` required).
 
@@ -227,16 +252,16 @@ If domain emits `AgentEvent::Unknown`, add `{ type: "unknown", event_type, paylo
 
 `AgentChatContract` row map (keys frozen; only nested DTO fields change):
 
-| Action | input | output |
-|--------|-------|--------|
-| create / rename / configure | existing requests | `AgentChatMeta` **with** `descriptor` |
-| get | `{ chat_id }` | `AgentChatSnapshot` (meta + new parts) |
-| messages | `{ chat_id, limit? }` | `{ messages }` with new tool parts |
-| send / steer | existing | `{ turn_id }` |
-| subscribe | `{ chat_id, after_sequence? }` | `{ last_event_seq }` + fanout `agent_chat_event` |
-| cancel / delete / unsubscribe / permission_respond / queue_delete | existing | `WsOk` |
-| queue_* else | existing | unchanged queue JSON |
-| prefs_* / `agent_options_get` | existing | unchanged |
+| Action                                                            | input                          | output                                           |
+| ----------------------------------------------------------------- | ------------------------------ | ------------------------------------------------ |
+| create / rename / configure                                       | existing requests              | `AgentChatMeta` **with** `descriptor`            |
+| get                                                               | `{ chat_id }`                  | `AgentChatSnapshot` (meta + new parts)           |
+| messages                                                          | `{ chat_id, limit? }`          | `{ messages }` with new tool parts               |
+| send / steer                                                      | existing                       | `{ turn_id }`                                    |
+| subscribe                                                         | `{ chat_id, after_sequence? }` | `{ last_event_seq }` + fanout `agent_chat_event` |
+| cancel / delete / unsubscribe / permission_respond / queue_delete | existing                       | `WsOk`                                           |
+| queue_* else                                                      | existing                       | unchanged queue JSON                             |
+| prefs_* / `agent_options_get`                                     | existing                       | unchanged                                        |
 
 Queue item JSON is out of this slice. Do not tighten `Record<string, unknown>` here.
 
@@ -257,26 +282,26 @@ Do not add oRPC/tRPC. Do not put Chat DTOs on `@atmos/api-client`.
 
 ## REST (explicit non-goals)
 
-| Route | Status |
-|-------|--------|
-| `POST /api/agent/upload-attachments` | **Keep** — multipart (existing REST exception). |
-| `POST /api/agent/logout` | **Keep** — registry auth, not conversation CRUD. |
+| Route                                          | Status                                                                                      |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `POST /api/agent/upload-attachments`           | **Keep** — multipart (existing REST exception).                                             |
+| `POST /api/agent/logout`                       | **Keep** — registry auth, not conversation CRUD.                                            |
 | Any `/api/agent/session*` or conversation REST | **Forbidden.** APP-067 already removed session CRUD (`apps/api/src/api/agent/mod.rs` test). |
-| OpenCode `127.0.0.1` HTTP+SSE | **Vendor-only** inside `providers/opencode`. Not Computer REST, not `WsContract`. |
+| OpenCode `127.0.0.1` HTTP+SSE                  | **Vendor-only** inside `providers/opencode`. Not Computer REST, not `WsContract`.           |
 
 `apps/web/src/api/rest-api.ts` already throws if someone calls REST session create. Leave that guard.
 
 ## MUST implement vs MUST NOT
 
-| MUST | MUST NOT |
-|------|----------|
-| Same `WsAction` / `WsEvent` names | Rename send, add descriptor RPC, ACP websocket |
-| `meta.descriptor` on create/get/configure/rename | Dual-write `supports_steer` or `selected_*` |
-| Tool `kind` + `params` + `result` on parts **and** live events | Dual-write `input` / `output` / `content` / `native` |
-| `web_search` kind distinct from `search` | Classify web search as workspace `search` on the wire |
-| Hard cut: new jsonl only (M12) | Client fallback that reads `input` if `params` missing |
-| Run extract + check in the same PR | Hand-edit `fixtures/*.server.json` |
-| OpenCode HTTP behind the adapter | Atmos REST chat API wrapping OpenCode |
+| MUST                                                           | MUST NOT                                               |
+| -------------------------------------------------------------- | ------------------------------------------------------ |
+| Same `WsAction` / `WsEvent` names                              | Rename send, add descriptor RPC, ACP websocket         |
+| `meta.descriptor` on create/get/configure/rename               | Dual-write `supports_steer` or `selected_*`            |
+| Tool `kind` + `params` + `result` on parts **and** live events | Dual-write `input` / `output` / `content` / `native`   |
+| `web_search` kind distinct from `search`                       | Classify web search as workspace `search` on the wire  |
+| Hard cut: new jsonl only (M12)                                 | Client fallback that reads `input` if `params` missing |
+| Run extract + check in the same PR                             | Hand-edit `fixtures/*.server.json`                     |
+| OpenCode HTTP behind the adapter                               | Atmos REST chat API wrapping OpenCode                  |
 
 ## Security & permissions
 

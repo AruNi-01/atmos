@@ -8,33 +8,33 @@
 
 被审查提交：
 
-| Hash | Author | Message |
-| --- | --- | --- |
-| `289cc2a` | AarynLu | fix: reveal files in right sidebar |
+| Hash      | Author   | Message                                                              |
+| --------- | -------- | -------------------------------------------------------------------- |
+| `289cc2a` | AarynLu  | fix: reveal files in right sidebar                                   |
 | `bb8ee51` | AruNi_Lu | Merge pull request #145 from AruNi-01/aarynlu/runtime-workbench-i18n |
-| `e5d0aa0` | AarynLu | chore: adopt calendar release versions |
-| `10d4f13` | AarynLu | docs: expand desktop 2026.7.2 changelog |
-| `0a51833` | AarynLu | docs: normalize landing changelog dates |
-| `6ec65fa` | AarynLu | Add local computer switch fallback and copy |
-| `4da4b47` | AarynLu | chore(skills): add atmos docs writing skill |
-| `03635a8` | AarynLu | chore(skills): add atmos specs view skill |
-| `e01f276` | AarynLu | chore(skills): generalize atmos docs writing skill |
-| `35a21e0` | AarynLu | fix: constrain overview text sections |
-| `730b963` | AarynLu | fix: map skill agent icons |
-| `0d466f3` | AarynLu | fix: show desktop runtime as Atmos Server |
-| `d218b28` | AarynLu | docs: refresh user docs and fix docs layout |
-| `79224ef` | AarynLu | fix: preserve terminal AI input shortcuts and focus |
-| `704f777` | AarynLu | docs(specs): add side chat and architecture review plans |
-| `9926196` | AarynLu | feat(agent-hooks): version managed hooks and carry terminal context |
-| `d87e121` | AarynLu | feat(terminal): add tmux-backed side chats |
-| `a65e2ba` | AarynLu | fix(agent): use Cursor yolo for interactive launches |
-| `5cde924` | AarynLu | feat(preview): add follow-cursor hover labels |
-| `4fdde8d` | AarynLu | feat(web): add breakout error pages |
-| `93ee36a` | AarynLu | fix(desktop): refresh browser web runtime config |
-| `78f8db6` | AarynLu | chore(desktop): release 2026.7.3-beta.1 |
-| `42436db` | AarynLu | feat: wire terminal sidechat actions through websocket flow |
-| `8ed754c` | AarynLu | feat: refine web terminal UX and desktop launcher integration |
-| `e355bff` | AarynLu | chore: remove obsolete review CLI reference |
+| `e5d0aa0` | AarynLu  | chore: adopt calendar release versions                               |
+| `10d4f13` | AarynLu  | docs: expand desktop 2026.7.2 changelog                              |
+| `0a51833` | AarynLu  | docs: normalize landing changelog dates                              |
+| `6ec65fa` | AarynLu  | Add local computer switch fallback and copy                          |
+| `4da4b47` | AarynLu  | chore(skills): add atmos docs writing skill                          |
+| `03635a8` | AarynLu  | chore(skills): add atmos specs view skill                            |
+| `e01f276` | AarynLu  | chore(skills): generalize atmos docs writing skill                   |
+| `35a21e0` | AarynLu  | fix: constrain overview text sections                                |
+| `730b963` | AarynLu  | fix: map skill agent icons                                           |
+| `0d466f3` | AarynLu  | fix: show desktop runtime as Atmos Server                            |
+| `d218b28` | AarynLu  | docs: refresh user docs and fix docs layout                          |
+| `79224ef` | AarynLu  | fix: preserve terminal AI input shortcuts and focus                  |
+| `704f777` | AarynLu  | docs(specs): add side chat and architecture review plans             |
+| `9926196` | AarynLu  | feat(agent-hooks): version managed hooks and carry terminal context  |
+| `d87e121` | AarynLu  | feat(terminal): add tmux-backed side chats                           |
+| `a65e2ba` | AarynLu  | fix(agent): use Cursor yolo for interactive launches                 |
+| `5cde924` | AarynLu  | feat(preview): add follow-cursor hover labels                        |
+| `4fdde8d` | AarynLu  | feat(web): add breakout error pages                                  |
+| `93ee36a` | AarynLu  | fix(desktop): refresh browser web runtime config                     |
+| `78f8db6` | AarynLu  | chore(desktop): release 2026.7.3-beta.1                              |
+| `42436db` | AarynLu  | feat: wire terminal sidechat actions through websocket flow          |
+| `8ed754c` | AarynLu  | feat: refine web terminal UX and desktop launcher integration        |
+| `e355bff` | AarynLu  | chore: remove obsolete review CLI reference                          |
 
 ## 2. 一份好代码应该是什么样
 
@@ -52,13 +52,13 @@
 
 ## 5. 分项评分
 
-| 维度 | 得分 | 扣分原因 |
-| --- | ---: | --- |
-| 设计与分层 | 23/30 | `42436db` 的 side chat 状态更新先写库再校验 workspace，服务边界把“归属校验”放在副作用之后。 |
-| 可读性与复杂度 | 20/25 | `d87e121`/`8ed754c` 新增的 `use-terminal-side-chats.tsx` 同时处理 WS、持久化、prompt 构造、modal 拖拽/缩放和 Terminal 渲染，阅读主路径成本偏高。 |
-| 体量与内聚 | 16/20 | `apps/web/src/features/terminal/hooks/use-terminal-side-chats.tsx` day-end 版本 1278 行；`crates/core-service/src/service/terminal/management.rs` day-end 版本 1144 行，新增 side chat 职责继续压入既有大文件。 |
-| 可维护性与复用 | 14/15 | `5cde924` 在 TS preview helper 与打包 JS runtime 中重复 follow-cursor label 动画逻辑，参数已经出现差异。 |
-| 工程卫生 | 9/10 | `terminal_side_chat_close` API 实际返回 `{ closed: true }`，Web 类型声明为 `{ ok: boolean }`，存在协议合同漂移。 |
+| 维度           |  得分 | 扣分原因                                                                                                                                                                                                        |
+| -------------- | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 设计与分层     | 23/30 | `42436db` 的 side chat 状态更新先写库再校验 workspace，服务边界把“归属校验”放在副作用之后。                                                                                                                     |
+| 可读性与复杂度 | 20/25 | `d87e121`/`8ed754c` 新增的 `use-terminal-side-chats.tsx` 同时处理 WS、持久化、prompt 构造、modal 拖拽/缩放和 Terminal 渲染，阅读主路径成本偏高。                                                                |
+| 体量与内聚     | 16/20 | `apps/web/src/features/terminal/hooks/use-terminal-side-chats.tsx` day-end 版本 1278 行；`crates/core-service/src/service/terminal/management.rs` day-end 版本 1144 行，新增 side chat 职责继续压入既有大文件。 |
+| 可维护性与复用 | 14/15 | `5cde924` 在 TS preview helper 与打包 JS runtime 中重复 follow-cursor label 动画逻辑，参数已经出现差异。                                                                                                        |
+| 工程卫生       |  9/10 | `terminal_side_chat_close` API 实际返回 `{ closed: true }`，Web 类型声明为 `{ ok: boolean }`，存在协议合同漂移。                                                                                                |
 
 ## 6. 主要问题清单
 

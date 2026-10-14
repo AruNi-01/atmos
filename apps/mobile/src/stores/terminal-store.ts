@@ -40,7 +40,10 @@ export const useTerminalStore = create<TerminalState>((set) => ({
       },
       activeEntryIdByWorkspaceId: {
         ...state.activeEntryIdByWorkspaceId,
-        [workspaceId]: nextActiveTerminalEntryId(entries, state.activeEntryIdByWorkspaceId[workspaceId]),
+        [workspaceId]: nextActiveTerminalEntryId(
+          entries,
+          state.activeEntryIdByWorkspaceId[workspaceId],
+        ),
       },
     })),
   setActiveEntry: (workspaceId, entryId) =>
@@ -70,7 +73,9 @@ export const useTerminalStore = create<TerminalState>((set) => ({
       return {
         entriesByWorkspaceId: {
           ...state.entriesByWorkspaceId,
-          [workspaceId]: existing.map((entry) => (entry.id === entryId ? { ...entry, ...patch } : entry)),
+          [workspaceId]: existing.map((entry) =>
+            entry.id === entryId ? { ...entry, ...patch } : entry,
+          ),
         },
       };
     }),

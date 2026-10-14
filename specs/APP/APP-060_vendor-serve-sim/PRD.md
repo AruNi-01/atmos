@@ -6,7 +6,7 @@
 
 - **Problem**: Users building iOS / Expo apps in Atmos still leave the workspace to poke Simulator.app. A previous attempt drew a custom phone shell on top of `@expo/serve-sim` and bundled Node into the app; it was fragile and looked wrong.
 - **Why now**: serve-sim is Apache-2.0, already has the preview (devices, Home, rotate, tap, AX). Vendoring it and binding loopback makes that page safe to embed. Compiling a binary makes on-demand install under `~/.atmos` possible.
-- **Related specs**: inherits the *intent* of the abandoned workspace-simulator work (local Simulator + Desktop entry + setup cards). Overturns its D2 custom canvas, D3 App Resources helper, and “do not embed preview”. Does not depend on that branch.
+- **Related specs**: inherits the _intent_ of the abandoned workspace-simulator work (local Simulator + Desktop entry + setup cards). Overturns its D2 custom canvas, D3 App Resources helper, and “do not embed preview”. Does not depend on that branch.
 
 ## Goals
 

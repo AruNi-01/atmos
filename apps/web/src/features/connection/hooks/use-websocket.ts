@@ -2,14 +2,8 @@
 
 import { create } from "zustand";
 import type { WsAction } from "@atmos/api-types/ws/actions";
-import type {
-  MappedWsAction,
-  WsContract,
-} from "@atmos/api-types/ws/contract";
-import type {
-  MappedWsEvent,
-  WsEventPayload,
-} from "@atmos/api-types/ws/event-contract";
+import type { MappedWsAction, WsContract } from "@atmos/api-types/ws/contract";
+import type { MappedWsEvent, WsEventPayload } from "@atmos/api-types/ws/event-contract";
 import type {
   WsError,
   WsMessage,
@@ -31,10 +25,7 @@ import { syncClientSessionFromStore } from "@/features/connection/lib/sync-clien
 import { ensureComputerClientSettingsHydrated } from "@/features/connection/lib/sync-computer-client-settings";
 import { ensureLocalAppConnectionBootstrap } from "@/features/connection/lib/app-connection-bootstrap";
 import { workbenchRelayClientKind } from "@/features/connection/lib/workbench-relay-client-kind";
-import {
-  isDesktopRuntime,
-  isHostedAtmosOrigin,
-} from "@/shared/lib/desktop-runtime";
+import { isDesktopRuntime, isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
 import { useConnectionStore } from "@/features/connection/store/connection-store";
 import { buildWsUrl, buildWsUrlSync } from "@/shared/lib/ws-url";
 import { debugLog } from "@/shared/lib/desktop-logger";
@@ -51,11 +42,7 @@ export type {
 
 // ===== WebSocket 状态管理 =====
 
-type ConnectionState =
-  | "connecting"
-  | "connected"
-  | "disconnected"
-  | "reconnecting";
+type ConnectionState = "connecting" | "connected" | "disconnected" | "reconnecting";
 
 function mapKernelState(state: KernelState): ConnectionState {
   switch (state) {
@@ -92,10 +79,7 @@ interface WebSocketStore {
     ): Promise<WsContract[A]["output"]>;
   };
   onEvent: {
-    <E extends MappedWsEvent>(
-      event: E,
-      callback: (data: WsEventPayload<E>) => void,
-    ): () => void;
+    <E extends MappedWsEvent>(event: E, callback: (data: WsEventPayload<E>) => void): () => void;
     (event: string, callback: (data: unknown) => void): () => void;
   };
 }
@@ -112,9 +96,7 @@ let unsubMessage: (() => void) | null = null;
 let latestUrl = getWsUrl();
 
 const defaultConnectionWaitMs = (): number =>
-  isDesktopRuntime()
-    ? DEFAULT_DESKTOP_CONNECT_WAIT_MS
-    : DEFAULT_WEB_CONNECT_WAIT_MS;
+  isDesktopRuntime() ? DEFAULT_DESKTOP_CONNECT_WAIT_MS : DEFAULT_WEB_CONNECT_WAIT_MS;
 
 /**
  * Ensure WebSocket is connected. Awaits bootstrap + handshake (not a blind poll).
@@ -190,9 +172,7 @@ export async function waitForWebSocketConnection(
     // Hard failure: exponential backoff so we don't thrash bootstrap/handshake.
     if (!sawHardFailure) {
       failureAttempt = 0;
-      await new Promise<void>((resolve) =>
-        setTimeout(resolve, Math.min(50, remainingAfter)),
-      );
+      await new Promise<void>((resolve) => setTimeout(resolve, Math.min(50, remainingAfter)));
     } else {
       failureAttempt += 1;
       // Cap exponent at 5 so the series can reach the 2s outer ceiling (100…3200).
@@ -215,7 +195,8 @@ function ensureSession(): WsSession {
   session = createWsSession({
     url: () => latestUrl,
     platform: {
-      createWebSocket: (url) => new WebSocket(url) as unknown as import("@atmos/api-client/platform").WebSocketLike,
+      createWebSocket: (url) =>
+        new WebSocket(url) as unknown as import("@atmos/api-client/platform").WebSocketLike,
       log: (level, msg, meta) => {
         if (level === "error") {
           console.error("[WebSocket]", msg, meta ?? "");
@@ -315,9 +296,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
         latestUrl = runtimeUrl;
         set({ url: runtimeUrl });
 
-        debugLog(
-          `ws:connect url=${runtimeUrl.replace(/token=[^&]+/, "token=<redacted>")}`,
-        );
+        debugLog(`ws:connect url=${runtimeUrl.replace(/token=[^&]+/, "token=<redacted>")}`);
         console.log(
           "[WebSocket] Connecting to:",
           runtimeUrl.replace(/token=[^&]+/, "token=<redacted>"),
@@ -369,11 +348,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
     });
   },
 
-  send: ((
-    action: string,
-    data: unknown = {},
-    timeoutMs?: number,
-  ): Promise<unknown> => {
+  send: ((action: string, data: unknown = {}, timeoutMs?: number): Promise<unknown> => {
     const s = ensureSession();
     return s.request(action as never, data as never, { timeoutMs });
   }) as WebSocketStore["send"],

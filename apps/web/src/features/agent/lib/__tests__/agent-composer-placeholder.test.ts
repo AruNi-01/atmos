@@ -59,7 +59,6 @@ describe("isAgentNewChatLanding", () => {
   });
 });
 
-
 describe("resolveAgentComposerPlaceholderKind", () => {
   it("asks to create a session when chat has not started yet", () => {
     expect(

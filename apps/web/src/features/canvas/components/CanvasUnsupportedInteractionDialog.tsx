@@ -67,11 +67,7 @@ export function CanvasUnsupportedInteractionDialog() {
       aria-label={t("dialogAria")}
       className="fixed inset-0 z-[300] flex items-center justify-center p-6"
     >
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={dismiss}
-        aria-hidden="true"
-      />
+      <div className="absolute inset-0 bg-black/50" onClick={dismiss} aria-hidden="true" />
       <div className="relative z-[1] w-full max-w-md rounded-xl border border-border bg-background p-6 shadow-lg">
         <div className="flex items-start gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">

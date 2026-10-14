@@ -16,57 +16,57 @@ Deterministic tests own coord validation, claim gating, platform key policy, and
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S2, S3 |
-| M2 | S4, S5 |
-| M3 | S6, S7, S8, S9, S10 |
-| M4 | S11, S12 |
-| M5 | S13, S14 |
-| M6 | S15 |
-| M7 | S3, S16 |
-| M8 | S17, S18, S24 |
-| M9 | S4, S12, S13, S19, S24 |
-| M10 | S1, S2, S20 |
-| M11 | S21 |
-| M12 | S16, S18, S23, S24 |
-| M13 | S25 |
-| M14 | S26 |
-| M15 | S27, S28 |
-| N1–N5 | deferred |
+| PRD item | Scenario IDs           |
+| -------- | ---------------------- |
+| M1       | S1, S2, S3             |
+| M2       | S4, S5                 |
+| M3       | S6, S7, S8, S9, S10    |
+| M4       | S11, S12               |
+| M5       | S13, S14               |
+| M6       | S15                    |
+| M7       | S3, S16                |
+| M8       | S17, S18, S24          |
+| M9       | S4, S12, S13, S19, S24 |
+| M10      | S1, S2, S20            |
+| M11      | S21                    |
+| M12      | S16, S18, S23, S24     |
+| M13      | S25                    |
+| M14      | S26                    |
+| M15      | S27, S28               |
+| N1–N5    | deferred               |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Structural | grep / bun | skill tree | `skills/atmos-device-preview` | `name: atmos-device-preview`; in `ALL_SYSTEM_SKILL_NAMES` | planned |
-| S2 | Structural | grep | desktop-use + atmos-cli skills | those SKILL.md | “not the phone” / device-preview pointer | planned |
-| S3 | Structural | grep | skill + CLI help | skill, clap | no `/api/tap`, no helper port, no `--token` | planned |
-| S4 | Rust | `cargo test` | DeviceControl no claim | empty running map | `NoClaim`; start() not called | planned |
-| S5 | Rust | `cargo test` | tap does not start | spy on `DevicePreviewService::start` | start invocation count 0 | planned |
-| S6 | Rust | `cargo test` | iOS screenshot | fake simctl writes PNG | result.path exists; width/height set | planned |
-| S7 | Rust | `cargo test` | Android tap HTTP | fake listener | `POST /api/tap` body `{x,y}` | planned |
-| S8 | Rust | `cargo test` | iOS tap argv | fake bin | argv contains `tap`, udid, two floats | planned |
-| S9 | Rust | `cargo test` | swipe both adapters | fake HTTP + fake bin | emu `/api/swipe`; sim `gesture` | planned |
-| S10 | Rust | `cargo test` | type both adapters | fake | emu `/api/text`; sim `type` | planned |
-| S11 | Rust | `cargo test` | coords | 0, 1, 0.5 ok; -0.1 / 1.01 fail | `InvalidCoords`; no HTTP | planned |
-| S12 | Bun/Rust | contract / CLI | skill math | screenshot `{width,height}` | docs say px/width; CLI has no `--coord-space png` | planned |
-| S13 | Rust | `cargo test` | press back on iOS claim | helper ServeSim | `UnsupportedOnPlatform`; no button spawn | planned |
-| S14 | Rust | `cargo test` | press home both; back Android | claims | iOS `button home`; Android `POST /api/key` `{key:back}` | planned |
-| S15 | Rust | `cargo test` | screenshot result | PNG bytes | JSON has `path`, not `data`/`base64` | planned |
-| S16 | Rust | `cargo test` | CLI invoke payload | recorded invoke | action `simulator_tap`; data has workspace_id + udid; not `url`/`port` | planned |
-| S17 | Rust | `cargo test` | workspace A/B | two claims | A tap hits A port/udid only | planned |
-| S18 | Rust | `cargo test` | unknown udid | no such live claim | `DeviceUnknown`; no I/O | planned |
-| S19 | Rust / API | `cargo test` | envelope codes | invoke / service | `NO_CLAIM`, `DEVICE_UNKNOWN`, `CLAIMED_BY_OTHER_WORKSPACE`, `PLATFORM_MISMATCH`, `INVALID_COORDS`, `HELPER_UNREACHABLE` | planned |
-| S20 | Structural | grep | manifest | `system-skills-manifest.json` | skill files listed | planned |
-| S21 | Structural | bun/grep | web simulator | `SimulatorPanel` | still iframe; no DeviceScreen canvas | planned |
-| S22 | Manual | human | Mac + live preview | iOS then Android | iframe reacts; no-claim CLI does not boot qemu | planned |
-| S23 | Rust | `cargo test` | status handle | live claim with name | `{ udid, name, platform }` present | planned |
-| S24 | Rust | `cargo test` | other workspace udid | A claims Pixel, B claims iPhone | from A, `--udid` of B → `ClaimedByOtherWorkspace`; B untouched | planned |
-| S25 | Structural / Rust | grep + `cargo test` | skill + list DTO | two live claims | skill says list+ask; list rows have project_name + workspace_name + current | planned |
-| S26 | Bun | `bun test` | SimulatorPanel overlay + prompt | live session fixture | Agent button present outside iframe; clipboard protocol has udid, no port; Copied not toast | planned |
-| S27 | Bun | `bun test` | slash expand | `[#ctx:device-preview:…]` | send expands to `formatDevicePreviewPrompt` body, not `/device-preview` | planned |
-| S28 | Bun structural | `bun test` / grep | Welcome + Terminal + Agent Chat | those three files | `DEVICE_PREVIEW_SLASH_COMMAND_ID`; Agent Chat not `/cmd:` | planned |
+| Scenario | Level             | Expected tool       | Target command / method         | Fixture / data                       | Signals                                                                                                                 | Status  |
+| -------- | ----------------- | ------------------- | ------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------- |
+| S1       | Structural        | grep / bun          | skill tree                      | `skills/atmos-device-preview`        | `name: atmos-device-preview`; in `ALL_SYSTEM_SKILL_NAMES`                                                               | planned |
+| S2       | Structural        | grep                | desktop-use + atmos-cli skills  | those SKILL.md                       | “not the phone” / device-preview pointer                                                                                | planned |
+| S3       | Structural        | grep                | skill + CLI help                | skill, clap                          | no `/api/tap`, no helper port, no `--token`                                                                             | planned |
+| S4       | Rust              | `cargo test`        | DeviceControl no claim          | empty running map                    | `NoClaim`; start() not called                                                                                           | planned |
+| S5       | Rust              | `cargo test`        | tap does not start              | spy on `DevicePreviewService::start` | start invocation count 0                                                                                                | planned |
+| S6       | Rust              | `cargo test`        | iOS screenshot                  | fake simctl writes PNG               | result.path exists; width/height set                                                                                    | planned |
+| S7       | Rust              | `cargo test`        | Android tap HTTP                | fake listener                        | `POST /api/tap` body `{x,y}`                                                                                            | planned |
+| S8       | Rust              | `cargo test`        | iOS tap argv                    | fake bin                             | argv contains `tap`, udid, two floats                                                                                   | planned |
+| S9       | Rust              | `cargo test`        | swipe both adapters             | fake HTTP + fake bin                 | emu `/api/swipe`; sim `gesture`                                                                                         | planned |
+| S10      | Rust              | `cargo test`        | type both adapters              | fake                                 | emu `/api/text`; sim `type`                                                                                             | planned |
+| S11      | Rust              | `cargo test`        | coords                          | 0, 1, 0.5 ok; -0.1 / 1.01 fail       | `InvalidCoords`; no HTTP                                                                                                | planned |
+| S12      | Bun/Rust          | contract / CLI      | skill math                      | screenshot `{width,height}`          | docs say px/width; CLI has no `--coord-space png`                                                                       | planned |
+| S13      | Rust              | `cargo test`        | press back on iOS claim         | helper ServeSim                      | `UnsupportedOnPlatform`; no button spawn                                                                                | planned |
+| S14      | Rust              | `cargo test`        | press home both; back Android   | claims                               | iOS `button home`; Android `POST /api/key` `{key:back}`                                                                 | planned |
+| S15      | Rust              | `cargo test`        | screenshot result               | PNG bytes                            | JSON has `path`, not `data`/`base64`                                                                                    | planned |
+| S16      | Rust              | `cargo test`        | CLI invoke payload              | recorded invoke                      | action `simulator_tap`; data has workspace_id + udid; not `url`/`port`                                                  | planned |
+| S17      | Rust              | `cargo test`        | workspace A/B                   | two claims                           | A tap hits A port/udid only                                                                                             | planned |
+| S18      | Rust              | `cargo test`        | unknown udid                    | no such live claim                   | `DeviceUnknown`; no I/O                                                                                                 | planned |
+| S19      | Rust / API        | `cargo test`        | envelope codes                  | invoke / service                     | `NO_CLAIM`, `DEVICE_UNKNOWN`, `CLAIMED_BY_OTHER_WORKSPACE`, `PLATFORM_MISMATCH`, `INVALID_COORDS`, `HELPER_UNREACHABLE` | planned |
+| S20      | Structural        | grep                | manifest                        | `system-skills-manifest.json`        | skill files listed                                                                                                      | planned |
+| S21      | Structural        | bun/grep            | web simulator                   | `SimulatorPanel`                     | still iframe; no DeviceScreen canvas                                                                                    | planned |
+| S22      | Manual            | human               | Mac + live preview              | iOS then Android                     | iframe reacts; no-claim CLI does not boot qemu                                                                          | planned |
+| S23      | Rust              | `cargo test`        | status handle                   | live claim with name                 | `{ udid, name, platform }` present                                                                                      | planned |
+| S24      | Rust              | `cargo test`        | other workspace udid            | A claims Pixel, B claims iPhone      | from A, `--udid` of B → `ClaimedByOtherWorkspace`; B untouched                                                          | planned |
+| S25      | Structural / Rust | grep + `cargo test` | skill + list DTO                | two live claims                      | skill says list+ask; list rows have project_name + workspace_name + current                                             | planned |
+| S26      | Bun               | `bun test`          | SimulatorPanel overlay + prompt | live session fixture                 | Agent button present outside iframe; clipboard protocol has udid, no port; Copied not toast                             | planned |
+| S27      | Bun               | `bun test`          | slash expand                    | `[#ctx:device-preview:…]`            | send expands to `formatDevicePreviewPrompt` body, not `/device-preview`                                                 | planned |
+| S28      | Bun structural    | `bun test` / grep   | Welcome + Terminal + Agent Chat | those three files                    | `DEVICE_PREVIEW_SLASH_COMMAND_ID`; Agent Chat not `/cmd:`                                                               | planned |
 
 ## Scenarios
 

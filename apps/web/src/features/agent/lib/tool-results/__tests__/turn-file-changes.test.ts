@@ -5,7 +5,10 @@ import type { AgentPart } from "@atmos/api-types/ws/dto/agent-chat";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
 import { defaultToolParams } from "@/features/agent/lib/agent-tool-kind";
 import { countFileDiffStats, countPatchStats } from "@/features/agent/lib/tool-results/diff-stats";
-import { collectTurnFileChanges, selectRangesForTurnFile } from "@/features/agent/lib/tool-results/turn-file-changes";
+import {
+  collectTurnFileChanges,
+  selectRangesForTurnFile,
+} from "@/features/agent/lib/tool-results/turn-file-changes";
 
 function tool(
   overrides: Partial<AgentToolCallPart> & Pick<AgentToolCallPart, "tool_call_id" | "kind">,
@@ -46,7 +49,12 @@ describe("collectTurnFileChanges", () => {
         kind: "edit",
         name: "Edit",
         params: { type: "edit", path: "src/a.ts" },
-        result: { type: "diff_stats", path: "src/a.ts", additions: extra.additions, deletions: extra.deletions },
+        result: {
+          type: "diff_stats",
+          path: "src/a.ts",
+          additions: extra.additions,
+          deletions: extra.deletions,
+        },
       }),
       tool({
         tool_call_id: "d1",
@@ -60,7 +68,12 @@ describe("collectTurnFileChanges", () => {
         name: "Move",
         params: { type: "move", from: "src/old.ts", to: "src/new.ts" },
       }),
-      tool({ tool_call_id: "r1", kind: "read", name: "Read", params: { type: "read", path: "README.md" } }),
+      tool({
+        tool_call_id: "r1",
+        kind: "read",
+        name: "Read",
+        params: { type: "read", path: "README.md" },
+      }),
     ] satisfies AgentPart[];
     const changes = collectTurnFileChanges(parts);
 
@@ -97,29 +110,31 @@ describe("collectTurnFileChanges", () => {
   });
 
   it("returns nothing when the turn did not change files", () => {
-    expect(collectTurnFileChanges([
-      { type: "thinking", text: "hmm" },
-      tool({ tool_call_id: "r1", kind: "read" }),
-    ])).toEqual([]);
+    expect(
+      collectTurnFileChanges([
+        { type: "thinking", text: "hmm" },
+        tool({ tool_call_id: "r1", kind: "read" }),
+      ]),
+    ).toEqual([]);
   });
 
   it("still lists an edited file when the tool has a path but no hunk", () => {
-    expect(collectTurnFileChanges([
-      tool({
-        tool_call_id: "cmd",
-        kind: "execute",
-        params: { type: "execute", command: "python3 << PY", background: false },
-      }),
-      tool({
-        tool_call_id: "cmd:apps/web/src/a.tsx",
-        kind: "edit",
-        name: "fileChange",
-        title: "apps/web/src/a.tsx",
-        params: { type: "edit", path: "apps/web/src/a.tsx" },
-      }),
-    ])).toEqual([
-      { path: "apps/web/src/a.tsx", additions: 0, deletions: 0, selectRanges: [] },
-    ]);
+    expect(
+      collectTurnFileChanges([
+        tool({
+          tool_call_id: "cmd",
+          kind: "execute",
+          params: { type: "execute", command: "python3 << PY", background: false },
+        }),
+        tool({
+          tool_call_id: "cmd:apps/web/src/a.tsx",
+          kind: "edit",
+          name: "fileChange",
+          title: "apps/web/src/a.tsx",
+          params: { type: "edit", path: "apps/web/src/a.tsx" },
+        }),
+      ]),
+    ).toEqual([{ path: "apps/web/src/a.tsx", additions: 0, deletions: 0, selectRanges: [] }]);
   });
 });
 

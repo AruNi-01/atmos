@@ -21,16 +21,7 @@ import {
   DropdownMenuTrigger,
   cn,
 } from "@workspace/ui";
-import {
-  Check,
-  Circle,
-  CircleDot,
-  FolderGit2,
-  ListFilter,
-  Tag,
-  User,
-  XCircle,
-} from "lucide-react";
+import { Check, Circle, CircleDot, FolderGit2, ListFilter, Tag, User, XCircle } from "lucide-react";
 import type { ProjectGithubRepo } from "@/features/task/hooks/use-project-github-repos";
 
 export type TaskGithubStateFilter = "all" | "open" | "closed";
@@ -131,7 +122,7 @@ export function TaskGithubFilterMenu({
           <ListFilter className="size-3.5 shrink-0" />
           <span>{t("filter.trigger")}</span>
           {activeCount > 0 ? (
-            <span className="min-w-3 tabular-nums text-foreground">{activeCount}</span>
+            <span className="min-w-3 text-foreground tabular-nums">{activeCount}</span>
           ) : null}
         </Button>
       </DropdownMenuTrigger>
@@ -187,7 +178,7 @@ export function TaskGithubFilterMenu({
             <FolderGit2 className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{t("filter.repos")}</span>
             {filters.repoFullNames.length > 0 ? (
-              <span className="tabular-nums text-[10px] text-muted-foreground">
+              <span className="text-[10px] text-muted-foreground tabular-nums">
                 {filters.repoFullNames.length}
               </span>
             ) : null}
@@ -202,10 +193,7 @@ export function TaskGithubFilterMenu({
                   onSelect={() => onFiltersChange({ ...filters, repoFullNames: [] })}
                   className="gap-2 text-xs"
                 >
-                  <Checkbox
-                    checked={filters.repoFullNames.length === 0}
-                    className="size-3.5"
-                  />
+                  <Checkbox checked={filters.repoFullNames.length === 0} className="size-3.5" />
                   <span className="min-w-0 flex-1 truncate">{t("filter.allRepos")}</span>
                   {filters.repoFullNames.length === 0 ? (
                     <Check className="size-3.5 shrink-0" />
@@ -234,9 +222,7 @@ export function TaskGithubFilterMenu({
                       className="gap-2 text-xs"
                     >
                       <Checkbox
-                        checked={
-                          selected && (filters.repoFullNames.length === 0 || isExplicit)
-                        }
+                        checked={selected && (filters.repoFullNames.length === 0 || isExplicit)}
                         className="size-3.5"
                       />
                       <div className="min-w-0 flex-1">
@@ -260,7 +246,7 @@ export function TaskGithubFilterMenu({
             <User className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{t("filter.assignees")}</span>
             {filters.assignees.length > 0 ? (
-              <span className="tabular-nums text-[10px] text-muted-foreground">
+              <span className="text-[10px] text-muted-foreground tabular-nums">
                 {filters.assignees.length}
               </span>
             ) : null}
@@ -316,7 +302,7 @@ export function TaskGithubFilterMenu({
             <Tag className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{t("filter.labels")}</span>
             {filters.labels.length > 0 ? (
-              <span className="tabular-nums text-[10px] text-muted-foreground">
+              <span className="text-[10px] text-muted-foreground tabular-nums">
                 {filters.labels.length}
               </span>
             ) : null}
@@ -324,9 +310,7 @@ export function TaskGithubFilterMenu({
           <DropdownMenuSubContent className="w-64 p-0" sideOffset={4}>
             <Command>
               <CommandInput placeholder={t("filter.searchLabels")} className="h-8 text-xs" />
-              <CommandEmpty className="py-4 text-xs">
-                {t("filter.noMatchingLabels")}
-              </CommandEmpty>
+              <CommandEmpty className="py-4 text-xs">{t("filter.noMatchingLabels")}</CommandEmpty>
               <CommandGroup className="max-h-56 overflow-y-auto">
                 {labelOptions.map((label) => {
                   const selected = filters.labels.includes(label.name);

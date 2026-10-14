@@ -78,19 +78,10 @@ function LinearOAuthCallbackInner() {
   }, [params, t]);
 
   const title =
-    status === "ok"
-      ? t("successTitle")
-      : status === "error"
-        ? t("errorTitle")
-        : t("title");
+    status === "ok" ? t("successTitle") : status === "error" ? t("errorTitle") : t("title");
 
   return (
-    <OAuthCallbackShell
-      provider="linear"
-      status={status}
-      title={title}
-      message={message}
-    >
+    <OAuthCallbackShell provider="linear" status={status} title={title} message={message}>
       {status === "ok" || status === "error" ? (
         <OAuthCallbackReturnFooter
           ctx={returnCtx}

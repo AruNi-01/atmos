@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { desktopInvoke, desktopListen, isDesktopRuntime } from './desktop-bridge';
-import type { BrowserTransportViewport } from '@/features/browser/lib/browser-bridge/types';
+import { desktopInvoke, desktopListen, isDesktopRuntime } from "./desktop-bridge";
+import type { BrowserTransportViewport } from "@/features/browser/lib/browser-bridge/types";
 
 interface PreviewBridgeEventPayload {
   sessionId: string;
@@ -9,8 +9,8 @@ interface PreviewBridgeEventPayload {
   pageTitle?: string;
   faviconUrl?: string;
   targetUrl?: string;
-  action?: 'copy' | 'add' | 'update' | 'delete';
-  tabAction?: 'open' | 'close' | 'select' | 'list';
+  action?: "copy" | "add" | "update" | "delete";
+  tabAction?: "open" | "close" | "select" | "list";
   requestId?: string;
   targetId?: string;
   url?: string;
@@ -45,7 +45,7 @@ export async function invokeDesktopBrowserBridge<T = unknown>(
   payload?: Record<string, unknown>,
 ): Promise<T> {
   if (!isDesktopRuntime()) {
-    throw new Error('Desktop Browser bridge is only available in a desktop shell.');
+    throw new Error("Desktop Browser bridge is only available in a desktop shell.");
   }
   return desktopInvoke<T>(command, payload);
 }
@@ -60,7 +60,9 @@ export async function listenDesktopBrowserBridge(
   });
 }
 
-export async function getBrowserViewportBounds(element: HTMLElement): Promise<BrowserTransportViewport> {
+export async function getBrowserViewportBounds(
+  element: HTMLElement,
+): Promise<BrowserTransportViewport> {
   const rect = element.getBoundingClientRect();
   const rawScale =
     element.offsetWidth > 0
@@ -68,9 +70,7 @@ export async function getBrowserViewportBounds(element: HTMLElement): Promise<Br
       : element.offsetHeight > 0
         ? rect.height / element.offsetHeight
         : 1;
-  const zoom = Number.isFinite(rawScale)
-    ? Math.min(10, Math.max(0.2, rawScale))
-    : 1;
+  const zoom = Number.isFinite(rawScale) ? Math.min(10, Math.max(0.2, rawScale)) : 1;
   return {
     x: Math.round(rect.left),
     y: Math.round(rect.top),

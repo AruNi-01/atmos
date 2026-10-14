@@ -1,14 +1,9 @@
 import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
-import type {
-  AttentionReason,
-  PaneAttention,
-} from "@/features/agent/store/agent-attention-store";
+import type { AttentionReason, PaneAttention } from "@/features/agent/store/agent-attention-store";
 import { spaceIdFromTmuxWindowName } from "@/features/terminal/store/terminal-store-helpers";
 
 export function spaceIdFromStablePaneId(stablePaneId: string): string {
-  const tmux = stablePaneId.includes(":")
-    ? stablePaneId.slice(stablePaneId.indexOf(":") + 1)
-    : "";
+  const tmux = stablePaneId.includes(":") ? stablePaneId.slice(stablePaneId.indexOf(":") + 1) : "";
   return spaceIdFromTmuxWindowName(tmux);
 }
 

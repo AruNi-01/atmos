@@ -42,7 +42,7 @@ Rejected: throws away pan/zoom/select/undo/collab we already ship.
 - **Fork 3: Overlay** — **Settled**: one handle element per **page-level** PT node + DOM overlay. Nested catalog tags are `children` inside that overlay. No custom Excalidraw embeddable (0.18 has none for HTML controls). Overlay/popover types stay in-canvas (no `document.body` portal).
 - **Fork 4: Compatibility** — **Settled: none.** New tools, new catalog, new persistence key, new `.ptd` bundle. Delete IR, wireframe templates, `pt_layout_*`, old `.ptdesign.json`.
 - **Fork 5: Layout APIs** — **Settled**: no layout engine. Agents set `x`/`y` in PTX (like editing attributes in source).
-- **Fork 8: Agent mutation** — **Settled: XML file edit is primary** (`pt_ptx_get` / write `document.ptx` / `pt_ptx_apply` full text). Not JSON node CRUD. Structured node tools are optional (N7). Reject only *orphan snippets* (a lone `<option>` with no document), which is not how saving a file works.
+- **Fork 8: Agent mutation** — **Settled: XML file edit is primary** (`pt_ptx_get` / write `document.ptx` / `pt_ptx_apply` full text). Not JSON node CRUD. Structured node tools are optional (N7). Reject only _orphan snippets_ (a lone `<option>` with no document), which is not how saving a file works.
 - **Fork 6: Collab** — **Settled**: existing encrypted scene room. PT payload in `customData` rides along. Remote applies with `NEVER`.
 - **Fork 7: Package** — **Settled**: rewrite inside `@atmos/pt-design`. No extra npm packages.
 

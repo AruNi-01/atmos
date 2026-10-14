@@ -16,17 +16,9 @@ import {
   smoothstep,
   type DitherTheme,
 } from "../../lib/dither/math";
-import {
-  createSeriesMorph,
-  seriesSignature,
-  type SeriesMorph,
-} from "../../lib/dither/morph";
+import { createSeriesMorph, seriesSignature, type SeriesMorph } from "../../lib/dither/morph";
 import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
-import {
-  DitherTooltip,
-  smoothToward,
-  type DitherTooltipState,
-} from "./DitherTooltip";
+import { DitherTooltip, smoothToward, type DitherTooltipState } from "./DitherTooltip";
 
 export type DitherDonutSlice = {
   value: number;
@@ -47,12 +39,7 @@ export type DitherDonutProps = {
 /**
  * Donut — Amicro rounded wedges + smooth hover weights + tooltip.
  */
-export function DitherDonut({
-  slices,
-  theme = "dark",
-  className,
-  formatValue,
-}: DitherDonutProps) {
+export function DitherDonut({ slices, theme = "dark", className, formatValue }: DitherDonutProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const slicesRef = useRef(slices);
   slicesRef.current = slices;
@@ -96,24 +83,13 @@ export function DitherDonut({
       lastValuesRef.current = values;
       const total = values.reduce((s, d) => s + Math.max(0, d), 0);
       const logicalSize = 200;
-      const dpr = Math.min(
-        typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1,
-        2,
-      );
+      const dpr = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 2);
 
-      ctx.setTransform(
-        (width * dpr) / logicalSize,
-        0,
-        0,
-        (height * dpr) / logicalSize,
-        0,
-        0,
-      );
+      ctx.setTransform((width * dpr) / logicalSize, 0, 0, (height * dpr) / logicalSize, 0, 0);
       ctx.clearRect(0, 0, logicalSize, logicalSize);
 
       if (total <= 0) {
-        ctx.strokeStyle =
-          theme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
+        ctx.strokeStyle = theme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
         ctx.lineWidth = 18;
         ctx.beginPath();
         ctx.arc(100, 100, 70, 0, Math.PI * 2);
@@ -232,9 +208,7 @@ export function DitherDonut({
             const wave = smoothstep(-1.5, 1.5, waveRaw);
             const jitter = hash(x, y);
             const size =
-              cell *
-              ((0.34 + sizeBoost) + 0.36 * fullness + 0.26 * wave) *
-              (0.78 + 0.42 * jitter);
+              cell * (0.34 + sizeBoost + 0.36 * fullness + 0.26 * wave) * (0.78 + 0.42 * jitter);
 
             ctx.fillRect(x - size / 2, y - size / 2, size, size);
           }

@@ -1,6 +1,6 @@
 ---
 name: Wiki Tab Integration
-overview: "Add a fixed icon-only \"Wiki\" tab to CenterStage next to OverviewTab. When clicked, check `.atmos/wiki/` under effectivePath (workspacePath || projectPath): if absent, show setup flow and generate wiki through a controlled command in a newly created terminal tab; if present, render a 3-column wiki viewer (nav tree | markdown content | heading TOC) using MarkdownRenderer with Mermaid and stable heading anchors."
+overview: 'Add a fixed icon-only "Wiki" tab to CenterStage next to OverviewTab. When clicked, check `.atmos/wiki/` under effectivePath (workspacePath || projectPath): if absent, show setup flow and generate wiki through a controlled command in a newly created terminal tab; if present, render a 3-column wiki viewer (nav tree | markdown content | heading TOC) using MarkdownRenderer with Mermaid and stable heading anchors.'
 todos:
   - id: wiki-store
     content: Create use-wiki-store.ts (Zustand store for catalog, active page, loading states, wiki existence check)
@@ -72,8 +72,6 @@ flowchart TB
     WikiViewer --> WikiViewerLayout
 ```
 
-
-
 ## Files to Create
 
 ```
@@ -134,6 +132,7 @@ Data loading uses existing WebSocket API:
 - `fsApi.readFile(effectivePath + '/.atmos/wiki/' + page.file)` -- load page content
 
 Implementation notes:
+
 - Use request token/sequence per `contextId` to prevent stale async responses from overwriting current context state.
 - `effectivePath` must be derived as `workspacePath || projectPath` in `CenterStage`.
 
@@ -158,6 +157,7 @@ Logic:
 4. If `wikiExists === true` -- call `loadCatalog(contextId, effectivePath)`, render `<WikiViewer />`
 
 Path source must follow existing workspace behavior:
+
 - `effectivePath = currentWorkspace?.localPath || currentProject?.mainFilePath`
 - `contextId = effectiveContextId` (workspaceId preferred, fallback projectId)
 
@@ -174,13 +174,13 @@ UI layout (centered card, similar to empty states in OverviewTab):
 - **Generate button**
 - On click:
   1. Build command using a controlled preset map (Phase 1 has no custom free-text command):
-    ```ts
-    const AGENT_COMMANDS = {
-      claude: (prompt: string) => `claude ${shellQuote(prompt)}`,
-      codex: (prompt: string) => `codex ${shellQuote(prompt)}`,
-      aider: (prompt: string) => `aider --message ${shellQuote(prompt)}`,
-    } as const;
-    ```
+  ```ts
+  const AGENT_COMMANDS = {
+    claude: (prompt: string) => `claude ${shellQuote(prompt)}`,
+    codex: (prompt: string) => `codex ${shellQuote(prompt)}`,
+    aider: (prompt: string) => `aider --message ${shellQuote(prompt)}`,
+  } as const;
+  ```
   2. Create a **new terminal tab** named `Project Wiki`
   3. Send command to that new tab after session is ready
   4. Switch `fixedTab` to `"terminal"` to show execution
@@ -199,11 +199,13 @@ export interface TerminalGridHandle {
 ```
 
 Expected behavior:
+
 - `createAndRunTerminal({ title: "Project Wiki", command })` always creates a fresh tab.
 - Wait for terminal ready event, then send `command + "\\r"`.
 - If terminal creation/sending fails, show toast and keep WikiSetup actionable for retry.
 
 Command safety rules:
+
 - Prompt is generated from static template + normalized `effectivePath`.
 - All interpolated values are escaped via shared utility (`shellQuote`) for current shell.
 - Reuse existing skills metadata API for skill location/config; avoid frontend path env coupling.
@@ -273,6 +275,7 @@ v Core Modules
 - Title: "On this page" (matching DeepWiki style)
 
 Anchor consistency (required):
+
 - TOC id must exactly match rendered heading id in Markdown DOM.
 - Prefer adding `rehype-slug` in `MarkdownRenderer` and generating TOC ids with the same slug strategy.
 - If not using `rehype-slug`, inject `id` in custom `h2/h3/h4` renderers and reuse shared `slugifyHeading()` from `wiki-utils.ts`.
@@ -328,7 +331,7 @@ sequenceDiagram
     WsApi->>Backend: WsAction::FsReadFile
     Backend-->>WsApi: { exists: true/false, content }
     WsApi-->>WikiStore: Response
-    
+
     alt Wiki does not exist
         WikiTab->>User: Show WikiSetup
         User->>WikiTab: Select agent + click Generate
@@ -345,10 +348,7 @@ sequenceDiagram
     end
 ```
 
-
-
 ## Dependency Changes
 
 - `bun add mermaid` in `apps/web/` -- for Mermaid diagram rendering (lazy-loaded, ~200KB gzipped but only loaded when a mermaid block is encountered)
 - `bun add rehype-slug github-slugger` in `apps/web/` -- for stable heading ids and TOC anchor consistency
-

@@ -2,10 +2,7 @@ import { CanvasAgentError } from "./canvas-agent-errors";
 import { MAX_APPLY_STEPS } from "./canvas-agent-bus-helpers";
 import { ok, type CanvasAgentResult } from "./canvas-agent-bus-result";
 
-type MutatingCommandRunner = (
-  command: string,
-  args: Record<string, unknown>,
-) => CanvasAgentResult;
+type MutatingCommandRunner = (command: string, args: Record<string, unknown>) => CanvasAgentResult;
 
 export function runCanvasAgentApply(
   args: Record<string, unknown>,
@@ -46,18 +43,10 @@ export function runCanvasAgentApply(
     const record = step as Record<string, unknown>;
     const subCommand = String(record.command ?? "").trim();
     if (!subCommand) {
-      throw new CanvasAgentError(
-        "VALIDATION_ARG",
-        "each apply step must include command",
-        false,
-      );
+      throw new CanvasAgentError("VALIDATION_ARG", "each apply step must include command", false);
     }
     if (subCommand === "apply") {
-      throw new CanvasAgentError(
-        "VALIDATION_ARG",
-        "nested apply is not supported",
-        false,
-      );
+      throw new CanvasAgentError("VALIDATION_ARG", "nested apply is not supported", false);
     }
     const subArgs =
       record.args && typeof record.args === "object" && !Array.isArray(record.args)

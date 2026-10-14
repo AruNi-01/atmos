@@ -103,9 +103,7 @@ describe("mapOverviewToSharePayload", () => {
     const day = payload.by_day[0]!;
     expect(day.agents.some((r) => r.id === "other")).toBe(true);
     expect(day.models.some((r) => r.id === "other")).toBe(true);
-    expect(day.agents.filter((r) => r.id !== "other").length).toBeLessThanOrEqual(
-      SHARE_TOP_N,
-    );
+    expect(day.agents.filter((r) => r.id !== "other").length).toBeLessThanOrEqual(SHARE_TOP_N);
     expect(JSON.stringify(payload)).not.toContain("prompt");
     expect(JSON.stringify(payload)).not.toContain("partial_warnings");
     expect(JSON.stringify(payload)).not.toContain("browser_cookie");
@@ -149,25 +147,13 @@ describe("mapOverviewToSharePayload", () => {
     const overview = inflateSharePayload(payload, "agent");
     expect(overview.summary.total_tokens).toBe(50_000);
     expect(overview.by_client.length).toBeGreaterThanOrEqual(SHARE_TOP_N);
-    expect(overview.by_day[0]?.by_client.some((r) => r.client_id === "other")).toBe(
-      true,
-    );
+    expect(overview.by_day[0]?.by_client.some((r) => r.client_id === "other")).toBe(true);
     const asModel = inflateSharePayload(payload, "model");
-    expect(asModel.by_day[0]?.by_client.some((r) => r.model_id === "other")).toBe(
-      true,
-    );
+    expect(asModel.by_day[0]?.by_client.some((r) => r.model_id === "other")).toBe(true);
     const shares = buildOverviewBreakdownShares(overview, "tokens", "agent");
-    expect(shares.slice(0, SHARE_TOP_N).every((row) => row.id !== "other")).toBe(
-      true,
-    );
+    expect(shares.slice(0, SHARE_TOP_N).every((row) => row.id !== "other")).toBe(true);
     expect(shares.some((row) => row.id === BREAKDOWN_OTHER_ID)).toBe(true);
-    const series = buildBreakdownSeries(
-      overview.by_day,
-      "day",
-      "en",
-      "tokens",
-      "agent",
-    );
+    const series = buildBreakdownSeries(overview.by_day, "day", "en", "tokens", "agent");
     expect(series.keys.slice(0, SHARE_TOP_N)).not.toContain("other");
     expect(series.keys.at(-1)).toBe(BREAKDOWN_OTHER_ID);
   });

@@ -19,7 +19,9 @@ const MONTHS = [
   "December",
 ];
 
-export function parseIsoDate(value: string | undefined): { y: number; m: number; d: number } | null {
+export function parseIsoDate(
+  value: string | undefined,
+): { y: number; m: number; d: number } | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const y = Number(value.slice(0, 4));
   const m = Number(value.slice(5, 7));
@@ -139,7 +141,15 @@ export function CalendarGrid({
           borderRadius: SKETCH_RADIUS_CSS,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, minWidth: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 6,
+            minWidth: 0,
+          }}
+        >
           <button
             type="button"
             aria-label="Previous month"
@@ -153,7 +163,18 @@ export function CalendarGrid({
           >
             <ChevronLeft size={16} />
           </button>
-          <div style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center", fontSize: 13, fontWeight: 600 }}>
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              textAlign: "center",
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
             {MONTHS[view.m]} {view.y}
           </div>
           <button
@@ -189,7 +210,14 @@ export function CalendarGrid({
           ))}
           {cells.map((day, index) => {
             if (day == null) {
-              return <div key={`e-${index}`} data-pt-calendar-empty="" role="gridcell" style={cellChrome} />;
+              return (
+                <div
+                  key={`e-${index}`}
+                  data-pt-calendar-empty=""
+                  role="gridcell"
+                  style={cellChrome}
+                />
+              );
             }
             const iso = toIso(view.y, view.m, day);
             const isSelected = selected != null && iso === value;

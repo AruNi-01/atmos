@@ -1,7 +1,4 @@
-import type {
-  GitChangedFile,
-  GitChangedFilesResponse,
-} from "@/api/ws-api-types";
+import type { GitChangedFile, GitChangedFilesResponse } from "@/api/ws-api-types";
 
 interface CompareChangedFilesSelection {
   files: GitChangedFile[];
@@ -18,20 +15,14 @@ export function collectStageAllPaths(
   unstagedFiles: readonly Pick<GitChangedFile, "path">[],
   untrackedFiles: readonly Pick<GitChangedFile, "path">[],
 ): string[] {
-  return [
-    ...unstagedFiles.map((file) => file.path),
-    ...untrackedFiles.map((file) => file.path),
-  ];
+  return [...unstagedFiles.map((file) => file.path), ...untrackedFiles.map((file) => file.path)];
 }
 
 const EMPTY_COMPARE_SELECTION: CompareChangedFilesSelection = {
   files: EMPTY_CHANGED_FILES,
   compareRef: null,
 };
-const compareSelectionCache = new WeakMap<
-  GitChangedFilesResponse,
-  CompareChangedFilesSelection
->();
+const compareSelectionCache = new WeakMap<GitChangedFilesResponse, CompareChangedFilesSelection>();
 
 export function selectCompareChangedFiles(
   response: GitChangedFilesResponse | undefined | null,
@@ -46,11 +37,7 @@ export function selectCompareChangedFiles(
   }
 
   const selection = {
-    files: [
-      ...response.staged_files,
-      ...response.unstaged_files,
-      ...response.untracked_files,
-    ],
+    files: [...response.staged_files, ...response.unstaged_files, ...response.untracked_files],
     compareRef: response.compare_ref,
   };
   compareSelectionCache.set(response, selection);

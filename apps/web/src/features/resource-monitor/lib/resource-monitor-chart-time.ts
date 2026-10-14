@@ -16,9 +16,10 @@ export function hostHistoryAgeSeconds(receivedAtMs: number, nowMs: number): numb
 
 export type HostHistoryRelativeKind = "now" | "seconds" | "minutes";
 
-export function hostHistoryRelative(
-  ageSeconds: number,
-): { kind: HostHistoryRelativeKind; count: number } {
+export function hostHistoryRelative(ageSeconds: number): {
+  kind: HostHistoryRelativeKind;
+  count: number;
+} {
   if (!Number.isFinite(ageSeconds) || ageSeconds < 5) {
     return { kind: "now", count: 0 };
   }

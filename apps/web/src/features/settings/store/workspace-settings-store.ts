@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { createTranslator } from 'next-intl';
-import { create } from 'zustand';
-import { toastManager } from '@workspace/ui';
+import { createTranslator } from "next-intl";
+import { create } from "zustand";
+import { toastManager } from "@workspace/ui";
 
-import { functionSettingsApi } from '@/api/ws-api';
-import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
-import { currentAppLocale } from '@/shared/lib/current-app-locale';
-import enMessages from '../../../../messages/en.json';
-import zhMessages from '../../../../messages/zh.json';
+import { functionSettingsApi } from "@/api/ws-api";
+import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
 
 interface WorkspaceSettingsState {
   closePrOnDelete: boolean;
@@ -33,20 +33,20 @@ interface WorkspaceSettingsState {
   setCloseAcpOnArchive: (value: boolean) => Promise<void>;
 }
 
-type SettingsLocale = 'en' | 'zh';
+type SettingsLocale = "en" | "zh";
 
 let cachedLocale: SettingsLocale | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedTranslator: any = null;
 
 function workspaceSettingsT(key: string, values?: Record<string, string | number>) {
-  const locale: SettingsLocale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  const locale: SettingsLocale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedTranslator || cachedLocale !== locale) {
     cachedLocale = locale;
     cachedTranslator = createTranslator({
       locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'settings.store.workspace',
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "settings.store.workspace",
     });
   }
 
@@ -57,7 +57,7 @@ const DEFAULT_CLOSE_PR = false;
 const DEFAULT_CLOSE_ISSUE = false;
 const DEFAULT_DELETE_REMOTE = false;
 const DEFAULT_CONFIRM = true;
-const DEFAULT_BRANCH_PREFIX = 'atmos';
+const DEFAULT_BRANCH_PREFIX = "atmos";
 const DEFAULT_CONFIRM_ARCHIVE = false;
 const DEFAULT_KILL_TMUX_ARCHIVE = true;
 const DEFAULT_CLOSE_ACP_ARCHIVE = true;
@@ -112,15 +112,15 @@ export const useWorkspaceSettingsStore = create<WorkspaceSettingsState>((set, ge
     set({ closePrOnDelete: value, loadRequestToken: token });
 
     try {
-      await functionSettingsApi.update('workspace_settings', 'close_pr_on_delete', value);
+      await functionSettingsApi.update("workspace_settings", "close_pr_on_delete", value);
     } catch {
       if (get().loadRequestToken === token) {
         set({ closePrOnDelete: previous });
       }
       toastManager.add({
-        title: workspaceSettingsT('syncFailedTitle'),
-        description: workspaceSettingsT('closePrOnDeleteFailed'),
-        type: 'error',
+        title: workspaceSettingsT("syncFailedTitle"),
+        description: workspaceSettingsT("closePrOnDeleteFailed"),
+        type: "error",
       });
     }
   },
@@ -131,15 +131,15 @@ export const useWorkspaceSettingsStore = create<WorkspaceSettingsState>((set, ge
     set({ closeIssueOnDelete: value, loadRequestToken: token });
 
     try {
-      await functionSettingsApi.update('workspace_settings', 'close_issue_on_delete', value);
+      await functionSettingsApi.update("workspace_settings", "close_issue_on_delete", value);
     } catch {
       if (get().loadRequestToken === token) {
         set({ closeIssueOnDelete: previous });
       }
       toastManager.add({
-        title: workspaceSettingsT('syncFailedTitle'),
-        description: workspaceSettingsT('closeIssueOnDeleteFailed'),
-        type: 'error',
+        title: workspaceSettingsT("syncFailedTitle"),
+        description: workspaceSettingsT("closeIssueOnDeleteFailed"),
+        type: "error",
       });
     }
   },
@@ -150,15 +150,15 @@ export const useWorkspaceSettingsStore = create<WorkspaceSettingsState>((set, ge
     set({ deleteRemoteBranch: value, loadRequestToken: token });
 
     try {
-      await functionSettingsApi.update('workspace_settings', 'delete_remote_branch', value);
+      await functionSettingsApi.update("workspace_settings", "delete_remote_branch", value);
     } catch {
       if (get().loadRequestToken === token) {
         set({ deleteRemoteBranch: previous });
       }
       toastManager.add({
-        title: workspaceSettingsT('syncFailedTitle'),
-        description: workspaceSettingsT('deleteRemoteBranchFailed'),
-        type: 'error',
+        title: workspaceSettingsT("syncFailedTitle"),
+        description: workspaceSettingsT("deleteRemoteBranchFailed"),
+        type: "error",
       });
     }
   },
@@ -169,15 +169,15 @@ export const useWorkspaceSettingsStore = create<WorkspaceSettingsState>((set, ge
     set({ confirmBeforeDelete: value, loadRequestToken: token });
 
     try {
-      await functionSettingsApi.update('workspace_settings', 'confirm_before_delete', value);
+      await functionSettingsApi.update("workspace_settings", "confirm_before_delete", value);
     } catch {
       if (get().loadRequestToken === token) {
         set({ confirmBeforeDelete: previous });
       }
       toastManager.add({
-        title: workspaceSettingsT('syncFailedTitle'),
-        description: workspaceSettingsT('confirmBeforeDeleteFailed'),
-        type: 'error',
+        title: workspaceSettingsT("syncFailedTitle"),
+        description: workspaceSettingsT("confirmBeforeDeleteFailed"),
+        type: "error",
       });
     }
   },
@@ -188,15 +188,15 @@ export const useWorkspaceSettingsStore = create<WorkspaceSettingsState>((set, ge
     set({ branchPrefix: value, loadRequestToken: token });
 
     try {
-      await functionSettingsApi.update('workspace_settings', 'branch_prefix', value);
+      await functionSettingsApi.update("workspace_settings", "branch_prefix", value);
     } catch {
       if (get().loadRequestToken === token) {
         set({ branchPrefix: previous });
       }
       toastManager.add({
-        title: workspaceSettingsT('syncFailedTitle'),
-        description: workspaceSettingsT('branchPrefixFailed'),
-        type: 'error',
+        title: workspaceSettingsT("syncFailedTitle"),
+        description: workspaceSettingsT("branchPrefixFailed"),
+        type: "error",
       });
     }
   },
@@ -207,15 +207,15 @@ export const useWorkspaceSettingsStore = create<WorkspaceSettingsState>((set, ge
     set({ confirmBeforeArchive: value, loadRequestToken: token });
 
     try {
-      await functionSettingsApi.update('workspace_settings', 'confirm_before_archive', value);
+      await functionSettingsApi.update("workspace_settings", "confirm_before_archive", value);
     } catch {
       if (get().loadRequestToken === token) {
         set({ confirmBeforeArchive: previous });
       }
       toastManager.add({
-        title: workspaceSettingsT('syncFailedTitle'),
-        description: workspaceSettingsT('confirmBeforeArchiveFailed'),
-        type: 'error',
+        title: workspaceSettingsT("syncFailedTitle"),
+        description: workspaceSettingsT("confirmBeforeArchiveFailed"),
+        type: "error",
       });
     }
   },
@@ -226,15 +226,15 @@ export const useWorkspaceSettingsStore = create<WorkspaceSettingsState>((set, ge
     set({ killTmuxOnArchive: value, loadRequestToken: token });
 
     try {
-      await functionSettingsApi.update('workspace_settings', 'kill_tmux_on_archive', value);
+      await functionSettingsApi.update("workspace_settings", "kill_tmux_on_archive", value);
     } catch {
       if (get().loadRequestToken === token) {
         set({ killTmuxOnArchive: previous });
       }
       toastManager.add({
-        title: workspaceSettingsT('syncFailedTitle'),
-        description: workspaceSettingsT('killTmuxOnArchiveFailed'),
-        type: 'error',
+        title: workspaceSettingsT("syncFailedTitle"),
+        description: workspaceSettingsT("killTmuxOnArchiveFailed"),
+        type: "error",
       });
     }
   },
@@ -245,15 +245,15 @@ export const useWorkspaceSettingsStore = create<WorkspaceSettingsState>((set, ge
     set({ closeAcpOnArchive: value, loadRequestToken: token });
 
     try {
-      await functionSettingsApi.update('workspace_settings', 'close_acp_on_archive', value);
+      await functionSettingsApi.update("workspace_settings", "close_acp_on_archive", value);
     } catch {
       if (get().loadRequestToken === token) {
         set({ closeAcpOnArchive: previous });
       }
       toastManager.add({
-        title: workspaceSettingsT('syncFailedTitle'),
-        description: workspaceSettingsT('closeAcpOnArchiveFailed'),
-        type: 'error',
+        title: workspaceSettingsT("syncFailedTitle"),
+        description: workspaceSettingsT("closeAcpOnArchiveFailed"),
+        type: "error",
       });
     }
   },

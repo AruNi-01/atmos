@@ -19,8 +19,7 @@ export const DEFAULT_HOST_SESSION_SORT: HostSessionSort = {
 
 export function isDefaultHostSessionSort(sort: HostSessionSort): boolean {
   return (
-    sort.field === DEFAULT_HOST_SESSION_SORT.field &&
-    sort.order === DEFAULT_HOST_SESSION_SORT.order
+    sort.field === DEFAULT_HOST_SESSION_SORT.field && sort.order === DEFAULT_HOST_SESSION_SORT.order
   );
 }
 

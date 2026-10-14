@@ -7,6 +7,7 @@
 ## 功能入口
 
 ### Header 按钮
+
 - **位置**：ThemeToggle 和 Fullscreen 按钮之间
 - **图标**：`Puzzle` icon
 - **交互**：点击打开全屏 Skills Modal
@@ -56,6 +57,7 @@
 ```
 
 **卡片内容**
+
 - Skill icon (前端根据 agent 类型映射)
 - Skill 名称
 - Agent 来源标签 (Cursor / Claude Code / Droid 等，带颜色区分)
@@ -74,59 +76,61 @@
 
 扫描以下 Agent 的 skills 目录 (全局 `$HOME/` 和项目级)：
 
-| Agent | 目录 |
-|-------|------|
-| Amp | `.agents/skills` |
-| Antigravity | `.agent/skills` |
-| Augment | `.augment/rules` |
-| Claude Code | `.claude/skills` |
-| OpenClaw | `skills` |
-| Cline | `.cline/skills` |
-| CodeBuddy | `.codebuddy/skills` |
-| Codex | `.codex/skills` |
-| Command Code | `.commandcode/skills` |
-| Continue | `.continue/skills` |
-| Crush | `.crush/skills` |
-| Cursor | `.cursor/skills` |
-| Droid (Factory) | `.factory/skills` |
-| Gemini CLI | `.gemini/skills` |
-| GitHub Copilot | `.github/skills` |
-| Goose | `.goose/skills` |
-| Junie | `.junie/skills` |
-| iFlow CLI | `.iflow/skills` |
-| Kilo Code | `.kilocode/skills` |
-| Kimi Code CLI | `.agents/skills` |
-| Kiro CLI | `.kiro/skills` |
-| Kode | `.kode/skills` |
-| MCPJam | `.mcpjam/skills` |
-| Mistral Vibe | `.vibe/skills` |
-| Mux | `.mux/skills` |
-| OpenCode | `.opencode/skills` |
-| OpenClaude IDE | `.openclaude/skills` |
-| OpenHands | `.openhands/skills` |
-| Pi | `.pi/skills` |
-| Qoder | `.qoder/skills` |
-| Qwen Code | `.qwen/skills` |
-| Replit | `.agent/skills` |
-| Roo Code | `.roo/skills` |
-| Trae | `.trae/skills` |
-| Windsurf | `.windsurf/skills` |
-| Zencoder | `.zencoder/skills` |
-| Neovate | `.neovate/skills` |
-| Pochi | `.pochi/skills` |
-| AdaL | `.adal/skills` |
+| Agent           | 目录                  |
+| --------------- | --------------------- |
+| Amp             | `.agents/skills`      |
+| Antigravity     | `.agent/skills`       |
+| Augment         | `.augment/rules`      |
+| Claude Code     | `.claude/skills`      |
+| OpenClaw        | `skills`              |
+| Cline           | `.cline/skills`       |
+| CodeBuddy       | `.codebuddy/skills`   |
+| Codex           | `.codex/skills`       |
+| Command Code    | `.commandcode/skills` |
+| Continue        | `.continue/skills`    |
+| Crush           | `.crush/skills`       |
+| Cursor          | `.cursor/skills`      |
+| Droid (Factory) | `.factory/skills`     |
+| Gemini CLI      | `.gemini/skills`      |
+| GitHub Copilot  | `.github/skills`      |
+| Goose           | `.goose/skills`       |
+| Junie           | `.junie/skills`       |
+| iFlow CLI       | `.iflow/skills`       |
+| Kilo Code       | `.kilocode/skills`    |
+| Kimi Code CLI   | `.agents/skills`      |
+| Kiro CLI        | `.kiro/skills`        |
+| Kode            | `.kode/skills`        |
+| MCPJam          | `.mcpjam/skills`      |
+| Mistral Vibe    | `.vibe/skills`        |
+| Mux             | `.mux/skills`         |
+| OpenCode        | `.opencode/skills`    |
+| OpenClaude IDE  | `.openclaude/skills`  |
+| OpenHands       | `.openhands/skills`   |
+| Pi              | `.pi/skills`          |
+| Qoder           | `.qoder/skills`       |
+| Qwen Code       | `.qwen/skills`        |
+| Replit          | `.agent/skills`       |
+| Roo Code        | `.roo/skills`         |
+| Trae            | `.trae/skills`        |
+| Windsurf        | `.windsurf/skills`    |
+| Zencoder        | `.zencoder/skills`    |
+| Neovate         | `.neovate/skills`     |
+| Pochi           | `.pochi/skills`       |
+| AdaL            | `.adal/skills`        |
 
 ## 数据结构
 
 ### WebSocket API
 
 **请求**
+
 ```typescript
 // Client -> Server
 { "type": "skills.list" }
 ```
 
 **响应**
+
 ```typescript
 // Server -> Client
 {
@@ -155,7 +159,7 @@ const AGENT_ICONS: Record<string, ComponentType> = {
   factory: FactoryIcon,
   copilot: CopilotIcon,
   // ... 其他 agents
-}
+};
 
 const DEFAULT_SKILL_ICON = PuzzleIcon;
 ```

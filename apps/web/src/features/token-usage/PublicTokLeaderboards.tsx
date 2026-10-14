@@ -4,17 +4,8 @@ import * as React from "react";
 import { GitHubIcon } from "@daveyplate/better-auth-ui";
 import { Coins, Crown, DollarSign, Trophy, User } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import {
-  SlidingMetric,
-  XIcon,
-  compactSlidingParts,
-  currencySlidingParts,
-} from "@workspace/ui";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from "@workspace/ui/components/motion/tabs";
+import { SlidingMetric, XIcon, compactSlidingParts, currencySlidingParts } from "@workspace/ui";
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/motion/tabs";
 import { GeistPixelSquare } from "geist/font/pixel";
 import LogoSvg from "@workspace/ui/components/logo-svg";
 import { GithubUserHoverCard } from "@/features/github/components/GithubUserHoverCard";
@@ -36,13 +27,7 @@ function letterOf(handle: string) {
   return (handle[0] ?? "?").toUpperCase();
 }
 
-function Avatar({
-  handle,
-  url,
-}: {
-  handle: string;
-  url: string | null;
-}) {
+function Avatar({ handle, url }: { handle: string; url: string | null }) {
   const [failed, setFailed] = React.useState(false);
   if (url && !failed) {
     return (
@@ -66,10 +51,7 @@ function Avatar({
   );
 }
 
-const CROWN_TONE: Record<
-  1 | 2 | 3,
-  { fill: string; stroke: string; label: string }
-> = {
+const CROWN_TONE: Record<1 | 2 | 3, { fill: string; stroke: string; label: string }> = {
   1: { fill: "#E8B923", stroke: "#C49212", label: "1" },
   2: { fill: "#C5CDD4", stroke: "#8E99A3", label: "2" },
   3: { fill: "#C47B3A", stroke: "#9A5724", label: "3" },
@@ -95,7 +77,7 @@ function RankMark({ rank }: { rank: number }) {
     );
   }
   return (
-    <span className="flex size-6 items-center justify-center text-[11px] tabular-nums text-muted-foreground">
+    <span className="flex size-6 items-center justify-center text-[11px] text-muted-foreground tabular-nums">
       {rank}
     </span>
   );
@@ -124,7 +106,7 @@ function XCell({
     <XUserHoverCard
       username={username}
       avatarUrl={avatarUrl}
-      className="relative z-20 min-w-0 max-w-full"
+      className="relative z-20 max-w-full min-w-0"
     >
       <a
         href={`https://x.com/${username}`}
@@ -153,7 +135,7 @@ function GithubCell({
       username={username}
       avatarUrl={avatarUrl}
       source="public"
-      className="relative z-20 min-w-0 max-w-full"
+      className="relative z-20 max-w-full min-w-0"
     >
       <a
         href={`https://github.com/${username}`}
@@ -196,10 +178,7 @@ function BoardTable({
   empty: string;
   board: PublicLeaderboards["tokens"];
   metric: BoardTab;
-  onOpenProfile?: (
-    handle: string,
-    entry?: PublicLeaderboardEntry,
-  ) => void;
+  onOpenProfile?: (handle: string, entry?: PublicLeaderboardEntry) => void;
 }) {
   const t = useTranslations("appShell.tokenUsageDialog.leaderboard");
   const valueTitle = metric === "cost" ? t("costTitle") : t("tokensTitle");
@@ -213,10 +192,7 @@ function BoardTable({
         <table className="w-full min-w-[42rem] table-fixed border-collapse">
           <thead>
             <tr className="text-[11px] text-muted-foreground">
-              <th
-                scope="col"
-                className="w-16 pb-2 pl-2 text-left font-medium"
-              >
+              <th scope="col" className="w-16 pb-2 pl-2 text-left font-medium">
                 <ColHead>
                   <Trophy className="size-3 shrink-0" aria-hidden />
                   {t("colRank")}
@@ -228,31 +204,18 @@ function BoardTable({
                   {t("colUser")}
                 </ColHead>
               </th>
-              <th
-                scope="col"
-                className="w-[7.5rem] pb-2 pl-2 text-left font-medium"
-              >
+              <th scope="col" className="w-[7.5rem] pb-2 pl-2 text-left font-medium">
                 <ColHead>
-                  <XIcon
-                    className="size-3"
-                    size={12}
-                    aria-label={t("colX")}
-                  />
+                  <XIcon className="size-3" size={12} aria-label={t("colX")} />
                 </ColHead>
               </th>
-              <th
-                scope="col"
-                className="w-[8.5rem] pb-2 pl-2 text-left font-medium"
-              >
+              <th scope="col" className="w-[8.5rem] pb-2 pl-2 text-left font-medium">
                 <ColHead>
                   <GitHubIcon className="size-3 shrink-0" />
                   {t("colGithub")}
                 </ColHead>
               </th>
-              <th
-                scope="col"
-                className="w-28 pb-2 pr-2 text-right font-medium"
-              >
+              <th scope="col" className="w-28 pr-2 pb-2 text-right font-medium">
                 <ColHead align="right">
                   <ValueIcon className="size-3 shrink-0" aria-hidden />
                   {valueTitle}
@@ -262,12 +225,7 @@ function BoardTable({
           </thead>
           <tbody>
             {board.entries.map((row) => (
-              <LeaderRow
-                key={row.handle}
-                row={row}
-                metric={metric}
-                onOpenProfile={onOpenProfile}
-              />
+              <LeaderRow key={row.handle} row={row} metric={metric} onOpenProfile={onOpenProfile} />
             ))}
           </tbody>
         </table>
@@ -283,10 +241,7 @@ function LeaderRow({
 }: {
   row: PublicLeaderboardEntry;
   metric: BoardTab;
-  onOpenProfile?: (
-    handle: string,
-    entry?: PublicLeaderboardEntry,
-  ) => void;
+  onOpenProfile?: (handle: string, entry?: PublicLeaderboardEntry) => void;
 }) {
   const locale = useLocale();
   const value = useEnterValue(row.value);
@@ -326,16 +281,10 @@ function LeaderRow({
         <XCell username={row.x_username} avatarUrl={row.avatar_url} />
       </td>
       <td className="py-1.5 pl-2 text-left text-xs group-hover:bg-muted/60">
-        <GithubCell
-          username={row.github_username}
-          avatarUrl={row.avatar_url}
-        />
+        <GithubCell username={row.github_username} avatarUrl={row.avatar_url} />
       </td>
       <td className="rounded-r-lg py-1.5 pr-2 text-right group-hover:bg-muted/60">
-        <SlidingMetric
-          {...parts}
-          className="shrink-0 text-xs text-muted-foreground"
-        />
+        <SlidingMetric {...parts} className="shrink-0 text-xs text-muted-foreground" />
       </td>
     </tr>
   );
@@ -347,10 +296,7 @@ export function PublicTokLeaderboards({
 }: {
   data: PublicLeaderboards;
   /** Client push navigation into a profile; falls back to hard links when omitted. */
-  onOpenProfile?: (
-    handle: string,
-    entry?: PublicLeaderboardEntry,
-  ) => void;
+  onOpenProfile?: (handle: string, entry?: PublicLeaderboardEntry) => void;
 }) {
   const t = useTranslations("appShell.tokenUsageDialog.leaderboard");
   const locale = useLocale();
@@ -370,7 +316,7 @@ export function PublicTokLeaderboards({
       <div className="flex flex-col items-center">
         <a
           href="https://atmos.land"
-          className={`inline-flex items-center gap-[0.08em] text-4xl font-black uppercase leading-none tracking-tighter text-foreground sm:text-5xl ${GeistPixelSquare.className}`}
+          className={`inline-flex items-center gap-[0.08em] text-4xl leading-none font-black tracking-tighter text-foreground uppercase sm:text-5xl ${GeistPixelSquare.className}`}
           aria-label="Atmos"
         >
           <span>A</span>

@@ -48,7 +48,7 @@ export function CenterSpaceSwitcher() {
   const { effectiveContextId: hostId, currentView } = useContextParams();
   const hydrate = useCenterSpaceStore((s) => s.hydrate);
   const spaces = useCenterSpaceStore((s) =>
-    hostId ? s.byHost[hostId]?.spaces ?? EMPTY_CENTER_SPACES : EMPTY_CENTER_SPACES,
+    hostId ? (s.byHost[hostId]?.spaces ?? EMPTY_CENTER_SPACES) : EMPTY_CENTER_SPACES,
   );
   const activeSpaceId = useCenterSpaceStore((s) =>
     hostId ? s.getActiveSpaceId(hostId) : DEFAULT_CENTER_SPACE_ID,
@@ -57,10 +57,7 @@ export function CenterSpaceSwitcher() {
   const spaceAttentionReasons = useAgentAttentionStore(
     useShallow((s) => hostSpaceAttentionReasons(s.panes.values(), hostId ?? "")),
   );
-  const otherSpaceAttention = offActiveSpaceAttentionReason(
-    spaceAttentionReasons,
-    activeSpaceId,
-  );
+  const otherSpaceAttention = offActiveSpaceAttentionReason(spaceAttentionReasons, activeSpaceId);
   const hostRef = React.useRef(hostId);
 
   const handleToggleOpen = React.useCallback(() => {
@@ -94,8 +91,7 @@ export function CenterSpaceSwitcher() {
     }
   }, [currentView, hostId, spaces.length]);
 
-  const inWorkspace =
-    Boolean(hostId) && (currentView === "workspace" || currentView === "project");
+  const inWorkspace = Boolean(hostId) && (currentView === "workspace" || currentView === "project");
   if (!inWorkspace) return null;
 
   const widthTransition = reduced ? FADE : WIDTH_SPRING;
@@ -127,7 +123,7 @@ export function CenterSpaceSwitcher() {
               animate={{ scale: 1 }}
               exit={reduced ? undefined : { scale: 0.45 }}
               transition={popTransition}
-              className="origin-center shrink-0"
+              className="shrink-0 origin-center"
             >
               <button
                 type="button"
@@ -146,7 +142,7 @@ export function CenterSpaceSwitcher() {
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[9px] font-semibold tabular-nums leading-none",
+                    "absolute -top-1 -right-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[9px] leading-none font-semibold tabular-nums",
                     otherSpaceAttention === "permission_request"
                       ? "bg-amber-500 text-white"
                       : otherSpaceAttention === "task_complete"

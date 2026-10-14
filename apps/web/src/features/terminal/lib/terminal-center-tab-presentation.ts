@@ -94,14 +94,10 @@ export function resolvePaneTitleForCenterTab(
   // Sticky stable session topic for the center tab — not live spinner/activity.
   const sessionOscTitle = hasCustom
     ? undefined
-    : nextCenterTabSessionOscTitle(
-        options?.previousSessionOsc ?? undefined,
-        pane.oscTitle,
-        {
-          dynamicTitle: pane.dynamicTitle,
-          toolbarAgent: shapeAgent,
-        },
-      );
+    : nextCenterTabSessionOscTitle(options?.previousSessionOsc ?? undefined, pane.oscTitle, {
+        dynamicTitle: pane.dynamicTitle,
+        toolbarAgent: shapeAgent,
+      });
 
   const auto = getTerminalDisplayMeta({
     baseTitle: pane.label,
@@ -199,9 +195,7 @@ function composePaneDisplayTitle(
     .join(" · ");
 }
 
-function toPaneAgent(
-  agent: TerminalTitleAgent | undefined,
-): TerminalPaneAgent | undefined {
+function toPaneAgent(agent: TerminalTitleAgent | undefined): TerminalPaneAgent | undefined {
   if (!agent) return undefined;
   return {
     id: agent.id,
@@ -307,10 +301,7 @@ function isSessionOscMap(
 }
 
 function readPreviousSessionOsc(
-  store:
-    | ReadonlyMap<string, string>
-    | Record<string, string | undefined>
-    | undefined,
+  store: ReadonlyMap<string, string> | Record<string, string | undefined> | undefined,
   paneId: string,
 ): string | undefined {
   if (!store) return undefined;

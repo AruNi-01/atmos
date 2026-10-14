@@ -34,34 +34,24 @@ describe("drawer close chrome", () => {
   });
 
   it("keeps drawer headers from sliding under the overlay close", () => {
-    const commit = read(
-      "apps/web/src/features/git/components/GitCommitDiffView.tsx",
-    );
+    const commit = read("apps/web/src/features/git/components/GitCommitDiffView.tsx");
     expect(commit).toContain("useDrawerCloseReserve");
     expect(commit).toContain("drawerCloseReserveClass");
     expect(commit).toContain("min-w-0 flex-1 truncate");
 
     const pr = read("apps/web/src/features/github/components/PRDetailView.tsx");
-    expect(pr).toContain("headerTrailing || reserveClose ? \"right-10\" : \"right-0\"");
+    expect(pr).toContain('headerTrailing || reserveClose ? "right-10" : "right-0"');
 
-    const issue = read(
-      "apps/web/src/features/github/components/IssueDetailView.tsx",
-    );
-    expect(issue).toContain("headerTrailing || reserveClose ? \"right-10\" : \"right-0\"");
+    const issue = read("apps/web/src/features/github/components/IssueDetailView.tsx");
+    expect(issue).toContain('headerTrailing || reserveClose ? "right-10" : "right-0"');
 
-    const actions = read(
-      "apps/web/src/features/github/components/ActionsDetailView.tsx",
-    );
+    const actions = read("apps/web/src/features/github/components/ActionsDetailView.tsx");
     expect(actions).toContain("reserveClose && drawerCloseReserveClass");
 
-    const linear = read(
-      "apps/web/src/features/task/components/TaskLinearDrawer.tsx",
-    );
+    const linear = read("apps/web/src/features/task/components/TaskLinearDrawer.tsx");
     expect(linear).toContain("drawerCloseReserveClass");
 
-    const observer = read(
-      "apps/web/src/features/agent/components/observer/ObserverDrawer.tsx",
-    );
+    const observer = read("apps/web/src/features/agent/components/observer/ObserverDrawer.tsx");
     expect(observer).toContain("drawerCloseReserveClass");
     expect(observer).toContain("useTaskDrawerInsets");
     expect(observer).toContain("ObserverEventPreview");

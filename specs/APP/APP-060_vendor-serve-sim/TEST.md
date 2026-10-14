@@ -16,37 +16,37 @@ Deterministic bun tests cover pin/path/sha256/probe/claim/url builders and the `
 ## Coverage map
 
 | PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S12 |
-| M2 | S2, S3 |
-| M3 | S4, S5 |
-| M4 | S6, S13 |
-| M5 | S7 |
-| M6 | S8, S9 |
-| M7 | S10 |
-| M8 | S14 (manual) |
-| M9 | S11 |
-| M10 | S7 |
-| M11 | S12 |
+| -------- | ------------ |
+| M1       | S1, S12      |
+| M2       | S2, S3       |
+| M3       | S4, S5       |
+| M4       | S6, S13      |
+| M5       | S7           |
+| M6       | S8, S9       |
+| M7       | S10          |
+| M8       | S14 (manual) |
+| M9       | S11          |
+| M10      | S7           |
+| M11      | S12          |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Bun | `bun test` | Desktop + web simulator tests | mock workspace id | tab id `simulator`; one per workspace | planned |
-| S2 | Bun | `bun test` | download/sha256 module | fake archive + expected digest | progress callback; dest exists | planned |
-| S3 | Bun | `bun test` | sha256 mismatch | mutated bytes | dest absent; retryable error | planned |
-| S4 | Bun | `bun test` | spawn argv + state URL | fixture state JSON | argv has `--host 127.0.0.1` and `-p`; URL loopback | planned |
-| S5 | Bun | `bun test` | iframe URL builder | port + udid | `http://127.0.0.1:<port>/?device=<udid>` | planned |
-| S6 | Bun | `bun test` | structural | feature sources | no phone-shell / SimulatorScreen / custom HID as main path | planned |
-| S7 | Bun | `bun test` | claims | two workspace ids | second start replaces first claim | planned |
-| S8 | Bun | `bun test` | probe reason mapping | fake uname / missing xcode | card reason + button id | planned |
-| S9 | Bun | `bun test` | probe | `arch=x86_64` / `linux` | `unsupported_arch` / `unsupported_platform` | planned |
-| S10 | Bun | `bun test` | hosted copy | `isDesktopRuntime=false` | Desktop CTA; no start invoke | planned |
-| S11 | Bun | `bun test` | stop | fake child | SIGTERM our pid; no `--kill` in argv | planned |
-| S12 | Bun | `bun test` | i18n | en.json / zh.json | sentence case; no `npx`; zh not English paste | planned |
-| S13 | Bun | `bun test` | vendor middleware | source + optional live helper | `/exec` + `/exec-ws` match upstream (token/Origin, command runs) | planned |
-| S14 | Manual | human | clean Mac + Xcode | real Simulator | Simulator.app hidden; Atmos focused; port gone after close | planned |
+| Scenario | Level  | Expected tool | Target command / method       | Fixture / data                 | Signals                                                          | Status  |
+| -------- | ------ | ------------- | ----------------------------- | ------------------------------ | ---------------------------------------------------------------- | ------- |
+| S1       | Bun    | `bun test`    | Desktop + web simulator tests | mock workspace id              | tab id `simulator`; one per workspace                            | planned |
+| S2       | Bun    | `bun test`    | download/sha256 module        | fake archive + expected digest | progress callback; dest exists                                   | planned |
+| S3       | Bun    | `bun test`    | sha256 mismatch               | mutated bytes                  | dest absent; retryable error                                     | planned |
+| S4       | Bun    | `bun test`    | spawn argv + state URL        | fixture state JSON             | argv has `--host 127.0.0.1` and `-p`; URL loopback               | planned |
+| S5       | Bun    | `bun test`    | iframe URL builder            | port + udid                    | `http://127.0.0.1:<port>/?device=<udid>`                         | planned |
+| S6       | Bun    | `bun test`    | structural                    | feature sources                | no phone-shell / SimulatorScreen / custom HID as main path       | planned |
+| S7       | Bun    | `bun test`    | claims                        | two workspace ids              | second start replaces first claim                                | planned |
+| S8       | Bun    | `bun test`    | probe reason mapping          | fake uname / missing xcode     | card reason + button id                                          | planned |
+| S9       | Bun    | `bun test`    | probe                         | `arch=x86_64` / `linux`        | `unsupported_arch` / `unsupported_platform`                      | planned |
+| S10      | Bun    | `bun test`    | hosted copy                   | `isDesktopRuntime=false`       | Desktop CTA; no start invoke                                     | planned |
+| S11      | Bun    | `bun test`    | stop                          | fake child                     | SIGTERM our pid; no `--kill` in argv                             | planned |
+| S12      | Bun    | `bun test`    | i18n                          | en.json / zh.json              | sentence case; no `npx`; zh not English paste                    | planned |
+| S13      | Bun    | `bun test`    | vendor middleware             | source + optional live helper  | `/exec` + `/exec-ws` match upstream (token/Origin, command runs) | planned |
+| S14      | Manual | human         | clean Mac + Xcode             | real Simulator                 | Simulator.app hidden; Atmos focused; port gone after close       | planned |
 
 ## Scenarios
 
@@ -212,22 +212,22 @@ Use after the panel exists. Load Agent Browser instructions first (`agent-browse
 
 Implemented 2026-08-15 on `feat/vendor-serve-sim`.
 
-| Scenario | Status | Proof |
-|----------|--------|-------|
-| S1 | covered | `apps/web/src/features/simulator/__tests__/simulator.test.ts` tab id + store |
-| S2 | partial | download module + pack script; live GitHub fetch is manual / tag-gated |
-| S3 | covered | `apps/api/src/simulator.rs` checksum maps to `ChecksumMismatch` |
-| S4 | covered | `buildServeSimArgv` in `simulator.test.ts` |
-| S5 | covered | iframe URL tests (desktop + web) |
-| S6 | covered | structural iframe / no SimulatorScreen |
-| S7 | covered | claims test keeps one workspace |
-| S8 | covered | setupActionForReason + probe `xcode_missing` |
-| S9 | covered | probe `unsupported_platform` / `unsupported_arch` |
-| S10 | covered | cloud / non-Mac API returns `unsupported_platform`; web uses `/ws` not IPC |
-| S11 | covered | `stopPid` SIGTERM; argv has no `--kill` |
-| S12 | covered | en.json / zh.json assertions |
-| S13 | covered | vendored middleware + exec-ws source assertions |
-| S14 | manual | needs a real Mac + Xcode + published or locally packed helper |
+| Scenario | Status  | Proof                                                                        |
+| -------- | ------- | ---------------------------------------------------------------------------- |
+| S1       | covered | `apps/web/src/features/simulator/__tests__/simulator.test.ts` tab id + store |
+| S2       | partial | download module + pack script; live GitHub fetch is manual / tag-gated       |
+| S3       | covered | `apps/api/src/simulator.rs` checksum maps to `ChecksumMismatch`              |
+| S4       | covered | `buildServeSimArgv` in `simulator.test.ts`                                   |
+| S5       | covered | iframe URL tests (desktop + web)                                             |
+| S6       | covered | structural iframe / no SimulatorScreen                                       |
+| S7       | covered | claims test keeps one workspace                                              |
+| S8       | covered | setupActionForReason + probe `xcode_missing`                                 |
+| S9       | covered | probe `unsupported_platform` / `unsupported_arch`                            |
+| S10      | covered | cloud / non-Mac API returns `unsupported_platform`; web uses `/ws` not IPC   |
+| S11      | covered | `stopPid` SIGTERM; argv has no `--kill`                                      |
+| S12      | covered | en.json / zh.json assertions                                                 |
+| S13      | covered | vendored middleware + exec-ws source assertions                              |
+| S14      | manual  | needs a real Mac + Xcode + published or locally packed helper                |
 
 Commands run:
 

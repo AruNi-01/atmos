@@ -41,11 +41,15 @@ describe("planNewChatSubmit", () => {
   });
 
   test("create payload contains provider_id and the workspace scope", () => {
-    expect(planNewChatSubmit(draft({
-      text: "  hello  ",
-      model: "gpt-5",
-      thinking: "high",
-    }))).toEqual({
+    expect(
+      planNewChatSubmit(
+        draft({
+          text: "  hello  ",
+          model: "gpt-5",
+          thinking: "high",
+        }),
+      ),
+    ).toEqual({
       create: {
         workspace_id: "ws-1",
         cwd: "/repo/ws",
@@ -58,10 +62,12 @@ describe("planNewChatSubmit", () => {
   });
 
   test("project scope is project_id", () => {
-    const planned = planNewChatSubmit(draft({
-      scope: { project_id: "project-1" },
-      cwd: "/repo",
-    }));
+    const planned = planNewChatSubmit(
+      draft({
+        scope: { project_id: "project-1" },
+        cwd: "/repo",
+      }),
+    );
     if ("error" in planned) {
       throw new Error(planned.error);
     }

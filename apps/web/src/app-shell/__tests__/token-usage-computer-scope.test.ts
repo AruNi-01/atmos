@@ -4,10 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 describe("Token Usage Computer scope chrome", () => {
-  const pageSource = readFileSync(
-    join(import.meta.dirname, "../TokenUsagePage.tsx"),
-    "utf8",
-  );
+  const pageSource = readFileSync(join(import.meta.dirname, "../TokenUsagePage.tsx"), "utf8");
 
   it("places the Computer select immediately left of Share", () => {
     const selectAt = pageSource.indexOf("<TokenUsageComputerSelect");

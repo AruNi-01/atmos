@@ -6,12 +6,8 @@ import { isRecoverableTerminalAttachMiss } from "../terminal-attach-recover";
 
 describe("isRecoverableTerminalAttachMiss", () => {
   it("recovers when attach misses a named window in a live session", () => {
-    expect(
-      isRecoverableTerminalAttachMiss("Tmux window with name '1' not found"),
-    ).toBe(true);
-    expect(
-      isRecoverableTerminalAttachMiss("Tmux window does not exist at index 3"),
-    ).toBe(true);
+    expect(isRecoverableTerminalAttachMiss("Tmux window with name '1' not found")).toBe(true);
+    expect(isRecoverableTerminalAttachMiss("Tmux window does not exist at index 3")).toBe(true);
   });
 
   it("does not auto-create when the workspace tmux session is missing", () => {
@@ -25,7 +21,9 @@ describe("isRecoverableTerminalAttachMiss", () => {
   it("does not recover unrelated attach failures", () => {
     expect(isRecoverableTerminalAttachMiss("permission denied")).toBe(false);
     expect(
-      isRecoverableTerminalAttachMiss("Failed to attach existing terminal session after 3 attempts: timeout"),
+      isRecoverableTerminalAttachMiss(
+        "Failed to attach existing terminal session after 3 attempts: timeout",
+      ),
     ).toBe(false);
   });
 

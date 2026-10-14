@@ -1,20 +1,20 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { useTranslations } from 'next-intl';
-import { useTheme } from 'next-themes';
-import { FileDiff } from 'lucide-react';
-import { parsePatchFiles } from '@pierre/diffs';
-import { PatchDiff } from '@pierre/diffs/react';
+import React from "react";
+import { useTranslations } from "next-intl";
+import { useTheme } from "next-themes";
+import { FileDiff } from "lucide-react";
+import { parsePatchFiles } from "@pierre/diffs";
+import { PatchDiff } from "@pierre/diffs/react";
 import {
   CodeBlock,
   CodeBlockHeader,
   CodeBlockGroup,
   CodeBlockContent,
-} from '@/shared/components/code-block/code-block';
-import { CopyButton } from '@/shared/components/code-block/copy-button';
+} from "@/shared/components/code-block/code-block";
+import { CopyButton } from "@/shared/components/code-block/copy-button";
 
-export { isMarkdownPatchCode } from './is-markdown-patch-code';
+export { isMarkdownPatchCode } from "./is-markdown-patch-code";
 
 function isValidSingleFilePatch(patch: string): boolean {
   try {
@@ -26,14 +26,14 @@ function isValidSingleFilePatch(patch: string): boolean {
 }
 
 function PlainTextWithLineNumbers({ code }: { code: string }) {
-  const lines = code.split('\n');
+  const lines = code.split("\n");
 
   return (
     <pre className="py-3">
       <code>
         {lines.map((line, idx) => (
           <span key={idx} className="line block px-3 py-0.5 text-[13px] leading-relaxed">
-            {line || ' '}
+            {line || " "}
           </span>
         ))}
       </code>
@@ -52,9 +52,9 @@ function SafePatchDiff({ code, isDark }: { code: string; isDark: boolean }) {
     <PatchDiff
       patch={code}
       options={{
-        theme: isDark ? 'pierre-dark' : 'pierre-light',
-        diffStyle: 'unified',
-        overflow: 'wrap',
+        theme: isDark ? "pierre-dark" : "pierre-light",
+        diffStyle: "unified",
+        overflow: "wrap",
         disableLineNumbers: false,
         disableFileHeader: true,
       }}
@@ -65,14 +65,14 @@ function SafePatchDiff({ code, isDark }: { code: string; isDark: boolean }) {
 export function MarkdownPatchDiff({ code }: { code: string }) {
   const t = useTranslations("shared.markdownRenderer");
   const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === 'dark';
+  const isDark = resolvedTheme === "dark";
 
   return (
     <CodeBlock className="my-4">
       <CodeBlockHeader>
         <CodeBlockGroup>
           <FileDiff className="size-4 shrink-0" />
-          <span className="text-xs uppercase tracking-wider">{t("common.diff")}</span>
+          <span className="text-xs tracking-wider uppercase">{t("common.diff")}</span>
         </CodeBlockGroup>
         <CodeBlockGroup>
           <CopyButton content={code} />

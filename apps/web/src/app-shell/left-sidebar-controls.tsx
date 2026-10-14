@@ -80,14 +80,9 @@ export function SortableSidebarKanbanCard({
   workspaceId: string;
   children: React.ReactNode;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: workspaceId });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: workspaceId,
+  });
 
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -181,8 +176,15 @@ export function LeftSidebarSortableProjectList({
   onSetLogo: (projectId: string, logoPath: string | null) => void | Promise<void>;
   onToggleProject: (projectId: string) => void;
   onUnpinWorkspace: ProjectItemProps["onUnpinWorkspace"];
-  onUpdateWorkspaceLabel: (labelId: string, data: { name: string; color: string }) => Promise<WorkspaceLabel>;
-  onUpdateWorkspaceLabels: (projectId: string, workspaceId: string, labels: WorkspaceLabel[]) => Promise<void>;
+  onUpdateWorkspaceLabel: (
+    labelId: string,
+    data: { name: string; color: string },
+  ) => Promise<WorkspaceLabel>;
+  onUpdateWorkspaceLabels: (
+    projectId: string,
+    workspaceId: string,
+    labels: WorkspaceLabel[],
+  ) => Promise<void>;
   onUpdateWorkspaceName: (projectId: string, workspaceId: string, name: string) => Promise<void>;
   onUpdateWorkspacePriority: ProjectItemProps["onUpdateWorkspacePriority"];
   onUpdateWorkspaceWorkflowStatus: ProjectItemProps["onUpdateWorkspaceWorkflowStatus"];
@@ -195,8 +197,7 @@ export function LeftSidebarSortableProjectList({
   onCreateGroup?: ProjectItemProps["onCreateGroup"];
 }) {
   const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
-  const showEmptyProjects =
-    projects.length === 0 && Boolean(onAddProject) && !attentionFilterMode;
+  const showEmptyProjects = projects.length === 0 && Boolean(onAddProject) && !attentionFilterMode;
 
   return (
     <ScrollArea
@@ -207,64 +208,67 @@ export function LeftSidebarSortableProjectList({
       {showEmptyProjects && onAddProject ? (
         <SidebarEmptyProjects onAdd={onAddProject} />
       ) : (
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
-        modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
-      >
-        <SortableContext items={projects.map((project) => project.id)} strategy={verticalListSortingStrategy}>
-          {projects.map((project) => (
-            <SortableProject
-              key={project.id}
-              project={project}
-              isExpanded={hideWorkspaceList ? false : expandedProjectIds.includes(project.id)}
-              hideWorkspaceList={hideWorkspaceList}
-              isAnyProjectDragging={isAnyProjectDragging}
-              onToggle={onToggleProject}
-              onProjectRowClick={onProjectRowClick}
-              onAddWorkspace={onAddWorkspace}
-              onQuickAddWorkspace={onQuickAddWorkspace}
-              onSetColor={onSetColor}
-              onSetLogo={onSetLogo}
-              onDelete={onDeleteProject}
-              onPinWorkspace={onPinWorkspace}
-              onUnpinWorkspace={onUnpinWorkspace}
-              onArchiveWorkspace={onArchiveWorkspace}
-              onDeleteWorkspace={onDeleteWorkspace}
-              onUpdateWorkspaceWorkflowStatus={onUpdateWorkspaceWorkflowStatus}
-              onUpdateWorkspacePriority={onUpdateWorkspacePriority}
-              availableLabels={availableLabels}
-              onCreateWorkspaceLabel={onCreateWorkspaceLabel}
-              onUpdateWorkspaceLabel={onUpdateWorkspaceLabel}
-              onUpdateWorkspaceLabels={onUpdateWorkspaceLabels}
-              onUpdateWorkspaceName={onUpdateWorkspaceName}
-              onConfigureScripts={onConfigureScripts}
-              onSelectMain={onSelectMain}
-              isActiveProject={activeProjectId === project.id && !activeWorkspaceId}
-              isSelected={selectedProjectId === project.id}
-              activeWorkspaceId={activeWorkspaceId}
-              groups={groups}
-              onAddProjectToGroup={onAddProjectToGroup}
-              onRemoveProjectFromGroup={onRemoveProjectFromGroup}
-              onAddWorkspaceToGroup={onAddWorkspaceToGroup}
-              onRemoveWorkspaceFromGroup={onRemoveWorkspaceFromGroup}
-              onSetWorkspaceGroup={onSetWorkspaceGroup}
-              onCreateGroup={onCreateGroup}
-            />
-          ))}
-        </SortableContext>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
+        >
+          <SortableContext
+            items={projects.map((project) => project.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {projects.map((project) => (
+              <SortableProject
+                key={project.id}
+                project={project}
+                isExpanded={hideWorkspaceList ? false : expandedProjectIds.includes(project.id)}
+                hideWorkspaceList={hideWorkspaceList}
+                isAnyProjectDragging={isAnyProjectDragging}
+                onToggle={onToggleProject}
+                onProjectRowClick={onProjectRowClick}
+                onAddWorkspace={onAddWorkspace}
+                onQuickAddWorkspace={onQuickAddWorkspace}
+                onSetColor={onSetColor}
+                onSetLogo={onSetLogo}
+                onDelete={onDeleteProject}
+                onPinWorkspace={onPinWorkspace}
+                onUnpinWorkspace={onUnpinWorkspace}
+                onArchiveWorkspace={onArchiveWorkspace}
+                onDeleteWorkspace={onDeleteWorkspace}
+                onUpdateWorkspaceWorkflowStatus={onUpdateWorkspaceWorkflowStatus}
+                onUpdateWorkspacePriority={onUpdateWorkspacePriority}
+                availableLabels={availableLabels}
+                onCreateWorkspaceLabel={onCreateWorkspaceLabel}
+                onUpdateWorkspaceLabel={onUpdateWorkspaceLabel}
+                onUpdateWorkspaceLabels={onUpdateWorkspaceLabels}
+                onUpdateWorkspaceName={onUpdateWorkspaceName}
+                onConfigureScripts={onConfigureScripts}
+                onSelectMain={onSelectMain}
+                isActiveProject={activeProjectId === project.id && !activeWorkspaceId}
+                isSelected={selectedProjectId === project.id}
+                activeWorkspaceId={activeWorkspaceId}
+                groups={groups}
+                onAddProjectToGroup={onAddProjectToGroup}
+                onRemoveProjectFromGroup={onRemoveProjectFromGroup}
+                onAddWorkspaceToGroup={onAddWorkspaceToGroup}
+                onRemoveWorkspaceFromGroup={onRemoveWorkspaceFromGroup}
+                onSetWorkspaceGroup={onSetWorkspaceGroup}
+                onCreateGroup={onCreateGroup}
+              />
+            ))}
+          </SortableContext>
 
-        {showDragOverlay && flattenedWorkspaces ? (
-          <LeftSidebarDragOverlay
-            activeId={activeId ?? null}
-            flattenedWorkspaces={flattenedWorkspaces}
-            projects={projects}
-            workspaceLabels={availableLabels}
-          />
-        ) : null}
-      </DndContext>
+          {showDragOverlay && flattenedWorkspaces ? (
+            <LeftSidebarDragOverlay
+              activeId={activeId ?? null}
+              flattenedWorkspaces={flattenedWorkspaces}
+              projects={projects}
+              workspaceLabels={availableLabels}
+            />
+          ) : null}
+        </DndContext>
       )}
     </ScrollArea>
   );
@@ -312,7 +316,7 @@ export function SidebarColumnResizeHandle({
         setDragging(nextDragging);
         onDragging?.(nextDragging);
       }}
-      className="relative flex h-full w-3 -mx-1.5 self-stretch items-center justify-center overflow-visible bg-transparent touch-none"
+      className="relative -mx-1.5 flex h-full w-3 touch-none items-center justify-center self-stretch overflow-visible bg-transparent"
     >
       <ResizeFollowMark axis="vertical" dragging={dragging} onFold={onFold} />
     </PanelResizeHandle>
@@ -402,15 +406,12 @@ export function WorkspaceGroupMarker({
   group: Pick<WorkspaceGroup, "key" | "label" | "color">;
   groupingMode: SidebarGroupingMode;
 }) {
-  const statusMeta = groupingMode === "status"
-    ? getWorkspaceWorkflowStatusMeta(group.key)
-    : null;
-  const priorityMeta = groupingMode === "priority"
-    ? getWorkspacePriorityMeta(group.key)
-    : null;
-  const agentMeta = groupingMode === "agent"
-    ? getWorkspaceAgentGroupMeta(group.key as WorkspaceAgentGroupKey)
-    : null;
+  const statusMeta = groupingMode === "status" ? getWorkspaceWorkflowStatusMeta(group.key) : null;
+  const priorityMeta = groupingMode === "priority" ? getWorkspacePriorityMeta(group.key) : null;
+  const agentMeta =
+    groupingMode === "agent"
+      ? getWorkspaceAgentGroupMeta(group.key as WorkspaceAgentGroupKey)
+      : null;
   const GroupIcon = statusMeta?.icon ?? priorityMeta?.icon ?? agentMeta?.icon;
 
   if (GroupIcon) {
@@ -427,10 +428,7 @@ export function WorkspaceGroupMarker({
 
   if (groupingMode === "label" && group.color) {
     return (
-      <span
-        className="size-2.5 shrink-0 rounded-full"
-        style={{ backgroundColor: group.color }}
-      />
+      <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: group.color }} />
     );
   }
 
@@ -456,24 +454,13 @@ function SortableWorkspaceGroupSection({
   toggleWorkspaceGroup: () => void;
 }) {
   const isSortableLabel =
-    groupingMode === "label" &&
-    group.key !== UNTAGGED_WORKSPACE_GROUP_KEY &&
-    sortingEnabled;
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: group.key, disabled: !isSortableLabel });
-  const {
-    visibleCount,
-    canShowMore,
-    canShowLess,
-    showMore,
-    showLess,
-  } = useWorkspaceListVisibleCount(group.items.length, group.key);
+    groupingMode === "label" && group.key !== UNTAGGED_WORKSPACE_GROUP_KEY && sortingEnabled;
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: group.key,
+    disabled: !isSortableLabel,
+  });
+  const { visibleCount, canShowMore, canShowLess, showMore, showLess } =
+    useWorkspaceListVisibleCount(group.items.length, group.key);
   const visibleItems = group.items.slice(0, visibleCount);
   // Attention filter: dim group chrome so latched workspaces stay the focus.
   const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
@@ -492,51 +479,47 @@ function SortableWorkspaceGroupSection({
       }}
       className={cn("space-y-1.5", isDragging && "relative z-20 opacity-60")}
     >
-      <div
-        className={LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS}
-        data-sidebar-sticky-group-header=""
-      >
-      <div
-        className={cn(
-          "group relative flex items-center rounded-lg hover:bg-sidebar-accent",
-          attentionFilterMode && "opacity-45",
-        )}
-      >
-        <button
-          type="button"
-          onClick={toggleWorkspaceGroup}
-          className="flex min-w-0 flex-1 items-center gap-1.5 py-2 pl-3 pr-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:text-sidebar-accent-foreground"
+      <div className={LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS} data-sidebar-sticky-group-header="">
+        <div
+          className={cn(
+            "group relative flex items-center rounded-lg hover:bg-sidebar-accent",
+            attentionFilterMode && "opacity-45",
+          )}
         >
-          <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />
-          <span className="min-w-0 truncate">{group.label}</span>
-          <ChevronRight
-            className={cn(
-              "ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100",
-              !isCollapsed && "rotate-90",
-            )}
-          />
-          <span
-            className={cn(
-              "ml-auto inline-flex size-6 shrink-0 items-center justify-center text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80 transition-opacity",
-              isSortableLabel &&
-                "group-hover:opacity-0 group-focus-within:opacity-0",
-            )}
-          >
-            {group.items.length}
-          </span>
-        </button>
-        {isSortableLabel ? (
           <button
             type="button"
-            {...attributes}
-            {...listeners}
-            className="pointer-events-none absolute right-2 inline-flex size-6 cursor-grab touch-none items-center justify-center rounded text-muted-foreground/60 opacity-0 transition-opacity hover:text-sidebar-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 active:cursor-grabbing group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
-            aria-label={group.label}
+            onClick={toggleWorkspaceGroup}
+            className="flex min-w-0 flex-1 items-center gap-1.5 py-2 pr-2 pl-3 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:text-sidebar-accent-foreground"
           >
-            <GripVertical className="size-3.5" />
+            <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />
+            <span className="min-w-0 truncate">{group.label}</span>
+            <ChevronRight
+              className={cn(
+                "ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100",
+                !isCollapsed && "rotate-90",
+              )}
+            />
+            <span
+              className={cn(
+                "ml-auto inline-flex size-6 shrink-0 items-center justify-center text-[10px] font-medium tracking-normal text-muted-foreground/80 normal-case transition-opacity",
+                isSortableLabel && "group-focus-within:opacity-0 group-hover:opacity-0",
+              )}
+            >
+              {group.items.length}
+            </span>
           </button>
-        ) : null}
-      </div>
+          {isSortableLabel ? (
+            <button
+              type="button"
+              {...attributes}
+              {...listeners}
+              className="pointer-events-none absolute right-2 inline-flex size-6 cursor-grab touch-none items-center justify-center rounded text-muted-foreground/60 opacity-0 transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 hover:text-sidebar-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 active:cursor-grabbing"
+              aria-label={group.label}
+            >
+              <GripVertical className="size-3.5" />
+            </button>
+          ) : null}
+        </div>
       </div>
       <div
         className={cn(
@@ -545,7 +528,7 @@ function SortableWorkspaceGroupSection({
         )}
       >
         <div className="min-w-0 overflow-hidden">
-          <div className="flex min-w-0 flex-col gap-1 pl-3 pt-0.5">
+          <div className="flex min-w-0 flex-col gap-1 pt-0.5 pl-3">
             <SidebarMotionList>
               {visibleItems.map((entry) => {
                 const entryKey = getSidebarEntryKey(entry);
@@ -601,7 +584,11 @@ export function GroupedWorkspaceOneColumnContent({
     .map((group) => group.key);
 
   return (
-    <ScrollArea scrollFade className="h-full overflow-x-hidden" viewportClassName="overflow-x-hidden">
+    <ScrollArea
+      scrollFade
+      className="h-full overflow-x-hidden"
+      viewportClassName="overflow-x-hidden"
+    >
       <DndContext
         collisionDetection={closestCenter}
         sensors={sensors}
@@ -614,7 +601,8 @@ export function GroupedWorkspaceOneColumnContent({
             !onLabelGroupOrderChange ||
             !over ||
             active.id === over.id
-          ) return;
+          )
+            return;
           const oldIndex = sortableLabelGroupIds.indexOf(String(active.id));
           const newIndex = sortableLabelGroupIds.indexOf(String(over.id));
           if (oldIndex === -1 || newIndex === -1) return;
@@ -623,14 +611,15 @@ export function GroupedWorkspaceOneColumnContent({
         modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
       >
         <SortableContext
-          items={
-            groupingMode === "label" && onLabelGroupOrderChange
-              ? sortableLabelGroupIds
-              : []
-          }
+          items={groupingMode === "label" && onLabelGroupOrderChange ? sortableLabelGroupIds : []}
           strategy={verticalListSortingStrategy}
         >
-          <SidebarMotionScope className={cn("flex min-w-0 flex-col gap-0.5 overflow-x-clip pl-2", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
+          <SidebarMotionScope
+            className={cn(
+              "flex min-w-0 flex-col gap-0.5 overflow-x-clip pl-2",
+              LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+            )}
+          >
             <SidebarMotionList>
               {visibleGroups.map((group) => {
                 const stateKey = `${groupingMode}:${group.key}`;
@@ -640,8 +629,7 @@ export function GroupedWorkspaceOneColumnContent({
                       group={group}
                       groupingMode={groupingMode}
                       isCollapsed={
-                        isAnyGroupDragging ||
-                        (collapsedWorkspaceGroups[stateKey] ?? false)
+                        isAnyGroupDragging || (collapsedWorkspaceGroups[stateKey] ?? false)
                       }
                       renderWorkspaceContentRow={renderWorkspaceContentRow}
                       sortingEnabled={Boolean(onLabelGroupOrderChange)}
@@ -675,7 +663,11 @@ export function GroupedWorkspaceTwoColumnLeftContent({
     : groups;
 
   return (
-    <ScrollArea scrollFade className="h-full overflow-x-hidden" viewportClassName="overflow-x-hidden px-2 py-1.5">
+    <ScrollArea
+      scrollFade
+      className="h-full overflow-x-hidden"
+      viewportClassName="overflow-x-hidden px-2 py-1.5"
+    >
       <div className="flex flex-col gap-1">
         <SidebarMotionList>
           {visibleGroups.map((group) => {
@@ -696,7 +688,7 @@ export function GroupedWorkspaceTwoColumnLeftContent({
                 >
                   <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />
                   <span className="truncate">{group.label}</span>
-                  <span className="ml-auto text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80">
+                  <span className="ml-auto text-[10px] font-medium tracking-normal text-muted-foreground/80 normal-case">
                     {group.items.length}
                   </span>
                 </button>
@@ -731,13 +723,8 @@ export function GroupedWorkspaceTwoColumnRightContent({
 }) {
   const t = useTranslations("AppShell.chrome");
   const groupItems = selectedGroup?.items ?? [];
-  const {
-    visibleCount,
-    canShowMore,
-    canShowLess,
-    showMore,
-    showLess,
-  } = useWorkspaceListVisibleCount(groupItems.length, selectedGroup?.key);
+  const { visibleCount, canShowMore, canShowLess, showMore, showLess } =
+    useWorkspaceListVisibleCount(groupItems.length, selectedGroup?.key);
   const visibleItems = groupItems.slice(0, visibleCount);
 
   // Primary open: pl-3, with the shared divider gutter on the right.
@@ -769,7 +756,10 @@ export function GroupedWorkspaceTwoColumnRightContent({
       <div className="min-h-0 flex-1 overflow-hidden">
         <ScrollArea
           scrollFade
-          viewportClassName={cn("overflow-x-hidden py-2 pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}
+          viewportClassName={cn(
+            "overflow-x-hidden py-2 pl-3",
+            LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+          )}
         >
           {!selectedGroup ? (
             <div className="px-3 py-6 text-sm text-muted-foreground">
@@ -884,8 +874,15 @@ export function ProjectWorkspaceTwoColumnRightContent({
   onSetLogo: (projectId: string, logoPath: string | null) => void | Promise<void>;
   onTogglePrimaryPanel: () => void;
   onUnpinWorkspace: ProjectItemProps["onUnpinWorkspace"];
-  onUpdateWorkspaceLabel: (labelId: string, data: { name: string; color: string }) => Promise<WorkspaceLabel>;
-  onUpdateWorkspaceLabels: (projectId: string, workspaceId: string, labels: WorkspaceLabel[]) => Promise<void>;
+  onUpdateWorkspaceLabel: (
+    labelId: string,
+    data: { name: string; color: string },
+  ) => Promise<WorkspaceLabel>;
+  onUpdateWorkspaceLabels: (
+    projectId: string,
+    workspaceId: string,
+    labels: WorkspaceLabel[],
+  ) => Promise<void>;
   onUpdateWorkspaceName: (projectId: string, workspaceId: string, name: string) => Promise<void>;
   onUpdateWorkspacePinOrder: (workspaceIds: string[]) => void | Promise<void>;
   onUpdateWorkspacePriority: ProjectItemProps["onUpdateWorkspacePriority"];
@@ -895,21 +892,12 @@ export function ProjectWorkspaceTwoColumnRightContent({
   const t = useTranslations("AppShell.chrome");
   const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
   const projectHasNoWorkspaces =
-    selectedProjectPinnedEntries.length === 0 &&
-    selectedProjectUnpinnedWorkspaces.length === 0;
+    selectedProjectPinnedEntries.length === 0 && selectedProjectUnpinnedWorkspaces.length === 0;
   const showPaneEmpty =
     (!selectedProject && Boolean(hasNoProjects) && Boolean(onAddProject) && !attentionFilterMode) ||
     (Boolean(selectedProject) && projectHasNoWorkspaces && !attentionFilterMode);
-  const {
-    visibleCount,
-    canShowMore,
-    canShowLess,
-    showMore,
-    showLess,
-  } = useWorkspaceListVisibleCount(
-    selectedProjectUnpinnedWorkspaces.length,
-    selectedProject?.id,
-  );
+  const { visibleCount, canShowMore, canShowLess, showMore, showLess } =
+    useWorkspaceListVisibleCount(selectedProjectUnpinnedWorkspaces.length, selectedProject?.id);
   const visibleUnpinnedWorkspaces = selectedProjectUnpinnedWorkspaces.slice(0, visibleCount);
 
   const renderProjectWorkspaceEntry = (workspace: Workspace): FlattenedWorkspaceEntry | null => {
@@ -930,16 +918,16 @@ export function ProjectWorkspaceTwoColumnRightContent({
       onDragEnd={onDragEnd}
       modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
     >
-      <SortableContext items={visibleUnpinnedWorkspaces.map((workspace) => workspace.id)} strategy={verticalListSortingStrategy}>
+      <SortableContext
+        items={visibleUnpinnedWorkspaces.map((workspace) => workspace.id)}
+        strategy={verticalListSortingStrategy}
+      >
         <div className={cn("min-w-0 space-y-0.5", secondColumnKanban && "space-y-2")}>
           {visibleUnpinnedWorkspaces.map((workspace) => {
             const entry = renderProjectWorkspaceEntry(workspace);
             if (!entry) return null;
             return secondColumnKanban ? (
-              <SortableSidebarKanbanCard
-                key={workspace.id}
-                workspaceId={workspace.id}
-              >
+              <SortableSidebarKanbanCard key={workspace.id} workspaceId={workspace.id}>
                 {renderWorkspaceKanbanCard(entry)}
               </SortableSidebarKanbanCard>
             ) : (
@@ -1022,108 +1010,134 @@ export function ProjectWorkspaceTwoColumnRightContent({
             showPaneEmpty ? "flex items-center justify-center" : "py-2",
           )}
         >
-        {!selectedProject ? (
-          hasNoProjects && onAddProject && !attentionFilterMode ? (
-            <SidebarEmptyProjects onAdd={onAddProject} />
-          ) : (
-            <div className="px-3 py-6 text-sm text-muted-foreground">
-              {t("leftSidebarControls.selectProjectDescription")}
-            </div>
-          )
-        ) : projectHasNoWorkspaces && !attentionFilterMode ? (
-          <SidebarEmptyWorkspaces onAdd={() => onAddWorkspace(selectedProject.id)} />
-        ) : (
-          <div className="space-y-2">
-            {showPinnedSection && selectedProjectPinnedEntries.length > 0 ? (
-              <Collapsible
-                open={isPinnedExpanded}
-                onOpenChange={onPinnedExpandedChange}
-                className="space-y-1.5"
-              >
-                <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-                  <span className="truncate">{t("leftSidebarControls.pinned")}</span>
-                  <ChevronRight className={cn("ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100", isPinnedExpanded && "rotate-90")} />
-                  <span className="ml-auto text-[10px] text-muted-foreground/80">
-                    {selectedProjectPinnedEntries.length}
-                  </span>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="overflow-hidden">
-                    <div className="min-w-0 space-y-0.5 pl-3 pt-0.5">
-                      <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragEnd={(event) => {
-                          if (isPinnedSortingDisabled) return;
-                          const { active, over } = event;
-                          if (!over || active.id === over.id) return;
-                          const oldIndex = selectedProjectPinnedEntries.findIndex((entry) => entry.workspace.id === active.id);
-                          const newIndex = selectedProjectPinnedEntries.findIndex((entry) => entry.workspace.id === over.id);
-                          if (oldIndex === -1 || newIndex === -1) return;
-                          const reordered = arrayMove(selectedProjectPinnedEntries, oldIndex, newIndex);
-                          void onUpdateWorkspacePinOrder(reordered.map((entry) => entry.workspace.id));
-                        }}
-                        modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
-                      >
-                        <SortableContext items={selectedProjectPinnedEntries.map((entry) => entry.workspace.id)} strategy={verticalListSortingStrategy}>
-                          <div className={cn("min-w-0 space-y-0.5", secondColumnKanban && "space-y-2")}>
-                            {selectedProjectPinnedEntries.map((entry) =>
-                              secondColumnKanban ? (
-                                isPinnedSortingDisabled ? (
-                                  <div key={entry.workspace.id}>
-                                    {renderWorkspaceKanbanCard(entry)}
-                                  </div>
-                                ) : (
-                                  <SortableSidebarKanbanCard
-                                    key={entry.workspace.id}
-                                    workspaceId={entry.workspace.id}
-                                  >
-                                    {renderWorkspaceKanbanCard(entry)}
-                                  </SortableSidebarKanbanCard>
-                                )
-                              ) : (
-                                renderWorkspaceItemRow(entry, {
-                                  sortingDisabled: isPinnedSortingDisabled,
-                                  sortingDisabledMessage: t("leftSidebarControls.clearWorkspaceFiltersBeforeReordering"),
-                                })
-                              ),
-                            )}
-                          </div>
-                        </SortableContext>
-                      </DndContext>
-                    </div>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            ) : null}
-            {showPinnedSection && selectedProjectPinnedEntries.length > 0 ? (
-              <Collapsible
-                open={isWorkspacesExpanded}
-                onOpenChange={onWorkspacesExpandedChange}
-                className="space-y-1.5"
-              >
-                <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-                  <span className="truncate">{t("leftSidebarControls.workspaces")}</span>
-                  <ChevronRight className={cn("ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100", isWorkspacesExpanded && "rotate-90")} />
-                  <span className="ml-auto text-[10px] text-muted-foreground/80">
-                    {selectedProjectUnpinnedWorkspaces.length}
-                  </span>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="overflow-hidden">
-                    <div className="pl-3 pt-0.5">
-                      {unpinnedList}
-                    </div>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
+          {!selectedProject ? (
+            hasNoProjects && onAddProject && !attentionFilterMode ? (
+              <SidebarEmptyProjects onAdd={onAddProject} />
             ) : (
-              <section className="space-y-1.5">
-                {unpinnedList}
-              </section>
-            )}
-          </div>
-        )}
+              <div className="px-3 py-6 text-sm text-muted-foreground">
+                {t("leftSidebarControls.selectProjectDescription")}
+              </div>
+            )
+          ) : projectHasNoWorkspaces && !attentionFilterMode ? (
+            <SidebarEmptyWorkspaces onAdd={() => onAddWorkspace(selectedProject.id)} />
+          ) : (
+            <div className="space-y-2">
+              {showPinnedSection && selectedProjectPinnedEntries.length > 0 ? (
+                <Collapsible
+                  open={isPinnedExpanded}
+                  onOpenChange={onPinnedExpandedChange}
+                  className="space-y-1.5"
+                >
+                  <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+                    <span className="truncate">{t("leftSidebarControls.pinned")}</span>
+                    <ChevronRight
+                      className={cn(
+                        "ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100",
+                        isPinnedExpanded && "rotate-90",
+                      )}
+                    />
+                    <span className="ml-auto text-[10px] text-muted-foreground/80">
+                      {selectedProjectPinnedEntries.length}
+                    </span>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="overflow-hidden">
+                      <div className="min-w-0 space-y-0.5 pt-0.5 pl-3">
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={(event) => {
+                            if (isPinnedSortingDisabled) return;
+                            const { active, over } = event;
+                            if (!over || active.id === over.id) return;
+                            const oldIndex = selectedProjectPinnedEntries.findIndex(
+                              (entry) => entry.workspace.id === active.id,
+                            );
+                            const newIndex = selectedProjectPinnedEntries.findIndex(
+                              (entry) => entry.workspace.id === over.id,
+                            );
+                            if (oldIndex === -1 || newIndex === -1) return;
+                            const reordered = arrayMove(
+                              selectedProjectPinnedEntries,
+                              oldIndex,
+                              newIndex,
+                            );
+                            void onUpdateWorkspacePinOrder(
+                              reordered.map((entry) => entry.workspace.id),
+                            );
+                          }}
+                          modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
+                        >
+                          <SortableContext
+                            items={selectedProjectPinnedEntries.map((entry) => entry.workspace.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            <div
+                              className={cn(
+                                "min-w-0 space-y-0.5",
+                                secondColumnKanban && "space-y-2",
+                              )}
+                            >
+                              {selectedProjectPinnedEntries.map((entry) =>
+                                secondColumnKanban ? (
+                                  isPinnedSortingDisabled ? (
+                                    <div key={entry.workspace.id}>
+                                      {renderWorkspaceKanbanCard(entry)}
+                                    </div>
+                                  ) : (
+                                    <SortableSidebarKanbanCard
+                                      key={entry.workspace.id}
+                                      workspaceId={entry.workspace.id}
+                                    >
+                                      {renderWorkspaceKanbanCard(entry)}
+                                    </SortableSidebarKanbanCard>
+                                  )
+                                ) : (
+                                  renderWorkspaceItemRow(entry, {
+                                    sortingDisabled: isPinnedSortingDisabled,
+                                    sortingDisabledMessage: t(
+                                      "leftSidebarControls.clearWorkspaceFiltersBeforeReordering",
+                                    ),
+                                  })
+                                ),
+                              )}
+                            </div>
+                          </SortableContext>
+                        </DndContext>
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              ) : null}
+              {showPinnedSection && selectedProjectPinnedEntries.length > 0 ? (
+                <Collapsible
+                  open={isWorkspacesExpanded}
+                  onOpenChange={onWorkspacesExpandedChange}
+                  className="space-y-1.5"
+                >
+                  <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+                    <span className="truncate">{t("leftSidebarControls.workspaces")}</span>
+                    <ChevronRight
+                      className={cn(
+                        "ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100",
+                        isWorkspacesExpanded && "rotate-90",
+                      )}
+                    />
+                    <span className="ml-auto text-[10px] text-muted-foreground/80">
+                      {selectedProjectUnpinnedWorkspaces.length}
+                    </span>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="overflow-hidden">
+                      <div className="pt-0.5 pl-3">{unpinnedList}</div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              ) : (
+                <section className="space-y-1.5">{unpinnedList}</section>
+              )}
+            </div>
+          )}
         </ScrollArea>
       </div>
     </div>
@@ -1163,7 +1177,7 @@ export function TwoColumnSidebarContent({
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-1 min-h-0 min-w-0">
+      <div className="flex min-h-0 min-w-0 flex-1">
         <PanelGroup
           autoSaveId={autoSaveId}
           direction="horizontal"
@@ -1185,14 +1199,8 @@ export function TwoColumnSidebarContent({
             onResize={onPrimaryResize}
           >
             <div className="flex h-full min-h-0 flex-col">
-              {pinnedSection ? (
-                <div className="pt-1.5">
-                  {pinnedSection}
-                </div>
-              ) : null}
-              <div className="flex-1 min-h-0 overflow-hidden">
-                {leftContent}
-              </div>
+              {pinnedSection ? <div className="pt-1.5">{pinnedSection}</div> : null}
+              <div className="min-h-0 flex-1 overflow-hidden">{leftContent}</div>
             </div>
           </Panel>
           {!isPrimaryCollapsed ? (

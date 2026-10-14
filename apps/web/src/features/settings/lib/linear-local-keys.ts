@@ -8,10 +8,7 @@
  * (e.g. pure hosted tab without relay session). Prefer disk on Desktop/local.
  */
 
-import {
-  getLoopbackHttpBase,
-  isHostedAtmosOrigin,
-} from "@/shared/lib/desktop-runtime";
+import { getLoopbackHttpBase, isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 
 export const LINEAR_API_KEYS_CREATE_URL =
@@ -67,8 +64,7 @@ export function defaultLinearKeyName(): string {
 }
 
 function apiTokenHeader(): Record<string, string> {
-  const token =
-    typeof process !== "undefined" ? process.env.NEXT_PUBLIC_API_TOKEN : undefined;
+  const token = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_API_TOKEN : undefined;
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -78,11 +74,7 @@ async function computerApiTarget(): Promise<{
 } | null> {
   if (typeof window !== "undefined" && isHostedAtmosOrigin()) {
     const store = useAtmosComputerStore.getState();
-    if (
-      store.connectionMode === "relay" &&
-      store.relayGatewayHttpBase &&
-      store.relayClientToken
-    ) {
+    if (store.connectionMode === "relay" && store.relayGatewayHttpBase && store.relayClientToken) {
       return {
         base: store.relayGatewayHttpBase.replace(/\/$/, ""),
         headers: { Authorization: `Bearer ${store.relayClientToken}` },
@@ -106,9 +98,7 @@ function readLegacyLocalStorage(): LinearLocalStoreSnapshot | null {
     const rawKeys = localStorage.getItem(LEGACY_STORAGE_KEYS);
     const rawSel = localStorage.getItem(LEGACY_STORAGE_SELECTION);
     if (!rawKeys && !rawSel) return null;
-    const keys = rawKeys
-      ? ((JSON.parse(rawKeys) as LinearLocalApiKey[]) ?? [])
-      : [];
+    const keys = rawKeys ? ((JSON.parse(rawKeys) as LinearLocalApiKey[]) ?? []) : [];
     let selection: LinearAuthSelection = { mode: "none" };
     if (rawSel) {
       const parsed = JSON.parse(rawSel) as LinearAuthSelection;
@@ -142,19 +132,13 @@ function writeLegacyLocalStorage(snapshot: LinearLocalStoreSnapshot): void {
   if (typeof localStorage === "undefined") return;
   try {
     localStorage.setItem(LEGACY_STORAGE_KEYS, JSON.stringify(snapshot.keys));
-    localStorage.setItem(
-      LEGACY_STORAGE_SELECTION,
-      JSON.stringify(snapshot.selection),
-    );
+    localStorage.setItem(LEGACY_STORAGE_SELECTION, JSON.stringify(snapshot.selection));
   } catch {
     /* quota */
   }
 }
 
-function normalizeSelection(
-  raw: unknown,
-  keys: LinearLocalApiKey[],
-): LinearAuthSelection {
+function normalizeSelection(raw: unknown, keys: LinearLocalApiKey[]): LinearAuthSelection {
   if (!raw || typeof raw !== "object") return { mode: "none" };
   const obj = raw as { mode?: string; keyId?: string; key_id?: string };
   if (obj.mode === "oauth") return { mode: "oauth" };
@@ -356,9 +340,7 @@ export function getActiveLinearLocalKey(): LinearLocalApiKey | null {
   const sel = cache.selection;
   if (sel.mode === "oauth") return null;
   if (sel.mode === "local") {
-    return (
-      cache.keys.find((k) => k.id === sel.keyId) ?? cache.keys[0] ?? null
-    );
+    return cache.keys.find((k) => k.id === sel.keyId) ?? cache.keys[0] ?? null;
   }
   // mode "none": treat first key as active so local keys work without
   // an explicit selection / Hub session.
@@ -371,9 +353,7 @@ export function getActiveLinearApiKeyForRequest(): string | undefined {
   return key || undefined;
 }
 
-export async function setLinearAuthSelection(
-  selection: LinearAuthSelection,
-): Promise<void> {
+export async function setLinearAuthSelection(selection: LinearAuthSelection): Promise<void> {
   await ensureLinearLocalKeysHydrated();
   await applySnapshot({ ...cache, selection });
 }
@@ -414,9 +394,7 @@ export async function removeLinearLocalKey(id: string): Promise<void> {
   const keys = cache.keys.filter((k) => k.id !== id);
   let selection = cache.selection;
   if (selection.mode === "local" && selection.keyId === id) {
-    selection = keys[0]
-      ? { mode: "local", keyId: keys[0].id }
-      : { mode: "none" };
+    selection = keys[0] ? { mode: "local", keyId: keys[0].id } : { mode: "none" };
   }
   await applySnapshot({ ...cache, keys, selection });
 }

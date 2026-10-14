@@ -73,10 +73,7 @@ export async function completeGithubInstallationSetup(
 ): Promise<GithubInstallationRecord> {
   const userToken = await exchangeOAuthCode(env, code);
   const installation = await fetchInstallation(env, installationId);
-  const userCanAuthorizeInstallation = await canUserAuthorizeInstallation(
-    userToken,
-    installation,
-  );
+  const userCanAuthorizeInstallation = await canUserAuthorizeInstallation(userToken, installation);
   if (!userCanAuthorizeInstallation) {
     throw new Error("installation_not_authorized_for_user");
   }
@@ -96,13 +93,10 @@ export async function listInstallationRepositories(
       throw new Error("github_repository_page_limit_exceeded");
     }
     const pageResult: { data: GithubRepositoriesResponse; nextPath: string | null } =
-      await githubJsonPage<GithubRepositoriesResponse>(
-        path,
-        {
-          errorCode: "github_repositories_request_failed",
-          token: installationToken,
-        },
-      );
+      await githubJsonPage<GithubRepositoriesResponse>(path, {
+        errorCode: "github_repositories_request_failed",
+        token: installationToken,
+      });
     const data = pageResult.data;
     const pageRepos = (data.repositories ?? [])
       .filter((repo) => repo.id && repo.full_name)
@@ -151,7 +145,7 @@ async function exchangeOAuthCode(env: Env, code: string): Promise<string> {
 
   let data: GithubAccessTokenResponse;
   try {
-    data = await response.json() as GithubAccessTokenResponse;
+    data = (await response.json()) as GithubAccessTokenResponse;
   } catch {
     throw new Error("github_oauth_exchange_failed_invalid_json");
   }
@@ -161,20 +155,17 @@ async function exchangeOAuthCode(env: Env, code: string): Promise<string> {
   return data.access_token;
 }
 
-async function userHasInstallation(
-  userToken: string,
-  installationId: string,
-): Promise<boolean> {
+async function userHasInstallation(userToken: string, installationId: string): Promise<boolean> {
   let path: string | null = `/user/installations?per_page=${GITHUB_PAGE_SIZE}&page=1`;
   for (let page = 1; path; page += 1) {
     if (page > MAX_GITHUB_PAGES) {
       throw new Error("github_installation_page_limit_exceeded");
     }
     const pageResult: { data: GithubUserInstallationsResponse; nextPath: string | null } =
-      await githubJsonPage<GithubUserInstallationsResponse>(
-        path,
-        { errorCode: "github_user_installations_request_failed", token: userToken },
-      );
+      await githubJsonPage<GithubUserInstallationsResponse>(path, {
+        errorCode: "github_user_installations_request_failed",
+        token: userToken,
+      });
     const data = pageResult.data;
     const installations = data.installations ?? [];
     if (installations.some((installation) => String(installation.id) === installationId)) {
@@ -208,10 +199,10 @@ async function canUserAuthorizeInstallation(
 }
 
 async function fetchGithubUser(userToken: string): Promise<GithubUserResponse> {
-  return githubJson<GithubUserResponse>(
-    "/user",
-    { errorCode: "github_user_request_failed", token: userToken },
-  );
+  return githubJson<GithubUserResponse>("/user", {
+    errorCode: "github_user_request_failed",
+    token: userToken,
+  });
 }
 
 async function fetchInstallation(
@@ -232,10 +223,7 @@ async function fetchInstallation(
   };
 }
 
-async function createInstallationToken(
-  env: Env,
-  installationId: string,
-): Promise<string> {
+async function createInstallationToken(env: Env, installationId: string): Promise<string> {
   const jwt = await createAppJwt(env);
   const data = await githubJson<GithubInstallationTokenResponse>(
     `/app/installations/${installationId}/access_tokens`,
@@ -309,10 +297,7 @@ function pemBody(pem: string, label: string): Uint8Array {
 
 function wrapPkcs1RsaPrivateKey(pkcs1: Uint8Array): Uint8Array {
   const version = derIntegerZero();
-  const algorithm = derSequence(
-    derObjectIdentifier([1, 2, 840, 113549, 1, 1, 1]),
-    derNull(),
-  );
+  const algorithm = derSequence(derObjectIdentifier([1, 2, 840, 113549, 1, 1, 1]), derNull());
   const privateKey = derOctetString(pkcs1);
   return derSequence(version, algorithm, privateKey);
 }
@@ -411,7 +396,7 @@ async function githubJsonPage<T>(
   }
   let data: T;
   try {
-    data = await response.json() as T;
+    data = (await response.json()) as T;
   } catch {
     throw new Error(`${options.errorCode}_invalid_json`);
   }

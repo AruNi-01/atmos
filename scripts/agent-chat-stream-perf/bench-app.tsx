@@ -87,7 +87,13 @@ function transcript(lastTokens = 0): Message[] {
     messages.push({
       id: `u${turn}`,
       role: "user",
-      parts: [{ type: "text", text: `prompt ${turn} please inspect these files`, message_id: `up${turn}` }],
+      parts: [
+        {
+          type: "text",
+          text: `prompt ${turn} please inspect these files`,
+          message_id: `up${turn}`,
+        },
+      ],
     });
     const parts: Message["parts"] = [];
     for (let tool = 0; tool < TOOLS_PER_TURN; tool += 1) {
@@ -156,13 +162,7 @@ const Row = React.memo(function Row({
   );
 });
 
-function List({
-  mode,
-  messages,
-}: {
-  mode: Mode;
-  messages: Message[];
-}) {
+function List({ mode, messages }: { mode: Mode; messages: Message[] }) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const lastId = messages.at(-1)?.id;
   const virtualizer = useVirtualizer({
@@ -199,7 +199,8 @@ function List({
       >
         {virtualizer.getVirtualItems().map((item) => {
           const message = messages[item.index]!;
-          const streamTail = mode === "branch" && message.id === lastId && message.streaming === true;
+          const streamTail =
+            mode === "branch" && message.id === lastId && message.streaming === true;
           return (
             <div
               key={item.key}
@@ -295,7 +296,9 @@ function BenchApp({ mode }: { mode: Mode }) {
               ...last,
               streaming: true,
               parts: last.parts.map((part) =>
-                part.type === "text" ? { ...part, text: `answer ${TURNS - 1} ${text}`.trimEnd() } : part,
+                part.type === "text"
+                  ? { ...part, text: `answer ${TURNS - 1} ${text}`.trimEnd() }
+                  : part,
               ),
             };
             if (nextLast === last) return current;

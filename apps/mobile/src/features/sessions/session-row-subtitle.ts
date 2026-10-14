@@ -39,9 +39,10 @@ export function formatSessionRowSubtitle(input: {
   const project = input.omitPlace ? null : clean(input.projectName);
   const branch = clean(input.branch);
   const workspaceName = clean(input.workspaceName);
-  const workspace = input.omitPlace || input.projectScoped || sameName(workspaceName, branch)
-    ? null
-    : workspaceName;
+  const workspace =
+    input.omitPlace || input.projectScoped || sameName(workspaceName, branch)
+      ? null
+      : workspaceName;
   return [project, workspace, branch, prStateLabel(input.prState)]
     .filter((part): part is string => Boolean(part))
     .join(" · ");

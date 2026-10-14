@@ -11,12 +11,7 @@ interface CopyButtonProps extends ComponentProps<"button"> {
   iconSize?: number;
 }
 
-const CopyButton = ({
-  content,
-  iconSize = 14,
-  className,
-  ...props
-}: CopyButtonProps) => {
+const CopyButton = ({ content, iconSize = 14, className, ...props }: CopyButtonProps) => {
   const t = useTranslations("shared.codeBlock");
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
@@ -48,13 +43,10 @@ const CopyButton = ({
       {isCopied ? (
         <CheckIcon
           size={iconSize}
-          className="animate-in zoom-in-50 text-green-900 duration-200 dark:text-green-400"
+          className="animate-in text-green-900 duration-200 zoom-in-50 dark:text-green-400"
         />
       ) : (
-        <CopyIcon
-          size={iconSize}
-          className="animate-in zoom-in-50 duration-200"
-        />
+        <CopyIcon size={iconSize} className="animate-in duration-200 zoom-in-50" />
       )}
     </button>
   );

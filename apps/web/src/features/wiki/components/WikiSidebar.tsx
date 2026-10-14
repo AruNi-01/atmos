@@ -69,15 +69,15 @@ const WikiSidebarLeaf: React.FC<{
       type="button"
       onClick={() => onSelectPage(item.file)}
       className={cn(
-        "flex items-center gap-2 w-full py-1.5 px-3 text-left text-sm rounded-none cursor-pointer group/leaf",
+        "group/leaf flex w-full cursor-pointer items-center gap-2 rounded-none px-3 py-1.5 text-left text-sm",
         "hover:bg-accent/50",
-        isActive && "bg-accent text-accent-foreground"
+        isActive && "bg-accent text-accent-foreground",
       )}
       style={{ paddingLeft: `${depth * 12 + 12}px` }}
     >
-      <span className="truncate flex-1">{item.title}</span>
+      <span className="flex-1 truncate">{item.title}</span>
       {item.reading_time && (
-        <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground opacity-0 group-hover/leaf:opacity-100 transition-opacity shrink-0">
+        <span className="flex shrink-0 items-center gap-0.5 text-[10px] text-muted-foreground opacity-0 transition-opacity group-hover/leaf:opacity-100">
           <Clock className="size-2.5" />
           {item.reading_time}m
         </span>
@@ -103,19 +103,15 @@ const WikiSidebarGroup: React.FC<{
     <Collapsible open={open} onOpenChange={setOpen}>
       <div
         className={cn(
-          "flex items-center w-full text-sm rounded-none",
+          "flex w-full items-center rounded-none text-sm",
           "hover:bg-accent/50",
-          isActive && "bg-accent"
+          isActive && "bg-accent",
         )}
         style={{ paddingLeft: `${depth * 12 + 12}px` }}
       >
         {/* Chevron toggle — only controls expand/collapse */}
-        <CollapsibleTrigger
-          className="shrink-0 mr-1 size-6 flex items-center justify-center rounded-sm cursor-pointer text-muted-foreground hover:text-foreground hover:bg-accent"
-        >
-          <ChevronRight
-            className={cn("size-3.5 transition-transform", open && "rotate-90")}
-          />
+        <CollapsibleTrigger className="mr-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground">
+          <ChevronRight className={cn("size-3.5 transition-transform", open && "rotate-90")} />
         </CollapsibleTrigger>
         {/* Title — clickable to navigate when group has an index file, otherwise toggles collapse */}
         {hasFile ? (
@@ -123,16 +119,14 @@ const WikiSidebarGroup: React.FC<{
             type="button"
             onClick={() => onSelectPage(item.file)}
             className={cn(
-              "flex-1 min-w-0 py-1.5 pr-3 text-left cursor-pointer truncate font-medium",
-              isActive ? "text-accent-foreground" : "text-muted-foreground hover:text-foreground"
+              "min-w-0 flex-1 cursor-pointer truncate py-1.5 pr-3 text-left font-medium",
+              isActive ? "text-accent-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
             {item.title}
           </button>
         ) : (
-          <CollapsibleTrigger
-            className="flex-1 min-w-0 py-1.5 pr-3 text-left cursor-pointer truncate font-medium text-muted-foreground hover:text-foreground"
-          >
+          <CollapsibleTrigger className="min-w-0 flex-1 cursor-pointer truncate py-1.5 pr-3 text-left font-medium text-muted-foreground hover:text-foreground">
             {item.title}
           </CollapsibleTrigger>
         )}
@@ -174,23 +168,25 @@ const WikiSidebarSection: React.FC<{
           type="button"
           onClick={() => onSelectPage(item.file)}
           className={cn(
-            "flex items-center gap-2 px-4 h-8 w-full text-left cursor-pointer rounded-none group/section",
+            "group/section flex h-8 w-full cursor-pointer items-center gap-2 rounded-none px-4 text-left",
             "hover:bg-accent/50",
-            isActive && "bg-accent"
+            isActive && "bg-accent",
           )}
         >
           <span
             className={cn(
-              "text-xs font-semibold uppercase tracking-wider leading-none",
-              isActive ? "text-accent-foreground" : "text-muted-foreground group-hover/section:text-foreground"
+              "text-xs leading-none font-semibold tracking-wider uppercase",
+              isActive
+                ? "text-accent-foreground"
+                : "text-muted-foreground group-hover/section:text-foreground",
             )}
           >
             {item.title}
           </span>
         </button>
       ) : (
-        <div className="flex items-center gap-2 px-4 h-8">
-          <span className="text-xs font-semibold uppercase tracking-wider leading-none text-muted-foreground">
+        <div className="flex h-8 items-center gap-2 px-4">
+          <span className="text-xs leading-none font-semibold tracking-wider text-muted-foreground uppercase">
             {item.title}
           </span>
         </div>
@@ -218,13 +214,7 @@ const WikiSidebarItem: React.FC<{
 }> = ({ item, depth, activePage, onSelectPage }) => {
   // Top-level sections are rendered as fixed section headers
   if (depth === 0 && isTopLevelSection(item)) {
-    return (
-      <WikiSidebarSection
-        item={item}
-        activePage={activePage}
-        onSelectPage={onSelectPage}
-      />
-    );
+    return <WikiSidebarSection item={item} activePage={activePage} onSelectPage={onSelectPage} />;
   }
 
   if (isLeaf(item)) {
@@ -273,25 +263,25 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex h-full flex-col bg-background">
       {/* 项目名称区域：名称+Info 合成一个按钮，右侧仅保留刷新按钮 */}
-      <div className="h-10 shrink-0 w-full flex items-stretch border-b border-border bg-muted/20">
+      <div className="flex h-10 w-full shrink-0 items-stretch border-b border-border bg-muted/20">
         <button
           type="button"
           onClick={() => setInfoOpen(true)}
           title={t("projectInfo")}
-          className="flex-1 min-w-0 flex items-center gap-2 px-3 text-left cursor-pointer hover:bg-accent/30 rounded-none"
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-none px-3 text-left hover:bg-accent/30"
         >
-          <h3 className="text-base font-semibold text-foreground truncate flex-1">
+          <h3 className="flex-1 truncate text-base font-semibold text-foreground">
             {project?.name ?? t("fallbackTitle")}
           </h3>
           <Info className="size-4 shrink-0 text-muted-foreground" />
         </button>
-        <div className="shrink-0 flex items-center border-l border-border">
+        <div className="flex shrink-0 items-center border-l border-border">
           {/* Refresh / Update button */}
-          <div className="w-10 flex items-center justify-center">
+          <div className="flex w-10 items-center justify-center">
             {checking ? (
-              <span className="flex items-center justify-center text-muted-foreground animate-spin">
+              <span className="flex animate-spin items-center justify-center text-muted-foreground">
                 <LoaderCircle className="size-4" />
               </span>
             ) : hasUpdate && onTriggerUpdate ? (
@@ -301,11 +291,14 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
                     <button
                       type="button"
                       onClick={onTriggerUpdate}
-                      className="relative size-10 flex items-center justify-center text-muted-foreground hover:bg-accent/30 cursor-pointer"
+                      className="relative flex size-10 cursor-pointer items-center justify-center text-muted-foreground hover:bg-accent/30"
                       aria-label={t("outdatedAria")}
                     >
                       <RotateCw className="size-4" />
-                      <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-foreground" aria-hidden />
+                      <span
+                        className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-foreground"
+                        aria-hidden
+                      />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="w-auto max-w-none whitespace-nowrap">
@@ -317,7 +310,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="flex items-center justify-center text-muted-foreground cursor-help size-10">
+                    <span className="flex size-10 cursor-help items-center justify-center text-muted-foreground">
                       <RotateCw className="size-4" />
                     </span>
                   </TooltipTrigger>
@@ -330,7 +323,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="flex items-center justify-center text-muted-foreground cursor-default size-10">
+                    <span className="flex size-10 cursor-default items-center justify-center text-muted-foreground">
                       <RotateCw className="size-4" />
                     </span>
                   </TooltipTrigger>
@@ -348,7 +341,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
                 <button
                   type="button"
                   onClick={onTriggerSpecify}
-                  className="size-10 flex items-center justify-center text-muted-foreground hover:bg-accent/30 cursor-pointer border-l border-border"
+                  className="flex size-10 cursor-pointer items-center justify-center border-l border-border text-muted-foreground hover:bg-accent/30"
                   aria-label={t("specifyAria")}
                 >
                   <FilePlus className="size-4" />
@@ -370,13 +363,17 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
           <div className="space-y-4 text-sm">
             {project?.description && (
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">{t("info.description")}</p>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">
+                  {t("info.description")}
+                </p>
                 <p className="text-foreground">{project.description}</p>
               </div>
             )}
             {project?.repository && (
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1.5">{t("info.repository")}</p>
+                <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                  {t("info.repository")}
+                </p>
                 <a
                   href={project.repository}
                   target="_blank"
@@ -386,21 +383,25 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
                   {React.createElement(getRepoIcon(project.repository), {
                     className: "size-4 shrink-0",
                   })}
-                  <span className="truncate max-w-[280px]">{project.repository}</span>
+                  <span className="max-w-[280px] truncate">{project.repository}</span>
                   <ExternalLink className="size-3 shrink-0 opacity-60" />
                 </a>
               </div>
             )}
-            <div className="flex justify-between items-start gap-4 pt-2 border-t border-border">
+            <div className="flex items-start justify-between gap-4 border-t border-border pt-2">
               {catalog.version && (
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-0.5">{t("info.version")}</p>
+                  <p className="mb-0.5 text-xs font-medium text-muted-foreground">
+                    {t("info.version")}
+                  </p>
                   <p className="font-mono text-foreground">{catalog.version}</p>
                 </div>
               )}
               {catalog.generated_at && (
-                <div className="text-right ml-auto">
-                  <p className="text-xs font-medium text-muted-foreground mb-0.5">{t("info.generated")}</p>
+                <div className="ml-auto text-right">
+                  <p className="mb-0.5 text-xs font-medium text-muted-foreground">
+                    {t("info.generated")}
+                  </p>
                   <p className="text-foreground">{formatGeneratedAt(catalog.generated_at)}</p>
                 </div>
               )}

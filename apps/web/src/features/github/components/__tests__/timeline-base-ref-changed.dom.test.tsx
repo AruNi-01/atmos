@@ -62,9 +62,7 @@ describe("base branch change timeline row", () => {
       node.getAttribute("title"),
     );
     expect(chips).toEqual([FROM, TO]);
-    expect(body.querySelector("svg path")?.getAttribute("d") ?? "").toContain(
-      "M9.5 3.25",
-    );
+    expect(body.querySelector("svg path")?.getAttribute("d") ?? "").toContain("M9.5 3.25");
   });
 
   it("uses the short sentence when the branch names are missing", () => {

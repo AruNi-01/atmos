@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { workbenchRelayClientKind } from "./workbench-relay-client-kind";
-import {
-  detectDesktopShell,
-  type AtmosDesktopPreload,
-} from "@/shared/lib/desktop-bridge";
+import { detectDesktopShell, type AtmosDesktopPreload } from "@/shared/lib/desktop-bridge";
 
 describe("workbenchRelayClientKind", () => {
   const g = globalThis as typeof globalThis & {

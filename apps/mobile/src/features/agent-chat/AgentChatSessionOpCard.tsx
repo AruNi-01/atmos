@@ -39,7 +39,9 @@ export function AgentChatSessionOpCard({
             <Pressable
               accessibilityRole="button"
               key={option.option_id}
-              onPress={() => onRespond({ requestId: request.request_id, optionId: option.option_id })}
+              onPress={() =>
+                onRespond({ requestId: request.request_id, optionId: option.option_id })
+              }
               style={({ pressed }) => ({
                 backgroundColor: pressed ? theme.colors.mutedPressed : theme.colors.control,
                 borderColor: theme.colors.controlBorder,
@@ -50,7 +52,14 @@ export function AgentChatSessionOpCard({
                 paddingVertical: 10,
               })}
             >
-              <Text style={{ color: theme.colors.label, fontSize: 15, fontWeight: "600", lineHeight: 20 }}>
+              <Text
+                style={{
+                  color: theme.colors.label,
+                  fontSize: 15,
+                  fontWeight: "600",
+                  lineHeight: 20,
+                }}
+              >
                 {label}
               </Text>
             </Pressable>

@@ -27,51 +27,38 @@ const CARD_CLASS =
   "flex w-80 flex-col rounded-2xl border border-border/60 bg-background/95 p-3.5 shadow-lg backdrop-blur-md";
 
 function isVisibleStaleRun(run: AutomationRunSummary): boolean {
-  return Boolean(
-    run.status === "running" &&
-      run.stale_prompted_at &&
-      !run.stale_prompt_dismissed,
-  );
+  return Boolean(run.status === "running" && run.stale_prompted_at && !run.stale_prompt_dismissed);
 }
 
-export function AutomationStalePromptBanner({
-  className,
-}: {
-  className?: string;
-}) {
+export function AutomationStalePromptBanner({ className }: { className?: string }) {
   const t = useTranslations("automation.stalePrompt");
   const runsQuery = useAutomationRunListQuery(ALL_AUTOMATION_RUNS_KEY);
   const [livePrompts, setLivePrompts] = React.useState<StalePromptEvent[]>([]);
   const [dismissing, setDismissing] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    const off = useWebSocketStore.getState().onEvent(
-      "automation_stale_prompt",
-      (event) => {
-        const payload = event as StalePromptEvent;
-        setLivePrompts((current) => {
-          if (current.some((item) => item.run_guid === payload.run_guid)) {
-            return current;
-          }
-          return [...current, payload];
-        });
-        const client = getAtmosWebQueryClient();
-        invalidateAutomationRunQueries(client, getComputerQueryScope());
-      },
-    );
+    const off = useWebSocketStore.getState().onEvent("automation_stale_prompt", (event) => {
+      const payload = event as StalePromptEvent;
+      setLivePrompts((current) => {
+        if (current.some((item) => item.run_guid === payload.run_guid)) {
+          return current;
+        }
+        return [...current, payload];
+      });
+      const client = getAtmosWebQueryClient();
+      invalidateAutomationRunQueries(client, getComputerQueryScope());
+    });
     return off;
   }, []);
 
-  const fromRuns = (runsQuery.data?.runs ?? [])
-    .filter(isVisibleStaleRun)
-    .map((run) => ({
-      automation_guid: run.automation_guid,
-      run_guid: run.guid,
-      display_name: run.terminal_display_name || run.guid,
-      execute_mode: String(run.execute_mode ?? "terminal"),
-      surface_scope_id: run.surface_scope_id,
-      surface_session_id: run.surface_session_id,
-    }));
+  const fromRuns = (runsQuery.data?.runs ?? []).filter(isVisibleStaleRun).map((run) => ({
+    automation_guid: run.automation_guid,
+    run_guid: run.guid,
+    display_name: run.terminal_display_name || run.guid,
+    execute_mode: String(run.execute_mode ?? "terminal"),
+    surface_scope_id: run.surface_scope_id,
+    surface_session_id: run.surface_session_id,
+  }));
 
   const prompts: StalePromptEvent[] = [...fromRuns];
   for (const live of livePrompts) {
@@ -89,9 +76,7 @@ export function AutomationStalePromptBanner({
       await wsRequest("automation_run_stale_dismiss", {
         run_guid: prompt.run_guid,
       });
-      setLivePrompts((current) =>
-        current.filter((item) => item.run_guid !== prompt.run_guid),
-      );
+      setLivePrompts((current) => current.filter((item) => item.run_guid !== prompt.run_guid));
       const client = getAtmosWebQueryClient();
       invalidateAutomationRunQueries(client, getComputerQueryScope());
     } finally {

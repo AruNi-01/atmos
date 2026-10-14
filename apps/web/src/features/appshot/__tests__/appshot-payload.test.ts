@@ -6,11 +6,7 @@ import {
   sanitizeRecordDetailPayload,
   toBoundedScreenshotDataUrl,
 } from "../lib/appshot-payload";
-import type {
-  AppshotPendingPreview,
-  AppshotRecordDetail,
-  AppshotRecordMetadata,
-} from "../types";
+import type { AppshotPendingPreview, AppshotRecordDetail, AppshotRecordMetadata } from "../types";
 
 describe("appshot payload guards", () => {
   it("keeps bounded screenshot payloads renderable", () => {
@@ -72,12 +68,9 @@ function metadata(): AppshotRecordMetadata {
     window_id: null,
     quality: "screenshot_and_accessibility",
     record_dir: "/Users/example/.atmos/appshots/records/1760000000000",
-    snapshot_path:
-      "/Users/example/.atmos/appshots/records/1760000000000/snapshot.png",
-    context_path:
-      "/Users/example/.atmos/appshots/records/1760000000000/context.md",
-    metadata_path:
-      "/Users/example/.atmos/appshots/records/1760000000000/metadata.json",
+    snapshot_path: "/Users/example/.atmos/appshots/records/1760000000000/snapshot.png",
+    context_path: "/Users/example/.atmos/appshots/records/1760000000000/context.md",
+    metadata_path: "/Users/example/.atmos/appshots/records/1760000000000/metadata.json",
     screenshot: {
       available: true,
       width: 1200,

@@ -1,66 +1,51 @@
 "use client";
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useQueryState } from "nuqs";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
-import {
-  llmProvidersModalParams,
-  skillsModalParams,
-} from "@/shared/lib/nuqs/searchParams";
-import {
-  cn,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@workspace/ui';
+import { llmProvidersModalParams, skillsModalParams } from "@/shared/lib/nuqs/searchParams";
+import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@workspace/ui";
 import { motion } from "motion/react";
-import { QuickOpen } from './QuickOpen';
-import { HeaderAttentionBell } from './HeaderAttentionBell';
-import { useGitInfoStore } from '@/features/git/store/use-git-info-store';
-import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
-import { useGitBranchesQuery } from '@/features/git/hooks/use-git-branches-query';
-import { invalidateGitQueries } from '@/features/git/hooks/use-git-changed-files-query';
-import { useProjectStore } from '@/features/project/store/use-project-store';
-import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
-import { useDialogStore } from '@/app-shell/state/use-dialog-store';
-import { useEditorStore } from '@/features/editor/store/use-editor-store';
-import { gitApi, wsWorkspaceApi } from '@/api/ws-api';
-import { getAtmosWebQueryClient } from '@/providers/app/query-client';
-import { getComputerQueryScope } from '@/api/query/query-scope';
-import { queryKeys } from '@/api/query/query-keys';
-import { toastManager } from '@workspace/ui';
-import { DeleteWorkspaceDialog } from '@/features/workspace/components/DeleteWorkspaceDialog';
-import { DeleteProjectDialog } from '@/features/project/components/DeleteProjectDialog';
-import { SkillsModal } from '@/features/skills';
-import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
-import { useFocusRestore } from '@/shared/hooks/use-focus-restore';
-import { useDesktopWindowDrag } from '@/shared/hooks/use-desktop-window-drag';
-import { useDesktopTrafficLightsPadding } from '@/shared/hooks/use-desktop-traffic-lights-padding';
-import { useDesktopWebLauncher } from '@/shared/hooks/use-desktop-web-launcher';
-import { isDesktopRuntime as detectDesktopShell } from '@/shared/lib/desktop-runtime';
-import { useTunnelConnector } from '@/features/connection/hooks/use-tunnel-connector';
-import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
-import { APP_HEADER_HEIGHT_CLASS } from '@/app-shell/sidebar-layout-constants';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Command,
-  PanelLeft,
-  RotateCw,
-} from "lucide-react";
-import { HeaderWorkspaceJobs } from './HeaderWorkspaceJobs';
-import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-setup';
+import { QuickOpen } from "./QuickOpen";
+import { HeaderAttentionBell } from "./HeaderAttentionBell";
+import { useGitInfoStore } from "@/features/git/store/use-git-info-store";
+import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
+import { useGitBranchesQuery } from "@/features/git/hooks/use-git-branches-query";
+import { invalidateGitQueries } from "@/features/git/hooks/use-git-changed-files-query";
+import { useProjectStore } from "@/features/project/store/use-project-store";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
+import { useDialogStore } from "@/app-shell/state/use-dialog-store";
+import { useEditorStore } from "@/features/editor/store/use-editor-store";
+import { gitApi, wsWorkspaceApi } from "@/api/ws-api";
+import { getAtmosWebQueryClient } from "@/providers/app/query-client";
+import { getComputerQueryScope } from "@/api/query/query-scope";
+import { queryKeys } from "@/api/query/query-keys";
+import { toastManager } from "@workspace/ui";
+import { DeleteWorkspaceDialog } from "@/features/workspace/components/DeleteWorkspaceDialog";
+import { DeleteProjectDialog } from "@/features/project/components/DeleteProjectDialog";
+import { SkillsModal } from "@/features/skills";
+import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
+import { useFocusRestore } from "@/shared/hooks/use-focus-restore";
+import { useDesktopWindowDrag } from "@/shared/hooks/use-desktop-window-drag";
+import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
+import { useDesktopWebLauncher } from "@/shared/hooks/use-desktop-web-launcher";
+import { isDesktopRuntime as detectDesktopShell } from "@/shared/lib/desktop-runtime";
+import { useTunnelConnector } from "@/features/connection/hooks/use-tunnel-connector";
+import { useSidebarLayout } from "@/app-shell/SidebarLayoutContext";
+import { APP_HEADER_HEIGHT_CLASS } from "@/app-shell/sidebar-layout-constants";
+import { ChevronLeft, ChevronRight, Command, PanelLeft, RotateCw } from "lucide-react";
+import { HeaderWorkspaceJobs } from "./HeaderWorkspaceJobs";
+import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
 import { useTranslations } from "next-intl";
-import { getBranchSyncIndicatorState, getSessionUrgency } from './header-parts';
-import { HeaderActionControls } from './header-action-controls';
+import { getBranchSyncIndicatorState, getSessionUrgency } from "./header-parts";
+import { HeaderActionControls } from "./header-action-controls";
 import { CenterSpaceSwitcher } from "@/app-shell/center-space/CenterSpaceSwitcher";
-import { HeaderGitContext } from './header-git-context';
-import { isStandaloneAutomationScope } from '@/features/automations/lib/automation-run-landing';
-import { useHeaderFullscreen } from './use-header-fullscreen';
-import { useHeaderHotkeys } from './use-header-hotkeys';
-import { settingsHref } from '@/features/settings/lib/open-settings';
+import { HeaderGitContext } from "./header-git-context";
+import { isStandaloneAutomationScope } from "@/features/automations/lib/automation-run-landing";
+import { useHeaderFullscreen } from "./use-header-fullscreen";
+import { useHeaderHotkeys } from "./use-header-hotkeys";
+import { settingsHref } from "@/features/settings/lib/open-settings";
 import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
 
 const Header: React.FC = () => {
@@ -68,15 +53,16 @@ const Header: React.FC = () => {
   const router = useAppRouter();
 
   const searchParams = useSearchParams();
-  const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
+  const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } =
+    useContextParams();
   const { isLeftCollapsed, toggleLeftSidebar } = useSidebarLayout();
   const { handleDesktopWindowMouseDown, isDesktopDragEnabled } = useDesktopWindowDrag();
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
 
   const projects = useProjects();
-  const updateWorkspaceBranch = useProjectStore(s => s.updateWorkspaceBranch);
+  const updateWorkspaceBranch = useProjectStore((s) => s.updateWorkspaceBranch);
   const currentSetupProgress = useProjectStore((s) =>
-    currentWorkspaceId ? s.setupProgress[currentWorkspaceId] ?? null : null,
+    currentWorkspaceId ? (s.setupProgress[currentWorkspaceId] ?? null) : null,
   );
   const { setGlobalSearchOpen, setHeaderHasOpenOverlay } = useDialogStore();
   const t = useTranslations("header");
@@ -95,28 +81,24 @@ const Header: React.FC = () => {
   const refreshCurrentRoute = useCallback(() => {
     window.location.reload();
   }, []);
-  const setCurrentProjectPath = useEditorStore(s => s.setCurrentProjectPath);
-  const editorRepoPath = useEditorStore(s => s.currentProjectPath);
-  const {
-    targetBranch,
-    setCurrentContext,
-    setTargetBranch,
-  } = useGitInfoStore();
+  const setCurrentProjectPath = useEditorStore((s) => s.setCurrentProjectPath);
+  const editorRepoPath = useEditorStore((s) => s.currentProjectPath);
+  const { targetBranch, setCurrentContext, setTargetBranch } = useGitInfoStore();
 
   // Find current project based on workspaceId OR projectId
-  const currentProject = projects.find(p =>
-    (currentWorkspaceId && p.workspaces.some(w => w.id === currentWorkspaceId)) ||
-    (!currentWorkspaceId && currentProjectIdFromUrl === p.id)
+  const currentProject = projects.find(
+    (p) =>
+      (currentWorkspaceId && p.workspaces.some((w) => w.id === currentWorkspaceId)) ||
+      (!currentWorkspaceId && currentProjectIdFromUrl === p.id),
   );
-  const currentWorkspace = currentProject?.workspaces.find(
-    w => w.id === currentWorkspaceId
-  );
+  const currentWorkspace = currentProject?.workspaces.find((w) => w.id === currentWorkspaceId);
   const currentProjectIdForContext = currentProject?.id ?? null;
   const currentProjectMainFilePath = currentProject?.mainFilePath ?? null;
   const currentWorkspaceLocalPath = currentWorkspace?.localPath ?? null;
   const isSettingUp = isWorkspaceSetupBlocking(currentSetupProgress);
 
-  const headerRepoPath = currentWorkspaceLocalPath || currentProjectMainFilePath || editorRepoPath || null;
+  const headerRepoPath =
+    currentWorkspaceLocalPath || currentProjectMainFilePath || editorRepoPath || null;
 
   const statusQuery = useGitStatusQuery(headerRepoPath);
   const currentBranch = statusQuery.data?.current_branch ?? null;
@@ -137,7 +119,7 @@ const Header: React.FC = () => {
 
   // Editable state for current branch
   const [isEditingCurrentBranch, setIsEditingCurrentBranch] = useState(false);
-  const [editedCurrentBranch, setEditedCurrentBranch] = useState('');
+  const [editedCurrentBranch, setEditedCurrentBranch] = useState("");
 
   // Available branches — session snapshot + Query (no per-switch local refetch flash)
   const branchesQuery = useGitBranchesQuery(
@@ -149,13 +131,16 @@ const Header: React.FC = () => {
   }, [branchesQuery.data?.remote]);
   const isLoadingBranches = branchesQuery.isLoading;
   const [isTargetBranchOpen, setIsTargetBranchOpen] = useState(false);
-  const [targetBranchFilter, setTargetBranchFilter] = useState('');
+  const [targetBranchFilter, setTargetBranchFilter] = useState("");
 
   // Skills modal state (URL-persisted via nuqs)
-  const [isSkillsModalOpen, setSkillsModalOpen] = useQueryState("skillsModal", skillsModalParams.skillsModal);
+  const [isSkillsModalOpen, setSkillsModalOpen] = useQueryState(
+    "skillsModal",
+    skillsModalParams.skillsModal,
+  );
   const [isLlmProvidersOpen, setLlmProvidersOpen] = useQueryState(
     "llmProvidersModal",
-    llmProvidersModalParams.llmProvidersModal
+    llmProvidersModalParams.llmProvidersModal,
   );
   useEffect(() => {
     if (!isLlmProvidersOpen) return;
@@ -164,7 +149,7 @@ const Header: React.FC = () => {
   }, [isLlmProvidersOpen, router, setLlmProvidersOpen]);
   const desktopWebSearch = useMemo(() => {
     const query = searchParams.toString();
-    return query ? `?${query}` : '';
+    return query ? `?${query}` : "";
   }, [searchParams]);
   const {
     browserUrl,
@@ -184,20 +169,20 @@ const Header: React.FC = () => {
     renew: renewTunnelConnector,
   } = useTunnelConnector(showHeaderRemoteAccess);
   // Collect all active (Running) tunnels for display in the header.
-  const activeTunnelConnectors = useMemo(() =>
-    Object.values(tunnelConnectorStatusMap).filter(
-      (s): s is NonNullable<typeof s> =>
-        !!s && s.provider_status?.state === 'Running',
-    ),
-    [tunnelConnectorStatusMap]
+  const activeTunnelConnectors = useMemo(
+    () =>
+      Object.values(tunnelConnectorStatusMap).filter(
+        (s): s is NonNullable<typeof s> => !!s && s.provider_status?.state === "Running",
+      ),
+    [tunnelConnectorStatusMap],
   );
   const isTunnelConnectorRunning = activeTunnelConnectors.length > 0;
   const tunnelConnectorDotColor = useMemo(() => {
-    if (!isTunnelConnectorRunning) return 'bg-emerald-500';
+    if (!isTunnelConnectorRunning) return "bg-emerald-500";
     const urgencies = activeTunnelConnectors.map((t) => getSessionUrgency(t.expires_at));
-    if (urgencies.some((u) => u === 'expired')) return 'bg-red-500';
-    if (urgencies.some((u) => u === 'warning')) return 'bg-amber-500';
-    return 'bg-emerald-500';
+    if (urgencies.some((u) => u === "expired")) return "bg-red-500";
+    if (urgencies.some((u) => u === "warning")) return "bg-amber-500";
+    return "bg-emerald-500";
   }, [activeTunnelConnectors, isTunnelConnectorRunning]);
 
   const [deleteWorkspaceDialog, setDeleteWorkspaceDialog] = useState<{
@@ -214,7 +199,7 @@ const Header: React.FC = () => {
     onDeleted?: () => void;
   } | null>(null);
 
-  const deleteProject = useProjectStore(s => s.deleteProject);
+  const deleteProject = useProjectStore((s) => s.deleteProject);
 
   useHeaderHotkeys({
     refreshCurrentRoute,
@@ -232,11 +217,7 @@ const Header: React.FC = () => {
           setCurrentContext(null, null, null);
           setCurrentProjectPath(null);
         } else {
-          setCurrentContext(
-            currentProjectIdForContext,
-            currentWorkspaceId,
-            effectivePath
-          );
+          setCurrentContext(currentProjectIdForContext, currentWorkspaceId, effectivePath);
           // Set path first, then git status will be refreshed by the git store
           setCurrentProjectPath(effectivePath);
         }
@@ -272,14 +253,15 @@ const Header: React.FC = () => {
 
   // Initialize edited branches
   useEffect(() => {
-    setEditedCurrentBranch(currentWorkspace?.branch || '');
+    setEditedCurrentBranch(currentWorkspace?.branch || "");
   }, [currentWorkspace?.branch]);
 
   const filteredBranches = useMemo(
-    () => availableBranches.filter(branch =>
-      branch.toLowerCase().includes(targetBranchFilter.trim().toLowerCase())
-    ),
-    [availableBranches, targetBranchFilter]
+    () =>
+      availableBranches.filter((branch) =>
+        branch.toLowerCase().includes(targetBranchFilter.trim().toLowerCase()),
+      ),
+    [availableBranches, targetBranchFilter],
   );
 
   const handleSaveCurrentBranch = async () => {
@@ -290,11 +272,7 @@ const Header: React.FC = () => {
     if (newBranch && newBranch !== oldBranch) {
       try {
         // 1. Rename the actual git branch in the repo (using workspace path)
-        const result = await gitApi.renameBranch(
-          currentWorkspace.localPath,
-          oldBranch,
-          newBranch
-        );
+        const result = await gitApi.renameBranch(currentWorkspace.localPath, oldBranch, newBranch);
 
         if (result.success) {
           // 2. Update the workspace branch name in DB
@@ -313,12 +291,12 @@ const Header: React.FC = () => {
           }
         }
       } catch (error) {
-        console.error('Failed to rename branch:', error);
+        console.error("Failed to rename branch:", error);
         const errorMessage = error instanceof Error ? error.message : t("toast.unknownError");
         toastManager.add({
           title: t("toast.renameFailed"),
           description: errorMessage,
-          type: 'error'
+          type: "error",
         });
         // Reset edited branch to original
         setEditedCurrentBranch(oldBranch);
@@ -328,20 +306,26 @@ const Header: React.FC = () => {
   };
 
   const handleCancelEditCurrentBranch = () => {
-    setEditedCurrentBranch(currentWorkspace?.branch || '');
+    setEditedCurrentBranch(currentWorkspace?.branch || "");
     setIsEditingCurrentBranch(false);
   };
 
   // Get display values
-  const displayCurrentBranch = currentWorkspace?.branch || currentBranch || t("labels.defaultBranch");
-  const displayTargetBranch = currentProject?.targetBranch || targetBranch || t("labels.defaultMainBranch");
+  const displayCurrentBranch =
+    currentWorkspace?.branch || currentBranch || t("labels.defaultBranch");
+  const displayTargetBranch =
+    currentProject?.targetBranch || targetBranch || t("labels.defaultMainBranch");
   const branchSyncState = useMemo(
-    () => getBranchSyncIndicatorState({
-      defaultBranch,
-      ahead: defaultBranchAhead,
-      behind: defaultBranchBehind,
-    }, t),
-    [defaultBranch, defaultBranchAhead, defaultBranchBehind, t]
+    () =>
+      getBranchSyncIndicatorState(
+        {
+          defaultBranch,
+          ahead: defaultBranchAhead,
+          behind: defaultBranchBehind,
+        },
+        t,
+      ),
+    [defaultBranch, defaultBranchAhead, defaultBranchBehind, t],
   );
 
   const handleOpenDesktopWeb = useCallback(async () => {
@@ -354,13 +338,12 @@ const Header: React.FC = () => {
     toastManager.add({
       title: t("toast.webNotReadyTitle"),
       description: t("toast.webNotReadyDescription"),
-      type: 'error',
+      type: "error",
     });
   }, [openInBrowser, t]);
 
   const isAnyHeaderOverlayOpen =
-    desktopWebPopoverOpen || isQuotaPopoverOpen ||
-    isSkillsModalOpen || isTargetBranchOpen;
+    desktopWebPopoverOpen || isQuotaPopoverOpen || isSkillsModalOpen || isTargetBranchOpen;
 
   useEffect(() => {
     setHeaderHasOpenOverlay(isAnyHeaderOverlayOpen);
@@ -376,7 +359,7 @@ const Header: React.FC = () => {
           // Stretch so the empty fillers above the center stage are full header
           // height. Electron only honors `-webkit-app-region: drag` on a hittable
           // box — a pointer-events-none overlay and flex gaps do not count.
-          "relative flex px-4 select-none transition-[padding] duration-300 ease-out",
+          "relative flex px-4 transition-[padding] duration-300 ease-out select-none",
           APP_HEADER_HEIGHT_CLASS,
           isDesktopDragEnabled && "desktop-drag-region",
           // Header spans the full window, including over the left sidebar.
@@ -387,8 +370,8 @@ const Header: React.FC = () => {
         <div
           className={cn(
             // gap-6 separates chrome controls (left) from app actions (bell / quick open).
-            "relative z-10 desktop-no-drag flex shrink-0 items-center gap-6 transition-[opacity,transform] duration-300 ease-out",
-            isDesktopFullscreenExiting ? "opacity-0 translate-x-2" : "opacity-100 translate-x-0"
+            "desktop-no-drag relative z-10 flex shrink-0 items-center gap-6 transition-[opacity,transform] duration-300 ease-out",
+            isDesktopFullscreenExiting ? "translate-x-2 opacity-0" : "translate-x-0 opacity-100",
           )}
         >
           {/* Chrome controls: sidebar toggle + history — one tight group. */}
@@ -409,9 +392,14 @@ const Header: React.FC = () => {
               </TooltipTrigger>
               <TooltipContent>
                 <div className="flex items-center gap-2">
-                  <span>{isLeftCollapsed ? t("leftSidebar.expandLabel") : t("leftSidebar.collapseLabel")}</span>
-                  <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-                    <Command className="size-3" /><span className="text-xs">B</span>
+                  <span>
+                    {isLeftCollapsed
+                      ? t("leftSidebar.expandLabel")
+                      : t("leftSidebar.collapseLabel")}
+                  </span>
+                  <kbd className="pointer-events-none inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90 select-none">
+                    <Command className="size-3" />
+                    <span className="text-xs">B</span>
                   </kbd>
                 </div>
               </TooltipContent>
@@ -422,7 +410,7 @@ const Header: React.FC = () => {
                   type="button"
                   aria-label={t("navigation.goBack")}
                   onClick={() => window.history.back()}
-                  className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 >
                   <ChevronLeft className="size-4" />
                 </button>
@@ -430,8 +418,9 @@ const Header: React.FC = () => {
               <TooltipContent>
                 <div className="flex items-center gap-2">
                   <span>{t("navigation.back")}</span>
-                  <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-                    <Command className="size-3" /><span className="text-xs">[</span>
+                  <kbd className="pointer-events-none inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90 select-none">
+                    <Command className="size-3" />
+                    <span className="text-xs">[</span>
                   </kbd>
                 </div>
               </TooltipContent>
@@ -442,7 +431,7 @@ const Header: React.FC = () => {
                   type="button"
                   aria-label={t("navigation.goForward")}
                   onClick={() => window.history.forward()}
-                  className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 >
                   <ChevronRight className="size-4" />
                 </button>
@@ -450,8 +439,9 @@ const Header: React.FC = () => {
               <TooltipContent>
                 <div className="flex items-center gap-2">
                   <span>{t("navigation.forward")}</span>
-                  <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-                    <Command className="size-3" /><span className="text-xs">]</span>
+                  <kbd className="pointer-events-none inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90 select-none">
+                    <Command className="size-3" />
+                    <span className="text-xs">]</span>
                   </kbd>
                 </div>
               </TooltipContent>
@@ -462,7 +452,7 @@ const Header: React.FC = () => {
                   type="button"
                   aria-label={t("navigation.refreshPage")}
                   onClick={refreshCurrentRoute}
-                  className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 >
                   <RotateCw className="size-4" />
                 </button>
@@ -470,8 +460,9 @@ const Header: React.FC = () => {
               <TooltipContent>
                 <div className="flex items-center gap-2">
                   <span>{t("navigation.refresh")}</span>
-                  <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-                    <Command className="size-3" /><span className="text-xs">R</span>
+                  <kbd className="pointer-events-none inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90 select-none">
+                    <Command className="size-3" />
+                    <span className="text-xs">R</span>
                   </kbd>
                 </div>
               </TooltipContent>
@@ -479,9 +470,9 @@ const Header: React.FC = () => {
           </div>
 
           {isLeftCollapsed ? (
-            <div className="flex min-w-0 max-w-[340px] items-center overflow-hidden">
+            <div className="flex max-w-[340px] min-w-0 items-center overflow-hidden">
               <span className="mr-2 text-lg font-light text-muted-foreground/30">/</span>
-              <span className="text-balance truncate whitespace-nowrap text-[12px] font-medium text-muted-foreground">
+              <span className="truncate text-[12px] font-medium text-balance whitespace-nowrap text-muted-foreground">
                 {currentProject?.name || t("projectFallback")}
               </span>
             </div>
@@ -509,7 +500,7 @@ const Header: React.FC = () => {
 
         <HeaderWindowDragFiller enabled={isDesktopDragEnabled} />
 
-        <div className="relative z-10 desktop-no-drag flex min-w-0 items-center gap-5">
+        <div className="desktop-no-drag relative z-10 flex min-w-0 items-center gap-5">
           {showHeaderGitToolbar && !hideStandaloneGitChrome && (
             <HeaderGitContext
               branchSyncState={branchSyncState}
@@ -585,7 +576,7 @@ const Header: React.FC = () => {
                 await wsWorkspaceApi.delete(deleteWorkspaceDialog.workspaceId);
                 deleteWorkspaceDialog.onDeleted?.();
               } catch (error) {
-                console.error('Failed to delete workspace:', error);
+                console.error("Failed to delete workspace:", error);
               }
               setDeleteWorkspaceDialog(null);
             }}
@@ -609,10 +600,7 @@ const Header: React.FC = () => {
         )}
 
         {/* Skills Modal */}
-        <SkillsModal
-          isOpen={isSkillsModalOpen}
-          onClose={() => setSkillsModalOpen(false)}
-        />
+        <SkillsModal isOpen={isSkillsModalOpen} onClose={() => setSkillsModalOpen(false)} />
       </header>
     </TooltipProvider>
   );
@@ -624,10 +612,7 @@ function HeaderWindowDragFiller({ enabled }: { enabled: boolean }) {
       aria-hidden
       data-desktop-window-drag=""
       data-tauri-drag-region={enabled ? "true" : undefined}
-      className={cn(
-        "min-h-0 min-w-0 flex-1 self-stretch",
-        enabled && "desktop-drag-region",
-      )}
+      className={cn("min-h-0 min-w-0 flex-1 self-stretch", enabled && "desktop-drag-region")}
     />
   );
 }

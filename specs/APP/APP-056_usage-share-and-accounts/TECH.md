@@ -6,45 +6,43 @@
 
 ## Scope summary
 
-| In Phase 1 | Out of Phase 1 (later) |
-|------------|------------------------|
+| In Phase 1                                                | Out of Phase 1 (later)                  |
+| --------------------------------------------------------- | --------------------------------------- |
 | `packages/hub` + Better Auth + Drizzle + D1 + optional R2 | Email magic link / more OAuth providers |
-| GitHub **and** Google social login | Continuous multi-device usage rollup |
-| Device mint / rotate / revoke via Hub session | Server-side OG canvas render |
-| Relay: user-owned Computers; device credential Bearer | Leaderboards / year-in-review |
-| Snapshot publish + public `/s/:id`, `/u/:handle` | Org/team accounts |
-| Web Token Usage “Publish page” + Settings devices UI | Hosted sandbox compute |
+| GitHub **and** Google social login                        | Continuous multi-device usage rollup    |
+| Device mint / rotate / revoke via Hub session             | Server-side OG canvas render            |
+| Relay: user-owned Computers; device credential Bearer     | Leaderboards / year-in-review           |
+| Snapshot publish + public `/s/:id`, `/u/:handle`          | Org/team accounts                       |
+| Web Token Usage “Publish page” + Settings devices UI      | Hosted sandbox compute                  |
 
 This spec **does** change Relay **identity** (user_id + device credentials) but **does not** put usage-share product routes into Relay. **No backward compatibility** with user-generated Access Token tenants.
-
 
 ## Naming (why not `cloud`)
 
 **Do not** name this package/service `cloud`. The word is reserved as the **product umbrella** for future hosted compute (cloud Agents, sandboxes, managed runtime). This Phase 1 surface is only **accounts + public shares**.
 
-| Layer | Name | Domain | Responsibility |
-|-------|------|--------|----------------|
-| Product umbrella (marketing) | **Atmos Cloud** (optional later) | — | Hosted product tier narrative, not a single Worker |
-| Identity & social control plane | **`packages/hub`** | `hub.atmos.land` | GitHub accounts, sessions, usage shares, profiles, later billing/entitlements |
-| Connection fabric | **`packages/relay`** | `relay.atmos.land` | Computers, WS, gateway, GitHub trigger ingress |
-| Hosted agent compute (future) | **`packages/sandbox`** (or `hosted-runtime`) | `run.atmos.land` / `sandbox.atmos.land` | Provision sandbox, runtime, agent execution |
-| Public pages | **`apps/landing`** | `atmos.land/s`, `/u` | SEO/OG HTML |
+| Layer                           | Name                                         | Domain                                  | Responsibility                                                                |
+| ------------------------------- | -------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------- |
+| Product umbrella (marketing)    | **Atmos Cloud** (optional later)             | —                                       | Hosted product tier narrative, not a single Worker                            |
+| Identity & social control plane | **`packages/hub`**                           | `hub.atmos.land`                        | GitHub accounts, sessions, usage shares, profiles, later billing/entitlements |
+| Connection fabric               | **`packages/relay`**                         | `relay.atmos.land`                      | Computers, WS, gateway, GitHub trigger ingress                                |
+| Hosted agent compute (future)   | **`packages/sandbox`** (or `hosted-runtime`) | `run.atmos.land` / `sandbox.atmos.land` | Provision sandbox, runtime, agent execution                                   |
+| Public pages                    | **`apps/landing`**                           | `atmos.land/s`, `/u`                    | SEO/OG HTML                                                                   |
 
 **Hub vs future sandbox:** Hub authenticates the user and may later call “create run” APIs; it does **not** host PTY/agent processes. Sandbox/runtime is a separate blast-radius and scaling domain.
 
 **Env var:** `NEXT_PUBLIC_ATMOS_HUB_URL` (not `…_CLOUD_URL`).
 
-
 ## Terminology (Better Auth vs product)
 
-| Term | Meaning in this spec |
-|------|----------------------|
-| **User** / `user_id` | Better Auth **`user`** row. **Canonical owner** of devices, shares, Computers, installs. All FKs use `user_id`. |
-| **Session** | Better Auth browser session (login cookie). Not a Relay Bearer. |
-| **Account** (Better Auth table) | **OAuth provider link only** (`account` table: GitHub/Google subject + tokens). **Not** billing, **not** the product owner id. |
-| **Atmos Account** (product copy) | Marketing/UI name for “signed-in Atmos user”. Maps to `user`, never to Better Auth `account` row id. |
-| **Device** | Machine credential under `user_id`; Relay Bearer. |
-| **Billing account / subscription** | Out of scope; if added later, separate table (e.g. `subscriptions`) keyed by `user_id` — still not Better Auth `account`. |
+| Term                               | Meaning in this spec                                                                                                           |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **User** / `user_id`               | Better Auth **`user`** row. **Canonical owner** of devices, shares, Computers, installs. All FKs use `user_id`.                |
+| **Session**                        | Better Auth browser session (login cookie). Not a Relay Bearer.                                                                |
+| **Account** (Better Auth table)    | **OAuth provider link only** (`account` table: GitHub/Google subject + tokens). **Not** billing, **not** the product owner id. |
+| **Atmos Account** (product copy)   | Marketing/UI name for “signed-in Atmos user”. Maps to `user`, never to Better Auth `account` row id.                           |
+| **Device**                         | Machine credential under `user_id`; Relay Bearer.                                                                              |
+| **Billing account / subscription** | Out of scope; if added later, separate table (e.g. `subscriptions`) keyed by `user_id` — still not Better Auth `account`.      |
 
 **Rule:** Never name a column `account_id` for the product owner. Use **`user_id`** (= `user.id`). When you mean OAuth link rows, say **provider account** or table `account`.
 
@@ -62,13 +60,13 @@ This spec **does** change Relay **identity** (user_id + device credentials) but 
 
 ### Out of scope for this package
 
-| Concern | Owner |
-|---------|--------|
-| Local overview / tokscale | `crates/token-usage`, `apps/api` |
-| Computer online presence, WS, HTTP gateway | `packages/relay` |
-| GitHub **webhook → automation dispatch** | `packages/relay` (APP-019); ownership may reference `user_id` later |
-| Hosted Agent sandbox / managed runtime | Future `packages/sandbox` (or `hosted-runtime`) |
-| Product UI chrome | `apps/web`, `apps/landing` (landing only renders public share HTML) |
+| Concern                                    | Owner                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------- |
+| Local overview / tokscale                  | `crates/token-usage`, `apps/api`                                    |
+| Computer online presence, WS, HTTP gateway | `packages/relay`                                                    |
+| GitHub **webhook → automation dispatch**   | `packages/relay` (APP-019); ownership may reference `user_id` later |
+| Hosted Agent sandbox / managed runtime     | Future `packages/sandbox` (or `hosted-runtime`)                     |
+| Product UI chrome                          | `apps/web`, `apps/landing` (landing only renders public share HTML) |
 
 ### Growth rule
 
@@ -76,14 +74,14 @@ New Hub modules are fine when they pass the membership test (user-owned + public
 
 ### Canonical identifiers
 
-| Item | Value |
-|------|--------|
-| Package path | `packages/hub` |
-| Worker name | `atmos-hub` |
-| Public API host | `https://hub.atmos.land` |
-| D1 binding name | `DB` on database `atmos-hub` |
-| Client env | `NEXT_PUBLIC_ATMOS_HUB_URL` |
-| Session cookie | Better Auth session on Hub only (not used as Relay Bearer) |
+| Item            | Value                                                      |
+| --------------- | ---------------------------------------------------------- |
+| Package path    | `packages/hub`                                             |
+| Worker name     | `atmos-hub`                                                |
+| Public API host | `https://hub.atmos.land`                                   |
+| D1 binding name | `DB` on database `atmos-hub`                               |
+| Client env      | `NEXT_PUBLIC_ATMOS_HUB_URL`                                |
+| Session cookie  | Better Auth session on Hub only (not used as Relay Bearer) |
 
 ## Architecture overview
 
@@ -117,28 +115,28 @@ flowchart TB
 
 ### Domain map
 
-| Host | Owner package | Role |
-|------|---------------|------|
+| Host               | Owner package    | Role                                                       |
+| ------------------ | ---------------- | ---------------------------------------------------------- |
 | `relay.atmos.land` | `packages/relay` | Computers, WS, gateway, GitHub **webhook/trigger** ingress |
-| `hub.atmos.land` | `packages/hub` | Accounts, sessions, usage shares, public JSON |
-| `app.atmos.land` | `apps/web` | Product UI; local usage; publish controls |
-| `atmos.land` | `apps/landing` | Marketing + public share/profile HTML + OG meta |
+| `hub.atmos.land`   | `packages/hub`   | Accounts, sessions, usage shares, public JSON              |
+| `app.atmos.land`   | `apps/web`       | Product UI; local usage; publish controls                  |
+| `atmos.land`       | `apps/landing`   | Marketing + public share/profile HTML + OG meta            |
 
 ### Decisions
 
-| Fork | Decision |
-|------|----------|
-| New service location | Monorepo `packages/hub` Cloudflare Worker (Hono-style router OK) |
-| Database | **Separate D1** `atmos-hub` + Drizzle; Relay keeps its own D1 with raw SQL |
-| Auth framework | **Better Auth** on Hub only |
-| Auth providers v1 | **GitHub + Google** social only |
-| Session | Better Auth session cookie (`HttpOnly; Secure; SameSite=Lax`); CSRF/origin rules per Better Auth + Hub allowlist |
-| ORM | **Drizzle** for Hub (auth tables + business tables). Relay: **no ORM** |
-| Snapshot source | Client builds JSON from local `TokenUsageOverview` after redaction |
-| OG | Client may `PUT` PNG to hub → R2 |
-| Product identity root | **User** (`user_id` = Better Auth `user.id`) |
-| Relay client credential | **Hub-minted device credential** (Bearer), not user-generated Access Token |
-| Computer ownership | **`user_id`** on Relay; any active device of that user may manage |
+| Fork                    | Decision                                                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| New service location    | Monorepo `packages/hub` Cloudflare Worker (Hono-style router OK)                                                 |
+| Database                | **Separate D1** `atmos-hub` + Drizzle; Relay keeps its own D1 with raw SQL                                       |
+| Auth framework          | **Better Auth** on Hub only                                                                                      |
+| Auth providers v1       | **GitHub + Google** social only                                                                                  |
+| Session                 | Better Auth session cookie (`HttpOnly; Secure; SameSite=Lax`); CSRF/origin rules per Better Auth + Hub allowlist |
+| ORM                     | **Drizzle** for Hub (auth tables + business tables). Relay: **no ORM**                                           |
+| Snapshot source         | Client builds JSON from local `TokenUsageOverview` after redaction                                               |
+| OG                      | Client may `PUT` PNG to hub → R2                                                                                 |
+| Product identity root   | **User** (`user_id` = Better Auth `user.id`)                                                                     |
+| Relay client credential | **Hub-minted device credential** (Bearer), not user-generated Access Token                                       |
+| Computer ownership      | **`user_id`** on Relay; any active device of that user may manage                                                |
 
 ## Package layout
 
@@ -325,13 +323,13 @@ type UsageShareSnapshotV1 = {
 
 ### Stack
 
-| Piece | Choice |
-|-------|--------|
-| Framework | **Better Auth** on `packages/hub` |
-| DB adapter | **Drizzle** → D1 (`atmos-hub`) |
-| Providers | **GitHub**, **Google** only in Phase 1 |
-| Password / email OTP | Not enabled |
-| Relay | No Better Auth; device credential hash only |
+| Piece                | Choice                                      |
+| -------------------- | ------------------------------------------- |
+| Framework            | **Better Auth** on `packages/hub`           |
+| DB adapter           | **Drizzle** → D1 (`atmos-hub`)              |
+| Providers            | **GitHub**, **Google** only in Phase 1      |
+| Password / email OTP | Not enabled                                 |
+| Relay                | No Better Auth; device credential hash only |
 
 ```ts
 // packages/hub/src/auth/index.ts (illustrative)
@@ -342,7 +340,7 @@ betterAuth({
     google: { clientId, clientSecret, scope: ["openid", "email", "profile"] },
   },
   baseURL: "https://hub.atmos.land",
-  trustedOrigins: ["https://app.atmos.land", "https://atmos.land", /* dev */],
+  trustedOrigins: ["https://app.atmos.land", "https://atmos.land" /* dev */],
 });
 ```
 
@@ -350,10 +348,10 @@ Mount Better Auth handler under **`/api/auth/*` only** (Better Auth default). Do
 
 **Canonical OAuth callback URLs** (pin to Better Auth’s provider paths; verify against the installed `better-auth` version):
 
-| Provider | Production callback |
-|----------|---------------------|
-| GitHub | `https://hub.atmos.land/api/auth/callback/github` |
-| Google | `https://hub.atmos.land/api/auth/callback/google` |
+| Provider | Production callback                               |
+| -------- | ------------------------------------------------- |
+| GitHub   | `https://hub.atmos.land/api/auth/callback/github` |
+| Google   | `https://hub.atmos.land/api/auth/callback/google` |
 
 Local: `http://localhost:8787/api/auth/callback/{github|google}`.
 
@@ -398,15 +396,15 @@ Hub:
 
 **Ordering:** Hub D1 is source of truth for mint/rotate/revoke. Relay `devices` is a projection.
 
-| Step | Behavior |
-|------|----------|
-| Write Hub | Insert/update/revoke `devices` in Hub D1 first |
-| Project | `POST {RELAY_URL}/v1/internal/devices/upsert` with `Authorization: Bearer {RELAY_HUB_SYNC_SECRET}` and body `{ user_id, device_id, credential_hash, label?, revoked? }` |
-| Idempotency | Key = `device_id` (+ `credential_hash` or `revoked_at` epoch). Relay upsert is idempotent on `device_id`. |
-| Failure | If Relay call fails: leave Hub row as-is; record `projection_status=pending` (or outbox row) with retry (Worker cron / queue, exponential backoff). **Do not claim “Relay invalidation complete” in API response** until projection succeeds **or** document soft success: HTTP 200 with `relay_synced: false`. |
-| Rotate success boundary | Old hash is invalid on Hub immediately (session/device list). Old hash may still work on Relay until projection succeeds — **must** retry until Relay has new hash or revoke. Prefer response field `relay_synced` so UI can warn. |
-| Revoke success boundary | Hub `revoked_at` set; Relay must receive `revoked: true` (or delete row). Same outbox/retry. |
-| Repair | Periodic reconcile: Hub lists non-revoked devices vs Relay; re-upsert missing / re-revoke stale. Duplicate `device_id` overwrites hash. Unusable new credential (client lost plaintext) → user rotates again while signed in. |
+| Step                    | Behavior                                                                                                                                                                                                                                                                                                        |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Write Hub               | Insert/update/revoke `devices` in Hub D1 first                                                                                                                                                                                                                                                                  |
+| Project                 | `POST {RELAY_URL}/v1/internal/devices/upsert` with `Authorization: Bearer {RELAY_HUB_SYNC_SECRET}` and body `{ user_id, device_id, credential_hash, label?, revoked? }`                                                                                                                                         |
+| Idempotency             | Key = `device_id` (+ `credential_hash` or `revoked_at` epoch). Relay upsert is idempotent on `device_id`.                                                                                                                                                                                                       |
+| Failure                 | If Relay call fails: leave Hub row as-is; record `projection_status=pending` (or outbox row) with retry (Worker cron / queue, exponential backoff). **Do not claim “Relay invalidation complete” in API response** until projection succeeds **or** document soft success: HTTP 200 with `relay_synced: false`. |
+| Rotate success boundary | Old hash is invalid on Hub immediately (session/device list). Old hash may still work on Relay until projection succeeds — **must** retry until Relay has new hash or revoke. Prefer response field `relay_synced` so UI can warn.                                                                              |
+| Revoke success boundary | Hub `revoked_at` set; Relay must receive `revoked: true` (or delete row). Same outbox/retry.                                                                                                                                                                                                                    |
+| Repair                  | Periodic reconcile: Hub lists non-revoked devices vs Relay; re-upsert missing / re-revoke stale. Duplicate `device_id` overwrites hash. Unusable new credential (client lost plaintext) → user rotates again while signed in.                                                                                   |
 
 ### Device rotate (session-first)
 
@@ -440,12 +438,12 @@ Sets Hub `revoked_at`; projects revoke to Relay (retry until synced). Computers 
 
 ### Relay API auth (new contract)
 
-| Old | New |
-|-----|-----|
-| Bearer user Access Token → tenant | Bearer **device_credential** → `devices` → `user_id` |
-| `POST /v1/tenants` user token register | **Removed** |
-| `POST /v1/tenants/rotate_token` | **Removed**; use Hub device rotate |
-| Computers by `tenant_id` | Computers by **`user_id`** |
+| Old                                    | New                                                  |
+| -------------------------------------- | ---------------------------------------------------- |
+| Bearer user Access Token → tenant      | Bearer **device_credential** → `devices` → `user_id` |
+| `POST /v1/tenants` user token register | **Removed**                                          |
+| `POST /v1/tenants/rotate_token`        | **Removed**; use Hub device rotate                   |
+| Computers by `tenant_id`               | Computers by **`user_id`**                           |
 
 Relay management endpoints (`register_tokens`, `GET /v1/computers`, client_sessions, github setup) authorize with device credential and authorize rows where `user_id` matches.
 
@@ -492,26 +490,26 @@ Authorization: Bearer <device_credential>
 
 All JSON. Public routes unauthenticated; owner routes require session.
 
-| Method | Path | Auth | Notes |
-|--------|------|------|-------|
-| GET | `/healthz` | — | liveness |
-| * | `/api/auth/*` | — | Better Auth (GitHub + Google) |
-| POST | `/v1/auth/logout` | session | if not covered by Better Auth signOut |
-| GET | `/v1/me` | session | user profile + providers |
-| PATCH | `/v1/me` | session | handle rename (one / 30d) |
-| GET | `/v1/devices` | session | list devices |
-| POST | `/v1/devices` | session | enroll; returns `device_credential` **once** |
-| POST | `/v1/devices/:id/rotate` | session or current device Bearer | new credential once |
-| POST | `/v1/devices/:id/revoke` | session | |
-| POST | `/v1/computers/enroll_tokens` | session | optional proxy to Relay register_tokens (issuer remains Relay) |
-| GET | `/v1/usage/shares` | session | list owner shares |
-| POST | `/v1/usage/shares` | session | create share (server-normalize snapshot) |
-| GET | `/v1/usage/shares/:share_id` | session | owner detail |
-| PATCH | `/v1/usage/shares/:share_id` | session | update snapshot (same `share_id`; not a new id) |
-| DELETE | `/v1/usage/shares/:share_id` | session | soft revoke → public GET 404 |
-| PUT | `/v1/usage/shares/:share_id/og` | session | PNG → R2 (see OG rules) |
-| GET | `/v1/public/shares/:share_id` | — | public/unlisted read; **not edge-cached** (see rate limits) |
-| GET | `/v1/public/u/:handle` | — | profile |
+| Method | Path                            | Auth                             | Notes                                                          |
+| ------ | ------------------------------- | -------------------------------- | -------------------------------------------------------------- |
+| GET    | `/healthz`                      | —                                | liveness                                                       |
+| *      | `/api/auth/*`                   | —                                | Better Auth (GitHub + Google)                                  |
+| POST   | `/v1/auth/logout`               | session                          | if not covered by Better Auth signOut                          |
+| GET    | `/v1/me`                        | session                          | user profile + providers                                       |
+| PATCH  | `/v1/me`                        | session                          | handle rename (one / 30d)                                      |
+| GET    | `/v1/devices`                   | session                          | list devices                                                   |
+| POST   | `/v1/devices`                   | session                          | enroll; returns `device_credential` **once**                   |
+| POST   | `/v1/devices/:id/rotate`        | session or current device Bearer | new credential once                                            |
+| POST   | `/v1/devices/:id/revoke`        | session                          |                                                                |
+| POST   | `/v1/computers/enroll_tokens`   | session                          | optional proxy to Relay register_tokens (issuer remains Relay) |
+| GET    | `/v1/usage/shares`              | session                          | list owner shares                                              |
+| POST   | `/v1/usage/shares`              | session                          | create share (server-normalize snapshot)                       |
+| GET    | `/v1/usage/shares/:share_id`    | session                          | owner detail                                                   |
+| PATCH  | `/v1/usage/shares/:share_id`    | session                          | update snapshot (same `share_id`; not a new id)                |
+| DELETE | `/v1/usage/shares/:share_id`    | session                          | soft revoke → public GET 404                                   |
+| PUT    | `/v1/usage/shares/:share_id/og` | session                          | PNG → R2 (see OG rules)                                        |
+| GET    | `/v1/public/shares/:share_id`   | —                                | public/unlisted read; **not edge-cached** (see rate limits)    |
+| GET    | `/v1/public/u/:handle`          | —                                | profile                                                        |
 
 ### Create share body
 
@@ -548,7 +546,7 @@ Omit owner-only fields. Include:
   "period_start": "…",
   "period_end": "…",
   "include_cost": false,
-  "snapshot": { },
+  "snapshot": {},
   "og_image_url": "https://…",
   "published_at": 0,
   "updated_at": 0,
@@ -570,15 +568,15 @@ Rate limits (per IP / per user isolate maps, same pattern as relay):
 
 ### OG image upload (`PUT /v1/usage/shares/:share_id/og`)
 
-| Rule | Spec |
-|------|------|
-| Auth | Session; **share must be owned by `user_id`** (404/403 otherwise) |
-| Max size | **1 MiB** raw body (reject larger) |
-| Content | `Content-Type: image/png`; verify PNG magic bytes (`89 50 4E 47`); reject non-PNG |
-| Metadata | Strip ancillary chunks when practical; do not execute or reflect untrusted HTML |
-| Storage | R2 key under unguessable path; store only after validation |
-| Public serve | `Content-Type: image/png`, `X-Content-Type-Options: nosniff`, no HTML content-type sniffing |
-| Public share JSON | `og_image_url` points at Worker/R2 URL that enforces the same headers |
+| Rule              | Spec                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------- |
+| Auth              | Session; **share must be owned by `user_id`** (404/403 otherwise)                           |
+| Max size          | **1 MiB** raw body (reject larger)                                                          |
+| Content           | `Content-Type: image/png`; verify PNG magic bytes (`89 50 4E 47`); reject non-PNG           |
+| Metadata          | Strip ancillary chunks when practical; do not execute or reflect untrusted HTML             |
+| Storage           | R2 key under unguessable path; store only after validation                                  |
+| Public serve      | `Content-Type: image/png`, `X-Content-Type-Options: nosniff`, no HTML content-type sniffing |
+| Public share JSON | `og_image_url` points at Worker/R2 URL that enforces the same headers                       |
 
 ## Client design (`apps/web`)
 
@@ -588,7 +586,7 @@ Rate limits (per IP / per user isolate maps, same pattern as relay):
 function buildUsageShareSnapshot(
   overview: TokenUsageOverviewResponse,
   opts: { includeCost: boolean },
-): UsageShareSnapshotV1
+): UsageShareSnapshotV1;
 ```
 
 Rules:
@@ -600,10 +598,10 @@ Rules:
 
 ### Share popover UX
 
-1. **Image share** (existing) — no login  
-2. **Publish page** — requires Hub session (GitHub or Google)  
-   - 401 → “Sign in with GitHub” / “Sign in with Google”  
-   - Else publish/update + copy URL + optional OG upload  
+1. **Image share** (existing) — no login
+2. **Publish page** — requires Hub session (GitHub or Google)
+   - 401 → “Sign in with GitHub” / “Sign in with Google”
+   - Else publish/update + copy URL + optional OG upload
 
 ### Connection / Settings UX
 
@@ -635,29 +633,28 @@ Profile `/u/[handle]`:
 
 Goal: Access Token is no longer the identity root.
 
-
 ## Security
 
-| Topic | Rule |
-|-------|------|
-| Tokens | Never log OAuth codes, session tokens, device credentials, GitHub client secrets |
-| Snapshot | Server recursive allowlist/denylist + size cap; JSON only; landing escapes |
-| Cookie | Better Auth session Secure + HttpOnly; logout revokes session |
-| Origin | Strict allowlist for OAuth return and CORS |
-| Unlisted | Security through unguessable `share_id` entropy (≥ 128 bits random); product copy says aggregates only |
-| R2 OG | Max 1 MiB PNG magic check; nosniff; ownership check; unguessable keys |
-| Separation | Hub ≠ Relay D1; public share read cannot yield `server_secret` or device credentials |
-| Device credential | Hash at rest; plaintext once at mint/rotate; Relay projection may lag — see sync protocol |
+| Topic             | Rule                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------ |
+| Tokens            | Never log OAuth codes, session tokens, device credentials, GitHub client secrets                       |
+| Snapshot          | Server recursive allowlist/denylist + size cap; JSON only; landing escapes                             |
+| Cookie            | Better Auth session Secure + HttpOnly; logout revokes session                                          |
+| Origin            | Strict allowlist for OAuth return and CORS                                                             |
+| Unlisted          | Security through unguessable `share_id` entropy (≥ 128 bits random); product copy says aggregates only |
+| R2 OG             | Max 1 MiB PNG magic check; nosniff; ownership check; unguessable keys                                  |
+| Separation        | Hub ≠ Relay D1; public share read cannot yield `server_secret` or device credentials                   |
+| Device credential | Hash at rest; plaintext once at mint/rotate; Relay projection may lag — see sync protocol              |
 
 ### Risks & mitigations
 
-| Risk | Mitigation | Verification |
-|------|------------|--------------|
-| Hub commits device change; Relay still accepts old hash | Outbox/retry projection; optional `relay_synced` on response; reconcile job | S22/S23 + projection failure tests |
-| Wrong OAuth callback path | Canonical `/api/auth/callback/{github\|google}` only | Manual staging OAuth; `/api/auth/ok` |
-| Stale public share cache after unpublish | No edge cache / `no-store` or purge on revoke | S11 + exploratory #3 |
-| Client-only redaction | Hub recursive normalize on write + public read | S15 |
-| Malicious OG upload | PNG magic, size cap, ownership, nosniff | Unit + integration on PUT og |
+| Risk                                                    | Mitigation                                                                  | Verification                         |
+| ------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------ |
+| Hub commits device change; Relay still accepts old hash | Outbox/retry projection; optional `relay_synced` on response; reconcile job | S22/S23 + projection failure tests   |
+| Wrong OAuth callback path                               | Canonical `/api/auth/callback/{github\|google}` only                        | Manual staging OAuth; `/api/auth/ok` |
+| Stale public share cache after unpublish                | No edge cache / `no-store` or purge on revoke                               | S11 + exploratory #3                 |
+| Client-only redaction                                   | Hub recursive normalize on write + public read                              | S15                                  |
+| Malicious OG upload                                     | PNG magic, size cap, ownership, nosniff                                     | Unit + integration on PUT og         |
 
 ## Rollout
 

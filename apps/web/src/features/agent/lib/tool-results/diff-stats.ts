@@ -1,6 +1,9 @@
 import { parseDiffFromFile, type FileContents } from "@pierre/diffs";
 import type { AgentToolCallPart } from "@/features/agent/lib/agent-tool-kind";
-import { presentAgentTool, type ToolPresentation } from "@/features/agent/lib/tool-results/parse-tool-result";
+import {
+  presentAgentTool,
+  type ToolPresentation,
+} from "@/features/agent/lib/tool-results/parse-tool-result";
 
 export type DiffLineStats = {
   additions: number;
@@ -141,7 +144,9 @@ export function changedLineRangesForPresentation(
       ? presentation.files.filter((file) => file.path === path)
       : presentation.files;
     return mergeDiffLineRanges(
-      files.flatMap((file) => changedLineRangesFromContents(file.oldContent, file.newContent, file.path)),
+      files.flatMap((file) =>
+        changedLineRangesFromContents(file.oldContent, file.newContent, file.path),
+      ),
     );
   }
   if (presentation.kind === "patch") {
@@ -156,13 +161,16 @@ export function changedLineRangesForPresentation(
 
 export function diffStatsForPresentation(presentation: ToolPresentation): DiffLineStats {
   if (presentation.kind === "diff") {
-    return presentation.files.reduce((sum, file) => {
-      const next = countFileDiffStats(file.oldContent, file.newContent, file.path);
-      return {
-        additions: sum.additions + next.additions,
-        deletions: sum.deletions + next.deletions,
-      };
-    }, { ...EMPTY_STATS });
+    return presentation.files.reduce(
+      (sum, file) => {
+        const next = countFileDiffStats(file.oldContent, file.newContent, file.path);
+        return {
+          additions: sum.additions + next.additions,
+          deletions: sum.deletions + next.deletions,
+        };
+      },
+      { ...EMPTY_STATS },
+    );
   }
   if (presentation.kind === "patch") {
     return countPatchStats(presentation.patch);
@@ -180,30 +188,33 @@ export function diffStatsForPresentation(presentation: ToolPresentation): DiffLi
 }
 
 export function sumToolGroupDiffStats(parts: AgentToolCallPart[]): DiffLineStats {
-  return parts.reduce((sum, part) => {
-    if (part.kind !== "edit") return sum;
-    if (part.result?.type === "diff_stats") {
-      return {
-        additions: sum.additions + part.result.additions,
-        deletions: sum.deletions + part.result.deletions,
-      };
-    }
-    if (part.result?.type === "diff") {
-      const next = countFileDiffStats(
-        part.result.old_content ?? "",
-        part.result.new_content,
-        part.result.path,
-      );
+  return parts.reduce(
+    (sum, part) => {
+      if (part.kind !== "edit") return sum;
+      if (part.result?.type === "diff_stats") {
+        return {
+          additions: sum.additions + part.result.additions,
+          deletions: sum.deletions + part.result.deletions,
+        };
+      }
+      if (part.result?.type === "diff") {
+        const next = countFileDiffStats(
+          part.result.old_content ?? "",
+          part.result.new_content,
+          part.result.path,
+        );
+        return {
+          additions: sum.additions + next.additions,
+          deletions: sum.deletions + next.deletions,
+        };
+      }
+      const parsed = presentAgentTool(part);
+      const next = diffStatsForPresentation(parsed.presentation);
       return {
         additions: sum.additions + next.additions,
         deletions: sum.deletions + next.deletions,
       };
-    }
-    const parsed = presentAgentTool(part);
-    const next = diffStatsForPresentation(parsed.presentation);
-    return {
-      additions: sum.additions + next.additions,
-      deletions: sum.deletions + next.deletions,
-    };
-  }, { ...EMPTY_STATS });
+    },
+    { ...EMPTY_STATS },
+  );
 }

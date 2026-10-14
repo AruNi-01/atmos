@@ -136,9 +136,7 @@ describe("center-stage chrome", () => {
     expect(visibleBox).not.toMatch(/overflow:\s*"hidden"/);
 
     const overview = read("../../features/workspace/components/OverviewTab.tsx");
-    const root = overview.match(
-      /return \(\s*<>\s*<div className="([^"]+)"/,
-    )?.[1];
+    const root = overview.match(/return \(\s*<>\s*<div className="([^"]+)"/)?.[1];
     expect(root).toContain("overflow-y-auto");
     expect(root).toContain("min-h-0");
     expect(root).toContain("flex-1");
@@ -238,7 +236,9 @@ describe("center-stage chrome", () => {
     expect(history).toContain("w-3 -mx-1.5 shrink-0");
     expect(history).not.toContain("h-full w-px bg-border/80");
 
-    const historyLayout = read("../../features/agent/hooks/use-agent-chat-history-sidebar-layout.ts");
+    const historyLayout = read(
+      "../../features/agent/hooks/use-agent-chat-history-sidebar-layout.ts",
+    );
     expect(historyLayout).toContain("isResizeClickGesture");
     expect(historyLayout).toContain("setHistorySidebarCollapsed(true)");
     expect(historyLayout).toContain("dragStarted");
@@ -269,12 +269,8 @@ describe("center-stage chrome", () => {
   test("collapsed sidebar peek stays in the center band, not header or footer", () => {
     expect(APP_HEADER_HEIGHT_CLASS).toBe("h-12");
     expect(APP_HEADER_HEIGHT_PX).toBe(48);
-    expect(SIDEBAR_PEEK_INSET_TOP_PX).toBe(
-      APP_HEADER_HEIGHT_PX + CENTER_STAGE_GUTTER_Y_PX,
-    );
-    expect(SIDEBAR_PEEK_INSET_BOTTOM_PX).toBe(
-      APP_FOOTER_HEIGHT_PX + CENTER_STAGE_GUTTER_Y_PX,
-    );
+    expect(SIDEBAR_PEEK_INSET_TOP_PX).toBe(APP_HEADER_HEIGHT_PX + CENTER_STAGE_GUTTER_Y_PX);
+    expect(SIDEBAR_PEEK_INSET_BOTTOM_PX).toBe(APP_FOOTER_HEIGHT_PX + CENTER_STAGE_GUTTER_Y_PX);
 
     expect(SIDEBAR_PEEK_CONTENT_PT_CLASS).toBe("pt-2.5");
 

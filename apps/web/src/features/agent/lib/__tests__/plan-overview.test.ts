@@ -70,8 +70,7 @@ Just a prose overview without todos.
 
 describe("findRecentPlanFilePath", () => {
   it("finds the latest plan.md write outside the workspace", () => {
-    const path =
-      "/Users/me/.grok/sessions/%2FUsers%2Fme%2Fproj/01abc/plan.md";
+    const path = "/Users/me/.grok/sessions/%2FUsers%2Fme%2Fproj/01abc/plan.md";
     const messages = [
       {
         id: "a1",

@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { useTranslations } from 'next-intl';
+import React, { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Popover,
@@ -12,14 +12,14 @@ import {
   TabsTrigger,
   TabsContent,
   cn,
-} from '@workspace/ui';
-import { Check, Copy, ExternalLink, SquareTerminal } from 'lucide-react';
+} from "@workspace/ui";
+import { Check, Copy, ExternalLink, SquareTerminal } from "lucide-react";
 import {
   PackageInstallTerminalDialog,
   type OnboardingInstallToolId,
-} from '@/features/welcome/components/PackageInstallTerminalDialog';
+} from "@/features/welcome/components/PackageInstallTerminalDialog";
 
-type OS = 'macos' | 'linux' | 'windows';
+type OS = "macos" | "linux" | "windows";
 
 interface InstallMethod {
   label: string;
@@ -31,68 +31,68 @@ interface InstallMethod {
 const INSTALL_GUIDES: Record<OnboardingInstallToolId, Record<OS, InstallMethod[]>> = {
   tmux: {
     macos: [
-      { label: 'Homebrew', command: 'brew install tmux' },
-      { label: 'MacPorts', command: 'port install tmux' },
+      { label: "Homebrew", command: "brew install tmux" },
+      { label: "MacPorts", command: "port install tmux" },
     ],
     linux: [
-      { label: 'APT (Ubuntu/Debian)', command: 'sudo apt update && sudo apt install -y tmux' },
-      { label: 'DNF (Fedora/RHEL)', command: 'sudo dnf install -y tmux' },
-      { label: 'Pacman (Arch)', command: 'sudo pacman -S --noconfirm tmux' },
+      { label: "APT (Ubuntu/Debian)", command: "sudo apt update && sudo apt install -y tmux" },
+      { label: "DNF (Fedora/RHEL)", command: "sudo dnf install -y tmux" },
+      { label: "Pacman (Arch)", command: "sudo pacman -S --noconfirm tmux" },
     ],
     windows: [
       {
-        label: 'WSL',
+        label: "WSL",
         notes:
-          'tmux is not natively supported on Windows. Please install WSL (Windows Subsystem for Linux) first, then run:',
-        command: 'sudo apt install tmux',
+          "tmux is not natively supported on Windows. Please install WSL (Windows Subsystem for Linux) first, then run:",
+        command: "sudo apt install tmux",
       },
     ],
   },
   git: {
     macos: [
-      { label: 'Homebrew', command: 'brew install git' },
-      { label: 'Xcode Tools', command: 'xcode-select --install' },
+      { label: "Homebrew", command: "brew install git" },
+      { label: "Xcode Tools", command: "xcode-select --install" },
     ],
     linux: [
-      { label: 'APT (Ubuntu/Debian)', command: 'sudo apt update && sudo apt install -y git' },
-      { label: 'DNF (Fedora/RHEL)', command: 'sudo dnf install -y git' },
-      { label: 'Pacman (Arch)', command: 'sudo pacman -S --noconfirm git' },
+      { label: "APT (Ubuntu/Debian)", command: "sudo apt update && sudo apt install -y git" },
+      { label: "DNF (Fedora/RHEL)", command: "sudo dnf install -y git" },
+      { label: "Pacman (Arch)", command: "sudo pacman -S --noconfirm git" },
     ],
     windows: [
-      { label: 'Winget', command: 'winget install --id Git.Git -e --source winget' },
-      { label: 'Chocolatey', command: 'choco install git' },
+      { label: "Winget", command: "winget install --id Git.Git -e --source winget" },
+      { label: "Chocolatey", command: "choco install git" },
       {
-        label: 'Installer',
-        link: 'https://git-scm.com/download/win',
-        notes: 'Or download the official standalone Git installer.',
+        label: "Installer",
+        link: "https://git-scm.com/download/win",
+        notes: "Or download the official standalone Git installer.",
       },
     ],
   },
   gh: {
     macos: [
-      { label: 'Homebrew', command: 'brew install gh' },
-      { label: 'MacPorts', command: 'port install gh' },
+      { label: "Homebrew", command: "brew install gh" },
+      { label: "MacPorts", command: "port install gh" },
     ],
     linux: [
       {
-        label: 'APT (Ubuntu/Debian)',
+        label: "APT (Ubuntu/Debian)",
         command:
           'sudo mkdir -p -m 755 /etc/apt/keyrings \\\n&& wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \\\n&& sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \\\n&& echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \\\n&& sudo apt update \\\n&& sudo apt install -y gh',
       },
       {
-        label: 'DNF (Fedora/RHEL)',
+        label: "DNF (Fedora/RHEL)",
         command:
-          'sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo \\\n&& sudo dnf install -y gh',
+          "sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo \\\n&& sudo dnf install -y gh",
       },
-      { label: 'Pacman (Arch)', command: 'sudo pacman -S --noconfirm github-cli' },
+      { label: "Pacman (Arch)", command: "sudo pacman -S --noconfirm github-cli" },
     ],
     windows: [
-      { label: 'Winget', command: 'winget install --id GitHub.cli' },
-      { label: 'Chocolatey', command: 'choco install gh' },
+      { label: "Winget", command: "winget install --id GitHub.cli" },
+      { label: "Chocolatey", command: "choco install gh" },
       {
-        label: 'Installer',
-        link: 'https://github.com/cli/cli/releases',
-        notes: 'Or download the latest standalone installer.',
+        label: "Installer",
+        link: "https://github.com/cli/cli/releases",
+        notes: "Or download the latest standalone installer.",
       },
     ],
   },
@@ -105,7 +105,7 @@ export interface InstallToolPopoverProps {
   /** Defaults to onboarding compact outline style. */
   triggerClassName?: string;
   /** Optional trigger size for denser surfaces (e.g. Settings). */
-  triggerSize?: 'sm' | 'default';
+  triggerSize?: "sm" | "default";
 }
 
 /**
@@ -117,9 +117,9 @@ export function InstallToolPopover({
   toolName,
   onInstalled,
   triggerClassName,
-  triggerSize = 'sm',
+  triggerSize = "sm",
 }: InstallToolPopoverProps) {
-  const t = useTranslations('onboarding');
+  const t = useTranslations("onboarding");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [terminalOpen, setTerminalOpen] = useState(false);
 
@@ -139,13 +139,13 @@ export function InstallToolPopover({
             variant="outline"
             size={triggerSize}
             className={cn(
-              'cursor-pointer',
-              triggerSize === 'sm' &&
-                'h-7 rounded-full border-border/40 px-3 py-1 text-[11px] font-semibold hover:bg-muted/20 text-foreground',
+              "cursor-pointer",
+              triggerSize === "sm" &&
+                "h-7 rounded-full border-border/40 px-3 py-1 text-[11px] font-semibold text-foreground hover:bg-muted/20",
               triggerClassName,
             )}
           >
-            {t('check.install.button')}
+            {t("check.install.button")}
           </Button>
         </PopoverTrigger>
         <PopoverContent
@@ -155,11 +155,9 @@ export function InstallToolPopover({
           <div className="space-y-4">
             <div>
               <h4 className="text-sm font-semibold text-foreground">
-                {t('check.install.title', { toolName })}
+                {t("check.install.title", { toolName })}
               </h4>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {t('check.install.description')}
-              </p>
+              <p className="mt-1 text-xs text-muted-foreground">{t("check.install.description")}</p>
             </div>
 
             <Button
@@ -168,35 +166,35 @@ export function InstallToolPopover({
               onClick={() => setTerminalOpen(true)}
             >
               <SquareTerminal className="size-3.5" />
-              {t('check.install.runInTerminal')}
+              {t("check.install.runInTerminal")}
             </Button>
 
             <div className="relative">
               <div className="absolute inset-x-0 top-1/2 h-px bg-border/50" />
-              <p className="relative mx-auto w-fit bg-popover px-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-                {t('check.install.orManual')}
+              <p className="relative mx-auto w-fit bg-popover px-2 text-[10px] tracking-wider text-muted-foreground uppercase">
+                {t("check.install.orManual")}
               </p>
             </div>
 
             <Tabs defaultValue="macos" className="w-full">
               <TabsList className="grid w-full grid-cols-3 rounded-xl bg-muted/40 p-1">
                 <TabsTrigger value="macos" className="cursor-pointer rounded-lg py-1.5 text-xs">
-                  {t('check.install.os.macos')}
+                  {t("check.install.os.macos")}
                 </TabsTrigger>
                 <TabsTrigger value="linux" className="cursor-pointer rounded-lg py-1.5 text-xs">
-                  {t('check.install.os.linux')}
+                  {t("check.install.os.linux")}
                 </TabsTrigger>
                 <TabsTrigger value="windows" className="cursor-pointer rounded-lg py-1.5 text-xs">
-                  {t('check.install.os.windows')}
+                  {t("check.install.os.windows")}
                 </TabsTrigger>
               </TabsList>
 
-              {(['macos', 'linux', 'windows'] as OS[]).map((os) => {
+              {(["macos", "linux", "windows"] as OS[]).map((os) => {
                 const methods = guides[os];
                 return (
                   <TabsContent key={os} value={os} className="mt-4 space-y-4">
                     {methods.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">{t('check.install.empty')}</p>
+                      <p className="text-xs text-muted-foreground">{t("check.install.empty")}</p>
                     ) : (
                       <Tabs defaultValue={methods[0]!.label} className="w-full">
                         {methods.length > 1 && (
@@ -226,13 +224,13 @@ export function InstallToolPopover({
                             ) : null}
                             {m.command ? (
                               <div className="group relative">
-                                <pre className="max-h-[160px] overflow-x-auto whitespace-pre-wrap break-all rounded-xl border border-border/40 bg-muted/40 p-3 pr-10 font-mono text-[11px] leading-relaxed text-foreground">
+                                <pre className="max-h-[160px] overflow-x-auto rounded-xl border border-border/40 bg-muted/40 p-3 pr-10 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-foreground">
                                   {m.command}
                                 </pre>
                                 <Button
                                   size="icon"
                                   variant="ghost"
-                                  className="absolute right-2 top-2 h-7 w-7 cursor-pointer rounded-lg text-muted-foreground hover:text-foreground"
+                                  className="absolute top-2 right-2 h-7 w-7 cursor-pointer rounded-lg text-muted-foreground hover:text-foreground"
                                   onClick={() => handleCopy(m.command!, `${os}-${idx}`)}
                                 >
                                   {copiedId === `${os}-${idx}` ? (
@@ -248,10 +246,10 @@ export function InstallToolPopover({
                                 variant="outline"
                                 size="sm"
                                 className="w-full cursor-pointer rounded-xl text-xs font-medium"
-                                onClick={() => window.open(m.link, '_blank', 'noopener,noreferrer')}
+                                onClick={() => window.open(m.link, "_blank", "noopener,noreferrer")}
                               >
                                 <ExternalLink className="mr-2 size-3.5" />
-                                {t('check.install.download')}
+                                {t("check.install.download")}
                               </Button>
                             ) : null}
                           </TabsContent>

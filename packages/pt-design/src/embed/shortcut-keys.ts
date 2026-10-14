@@ -41,8 +41,7 @@ export function shortcutToKeys(raw: string): string[] {
     });
 }
 
-const SHORTCUT_SELECTOR =
-  ".context-menu-item__shortcut, .dropdown-menu-item__shortcut";
+const SHORTCUT_SELECTOR = ".context-menu-item__shortcut, .dropdown-menu-item__shortcut";
 
 export function decorateShortcutEl(el: HTMLElement): void {
   if (el.dataset.ptShortcutDecorated === "true") return;

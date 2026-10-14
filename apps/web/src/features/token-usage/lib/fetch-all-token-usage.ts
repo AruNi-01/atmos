@@ -42,9 +42,7 @@ export async function fetchAllComputersTokenUsage(
     throw new Error("No computers to scan");
   }
 
-  type Outcome =
-    | { ok: true; overview: TokenUsageOverviewResponse }
-    | { ok: false; label: string };
+  type Outcome = { ok: true; overview: TokenUsageOverviewResponse } | { ok: false; label: string };
 
   const outcomes = await mapPool(targets, FANOUT_CONCURRENCY, async (device): Promise<Outcome> => {
     try {
@@ -61,9 +59,7 @@ export async function fetchAllComputersTokenUsage(
   });
 
   const successes = outcomes.flatMap((row) => (row.ok ? [row.overview] : []));
-  const missedLabels = outcomes.flatMap((row) =>
-    row.ok ? [] : [deps.formatMissed(row.label)],
-  );
+  const missedLabels = outcomes.flatMap((row) => (row.ok ? [] : [deps.formatMissed(row.label)]));
 
   if (successes.length === 0) {
     throw new Error("none-reached");

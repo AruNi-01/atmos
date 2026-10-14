@@ -21,9 +21,7 @@ export function ActionsActionBar({
 }) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [shouldRenderToolbar, setShouldRenderToolbar] = React.useState(false);
-  const closeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const closeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const openFrameRef = React.useRef<number | null>(null);
 
   const cancelClose = React.useCallback(() => {
@@ -106,19 +104,19 @@ export function ActionsActionBar({
             }}
             aria-hidden={!isOpen}
             className={cn(
-              "absolute bottom-full left-1/2 z-10 flex max-w-[calc(100vw-3rem)] -translate-x-1/2 items-center gap-6 whitespace-nowrap rounded-xl border border-dashed border-border/80 bg-background/90 px-4 py-2.5 shadow-xl backdrop-blur-md",
+              "absolute bottom-full left-1/2 z-10 flex max-w-[calc(100vw-3rem)] -translate-x-1/2 items-center gap-6 rounded-xl border border-dashed border-border/80 bg-background/90 px-4 py-2.5 whitespace-nowrap shadow-xl backdrop-blur-md",
               !isOpen
                 ? "pointer-events-none opacity-0 transition-opacity duration-220 ease-in"
                 : "pointer-events-auto opacity-100 transition-opacity duration-280 ease-[cubic-bezier(0.22,1,0.36,1)]",
             )}
           >
-            <div className="absolute left-1/2 top-full h-4 w-24 -translate-x-1/2" />
+            <div className="absolute top-full left-1/2 h-4 w-24 -translate-x-1/2" />
             <div className="flex gap-2.5">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={onOpenGitHub}
-                className="h-8 border-0 text-[11px] px-3 font-medium shadow-sm hover:shadow-md transition-shadow"
+                className="h-8 border-0 px-3 text-[11px] font-medium shadow-sm transition-shadow hover:shadow-md"
               >
                 <Github className="mr-1.5 size-3.5" />
                 GitHub
@@ -127,7 +125,7 @@ export function ActionsActionBar({
 
             {isCompleted && (
               <>
-                <div className="w-px h-5 bg-border/40 shrink-0 mx-1" />
+                <div className="mx-1 h-5 w-px shrink-0 bg-border/40" />
 
                 <div className="flex gap-2.5">
                   {isFailure && (
@@ -136,7 +134,7 @@ export function ActionsActionBar({
                       size="sm"
                       onClick={onRerunFailed}
                       disabled={actionLoading}
-                      className="h-8 border-0 text-[11px] px-3 font-medium shadow-sm hover:shadow-md transition-shadow"
+                      className="h-8 border-0 px-3 text-[11px] font-medium shadow-sm transition-shadow hover:shadow-md"
                     >
                       {actionLoading ? (
                         <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
@@ -152,7 +150,7 @@ export function ActionsActionBar({
                     size="sm"
                     onClick={onRerunAll}
                     disabled={actionLoading}
-                    className="h-8 border-0 text-[11px] px-3 font-medium shadow-sm hover:shadow-md transition-shadow"
+                    className="h-8 border-0 px-3 text-[11px] font-medium shadow-sm transition-shadow hover:shadow-md"
                   >
                     {actionLoading ? (
                       <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
@@ -174,7 +172,7 @@ export function ActionsActionBar({
           onFocus={openToolbar}
           onMouseEnter={openToolbar}
           className={cn(
-            "h-1.5 w-40 rounded-full border-0 bg-foreground/20 p-0 shadow-[0_1px_8px_rgba(0,0,0,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+            "h-1.5 w-40 rounded-full border-0 bg-foreground/20 p-0 shadow-[0_1px_8px_rgba(0,0,0,0.18)] focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none",
             !isOpen
               ? "pointer-events-auto opacity-100 transition-opacity duration-220 ease-in"
               : "pointer-events-none opacity-0 transition-opacity duration-280 ease-[cubic-bezier(0.22,1,0.36,1)]",

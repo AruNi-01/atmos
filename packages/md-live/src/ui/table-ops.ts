@@ -37,10 +37,10 @@ export function isMdLiveCellSelection(sel: unknown): sel is CellSelectionLike {
   if (!sel || typeof sel !== "object") return false;
   const value = sel as Partial<CellSelectionLike>;
   return (
-    typeof value.isRowSelection === "function"
-    && typeof value.isColSelection === "function"
-    && value.$anchorCell != null
-    && value.$headCell != null
+    typeof value.isRowSelection === "function" &&
+    typeof value.isColSelection === "function" &&
+    value.$anchorCell != null &&
+    value.$headCell != null
   );
 }
 
@@ -81,7 +81,9 @@ export function isMdLiveFullTableSelection(state: EditorState): boolean {
   const map = TableMap.get(table);
   const tableStart = tablePos + 1;
   const rect = map.rectBetween(sel.$anchorCell.pos - tableStart, sel.$headCell.pos - tableStart);
-  return rect.left === 0 && rect.top === 0 && rect.right === map.width && rect.bottom === map.height;
+  return (
+    rect.left === 0 && rect.top === 0 && rect.right === map.width && rect.bottom === map.height
+  );
 }
 
 function tableInfo(state: EditorState, tablePos: number): TableInfo | null {
@@ -107,7 +109,11 @@ function asRect(info: TableInfo): TableRect {
   };
 }
 
-function caretAfterTableDelete(tr: Transaction, from: number, paragraph: Node["type"] | undefined): Transaction {
+function caretAfterTableDelete(
+  tr: Transaction,
+  from: number,
+  paragraph: Node["type"] | undefined,
+): Transaction {
   if (tr.doc.content.size === 0 && paragraph) {
     tr = tr.insert(0, paragraph.create());
     return tr.setSelection(TextSelection.create(tr.doc, 1));
@@ -116,7 +122,11 @@ function caretAfterTableDelete(tr: Transaction, from: number, paragraph: Node["t
   return tr.setSelection(TextSelection.near(tr.doc.resolve(cursor), from > 0 ? -1 : 1));
 }
 
-function deleteTableOn(tr: Transaction, tablePos: number, paragraph: Node["type"] | undefined): Transaction | null {
+function deleteTableOn(
+  tr: Transaction,
+  tablePos: number,
+  paragraph: Node["type"] | undefined,
+): Transaction | null {
   const table = tr.doc.nodeAt(tablePos);
   if (!table || table.type.name !== "table") return null;
   const from = tablePos;
@@ -143,7 +153,11 @@ function liveTableRect(tr: Transaction, tablePos: number): TableRect | null {
   };
 }
 
-function selectionCellRect(state: EditorState, info: TableInfo, sel: CellSelectionLike): {
+function selectionCellRect(
+  state: EditorState,
+  info: TableInfo,
+  sel: CellSelectionLike,
+): {
   left: number;
   top: number;
   right: number;
@@ -166,10 +180,12 @@ function promoteBodyToHeaderOn(tr: Transaction, tablePos: number): Transaction |
   const count = Math.min(header.childCount, body.childCount);
   for (let i = 0; i < count; i += 1) {
     const from = body.child(i);
-    cells.push(headerCellType.create(
-      { alignment: from.attrs.alignment ?? header.child(i)?.attrs.alignment ?? "left" },
-      from.content,
-    ));
+    cells.push(
+      headerCellType.create(
+        { alignment: from.attrs.alignment ?? header.child(i)?.attrs.alignment ?? "left" },
+        from.content,
+      ),
+    );
   }
   if (cells.length === 0) return deleteTableOn(tr, tablePos, tr.doc.type.schema.nodes.paragraph);
   const from = tablePos + 1;
@@ -309,7 +325,10 @@ export function mdLiveTableAddCol(
 ): Transaction | null {
   const info = tableInfo(state, tablePos);
   if (!info) return null;
-  const insertAt = Math.max(0, Math.min(where === "before" ? colIndex : colIndex + 1, info.map.width));
+  const insertAt = Math.max(
+    0,
+    Math.min(where === "before" ? colIndex : colIndex + 1, info.map.width),
+  );
   return addColumn(state.tr, asRect(info), insertAt);
 }
 

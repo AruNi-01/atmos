@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  dispatchExternalEventToServer,
-  type GithubTriggerEnvelope,
-} from "../src/event-dispatch";
+import { dispatchExternalEventToServer, type GithubTriggerEnvelope } from "../src/event-dispatch";
 
 const event: GithubTriggerEnvelope = {
   delivery_id: "delivery_1",
@@ -24,16 +21,19 @@ describe("external event dispatch", () => {
     const warn = console.warn;
     console.warn = () => undefined;
     try {
-      const result = await dispatchExternalEventToServer({
-        SERVER_HUB: {
-          idFromName: () => "server_1",
-          get: () => ({
-            fetch: async () => {
-              throw new Error("durable object unavailable");
-            },
-          }),
-        },
-      } as never, event);
+      const result = await dispatchExternalEventToServer(
+        {
+          SERVER_HUB: {
+            idFromName: () => "server_1",
+            get: () => ({
+              fetch: async () => {
+                throw new Error("durable object unavailable");
+              },
+            }),
+          },
+        } as never,
+        event,
+      );
 
       expect(result).toEqual({ status: "error", errorCode: "dispatch_failed" });
     } finally {

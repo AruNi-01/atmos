@@ -2,12 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  deleteRecord,
-  listRecords,
-  setTestAppshotsRoot,
-  writeTestRecord,
-} from "./service.ts";
+import { deleteRecord, listRecords, setTestAppshotsRoot, writeTestRecord } from "./service.ts";
 import { CONTEXT_FILE, METADATA_FILE, SNAPSHOT_FILE } from "./paths.ts";
 
 let testRoot: string;

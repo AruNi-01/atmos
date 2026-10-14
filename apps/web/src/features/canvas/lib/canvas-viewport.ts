@@ -23,11 +23,7 @@ function isTrustedCameraZoom(z: unknown): z is number {
 }
 
 function isTrustedCameraAxis(value: unknown): value is number {
-  return (
-    typeof value === "number" &&
-    Number.isFinite(value) &&
-    Math.abs(value) <= MAX_CAMERA_AXIS
-  );
+  return typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= MAX_CAMERA_AXIS;
 }
 
 /** True when a persisted page camera is safe to restore on cold load. */
@@ -38,9 +34,7 @@ export function isTrustedPageCamera(
     return false;
   }
   return (
-    isTrustedCameraAxis(camera.x) &&
-    isTrustedCameraAxis(camera.y) &&
-    isTrustedCameraZoom(camera.z)
+    isTrustedCameraAxis(camera.x) && isTrustedCameraAxis(camera.y) && isTrustedCameraZoom(camera.z)
   );
 }
 
@@ -69,9 +63,7 @@ export function hasTrustedSessionViewport(
 }
 
 /** Drop corrupt camera entries before persisting session to UI prefs. */
-export function sanitizeCanvasSessionForPersist(
-  session: CanvasTldrawSession,
-): CanvasTldrawSession {
+export function sanitizeCanvasSessionForPersist(session: CanvasTldrawSession): CanvasTldrawSession {
   if (!session || typeof session !== "object") {
     return session;
   }

@@ -58,7 +58,10 @@ const nativeModule = {
 describe("UrlSessionWebSocket", () => {
   test("connects after the caller can assign handlers", async () => {
     FakeNativeSocket.instances = [];
-    const socket = new UrlSessionWebSocket("wss://relay.example/ws/client?token=secret", nativeModule);
+    const socket = new UrlSessionWebSocket(
+      "wss://relay.example/ws/client?token=secret",
+      nativeModule,
+    );
     const native = FakeNativeSocket.instances[0]!;
     expect(native.connectCalls).toEqual([]);
     await Promise.resolve();

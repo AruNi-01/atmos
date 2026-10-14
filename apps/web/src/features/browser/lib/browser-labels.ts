@@ -19,10 +19,7 @@ function createBrowserTabId(): string {
   return `browser-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-export function createPreviewBrowserTab(
-  url = "",
-  lastAccessedAt = Date.now(),
-): PreviewBrowserTab {
+export function createPreviewBrowserTab(url = "", lastAccessedAt = Date.now()): PreviewBrowserTab {
   const normalizedUrl = canonicalizeUrl(url) || url.trim();
   return {
     id: createBrowserTabId(),
@@ -36,9 +33,7 @@ export function createPreviewBrowserTab(
 }
 
 /** Fresh browser surface: a single empty tab. */
-export function createInitialBrowserContext(
-  url = "",
-): PreviewBrowserContextPrefs {
+export function createInitialBrowserContext(url = ""): PreviewBrowserContextPrefs {
   const tab = createPreviewBrowserTab(url);
   return {
     tabs: [tab],
@@ -87,9 +82,7 @@ export function getActivePreviewBrowserTab(
   context: PreviewBrowserContextPrefs | undefined,
 ): PreviewBrowserTab | undefined {
   if (!context?.tabs?.length) return undefined;
-  return (
-    context.tabs.find((tab) => tab.id === context.activeTabId) ?? context.tabs[0]
-  );
+  return context.tabs.find((tab) => tab.id === context.activeTabId) ?? context.tabs[0];
 }
 
 export function getActivePreviewBrowserLabel(

@@ -37,10 +37,7 @@ export function alignSeries(from: readonly number[], to: readonly number[]): num
  * Month↔day (and 7D↔90D) keep the previous silhouette instead of growing
  * every new index from 0.
  */
-export function remapSeriesLength(
-  from: readonly number[],
-  toLength: number,
-): number[] {
+export function remapSeriesLength(from: readonly number[], toLength: number): number[] {
   if (toLength <= 0) return [];
   if (from.length === 0) return Array.from({ length: toLength }, () => 0);
   if (from.length === toLength) return from.slice();
@@ -64,10 +61,7 @@ function seriesPeak(values: readonly number[]): number {
 }
 
 /** Put `from` into `to`'s amplitude so the silhouette morphs at the new scale. */
-export function rescaleSeriesToPeak(
-  from: readonly number[],
-  to: readonly number[],
-): number[] {
+export function rescaleSeriesToPeak(from: readonly number[], to: readonly number[]): number[] {
   const fromPeak = seriesPeak(from);
   const toPeak = seriesPeak(to);
   if (fromPeak === 0 || toPeak === 0) return from.slice();
@@ -179,7 +173,10 @@ export function createSeriesMorph(initial: readonly number[] = []): SeriesMorph 
       const to = next.map((v) => Math.max(0, Number.isFinite(v) ? v : 0));
       if (!hasRetargeted) {
         // First target: grow in from zero (echarts-style enter).
-        begin(to, to.map(() => 0));
+        begin(
+          to,
+          to.map(() => 0),
+        );
         return;
       }
       const lengthChanged = current.length !== to.length;
@@ -196,7 +193,10 @@ export function createSeriesMorph(initial: readonly number[] = []): SeriesMorph 
     },
     retargetEnter(next) {
       const to = next.map((v) => Math.max(0, Number.isFinite(v) ? v : 0));
-      begin(to, to.map(() => 0));
+      begin(
+        to,
+        to.map(() => 0),
+      );
     },
     retargetFrom(fromVals, next) {
       const to = next.map((v) => Math.max(0, Number.isFinite(v) ? v : 0));
@@ -224,9 +224,7 @@ export function createSeriesMorph(initial: readonly number[] = []): SeriesMorph 
     },
     current: () => current,
     progress(reducedMotion) {
-      return reducedMotion
-        ? 1
-        : ditherMorphEase(ditherMorphProgress(startMs, reducedMotion));
+      return reducedMotion ? 1 : ditherMorphEase(ditherMorphProgress(startMs, reducedMotion));
     },
   };
 }
@@ -244,9 +242,7 @@ export type GridMorph = {
   progress: (reducedMotion: boolean) => number;
 };
 
-export function createGridMorph(
-  initial: readonly (readonly number[])[] = [],
-): GridMorph {
+export function createGridMorph(initial: readonly (readonly number[])[] = []): GridMorph {
   const flat = createSeriesMorph(flattenGrid(initial));
   let rowLens: number[] = initial.map((row) => row.length);
   let rowCount = initial.length;
@@ -263,10 +259,7 @@ export function createGridMorph(
       const nextShape = shapeSignature(next);
       const values = flattenGrid(next);
       if (nextShape !== shapeKey && rowCount > 0) {
-        const remapped = remapGrid(
-          unflattenGrid(flat.current(), rowCount, rowLens),
-          next,
-        );
+        const remapped = remapGrid(unflattenGrid(flat.current(), rowCount, rowLens), next);
         applyShape(next);
         flat.retargetFrom(flattenGrid(remapped), values);
       } else {

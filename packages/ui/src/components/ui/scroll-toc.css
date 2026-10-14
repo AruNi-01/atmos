@@ -50,13 +50,16 @@
 }
 
 @keyframes scroll-toc-label-marquee {
-  0%, 8% {
+  0%,
+  8% {
     transform: translateX(0);
   }
-  45%, 55% {
+  45%,
+  55% {
     transform: translateX(var(--scroll-toc-label-overflow, 0px));
   }
-  85%, 100% {
+  85%,
+  100% {
     transform: translateX(0);
   }
 }
@@ -94,8 +97,7 @@
 
   mask-image:
     linear-gradient(to top, transparent, white 90%),
-    linear-gradient(to bottom, transparent, white 100%),
-    linear-gradient(white, white);
+    linear-gradient(to bottom, transparent, white 100%), linear-gradient(white, white);
 
   mask-size:
     100% var(--top-mask-height),

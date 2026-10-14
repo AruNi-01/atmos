@@ -32,15 +32,9 @@ const ExpandButton = ({
       {...props}
     >
       {expanded ? (
-        <ChevronsDownUp
-          size={iconSize}
-          className="animate-in zoom-in-50 duration-200"
-        />
+        <ChevronsDownUp size={iconSize} className="animate-in duration-200 zoom-in-50" />
       ) : (
-        <ChevronsUpDown
-          size={iconSize}
-          className="animate-in zoom-in-50 duration-200"
-        />
+        <ChevronsUpDown size={iconSize} className="animate-in duration-200 zoom-in-50" />
       )}
     </button>
   );

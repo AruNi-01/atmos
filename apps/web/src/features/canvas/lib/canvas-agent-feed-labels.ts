@@ -119,7 +119,9 @@ export function describeCanvasAgentCommand(
     return {
       kind: "create",
       label: withCreateWriting(
-        geo ? canvasAgentFeedT("creatingNamedShape", { shape: geo }) : canvasAgentFeedT("creatingShape"),
+        geo
+          ? canvasAgentFeedT("creatingNamedShape", { shape: geo })
+          : canvasAgentFeedT("creatingShape"),
         args,
       ),
     };
@@ -176,14 +178,16 @@ export function describeCanvasAgentCommand(
   if (verb === "select" || verb === "clear-selection") {
     return {
       kind: "select",
-      label: verb === "clear-selection" ? canvasAgentFeedT("clearingSelection") : canvasAgentFeedT("selectingShapes"),
+      label:
+        verb === "clear-selection"
+          ? canvasAgentFeedT("clearingSelection")
+          : canvasAgentFeedT("selectingShapes"),
     };
   }
 
   if (verb === "set-status") {
     const raw = args?.status;
-    const status =
-      typeof raw === "string" ? raw.trim().toLowerCase() : "idle";
+    const status = typeof raw === "string" ? raw.trim().toLowerCase() : "idle";
     if (status === "active") {
       return { kind: "read", label: canvasAgentFeedT("canvasSessionActive") };
     }

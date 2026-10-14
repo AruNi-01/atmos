@@ -13,11 +13,7 @@ import { filterSlashSkillsForProject } from "@/features/welcome/lib/slash-skill-
 import type { Project } from "@/shared/types/domain";
 
 function isSlashSurfacedSkill(skill: SkillInfo) {
-  return (
-    skill.scope === "global" ||
-    skill.scope === "project" ||
-    skill.scope === "inside_project"
-  );
+  return skill.scope === "global" || skill.scope === "project" || skill.scope === "inside_project";
 }
 
 export function useWelcomeSlashSearch({
@@ -34,15 +30,9 @@ export function useWelcomeSlashSearch({
   const debouncedSlashQuery = useDebouncedPopoverQuery(popover, 300);
   const skillsQuery = useSkillsListQuery();
 
-  const allSkills = React.useMemo(
-    () => skillsQuery.data?.skills ?? [],
-    [skillsQuery.data?.skills],
-  );
+  const allSkills = React.useMemo(() => skillsQuery.data?.skills ?? [], [skillsQuery.data?.skills]);
 
-  const skills = React.useMemo(
-    () => allSkills.filter(isSlashSurfacedSkill),
-    [allSkills],
-  );
+  const skills = React.useMemo(() => allSkills.filter(isSlashSurfacedSkill), [allSkills]);
 
   const visibleSkills = React.useMemo(
     () => filterSlashSkillsForProject(skills, activeProjectId ?? null),

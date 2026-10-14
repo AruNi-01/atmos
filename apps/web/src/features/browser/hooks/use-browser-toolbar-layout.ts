@@ -67,10 +67,8 @@ export function useBrowserToolbarLayout({
   }, []);
 
   const effectiveIsToolbarHidden = isToolbarHidden;
-  const usesToolbarHoverOverlay =
-    effectiveIsToolbarHidden && resolvedTransportMode !== "desktop";
-  const usesDesktopToolbarExpand =
-    effectiveIsToolbarHidden && resolvedTransportMode === "desktop";
+  const usesToolbarHoverOverlay = effectiveIsToolbarHidden && resolvedTransportMode !== "desktop";
+  const usesDesktopToolbarExpand = effectiveIsToolbarHidden && resolvedTransportMode === "desktop";
   const desktopToolbarExpanded =
     usesDesktopToolbarExpand && desktopToolbarHovered && !toolbarHoverSuppressed;
   const toolbarToggleTitle = effectiveIsToolbarHidden

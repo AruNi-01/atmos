@@ -204,10 +204,7 @@ function isValidIndexKey(index: unknown): index is IndexKey {
 }
 
 /** tldraw v5 uses fractional index keys (`a1`, `a2`, …) — not `a${shapeCount}`. */
-function getTopShapeIndexOnPage(
-  snapshot: TLEditorSnapshot,
-  pageId: TLPageId,
-): IndexKey | null {
+function getTopShapeIndexOnPage(snapshot: TLEditorSnapshot, pageId: TLPageId): IndexKey | null {
   const store = snapshot.document.store as Record<string, unknown>;
   const onPage: { index: IndexKey }[] = [];
 
@@ -336,9 +333,7 @@ function createEmptySnapshot(): TLEditorSnapshot {
   };
 }
 
-export function isCanvasTerminalShapeRecord(
-  value: unknown,
-): value is CanvasTerminalShape & {
+export function isCanvasTerminalShapeRecord(value: unknown): value is CanvasTerminalShape & {
   typeName: "shape";
 } {
   if (!value || typeof value !== "object") {
@@ -462,11 +457,7 @@ export function removeCanvasTerminalShapesFromDocument(
   const sourceTerminalTabIds = new Set(options.sourceTerminalTabIds ?? []);
   const pinKeys = new Set(options.pinKeys ?? []);
   const tmuxWindowNames = new Set(options.tmuxWindowNames ?? []);
-  if (
-    sourceTerminalTabIds.size === 0 &&
-    pinKeys.size === 0 &&
-    tmuxWindowNames.size === 0
-  ) {
+  if (sourceTerminalTabIds.size === 0 && pinKeys.size === 0 && tmuxWindowNames.size === 0) {
     return {
       changed: false,
       document,

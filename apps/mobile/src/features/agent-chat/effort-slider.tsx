@@ -60,15 +60,17 @@ export function EffortSlider(props: {
   };
   const commitRef = useRef(commit);
   commitRef.current = commit;
-  const responder = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
-    onPanResponderTerminationRequest: () => false,
-    onPanResponderGrant: (event) => commitRef.current(event.nativeEvent.locationX, false),
-    onPanResponderMove: (event) => commitRef.current(event.nativeEvent.locationX, false),
-    onPanResponderRelease: (event) => commitRef.current(event.nativeEvent.locationX, true),
-    onPanResponderTerminate: (event) => commitRef.current(event.nativeEvent.locationX, true),
-  })).current;
+  const responder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: (event) => commitRef.current(event.nativeEvent.locationX, false),
+      onPanResponderMove: (event) => commitRef.current(event.nativeEvent.locationX, false),
+      onPanResponderRelease: (event) => commitRef.current(event.nativeEvent.locationX, true),
+      onPanResponderTerminate: (event) => commitRef.current(event.nativeEvent.locationX, true),
+    }),
+  ).current;
 
   return (
     <View
@@ -88,77 +90,77 @@ export function EffortSlider(props: {
         overflow: "hidden",
       }}
     >
+      <View
+        pointerEvents="none"
+        style={{
+          backgroundColor: fill,
+          borderRadius: TRACK_HEIGHT / 2,
+          bottom: 0,
+          left: 0,
+          opacity: atMax ? 0 : 1,
+          position: "absolute",
+          top: 0,
+          width: `${ratio * 100}%`,
+        }}
+      />
+      {steps > 0 ? (
         <View
           pointerEvents="none"
           style={{
-            backgroundColor: fill,
-            borderRadius: TRACK_HEIGHT / 2,
             bottom: 0,
-            left: 0,
+            left: 12,
             opacity: atMax ? 0 : 1,
             position: "absolute",
-            top: 0,
-            width: `${ratio * 100}%`,
-          }}
-        />
-        {steps > 0 ? (
-          <View
-            pointerEvents="none"
-            style={{
-              bottom: 0,
-              left: 12,
-              opacity: atMax ? 0 : 1,
-              position: "absolute",
-              right: 12,
-              top: 0,
-            }}
-          >
-            {Array.from({ length: steps + 1 }, (_, step) => (
-              <View
-                key={step}
-                style={{
-                  backgroundColor: tick,
-                  borderRadius: 1,
-                  height: 14,
-                  left: `${(step / steps) * 100}%`,
-                  marginLeft: -1,
-                  position: "absolute",
-                  top: (TRACK_HEIGHT - 14) / 2,
-                  width: 2,
-                }}
-              />
-            ))}
-          </View>
-        ) : null}
-        <Animated.View
-          pointerEvents="none"
-          style={{
-            bottom: 0,
-            left: 0,
-            opacity: exhaust,
-            position: "absolute",
-            right: 0,
+            right: 12,
             top: 0,
           }}
         >
-          {showFlame ? <EffortExhaust /> : null}
-        </Animated.View>
-        <View
-          pointerEvents="none"
-          style={{
-            backgroundColor: atMax ? "#ffffff" : theme.isDark ? "#d4d4d4" : "rgba(17,17,18,0.45)",
-            borderRadius: 6,
-            height: THUMB_HEIGHT,
-            left: thumbLeft,
-            position: "absolute",
-            shadowColor: atMax ? "#bae6fd" : "#000000",
-            shadowOffset: { height: 0, width: 0 },
-            shadowOpacity: atMax ? 0.9 : 0.12,
-            shadowRadius: atMax ? 8 : 2,
-            top: (TRACK_HEIGHT - THUMB_HEIGHT) / 2,
-            width: THUMB_WIDTH,
-          }}
-        />
-      </View>
+          {Array.from({ length: steps + 1 }, (_, step) => (
+            <View
+              key={step}
+              style={{
+                backgroundColor: tick,
+                borderRadius: 1,
+                height: 14,
+                left: `${(step / steps) * 100}%`,
+                marginLeft: -1,
+                position: "absolute",
+                top: (TRACK_HEIGHT - 14) / 2,
+                width: 2,
+              }}
+            />
+          ))}
+        </View>
+      ) : null}
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          bottom: 0,
+          left: 0,
+          opacity: exhaust,
+          position: "absolute",
+          right: 0,
+          top: 0,
+        }}
+      >
+        {showFlame ? <EffortExhaust /> : null}
+      </Animated.View>
+      <View
+        pointerEvents="none"
+        style={{
+          backgroundColor: atMax ? "#ffffff" : theme.isDark ? "#d4d4d4" : "rgba(17,17,18,0.45)",
+          borderRadius: 6,
+          height: THUMB_HEIGHT,
+          left: thumbLeft,
+          position: "absolute",
+          shadowColor: atMax ? "#bae6fd" : "#000000",
+          shadowOffset: { height: 0, width: 0 },
+          shadowOpacity: atMax ? 0.9 : 0.12,
+          shadowRadius: atMax ? 8 : 2,
+          top: (TRACK_HEIGHT - THUMB_HEIGHT) / 2,
+          width: THUMB_WIDTH,
+        }}
+      />
+    </View>
   );
 }

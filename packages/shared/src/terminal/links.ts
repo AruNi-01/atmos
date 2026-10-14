@@ -6,8 +6,8 @@ export type TerminalPathToken = {
 
 const TOKEN_REGEX = /[^\s"'`<>|]+/g;
 const TRAILING_PUNCTUATION = new Set([".", ",", ";", "!", "?"]);
-const LEADING_WRAPPERS = new Set(["(", "[", "{", "\"", "'"]);
-const TRAILING_WRAPPERS = new Set(["]", "}", "\"", "'"]);
+const LEADING_WRAPPERS = new Set(["(", "[", "{", '"', "'"]);
+const TRAILING_WRAPPERS = new Set(["]", "}", '"', "'"]);
 
 export function extractTerminalPathTokens(line: string): TerminalPathToken[] {
   const matches: TerminalPathToken[] = [];
@@ -54,10 +54,10 @@ function stripTokenWrappers(raw: string, start: number, end: number): TerminalPa
 function hasFileLikeShape(pathText: string): boolean {
   if (!pathText) return false;
   if (pathText.startsWith("file://")) return true;
-  if (pathText.startsWith("~/") || pathText.startsWith("./") || pathText.startsWith("../")) return true;
+  if (pathText.startsWith("~/") || pathText.startsWith("./") || pathText.startsWith("../"))
+    return true;
   if (pathText.startsWith("/")) return true;
   if (/^[a-zA-Z]:[\\/]/.test(pathText)) return true;
   if (pathText.includes("/") || pathText.includes("\\")) return true;
   return /[A-Za-z0-9._-]+\.[A-Za-z0-9._-]+(?::\d+)?(?::\d+)?$/.test(pathText);
 }
-

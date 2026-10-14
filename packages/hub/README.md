@@ -4,13 +4,13 @@ Atmos Hub — `hub.atmos.land` control plane ([APP-056](../../specs/APP/APP-056_
 
 ## Stack (official patterns)
 
-| Piece | How we do it |
-|-------|----------------|
+| Piece            | How we do it                                                                                                                                                      |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **D1 + Drizzle** | `drizzle(env.DB)` — [Drizzle D1 get started](https://orm.drizzle.team/docs/get-started/d1-new), [connect D1](https://orm.drizzle.team/docs/connect-cloudflare-d1) |
-| **Migrations** | `drizzle-kit generate` → `drizzle/`; wrangler `migrations_dir = "drizzle"` |
-| **Auth** | [Better Auth](https://better-auth.com/docs/installation) + [`@better-auth/drizzle-adapter`](https://better-auth.com/docs/adapters/drizzle), `provider: "sqlite"` |
-| **Providers v1** | GitHub + Google social only |
-| **Identity** | `user_id` = Better Auth `user.id` — **no** user Access Token dual identity |
+| **Migrations**   | `drizzle-kit generate` → `drizzle/`; wrangler `migrations_dir = "drizzle"`                                                                                        |
+| **Auth**         | [Better Auth](https://better-auth.com/docs/installation) + [`@better-auth/drizzle-adapter`](https://better-auth.com/docs/adapters/drizzle), `provider: "sqlite"`  |
+| **Providers v1** | GitHub + Google social only                                                                                                                                       |
+| **Identity**     | `user_id` = Better Auth `user.id` — **no** user Access Token dual identity                                                                                        |
 
 ## Layout
 
@@ -66,10 +66,10 @@ Client: `NEXT_PUBLIC_ATMOS_HUB_URL=http://localhost:8787` (prod: `https://hub.at
 
 Create a **Web application** OAuth client. Better Auth callback path is fixed:
 
-| Field | Values |
-|-------|--------|
+| Field                             | Values                                                                                               |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | **Authorized JavaScript origins** | `http://localhost:3000`, `https://app.atmos.land`, `http://localhost:8787`, `https://hub.atmos.land` |
-| **Authorized redirect URIs** | `http://localhost:8787/api/auth/callback/google`, `https://hub.atmos.land/api/auth/callback/google` |
+| **Authorized redirect URIs**      | `http://localhost:8787/api/auth/callback/google`, `https://hub.atmos.land/api/auth/callback/google`  |
 
 Do **not** use bare `https://localhost`, `http://localhost:8080`, or `https://api.atmos.land` for Hub Google login — those are not Hub origins / not the BA callback path.
 

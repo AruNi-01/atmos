@@ -83,9 +83,7 @@ function handoffDir(): string {
   return dir;
 }
 
-export function createAllHandlers(
-  state: AppState,
-): Record<string, DesktopCommandHandler> {
+export function createAllHandlers(state: AppState): Record<string, DesktopCommandHandler> {
   return {
     // --- runtime ---
     async get_api_config() {
@@ -147,11 +145,7 @@ export function createAllHandlers(
       const message = str(args.message);
       const logPath = electronLogPath();
       mkdirSync(dirname(logPath), { recursive: true });
-      appendFileSync(
-        logPath,
-        `${new Date().toISOString()} [${level}] ${message}\n`,
-        "utf8",
-      );
+      appendFileSync(logPath, `${new Date().toISOString()} [${level}] ${message}\n`, "utf8");
       return null;
     },
 
@@ -250,9 +244,7 @@ export function createAllHandlers(
       }
       if (!icon) {
         const { iconSearchRoots } = await import("../branding.js");
-        const { resolveDefaultNotificationIcon } = await import(
-          "../branding-paths.js"
-        );
+        const { resolveDefaultNotificationIcon } = await import("../branding-paths.js");
         const fallback = resolveDefaultNotificationIcon(iconSearchRoots());
         if (fallback) icon = fallback;
       }
@@ -281,10 +273,7 @@ export function createAllHandlers(
           win.show();
           win.focus();
           try {
-            win.webContents.send(
-              "atmos:desktop-event:notification-clicked",
-              data ?? {},
-            );
+            win.webContents.send("atmos:desktop-event:notification-clicked", data ?? {});
           } catch {
             /* renderer may not be ready */
           }
@@ -325,11 +314,7 @@ export function createAllHandlers(
       await new Promise<void>((resolve, reject) => {
         const child = spawn(cmd, [path], { detached: true, stdio: "ignore" });
         child.on("error", (err) => {
-          reject(
-            new Error(
-              `Failed to open editor "${cmd}": ${err.message || String(err)}`,
-            ),
-          );
+          reject(new Error(`Failed to open editor "${cmd}": ${err.message || String(err)}`));
         });
         child.on("spawn", () => {
           child.unref();
@@ -349,8 +334,7 @@ export function createAllHandlers(
         : ["openFile"];
       const options = {
         properties,
-        defaultPath:
-          typeof args.defaultPath === "string" ? args.defaultPath : undefined,
+        defaultPath: typeof args.defaultPath === "string" ? args.defaultPath : undefined,
         title: typeof args.title === "string" ? args.title : undefined,
         ...(filters ? { filters } : {}),
       };
@@ -372,21 +356,16 @@ export function createAllHandlers(
     /** Native window fullscreen (mac traffic lights hide/show with this). */
     async window_is_fullscreen() {
       const { BrowserWindow } = await electron();
-      const focused =
-        BrowserWindow.getFocusedWindow() ?? state.mainWindow ?? null;
+      const focused = BrowserWindow.getFocusedWindow() ?? state.mainWindow ?? null;
       if (!focused || focused.isDestroyed()) return false;
       return focused.isFullScreen();
     },
 
     async window_set_fullscreen(args) {
       const { BrowserWindow } = await electron();
-      const focused =
-        BrowserWindow.getFocusedWindow() ?? state.mainWindow ?? null;
+      const focused = BrowserWindow.getFocusedWindow() ?? state.mainWindow ?? null;
       if (!focused || focused.isDestroyed()) return null;
-      const next =
-        typeof args.fullscreen === "boolean"
-          ? args.fullscreen
-          : !focused.isFullScreen();
+      const next = typeof args.fullscreen === "boolean" ? args.fullscreen : !focused.isFullScreen();
       focused.setFullScreen(next);
       return { fullscreen: next };
     },
@@ -398,14 +377,10 @@ export function createAllHandlers(
     async window_set_mac_chrome_variant(args) {
       if (process.platform !== "darwin") return null;
       const variantRaw = str(args.variant);
-      const {
-        applyMacChromeVariant,
-        isMacChromeVariant,
-      } = await import("../windows/mac-chrome.js");
+      const { applyMacChromeVariant, isMacChromeVariant } =
+        await import("../windows/mac-chrome.js");
       if (!isMacChromeVariant(variantRaw)) {
-        throw new Error(
-          `Invalid mac chrome variant: ${variantRaw || "(empty)"}`,
-        );
+        throw new Error(`Invalid mac chrome variant: ${variantRaw || "(empty)"}`);
       }
       const host = await hostWindowFromArgs(args, state);
       if (!host || host.isDestroyed()) return null;
@@ -522,18 +497,12 @@ export function createAllHandlers(
     },
 
     async browser_bridge_navigate(args) {
-      state.browser?.navigate(
-        str(args.session_id ?? args.sessionId),
-        str(args.url),
-      );
+      state.browser?.navigate(str(args.session_id ?? args.sessionId), str(args.url));
       return null;
     },
 
     async browser_bridge_set_zoom(args) {
-      state.browser?.setZoom(
-        str(args.session_id ?? args.sessionId),
-        Number(args.zoom ?? 1),
-      );
+      state.browser?.setZoom(str(args.session_id ?? args.sessionId), Number(args.zoom ?? 1));
       return null;
     },
 
@@ -549,12 +518,8 @@ export function createAllHandlers(
     async browser_bridge_query_element_rects(args) {
       const sessionId = str(args.session_id ?? args.sessionId);
       const raw = args.selectors;
-      const selectors = Array.isArray(raw)
-        ? raw.map((s) => str(s)).filter(Boolean)
-        : [];
-      return (
-        (await state.browser?.queryElementRects(sessionId, selectors)) ?? []
-      );
+      const selectors = Array.isArray(raw) ? raw.map((s) => str(s)).filter(Boolean) : [];
+      return (await state.browser?.queryElementRects(sessionId, selectors)) ?? [];
     },
 
     async browser_bridge_enter_pick_mode(args) {
@@ -645,10 +610,7 @@ export function createAllHandlers(
           if (item && typeof item === "object") {
             picks.push({
               ...(item as Record<string, unknown>),
-              source:
-                (item as { source?: string }).source === "current"
-                  ? "current"
-                  : "annotation",
+              source: (item as { source?: string }).source === "current" ? "current" : "annotation",
             });
           }
         }
@@ -658,7 +620,7 @@ export function createAllHandlers(
         picks
           .map((pick) => ({
             id: typeof pick.id === "string" ? pick.id : undefined,
-            source: pick.source === "current" ? "current" as const : "annotation" as const,
+            source: pick.source === "current" ? ("current" as const) : ("annotation" as const),
             selector: str(pick.selector),
             name: typeof pick.name === "string" ? pick.name : undefined,
             note: typeof pick.note === "string" ? pick.note : undefined,
@@ -768,8 +730,7 @@ export function createAllHandlers(
     async appshot_show_permissions_window(args) {
       // APP-052: primary path is Settings → Desktop Use (not standalone window).
       const { BrowserWindow } = await import("electron");
-      const win =
-        BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+      const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
       if (win && !win.isDestroyed()) {
         const url = new URL(win.webContents.getURL());
         const next = new URL("/settings", url.origin);
@@ -779,9 +740,7 @@ export function createAllHandlers(
         win.focus();
         return null;
       }
-      const { openAppshotPermissionsWindow } = await import(
-        "../windows/secondary.js"
-      );
+      const { openAppshotPermissionsWindow } = await import("../windows/secondary.js");
       openAppshotPermissionsWindow(state, args);
       return null;
     },
@@ -826,29 +785,20 @@ export function createAllHandlers(
       return client.desktopUseDoctor();
     },
     async desktop_use_grant_permissions(args) {
-      const raw =
-        typeof args?.target === "string" ? args.target.trim().toLowerCase() : "all";
+      const raw = typeof args?.target === "string" ? args.target.trim().toLowerCase() : "all";
       const target =
-        raw === "accessibility" || raw === "screen_recording" || raw === "all"
-          ? raw
-          : "all";
+        raw === "accessibility" || raw === "screen_recording" || raw === "all" ? raw : "all";
       const locale =
         typeof args?.locale === "string"
           ? args.locale
           : typeof args?.lang === "string"
             ? args.lang
             : undefined;
-      const {
-        GRANT_PANEL_HEIGHT,
-        GRANT_PANEL_WIDTH,
-      } = await import("../desktop-use/grant-overlay.js");
-      const {
-        grantOverlaySourceOriginFromAnchor,
-        parseViewportAnchor,
-      } = await import("../macos-app-permissions.js");
-      const { openDesktopUseGrantFlow } = await import(
-        "../desktop-use/host-grant.js"
-      );
+      const { GRANT_PANEL_HEIGHT, GRANT_PANEL_WIDTH } =
+        await import("../desktop-use/grant-overlay.js");
+      const { grantOverlaySourceOriginFromAnchor, parseViewportAnchor } =
+        await import("../macos-app-permissions.js");
+      const { openDesktopUseGrantFlow } = await import("../desktop-use/host-grant.js");
       const anchor = parseViewportAnchor(args?.anchor);
       let sourceOrigin: { x: number; y: number } | undefined;
       if (anchor) {
@@ -902,8 +852,7 @@ export function createAllHandlers(
             : typeof args?.operation_border_enabled === "boolean"
               ? args.operation_border_enabled
               : undefined;
-      const highlightIdleMsRaw =
-        args?.highlightIdleMs ?? args?.highlight_idle_ms;
+      const highlightIdleMsRaw = args?.highlightIdleMs ?? args?.highlight_idle_ms;
       const highlightIdleMs =
         typeof highlightIdleMsRaw === "number" && Number.isFinite(highlightIdleMsRaw)
           ? highlightIdleMsRaw
@@ -915,35 +864,27 @@ export function createAllHandlers(
       return client.desktopUseDriveSessionEnd();
     },
     async desktop_use_close_grant_overlay() {
-      const { closeAccessibilityGrantOverlay } = await import(
-        "../desktop-use/grant-overlay.js"
-      );
+      const { closeAccessibilityGrantOverlay } = await import("../desktop-use/grant-overlay.js");
       closeAccessibilityGrantOverlay();
       return { ok: true };
     },
 
     async macos_app_permissions_status() {
-      const { queryAtmosAppPermissions } = await import(
-        "../macos-app-permissions.js"
-      );
+      const { queryAtmosAppPermissions } = await import("../macos-app-permissions.js");
       return queryAtmosAppPermissions();
     },
     async macos_app_permissions_grant(args) {
-      const { grantAtmosAppPermission, parseViewportAnchor } = await import(
-        "../macos-app-permissions.js"
-      );
-      const raw =
-        typeof args?.target === "string" ? args.target.trim().toLowerCase() : "";
-      const target =
-        raw === "screen_recording" ? "screen_recording" : "accessibility";
+      const { grantAtmosAppPermission, parseViewportAnchor } =
+        await import("../macos-app-permissions.js");
+      const raw = typeof args?.target === "string" ? args.target.trim().toLowerCase() : "";
+      const target = raw === "screen_recording" ? "screen_recording" : "accessibility";
       const locale =
         typeof args?.locale === "string"
           ? args.locale
           : typeof args?.lang === "string"
             ? args.lang
             : undefined;
-      const reason =
-        args?.reason === "host_shortcuts" ? "host_shortcuts" : undefined;
+      const reason = args?.reason === "host_shortcuts" ? "host_shortcuts" : undefined;
       const host = await hostWindowFromArgs(args, state);
       return grantAtmosAppPermission({
         target,
@@ -1008,9 +949,7 @@ export function createAllHandlers(
     },
     async tunnel_connector_clear_credential(args) {
       const provider = (args.provider ??
-        (args as { req?: { provider?: ProviderKind } }).req?.provider) as
-        | ProviderKind
-        | undefined;
+        (args as { req?: { provider?: ProviderKind } }).req?.provider) as ProviderKind | undefined;
       if (provider) state.tunnel?.clearCredential(provider);
       return null;
     },

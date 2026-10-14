@@ -1,4 +1,4 @@
-import type { SourceLocationResult, SourceLocatorAdapter } from './types';
+import type { SourceLocationResult, SourceLocatorAdapter } from "./types";
 
 interface VueComponentLike {
   type?: unknown;
@@ -22,17 +22,17 @@ interface VueComponentCandidate {
 }
 
 interface VueConfidenceEvaluation {
-  confidence: SourceLocationResult['confidence'];
+  confidence: SourceLocationResult["confidence"];
   debug: string[];
 }
 
 function getVueComponentName(type: unknown): string | null {
   if (!type) return null;
-  if (typeof type === 'function') {
+  if (typeof type === "function") {
     const candidate = type as { name?: string; displayName?: string };
     return candidate.displayName || candidate.name || null;
   }
-  if (typeof type === 'object') {
+  if (typeof type === "object") {
     const candidate = type as {
       name?: string;
       __name?: string;
@@ -46,12 +46,7 @@ function getVueComponentName(type: unknown): string | null {
 function getVueFilePath(instance: VueComponentLike): string | undefined {
   const type = instance.type as { __file?: string } | undefined;
   const vnodeType = instance.vnode?.type as { __file?: string } | undefined;
-  return (
-    type?.__file ||
-    instance.proxy?.$options?.__file ||
-    vnodeType?.__file ||
-    undefined
-  );
+  return type?.__file || instance.proxy?.$options?.__file || vnodeType?.__file || undefined;
 }
 
 function getVueInstanceFromElement(element: Element): VueComponentLike | null {
@@ -61,19 +56,19 @@ function getVueInstanceFromElement(element: Element): VueComponentLike | null {
     const typed = current as Element & Record<string, unknown>;
 
     const parentComponent = typed.__vueParentComponent;
-    if (parentComponent && typeof parentComponent === 'object') {
+    if (parentComponent && typeof parentComponent === "object") {
       return parentComponent as VueComponentLike;
     }
 
     const legacyVue = typed.__vue__;
-    if (legacyVue && typeof legacyVue === 'object') {
+    if (legacyVue && typeof legacyVue === "object") {
       return legacyVue as VueComponentLike;
     }
 
     const vnode = typed.__vnode;
-    if (vnode && typeof vnode === 'object') {
+    if (vnode && typeof vnode === "object") {
       const component = (vnode as { component?: unknown }).component;
-      if (component && typeof component === 'object') {
+      if (component && typeof component === "object") {
         return component as VueComponentLike;
       }
     }
@@ -85,9 +80,13 @@ function getVueInstanceFromElement(element: Element): VueComponentLike | null {
 }
 
 function isLikelyVueNoise(name: string): boolean {
-  return /^(Transition|BaseTransition|TransitionGroup|KeepAlive|Teleport|Suspense|RouterView|RouterLink)$/.test(name)
-    || name.endsWith('Provider')
-    || name.endsWith('Transition');
+  return (
+    /^(Transition|BaseTransition|TransitionGroup|KeepAlive|Teleport|Suspense|RouterView|RouterLink)$/.test(
+      name,
+    ) ||
+    name.endsWith("Provider") ||
+    name.endsWith("Transition")
+  );
 }
 
 function normalizeVueChain(candidates: VueComponentCandidate[]): string[] {
@@ -95,7 +94,9 @@ function normalizeVueChain(candidates: VueComponentCandidate[]): string[] {
     (candidate, index) => candidates.findIndex((item) => item.name === candidate.name) === index,
   );
   const userCandidates = uniqueCandidates.filter((candidate) => !isLikelyVueNoise(candidate.name));
-  const preferredCandidates = userCandidates.filter((candidate) => !candidate.filePath?.includes('node_modules'));
+  const preferredCandidates = userCandidates.filter(
+    (candidate) => !candidate.filePath?.includes("node_modules"),
+  );
   const finalCandidates =
     preferredCandidates.length > 0
       ? preferredCandidates
@@ -103,14 +104,17 @@ function normalizeVueChain(candidates: VueComponentCandidate[]): string[] {
         ? userCandidates
         : uniqueCandidates;
 
-  return finalCandidates.slice(0, 5).map((candidate) => candidate.name).reverse();
+  return finalCandidates
+    .slice(0, 5)
+    .map((candidate) => candidate.name)
+    .reverse();
 }
 
 function scoreVueCandidate(candidate: VueComponentCandidate): number {
   let score = 0;
   if (candidate.filePath) score += 4;
-  if (candidate.filePath && !candidate.filePath.includes('node_modules')) score += 2;
-  if (candidate.filePath && candidate.filePath.includes('node_modules')) score -= 1;
+  if (candidate.filePath && !candidate.filePath.includes("node_modules")) score += 2;
+  if (candidate.filePath && candidate.filePath.includes("node_modules")) score -= 1;
   if (!isLikelyVueNoise(candidate.name)) score += 2;
   return score;
 }
@@ -124,51 +128,51 @@ function evaluateVueConfidence(
 
   if (bestCandidate.name) {
     score += 1;
-    debug.push('component-name');
+    debug.push("component-name");
   }
 
   if (bestCandidate.filePath) {
     score += 2;
-    debug.push('source-file');
+    debug.push("source-file");
   } else {
-    debug.push('missing-source-file');
+    debug.push("missing-source-file");
   }
 
-  if (bestCandidate.filePath && !bestCandidate.filePath.includes('node_modules')) {
+  if (bestCandidate.filePath && !bestCandidate.filePath.includes("node_modules")) {
     score += 2;
-    debug.push('user-code-path');
+    debug.push("user-code-path");
   } else if (bestCandidate.filePath) {
     score -= 1;
-    debug.push('node-modules-path');
+    debug.push("node-modules-path");
   }
 
   if (isLikelyVueNoise(bestCandidate.name)) {
     score -= 2;
-    debug.push('wrapper-component');
+    debug.push("wrapper-component");
   }
 
   if (componentChain.length === 0) {
     score -= 1;
-    debug.push('empty-component-chain');
+    debug.push("empty-component-chain");
   } else if (componentChain.length <= 3) {
     score += 1;
-    debug.push('focused-component-chain');
+    debug.push("focused-component-chain");
   }
 
   if (score >= 5) {
-    return { confidence: 'high', debug };
+    return { confidence: "high", debug };
   }
   if (score >= 3) {
-    return { confidence: 'medium', debug };
+    return { confidence: "medium", debug };
   }
-  return { confidence: 'low', debug };
+  return { confidence: "low", debug };
 }
 
 export const vueSourceLocator: SourceLocatorAdapter = {
-  id: 'vue',
+  id: "vue",
   canHandle: (win) => {
     return !!(
-      win.document.querySelector('[data-v-app]') ||
+      win.document.querySelector("[data-v-app]") ||
       (win as Window & Record<string, unknown>).__VUE__ ||
       (win as Window & Record<string, unknown>).__VUE_DEVTOOLS_GLOBAL_HOOK__
     );
@@ -203,12 +207,14 @@ export const vueSourceLocator: SourceLocatorAdapter = {
 
     if (candidates.length === 0) return null;
 
-    const bestCandidate = [...candidates].sort((left, right) => scoreVueCandidate(right) - scoreVueCandidate(left))[0];
+    const bestCandidate = [...candidates].sort(
+      (left, right) => scoreVueCandidate(right) - scoreVueCandidate(left),
+    )[0];
     const componentChain = normalizeVueChain(candidates);
     const confidenceEvaluation = evaluateVueConfidence(bestCandidate, componentChain);
 
     return {
-      framework: 'vue',
+      framework: "vue",
       componentName: bestCandidate.name,
       displayName: bestCandidate.name,
       filePath: bestCandidate.filePath,

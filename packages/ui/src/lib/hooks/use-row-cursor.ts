@@ -9,11 +9,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 type RowCursor = { id: string; query: string };
 
 /** The cursor's row, or -1 once the query has moved on or the row has left. */
-function indexOfCursor(
-  rows: readonly { id: string }[],
-  query: string,
-  cursor: RowCursor | null,
-) {
+function indexOfCursor(rows: readonly { id: string }[], query: string, cursor: RowCursor | null) {
   if (cursor === null || cursor.query !== query) return -1;
   return rows.findIndex((row) => row.id === cursor.id);
 }
@@ -64,8 +60,7 @@ export function useRowCursor(rows: readonly { id: string }[], query: string) {
   if (cursor !== null && cursorRow < 0) setCursor(null);
 
   const moveTo = useCallback(
-    (id: string | null) =>
-      setCursor(id === null ? null : { id, query: latest.current.query }),
+    (id: string | null) => setCursor(id === null ? null : { id, query: latest.current.query }),
     [],
   );
 

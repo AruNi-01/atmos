@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { Loader2, RotateCcw, Save, SquarePen } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
-import { useTranslations } from 'next-intl';
-import { cn } from '@/shared/lib/utils';
+import { Loader2, RotateCcw, Save, SquarePen } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { useTranslations } from "next-intl";
+import { cn } from "@/shared/lib/utils";
 
 type DiffWorktreeEditToolbarProps = {
   editingPath: string | null;
@@ -25,13 +25,11 @@ export function DiffWorktreeEditToolbar({
   onPrimaryClick,
   onResetClick,
 }: DiffWorktreeEditToolbarProps) {
-  const t = useTranslations('diff.codeView');
+  const t = useTranslations("diff.codeView");
   const showResetButton = Boolean(editingPath && isEditDirty);
   // Clean → Edit icon. Dirty → Save icon + Reset icon peels out to the right.
-  const primaryEditLabel = showResetButton ? t('edit.save') : t('edit.edit');
-  const primaryEditTitle = showResetButton
-    ? t('edit.saveShortcut')
-    : primaryEditLabel;
+  const primaryEditLabel = showResetButton ? t("edit.save") : t("edit.edit");
+  const primaryEditTitle = showResetButton ? t("edit.saveShortcut") : primaryEditLabel;
 
   return (
     // Width-only expand/collapse for the reset control. Do not put `layout` on
@@ -41,12 +39,12 @@ export function DiffWorktreeEditToolbar({
       <button
         type="button"
         className={cn(
-          'relative flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md disabled:pointer-events-none disabled:opacity-50',
+          "relative flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md disabled:pointer-events-none disabled:opacity-50",
           showResetButton
-            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+            ? "bg-primary text-primary-foreground hover:bg-primary/90"
             : editingPath
-              ? 'bg-muted text-foreground hover:bg-muted/80'
-              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+              ? "bg-muted text-foreground hover:bg-muted/80"
+              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
         )}
         disabled={isSavingEdit || (!editingPath && !canStartOrToggleEdit)}
         onClick={onPrimaryClick}
@@ -61,7 +59,7 @@ export function DiffWorktreeEditToolbar({
               initial={{ opacity: 0, scale: 0.7, rotate: -20 }}
               animate={{ opacity: 1, scale: 1, rotate: 0 }}
               exit={{ opacity: 0, scale: 0.7, rotate: 20 }}
-              transition={{ duration: 0.16, ease: 'easeOut' }}
+              transition={{ duration: 0.16, ease: "easeOut" }}
               className="absolute inset-0 flex items-center justify-center"
             >
               <Loader2 className="size-3.5 animate-spin" />
@@ -72,7 +70,7 @@ export function DiffWorktreeEditToolbar({
               initial={{ opacity: 0, scale: 0.7, y: 4 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.7, y: -4 }}
-              transition={{ duration: 0.16, ease: 'easeOut' }}
+              transition={{ duration: 0.16, ease: "easeOut" }}
               className="absolute inset-0 flex items-center justify-center"
             >
               <Save className="size-3.5" />
@@ -83,7 +81,7 @@ export function DiffWorktreeEditToolbar({
               initial={{ opacity: 0, scale: 0.7, y: -4 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.7, y: 4 }}
-              transition={{ duration: 0.16, ease: 'easeOut' }}
+              transition={{ duration: 0.16, ease: "easeOut" }}
               className="absolute inset-0 flex items-center justify-center"
             >
               <SquarePen className="size-3.5" />
@@ -98,7 +96,7 @@ export function DiffWorktreeEditToolbar({
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 30, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 500, damping: 38, mass: 0.7 }}
+            transition={{ type: "spring", stiffness: 500, damping: 38, mass: 0.7 }}
             className="overflow-hidden"
           >
             <button
@@ -106,8 +104,8 @@ export function DiffWorktreeEditToolbar({
               className="ml-0.5 flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
               disabled={isSavingEdit}
               onClick={onResetClick}
-              title={t('edit.reset')}
-              aria-label={t('edit.reset')}
+              title={t("edit.reset")}
+              aria-label={t("edit.reset")}
             >
               <RotateCcw className="size-3.5" />
             </button>

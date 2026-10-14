@@ -166,8 +166,7 @@ function InventoryRow({
   const t = useTranslations("features.simulator");
   const power = devicePower(device.state);
   const foreign =
-    Boolean(device.claimed_by_workspace) &&
-    device.claimed_by_workspace !== workspaceId;
+    Boolean(device.claimed_by_workspace) && device.claimed_by_workspace !== workspaceId;
   const ours = device.claimed_by_workspace === workspaceId;
   const rowBusy = busy?.udid === device.udid;
   const actionBusy = (action: string) => rowBusy && busy?.action === action;

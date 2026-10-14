@@ -1,10 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  DEFAULT_CENTER_SPACE_ID,
-  makeCenterSpaceKey,
-} from "@/app-shell/center-space/center-space";
+import { DEFAULT_CENTER_SPACE_ID, makeCenterSpaceKey } from "@/app-shell/center-space/center-space";
 import { prepareWorkspaceContextNavigation } from "@/app-shell/workspace-surface-switch";
 import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/lib/terminal-layout-document";
 import {
@@ -85,10 +82,8 @@ function createHarness(options?: {
       order.push(`ensureHost:${hostId}`);
     },
     listSpaceIds: () => options?.spaceIds ?? [DEFAULT_CENTER_SPACE_ID, EXTRA],
-    currentHostId: () =>
-      options?.currentHostId === undefined ? HOST : options.currentHostId,
-    currentSpaceId: () =>
-      options?.currentSpaceId === undefined ? null : options.currentSpaceId,
+    currentHostId: () => (options?.currentHostId === undefined ? HOST : options.currentHostId),
+    currentSpaceId: () => (options?.currentSpaceId === undefined ? null : options.currentSpaceId),
     switchCenterSpace: async (hostId, spaceId, switchOptions) => {
       order.push(`switch:${hostId}:${spaceId}:${String(switchOptions.preserveDeepLink)}`);
     },
@@ -153,10 +148,7 @@ describe("buildLocatedPanePath", () => {
 
   test("builds a project route", () => {
     expect(
-      buildLocatedPanePath(
-        location({ hostId: "proj-1", paintContextId: "proj-1" }),
-        "project",
-      ),
+      buildLocatedPanePath(location({ hostId: "proj-1", paintContextId: "proj-1" }), "project"),
     ).toBe(`/project?id=proj-1&tab=${FIXED_TERMINAL_TAB_VALUE}&terminalTmux=1`);
   });
 
@@ -323,9 +315,7 @@ describe("commitLocatedPaneNavigation", () => {
       },
       "/workspace?id=ws-b&tab=terminal&terminalTmux=1",
     );
-    expect(order).toEqual([
-      "deepLink:/workspace?id=ws-b&tab=terminal&terminalTmux=1",
-    ]);
+    expect(order).toEqual(["deepLink:/workspace?id=ws-b&tab=terminal&terminalTmux=1"]);
 
     order.length = 0;
     commitLocatedPaneNavigation(
@@ -391,9 +381,7 @@ describe("navigateToResourceMonitorSession", () => {
     const path = buildLocatedPanePath(dest, "workspace");
     const currentHref = `/workspace?id=other-host&tab=${FIXED_TERMINAL_TAB_VALUE}&terminalTmux=1`;
     expect(prepareWorkspaceContextNavigation(path, currentHref)).not.toContain("tab=");
-    expect(prepareWorkspaceContextNavigation(path, currentHref)).not.toContain(
-      "terminalTmux",
-    );
+    expect(prepareWorkspaceContextNavigation(path, currentHref)).not.toContain("terminalTmux");
     expect(prepareWorkspaceContextNavigation(path, null)).toBe(path);
 
     const { deps, href } = createHarness({
@@ -570,12 +558,7 @@ describe("navigateToResourceMonitorSession", () => {
     const ok = await navigateToResourceMonitorSession(dest, "workspace", router, deps);
 
     expect(ok).toBe(true);
-    expect(deps.order).toEqual([
-      "hydrate",
-      `ensureHost:${HOST}`,
-      "request:sess-1",
-      `push:${path}`,
-    ]);
+    expect(deps.order).toEqual(["hydrate", `ensureHost:${HOST}`, "request:sess-1", `push:${path}`]);
     expect(deps.order.includes("clear")).toBe(false);
     expect(deps.order.some((step) => step.startsWith("switch:"))).toBe(false);
   });

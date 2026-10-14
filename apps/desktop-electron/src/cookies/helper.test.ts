@@ -3,11 +3,7 @@ import { existsSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  helperProbe,
-  listImportableBrowsers,
-  resolveBrowserCookiesHelper,
-} from "./service.ts";
+import { helperProbe, listImportableBrowsers, resolveBrowserCookiesHelper } from "./service.ts";
 
 describe("atmos-browser-cookies helper resolution", () => {
   it("prefers packaged resources/bin over cargo", () => {
@@ -64,37 +60,33 @@ describe("atmos-browser-cookies helper resolution", () => {
     }
   });
 
-  it(
-    "list profiles via real helper on macOS (or UnsupportedPlatform)",
-    () => {
-      if (process.platform !== "darwin") {
-        expect(() => listImportableBrowsers()).toThrow();
-        return;
+  it("list profiles via real helper on macOS (or UnsupportedPlatform)", () => {
+    if (process.platform !== "darwin") {
+      expect(() => listImportableBrowsers()).toThrow();
+      return;
+    }
+    const h = resolveBrowserCookiesHelper();
+    if (h.mode === "missing") {
+      // Skip functional list when helper not built; resolution test covers path.
+      return;
+    }
+    try {
+      const profiles = listImportableBrowsers();
+      expect(Array.isArray(profiles)).toBe(true);
+      for (const p of profiles) {
+        expect(typeof p.profile_handle).toBe("string");
+        expect(p.profile_handle.length).toBeGreaterThan(0);
+        expect(["Chrome", "Edge", "Brave", "Firefox"]).toContain(p.browser);
       }
-      const h = resolveBrowserCookiesHelper();
-      if (h.mode === "missing") {
-        // Skip functional list when helper not built; resolution test covers path.
-        return;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : JSON.stringify(e);
+      if (typeof e === "object" && e && "code" in e) {
+        const code = (e as { code: string }).code;
+        if (code === "UnsupportedPlatform") return;
       }
-      try {
-        const profiles = listImportableBrowsers();
-        expect(Array.isArray(profiles)).toBe(true);
-        for (const p of profiles) {
-          expect(typeof p.profile_handle).toBe("string");
-          expect(p.profile_handle.length).toBeGreaterThan(0);
-          expect(["Chrome", "Edge", "Brave", "Firefox"]).toContain(p.browser);
-        }
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : JSON.stringify(e);
-        if (typeof e === "object" && e && "code" in e) {
-          const code = (e as { code: string }).code;
-          if (code === "UnsupportedPlatform") return;
-        }
-        throw new Error(
-          `listImportableBrowsers failed: ${msg}. Build with: cargo build -p browser-cookies --bin atmos-browser-cookies`,
-        );
-      }
-    },
-    120_000,
-  );
+      throw new Error(
+        `listImportableBrowsers failed: ${msg}. Build with: cargo build -p browser-cookies --bin atmos-browser-cookies`,
+      );
+    }
+  }, 120_000);
 });

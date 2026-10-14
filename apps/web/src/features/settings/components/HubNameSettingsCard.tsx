@@ -11,9 +11,7 @@ import { Button, Input, cn } from "@workspace/ui";
 import { Loader2 } from "lucide-react";
 import { getHubAuthClient } from "@/api/hub-auth-client";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  SettingsGroupCard,
-} from "@/features/settings/components/settings/SettingsGroupCard";
+import { SettingsGroupCard } from "@/features/settings/components/settings/SettingsGroupCard";
 
 const NAME_MAX = 32;
 
@@ -23,10 +21,7 @@ type HubNameSettingsCardProps = {
   onSaved?: (name: string) => void;
 };
 
-export function HubNameSettingsCard({
-  value,
-  onSaved,
-}: HubNameSettingsCardProps) {
+export function HubNameSettingsCard({ value, onSaved }: HubNameSettingsCardProps) {
   const t = useTranslations("settings.accountSection");
   const qc = useQueryClient();
   const [name, setName] = React.useState(value);

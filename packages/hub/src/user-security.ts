@@ -36,9 +36,7 @@ export function emailFromIdToken(idToken: string | null | undefined): string | n
     const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
     // Workers / Node: atob available in CF Worker; Bun has Buffer
     const json =
-      typeof atob === "function"
-        ? atob(padded)
-        : Buffer.from(padded, "base64").toString("utf8");
+      typeof atob === "function" ? atob(padded) : Buffer.from(padded, "base64").toString("utf8");
     const payload = JSON.parse(json) as { email?: string };
     const email = payload.email?.trim();
     return email || null;
@@ -56,10 +54,7 @@ export async function listLinkedAccounts(
   db: HubDb,
   userId: string,
 ): Promise<LinkedAccountInternal[]> {
-  const rows = await db
-    .select()
-    .from(account)
-    .where(eq(account.userId, userId));
+  const rows = await db.select().from(account).where(eq(account.userId, userId));
   return rows.map((a) => ({
     id: a.id,
     providerId: a.providerId,
@@ -96,10 +91,7 @@ export async function unlinkLinkedAccount(
   userId: string,
   opts: { providerId: string; accountId?: string },
 ): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
-  const rows = await db
-    .select()
-    .from(account)
-    .where(eq(account.userId, userId));
+  const rows = await db.select().from(account).where(eq(account.userId, userId));
   if (rows.length <= 1) {
     return {
       ok: false,
@@ -132,9 +124,7 @@ export async function pruneUserSessions(
   const max = opts?.max ?? MAX_USER_SESSIONS;
   const now = new Date();
   // Expired first
-  await db
-    .delete(session)
-    .where(and(eq(session.userId, userId), lt(session.expiresAt, now)));
+  await db.delete(session).where(and(eq(session.userId, userId), lt(session.expiresAt, now)));
 
   const active = await db
     .select({
@@ -246,11 +236,7 @@ export async function deleteUserAndRelated(
   db: HubDb,
   userId: string,
 ): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
-  const rows = await db
-    .select({ id: user.id })
-    .from(user)
-    .where(eq(user.id, userId))
-    .limit(1);
+  const rows = await db.select({ id: user.id }).from(user).where(eq(user.id, userId)).limit(1);
   if (!rows[0]) {
     return { ok: false, error: "user_not_found", status: 404 };
   }

@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import {
-  AGENT_STATE,
-  useAgentStatusStore,
-} from "@/features/agent/store/agent-status-store";
+import { AGENT_STATE, useAgentStatusStore } from "@/features/agent/store/agent-status-store";
 import { findSessionForPaneId } from "@/features/agent/store/agent-status-idle";
 import {
   findTerminalPaneByStableAgentPaneId,

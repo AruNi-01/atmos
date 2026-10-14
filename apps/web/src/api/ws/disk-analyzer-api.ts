@@ -81,7 +81,8 @@ export const diskAnalyzerApi = {
   startScan: async (path?: string, maxChildren?: number, scanAll = false) => {
     // start_scan must return immediately (session id only). Keep a short timeout so
     // hangs surface quickly instead of looking like a long disk walk.
-    return wsRequest("disk_analyzer_start_scan",
+    return wsRequest(
+      "disk_analyzer_start_scan",
       {
         path: path ?? null,
         max_children: maxChildren ?? 30,

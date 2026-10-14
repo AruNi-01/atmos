@@ -19,13 +19,16 @@ Desktop browser (embedded panel + standalone window) used Electron `WebContentsV
 ## Options
 
 ### A — Keep WebContentsView + APP-029
+
 **Cons**: native stacking debt remains; dual selection UI remains.
 
 ### B — In-DOM `<webview>` + host selection chrome (chosen)
+
 **Pros**: one UI stack; delete occlusion; rename cleanly.
 **Cons**: Electron documents webview as non-preferred; upgrade regression risk.
 
 ### C — APP-052 overlay window
+
 **Cons**: already disproven.
 
 ## Key forks

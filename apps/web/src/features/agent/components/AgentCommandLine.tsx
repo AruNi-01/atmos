@@ -33,8 +33,8 @@ function CommandHighlight({ code }: { code: string }) {
         className={cn(
           // globals.css `pre.shiki span.line` padding is unlayered; ! is required to sit flush with `$`.
           // Keep `.line` inline so Shiki's trailing `\n` is the only line break (block + pre-wrap doubled them).
-          "[&_pre.shiki]:!m-0 [&_pre.shiki]:!bg-transparent [&_pre.shiki]:!p-0 [&_pre.shiki]:overflow-visible [&_pre.shiki]:whitespace-pre",
-          "[&_pre.shiki_code]:block [&_pre.shiki_code]:whitespace-pre [&_pre.shiki_code]:text-[13px] [&_pre.shiki_code]:leading-5",
+          "[&_pre.shiki]:!m-0 [&_pre.shiki]:overflow-visible [&_pre.shiki]:!bg-transparent [&_pre.shiki]:!p-0 [&_pre.shiki]:whitespace-pre",
+          "[&_pre.shiki_code]:block [&_pre.shiki_code]:text-[13px] [&_pre.shiki_code]:leading-5 [&_pre.shiki_code]:whitespace-pre",
           "[&_pre.shiki_span.line]:!inline [&_pre.shiki_span.line]:!p-0",
         )}
         dangerouslySetInnerHTML={{ __html: html }}
@@ -42,29 +42,14 @@ function CommandHighlight({ code }: { code: string }) {
     );
   }
 
-  return (
-    <code className="whitespace-pre text-[13px] leading-5 text-foreground">
-      {code}
-    </code>
-  );
+  return <code className="text-[13px] leading-5 whitespace-pre text-foreground">{code}</code>;
 }
 
-export function AgentCommandLine({
-  command,
-  className,
-}: {
-  command: string;
-  className?: string;
-}) {
+export function AgentCommandLine({ command, className }: { command: string; className?: string }) {
   return (
-    <div
-      className={cn(
-        "min-w-0 max-w-full font-mono text-[13px] leading-5",
-        className,
-      )}
-    >
+    <div className={cn("max-w-full min-w-0 font-mono text-[13px] leading-5", className)}>
       <div className="flex min-w-0 items-start">
-        <span className="shrink-0 select-none pr-[1ch] text-muted-foreground">$</span>
+        <span className="shrink-0 pr-[1ch] text-muted-foreground select-none">$</span>
         <div className="min-w-0 flex-1">
           <CommandHighlight code={command} />
         </div>

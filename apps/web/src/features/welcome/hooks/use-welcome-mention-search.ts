@@ -1,11 +1,7 @@
 "use client";
 
 import React from "react";
-import {
-  fsApi,
-  type GithubIssuePayload,
-  type GithubPrPayload,
-} from "@/api/ws-api";
+import { fsApi, type GithubIssuePayload, type GithubPrPayload } from "@/api/ws-api";
 import type {
   MentionNavItem,
   MentionPopoverState,
@@ -101,12 +97,7 @@ export function useWelcomeMentionSearch({
     if (!popover) return;
     const container = mentionPopoverListRef.current;
     if (!container) return;
-    scrollActiveListItemIntoView(
-      container,
-      mentionItemRefs.current,
-      activeMentionFileIndex,
-      3,
-    );
+    scrollActiveListItemIntoView(container, mentionItemRefs.current, activeMentionFileIndex, 3);
   }, [activeMentionFileIndex, popover]);
 
   React.useEffect(() => {

@@ -24,11 +24,10 @@ export function createIV(): Uint8Array<ArrayBuffer> {
 }
 
 export async function generateEncryptionKey(): Promise<string> {
-  const key = await subtle().generateKey(
-    { name: "AES-GCM", length: ENCRYPTION_KEY_BITS },
-    true,
-    ["encrypt", "decrypt"],
-  );
+  const key = await subtle().generateKey({ name: "AES-GCM", length: ENCRYPTION_KEY_BITS }, true, [
+    "encrypt",
+    "decrypt",
+  ]);
   const jwk = await subtle().exportKey("jwk", key);
   if (!jwk.k) throw new Error("Could not export collaboration key");
   return jwk.k;

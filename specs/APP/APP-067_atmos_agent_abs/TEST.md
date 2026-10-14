@@ -13,53 +13,53 @@
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1 |
-| M2 | S1, S2 |
-| M3 | S3, S17 |
-| M4 | S3, S4 |
-| M5 | S4 |
-| M6 | S5 |
-| M7 | S5, S6 |
-| M8 | S7 |
-| M9 | S8 |
-| M10 | S9 |
-| M11 | S10, S11 |
-| M12 | S12 |
-| M13 | S13 |
-| M14 | S14 |
-| M15 | S15 |
-| M16 | S16 |
-| M17 | S1 (web); N3 deferred |
-| M18 | S17 |
-| M19 | S18, S19, S20 |
-| N1–N6 | deferred |
+| PRD item | Scenario IDs          |
+| -------- | --------------------- |
+| M1       | S1                    |
+| M2       | S1, S2                |
+| M3       | S3, S17               |
+| M4       | S3, S4                |
+| M5       | S4                    |
+| M6       | S5                    |
+| M7       | S5, S6                |
+| M8       | S7                    |
+| M9       | S8                    |
+| M10      | S9                    |
+| M11      | S10, S11              |
+| M12      | S12                   |
+| M13      | S13                   |
+| M14      | S14                   |
+| M15      | S15                   |
+| M16      | S16                   |
+| M17      | S1 (web); N3 deferred |
+| M18      | S17                   |
+| M19      | S18, S19, S20         |
+| N1–N6    | deferred              |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | E2E | Playwright | `just test-e2e -- tests/specs/APP-067_atmos-agent-chat.e2e.ts` | local Server + web; empty mosaic | Agent Chat tab in strip; plus menu has New Agent Chat next to New Terminal | planned |
-| S2 | Bun + E2E | `bun test`, Playwright | tab/launcher tests; same e2e file | New Workspace overlay; ⌘N | launcher/New Workspace can start Chat; ⌘N still New Workspace | planned |
-| S3 | Rust | `cargo test` | `cargo test -p core-service --lib agent_chat` | create chat | `meta.json` id ≠ persistence_handle; handle null until spawn | planned |
-| S4 | Rust + WS | `cargo test` | conversation get + runtime map | persisted messages; no provider | get returns parts; no `AgentProvider::create/resume` | planned |
-| S5 | Rust + Bun | `cargo test`, `bun test` | list grouping | two cwd groups | sidebar groups by cwd; new from list creates row | planned |
-| S6 | WS/API | `cargo test -p api` | rename/delete actions | one conversation | title changes; soft-delete hidden from list | planned |
-| S7 | Rust | `cargo test` | continue after restore | handle present vs absent | same chat_id; resume vs create_session | planned |
-| S8 | WS/API | `cargo test -p api` | `agent_chat_send` idle | idle conversation | new turn running; `agent_chat_event` TurnStarted | planned |
-| S9 | Rust | `cargo test` | queue table | busy turn + reload | items survive; dispatch on complete; pause holds | planned |
-| S10 | Rust | `cargo test` | steer | running turn matching id | user message kind=steer; no new turn; no cancel | planned |
-| S11 | Rust | `cargo test` | steer unsupported / stale turn | ACP v1 stub; completed turn | error; no cancel+resend; UI hides Steer | planned |
-| S12 | Bun + WS | `bun test`, `cargo test` | `followup_policy` | default unset; two chats | default queue; setting applies to both | planned |
-| S13 | WS/API | `cargo test` | `agent_chat_cancel` | running turn + draft | turn canceled; draft not sent | planned |
-| S14 | Rust | `cargo test` | permission + queue + steer | pending permission | queue waits; steer stored; permission unresolved | planned |
-| S15 | Bun | `bun test` | client import/lint guard | web agent-chat module | no ACP schema imports | planned |
-| S16 | Bun + E2E | `bun test`, Playwright | `/agent-chat?chatId=` | existing conversation | same rows; events fan-out | planned |
-| S17 | WS/API | `cargo test -p api` | no `/ws/agent` chat; no REST session list | after rollout step 4 | `agent_chat_*` only; identity not acp_session_id | planned |
-| S18 | Rust + WS | `cargo test` | prefetch worker | first web `/ws`; two enabled agents | worker starts once; catalogs cached; `agent_options_updated` | planned |
-| S19 | Rust | `cargo test` | 4h cache skip | fresh ok cache | second loop skips probe | planned |
-| S20 | Rust | `cargo test` | strategy merge | fake CLI/config/ACP | CLI ids win; config thinking; temp ACP isolated cwd; no IntervalSpec job | planned |
+| Scenario | Level      | Expected tool            | Target command / method                                        | Fixture / data                      | Signals                                                                    | Status  |
+| -------- | ---------- | ------------------------ | -------------------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------- | ------- |
+| S1       | E2E        | Playwright               | `just test-e2e -- tests/specs/APP-067_atmos-agent-chat.e2e.ts` | local Server + web; empty mosaic    | Agent Chat tab in strip; plus menu has New Agent Chat next to New Terminal | planned |
+| S2       | Bun + E2E  | `bun test`, Playwright   | tab/launcher tests; same e2e file                              | New Workspace overlay; ⌘N           | launcher/New Workspace can start Chat; ⌘N still New Workspace              | planned |
+| S3       | Rust       | `cargo test`             | `cargo test -p core-service --lib agent_chat`                  | create chat                         | `meta.json` id ≠ persistence_handle; handle null until spawn               | planned |
+| S4       | Rust + WS  | `cargo test`             | conversation get + runtime map                                 | persisted messages; no provider     | get returns parts; no `AgentProvider::create/resume`                       | planned |
+| S5       | Rust + Bun | `cargo test`, `bun test` | list grouping                                                  | two cwd groups                      | sidebar groups by cwd; new from list creates row                           | planned |
+| S6       | WS/API     | `cargo test -p api`      | rename/delete actions                                          | one conversation                    | title changes; soft-delete hidden from list                                | planned |
+| S7       | Rust       | `cargo test`             | continue after restore                                         | handle present vs absent            | same chat_id; resume vs create_session                                     | planned |
+| S8       | WS/API     | `cargo test -p api`      | `agent_chat_send` idle                                         | idle conversation                   | new turn running; `agent_chat_event` TurnStarted                           | planned |
+| S9       | Rust       | `cargo test`             | queue table                                                    | busy turn + reload                  | items survive; dispatch on complete; pause holds                           | planned |
+| S10      | Rust       | `cargo test`             | steer                                                          | running turn matching id            | user message kind=steer; no new turn; no cancel                            | planned |
+| S11      | Rust       | `cargo test`             | steer unsupported / stale turn                                 | ACP v1 stub; completed turn         | error; no cancel+resend; UI hides Steer                                    | planned |
+| S12      | Bun + WS   | `bun test`, `cargo test` | `followup_policy`                                              | default unset; two chats            | default queue; setting applies to both                                     | planned |
+| S13      | WS/API     | `cargo test`             | `agent_chat_cancel`                                            | running turn + draft                | turn canceled; draft not sent                                              | planned |
+| S14      | Rust       | `cargo test`             | permission + queue + steer                                     | pending permission                  | queue waits; steer stored; permission unresolved                           | planned |
+| S15      | Bun        | `bun test`               | client import/lint guard                                       | web agent-chat module               | no ACP schema imports                                                      | planned |
+| S16      | Bun + E2E  | `bun test`, Playwright   | `/agent-chat?chatId=`                                          | existing conversation               | same rows; events fan-out                                                  | planned |
+| S17      | WS/API     | `cargo test -p api`      | no `/ws/agent` chat; no REST session list                      | after rollout step 4                | `agent_chat_*` only; identity not acp_session_id                           | planned |
+| S18      | Rust + WS  | `cargo test`             | prefetch worker                                                | first web `/ws`; two enabled agents | worker starts once; catalogs cached; `agent_options_updated`               | planned |
+| S19      | Rust       | `cargo test`             | 4h cache skip                                                  | fresh ok cache                      | second loop skips probe                                                    | planned |
+| S20      | Rust       | `cargo test`             | strategy merge                                                 | fake CLI/config/ACP                 | CLI ids win; config thinking; temp ACP isolated cwd; no IntervalSpec job   | planned |
 
 ## Scenarios
 
@@ -283,18 +283,18 @@ Load Agent Browser skill or `agent-browser skills get core --full` first.
 
 Implemented 2026-08-28 on `feat/APP-067-agent-chat`.
 
-| Scenario | Command | Result |
-|----------|---------|--------|
-| S3–S7 store/identity | `cargo test -p core-service --lib agent_chat` | pass (`s3_chat_id_is_not_persistence_handle`, `s4_*`, `s5_list_groups_by_cwd`, `s6_rename_and_soft_delete`, `s7_continue_*`) |
-| S8 idle send | same | pass `s8_idle_send_starts_turn` |
-| S9–S14 queue/steer/cancel/permission/policy | same | pass (`s9_queue_reloads_and_dispatch_skips_paused` asserts `next` dispatched + `hold` paused) |
-| S16 fan-out | `cargo test -p core-service --lib s16_two_subscribers_see_the_same_send` + bun `agent-chat-events.test.ts` + Playwright S16 send | pass |
-| S18–S20 catalog prefetch/cache/merge | same + `cargo test -p agent --lib` | pass (incl. `maps_model_mode_and_thinking_from_config_options`, `with_acp_probe_uses_the_provided_probe_not_noop`) |
-| S2/S5/S12/S15 web | `bun test apps/web/src/app-shell/__tests__/agent-chat-entry-points.test.ts apps/web/src/features/agent/lib/__tests__/{followup-policy,group-agent-chats,no-acp-schema,agent-chat-events}.test.ts` | pass |
-| S17 old transport | `cargo test -p api -- --test-threads=1 s17` | pass (`s17_rest_session_crud_removed`, `s17_dedicated_agent_ws_removed`) |
-| S20 production ACP probe wiring | `cargo test -p api -- --test-threads=1 s20_options_probe_uses_temp_acp_probe` | pass (`StdioAcpOptionsProbe` + `OptionsProbe::with_acp_probe`) |
-| S1/S16 Playwright | `E2E_SINGLE_SERVER=0 bun run --cwd e2e test tests/specs/APP-067_atmos-agent-chat.e2e.ts --project=chromium --workers=1` | pass twice (Next dev; S16 sends and both pages show `[data-agent-chat-message]`) |
-| api-types | `bun run --filter @atmos/api-types extract-actions && extract-events && check-actions && check-events && test` | pass (301 actions, 33 events) |
-| clippy | `cargo clippy -p agent -p core-service -p api --offline -- -D warnings` | pass |
+| Scenario                                    | Command                                                                                                                                                                                           | Result                                                                                                                       |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| S3–S7 store/identity                        | `cargo test -p core-service --lib agent_chat`                                                                                                                                                     | pass (`s3_chat_id_is_not_persistence_handle`, `s4_*`, `s5_list_groups_by_cwd`, `s6_rename_and_soft_delete`, `s7_continue_*`) |
+| S8 idle send                                | same                                                                                                                                                                                              | pass `s8_idle_send_starts_turn`                                                                                              |
+| S9–S14 queue/steer/cancel/permission/policy | same                                                                                                                                                                                              | pass (`s9_queue_reloads_and_dispatch_skips_paused` asserts `next` dispatched + `hold` paused)                                |
+| S16 fan-out                                 | `cargo test -p core-service --lib s16_two_subscribers_see_the_same_send` + bun `agent-chat-events.test.ts` + Playwright S16 send                                                                  | pass                                                                                                                         |
+| S18–S20 catalog prefetch/cache/merge        | same + `cargo test -p agent --lib`                                                                                                                                                                | pass (incl. `maps_model_mode_and_thinking_from_config_options`, `with_acp_probe_uses_the_provided_probe_not_noop`)           |
+| S2/S5/S12/S15 web                           | `bun test apps/web/src/app-shell/__tests__/agent-chat-entry-points.test.ts apps/web/src/features/agent/lib/__tests__/{followup-policy,group-agent-chats,no-acp-schema,agent-chat-events}.test.ts` | pass                                                                                                                         |
+| S17 old transport                           | `cargo test -p api -- --test-threads=1 s17`                                                                                                                                                       | pass (`s17_rest_session_crud_removed`, `s17_dedicated_agent_ws_removed`)                                                     |
+| S20 production ACP probe wiring             | `cargo test -p api -- --test-threads=1 s20_options_probe_uses_temp_acp_probe`                                                                                                                     | pass (`StdioAcpOptionsProbe` + `OptionsProbe::with_acp_probe`)                                                               |
+| S1/S16 Playwright                           | `E2E_SINGLE_SERVER=0 bun run --cwd e2e test tests/specs/APP-067_atmos-agent-chat.e2e.ts --project=chromium --workers=1`                                                                           | pass twice (Next dev; S16 sends and both pages show `[data-agent-chat-message]`)                                             |
+| api-types                                   | `bun run --filter @atmos/api-types extract-actions && extract-events && check-actions && check-events && test`                                                                                    | pass (301 actions, 33 events)                                                                                                |
+| clippy                                      | `cargo clippy -p agent -p core-service -p api --offline -- -D warnings`                                                                                                                           | pass                                                                                                                         |
 
 Remaining gaps: live ACP spawn / real CLI model lists (TEST.md Non-coverage); agent-browser exploratory checks if the CLI is unavailable; Playwright S2 launcher/⌘N and S16 center-stage+standalone pairing (current S16 is two standalone pages); S12 UI persist is covered by settings wiring, not a two-chat Playwright. Review fixes 2026-08-28 also added `overlapping_send_rejects_second_turn` and live delta fold unit tests.

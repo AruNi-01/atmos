@@ -7,18 +7,23 @@
 ## 🎯 Design Principles
 
 ### 1. **Layered Architecture**
+
 Documentation is organized in layers, each serving a specific purpose and audience.
 
 ### 2. **Progressive Disclosure**
+
 Start simple, dive deeper as needed. No information overload.
 
 ### 3. **Single Responsibility**
+
 Each document has ONE clear purpose. No duplication.
 
 ### 4. **On-Demand Loading**
+
 Read only what you need, when you need it.
 
 ### 5. **Easy Maintenance**
+
 When code changes, update the corresponding document only.
 
 ---
@@ -112,9 +117,11 @@ atmos/
 ## 🎭 Personas & Entry Points
 
 ### 🆕 New Developer
+
 **Goal**: Understand project and start contributing
 
 **Path**:
+
 1. Read `README.md` (5 min)
 2. Read `AGENTS.md` (1 min)
 3. Pick a component, read its `AGENTS.md`
@@ -123,9 +130,11 @@ atmos/
 ---
 
 ### 🤖 AI Agent
+
 **Goal**: Navigate quickly and complete tasks
 
 **Path**:
+
 1. Start at `AGENTS.md`
 2. Use decision tree to find component
 3. Read component's `AGENTS.md`
@@ -134,9 +143,11 @@ atmos/
 ---
 
 ### 🏗️ Architect
+
 **Goal**: Understand deep architecture and make decisions
 
 **Path**:
+
 1. Read `README.md` (overview)
 2. Read `docs/architecture.md`
 3. Review `docs/adr/` (decisions)
@@ -145,9 +156,11 @@ atmos/
 ---
 
 ### 📊 Product Manager
+
 **Goal**: Understand product requirements and status
 
 **Path**:
+
 1. Read `README.md` (overview)
 2. Review `specs/prd/` (requirements)
 3. Check `specs/design/` (designs)
@@ -155,9 +168,11 @@ atmos/
 ---
 
 ### 🎨 Designer
+
 **Goal**: Understand UI/UX and design system
 
 **Path**:
+
 1. Read `packages/ui/AGENTS.md` (design system)
 2. Review `specs/design/` (mockups)
 3. Check `packages/ui/README.md` (code structure)
@@ -165,9 +180,11 @@ atmos/
 ---
 
 ### 🔧 DevOps Engineer
+
 **Goal**: Understand deployment and infrastructure
 
 **Path**:
+
 1. Read `README.md` (overview)
 2. Read `docs/deployment.md`
 3. Review `justfile` (commands)
@@ -176,15 +193,15 @@ atmos/
 
 ## 📝 Document Types & Purposes
 
-| Document Type | Purpose | Audience | Location |
-|---------------|---------|----------|----------|
-| **README.md (Root)** | Project overview | Everyone | `/` |
-| **AGENTS.md (Root)** | AI navigation | AI/Agents | `/` |
-| **docs/*.md** | Architecture | Architects | `/docs/` |
-| **specs/prd/*.md** | Requirements | PM/Designers | `/specs/prd/` |
-| **specs/tech/*.md** | Tech specs | Engineers | `/specs/tech/` |
-| **AGENTS.md (Component)** | Work instructions | Developers | `apps/*/`, `packages/*/` |
-| **README.md (Component)** | Code structure | Deep divers | `apps/*/`, `packages/*/` |
+| Document Type             | Purpose           | Audience     | Location                 |
+| ------------------------- | ----------------- | ------------ | ------------------------ |
+| **README.md (Root)**      | Project overview  | Everyone     | `/`                      |
+| **AGENTS.md (Root)**      | AI navigation     | AI/Agents    | `/`                      |
+| **docs/\*.md**            | Architecture      | Architects   | `/docs/`                 |
+| **specs/prd/\*.md**       | Requirements      | PM/Designers | `/specs/prd/`            |
+| **specs/tech/\*.md**      | Tech specs        | Engineers    | `/specs/tech/`           |
+| **AGENTS.md (Component)** | Work instructions | Developers   | `apps/*/`, `packages/*/` |
+| **README.md (Component)** | Code structure    | Deep divers  | `apps/*/`, `packages/*/` |
 
 ---
 
@@ -268,16 +285,16 @@ Requirement Change
 
 **I want to...**
 
-| Task | Go To |
-|------|-------|
-| Get project overview | `README.md` |
-| Navigate as AI | `AGENTS.md` |
-| Understand architecture | `docs/architecture.md` |
-| See product requirements | `specs/prd/` |
-| Work on web app | `apps/web/AGENTS.md` |
-| Understand UI package code | `packages/ui/README.md` |
-| Deploy the system | `docs/deployment.md` |
-| Make architectural decision | `docs/adr/` |
+| Task                        | Go To                   |
+| --------------------------- | ----------------------- |
+| Get project overview        | `README.md`             |
+| Navigate as AI              | `AGENTS.md`             |
+| Understand architecture     | `docs/architecture.md`  |
+| See product requirements    | `specs/prd/`            |
+| Work on web app             | `apps/web/AGENTS.md`    |
+| Understand UI package code  | `packages/ui/README.md` |
+| Deploy the system           | `docs/deployment.md`    |
+| Make architectural decision | `docs/adr/`             |
 
 ---
 

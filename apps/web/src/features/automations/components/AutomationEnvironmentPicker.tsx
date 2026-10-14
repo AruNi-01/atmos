@@ -20,14 +20,7 @@ import {
   SelectValue,
   cn,
 } from "@workspace/ui";
-import {
-  Check,
-  ChevronDown,
-  Folder,
-  FolderGit2,
-  FolderPlus,
-  Terminal,
-} from "lucide-react";
+import { Check, ChevronDown, Folder, FolderGit2, FolderPlus, Terminal } from "lucide-react";
 
 import type { AutomationTargetKind } from "@/features/automations/types";
 import type { Project, Workspace } from "@/shared/types/domain";
@@ -95,7 +88,7 @@ export function AutomationEnvironmentPicker({
           ? "rounded-md border border-border bg-background p-4 shadow-xs"
           : "space-y-4",
       )}
-      >
+    >
       <div className="flex items-center gap-2">
         <FolderGit2 className="size-4 text-muted-foreground" />
         <div className="text-sm font-semibold text-foreground">{t("title")}</div>
@@ -127,7 +120,9 @@ export function AutomationEnvironmentPicker({
               <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
               <span className="min-w-0">
                 <span className="block text-sm font-medium text-foreground">{option.label}</span>
-                <span className="mt-1 block text-xs leading-4 text-muted-foreground">{option.description}</span>
+                <span className="mt-1 block text-xs leading-4 text-muted-foreground">
+                  {option.description}
+                </span>
               </span>
             </button>
           );
@@ -225,8 +220,8 @@ function WorkspaceSelect({
           aria-expanded={open}
           disabled={disabled}
           className={cn(
-            "border-input flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-background/35 px-3 py-2 text-sm shadow-xs outline-none transition-shadow",
-            "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+            "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background/35 px-3 py-2 text-sm shadow-xs transition-shadow outline-none",
+            "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
             "dark:bg-input/30 dark:hover:bg-input/50",
             "disabled:cursor-not-allowed disabled:opacity-50",
             !selectedLabel && "text-muted-foreground",
@@ -235,19 +230,14 @@ function WorkspaceSelect({
           <span className="flex min-w-0 items-center gap-2">
             <Folder className="size-4 shrink-0 text-muted-foreground" />
             <span className="truncate">
-              {selectedLabel
-                ?? (loading
-                  ? t("placeholders.loadingWorkspaces")
-                  : t("placeholders.selectWorkspace"))}
+              {selectedLabel ??
+                (loading ? t("placeholders.loadingWorkspaces") : t("placeholders.selectWorkspace"))}
             </span>
           </span>
           <ChevronDown className="size-4 shrink-0 opacity-50" />
         </button>
       </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        className="w-[var(--radix-popover-trigger-width)] p-0"
-      >
+      <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
         <Command>
           <CommandInput placeholder={t("placeholders.searchWorkspaces")} />
           <CommandList className="max-h-64">
@@ -268,10 +258,7 @@ function WorkspaceSelect({
                     <Folder className="size-4 shrink-0 text-muted-foreground" />
                     <span className="min-w-0 flex-1 truncate">{label}</span>
                     <Check
-                      className={cn(
-                        "size-4 shrink-0",
-                        isSelected ? "opacity-100" : "opacity-0",
-                      )}
+                      className={cn("size-4 shrink-0", isSelected ? "opacity-100" : "opacity-0")}
                     />
                   </CommandItem>
                 );

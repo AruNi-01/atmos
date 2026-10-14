@@ -101,5 +101,5 @@ const CODE_LANG_LABELS: Record<string, string> = {
 export function formatMdLiveCodeLangLabel(id: string, plainLabel: string): string {
   if (!id) return plainLabel;
   const normalized = normalizeMdLiveCodeLang(id);
-  return CODE_LANG_LABELS[normalized] ?? (normalized.charAt(0).toUpperCase() + normalized.slice(1));
+  return CODE_LANG_LABELS[normalized] ?? normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }

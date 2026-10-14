@@ -78,12 +78,14 @@ function countAutomationListFilterOptions(automations: AutomationSummary[]) {
   const environments = Object.fromEntries(
     ENVIRONMENT_OPTIONS.map((option) => [option.value, 0]),
   ) as Record<AutomationEnvironmentFilter, number>;
-  const triggers = Object.fromEntries(
-    TRIGGER_OPTIONS.map((option) => [option.value, 0]),
-  ) as Record<AutomationTriggerFilter, number>;
-  const states = Object.fromEntries(
-    STATE_OPTIONS.map((option) => [option.value, 0]),
-  ) as Record<AutomationStateFilter, number>;
+  const triggers = Object.fromEntries(TRIGGER_OPTIONS.map((option) => [option.value, 0])) as Record<
+    AutomationTriggerFilter,
+    number
+  >;
+  const states = Object.fromEntries(STATE_OPTIONS.map((option) => [option.value, 0])) as Record<
+    AutomationStateFilter,
+    number
+  >;
 
   for (const automation of automations) {
     environments[automation.target_kind] += 1;
@@ -109,10 +111,7 @@ export function AutomationListFilterMenu({
 }) {
   const t = useTranslations("automation.listPanel.filter");
   const activeFilterCount = getActiveAutomationFilterCount(filters);
-  const counts = React.useMemo(
-    () => countAutomationListFilterOptions(automations),
-    [automations],
-  );
+  const counts = React.useMemo(() => countAutomationListFilterOptions(automations), [automations]);
 
   const toggleEnvironment = (value: AutomationEnvironmentFilter) =>
     onFiltersChange({
@@ -134,101 +133,81 @@ export function AutomationListFilterMenu({
 
   return (
     <PageFilterButton label={t("trigger")} activeCount={activeFilterCount}>
-        <FilterSubmenu
-          icon={FolderGit2}
-          label={t("environment")}
-          selectedCount={filters.environments.length}
-        >
-          {ENVIRONMENT_OPTIONS.map((option) => (
-            <DropdownMenuItem
-              key={option.value}
-              onSelect={(event) => {
-                event.preventDefault();
-                toggleEnvironment(option.value);
-              }}
-              className="cursor-pointer"
-            >
-              <option.icon className="size-4 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">
-                {t(`environments.${option.labelKey}`)}
-              </span>
-              <span className="tabular-nums text-[11px] text-muted-foreground">
-                {counts.environments[option.value]}
-              </span>
-              {filters.environments.includes(option.value) ? (
-                <Check className="size-4" />
-              ) : null}
-            </DropdownMenuItem>
-          ))}
-        </FilterSubmenu>
+      <FilterSubmenu
+        icon={FolderGit2}
+        label={t("environment")}
+        selectedCount={filters.environments.length}
+      >
+        {ENVIRONMENT_OPTIONS.map((option) => (
+          <DropdownMenuItem
+            key={option.value}
+            onSelect={(event) => {
+              event.preventDefault();
+              toggleEnvironment(option.value);
+            }}
+            className="cursor-pointer"
+          >
+            <option.icon className="size-4 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate">{t(`environments.${option.labelKey}`)}</span>
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+              {counts.environments[option.value]}
+            </span>
+            {filters.environments.includes(option.value) ? <Check className="size-4" /> : null}
+          </DropdownMenuItem>
+        ))}
+      </FilterSubmenu>
 
-        <FilterSubmenu
-          icon={Play}
-          label={t("triggerType")}
-          selectedCount={filters.triggers.length}
-        >
-          {TRIGGER_OPTIONS.map((option) => (
-            <DropdownMenuItem
-              key={option.value}
-              onSelect={(event) => {
-                event.preventDefault();
-                toggleTrigger(option.value);
-              }}
-              className="cursor-pointer"
-            >
-              <option.icon className="size-4 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">
-                {t(`triggers.${option.labelKey}`)}
-              </span>
-              <span className="tabular-nums text-[11px] text-muted-foreground">
-                {counts.triggers[option.value]}
-              </span>
-              {filters.triggers.includes(option.value) ? (
-                <Check className="size-4" />
-              ) : null}
-            </DropdownMenuItem>
-          ))}
-        </FilterSubmenu>
+      <FilterSubmenu icon={Play} label={t("triggerType")} selectedCount={filters.triggers.length}>
+        {TRIGGER_OPTIONS.map((option) => (
+          <DropdownMenuItem
+            key={option.value}
+            onSelect={(event) => {
+              event.preventDefault();
+              toggleTrigger(option.value);
+            }}
+            className="cursor-pointer"
+          >
+            <option.icon className="size-4 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate">{t(`triggers.${option.labelKey}`)}</span>
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+              {counts.triggers[option.value]}
+            </span>
+            {filters.triggers.includes(option.value) ? <Check className="size-4" /> : null}
+          </DropdownMenuItem>
+        ))}
+      </FilterSubmenu>
 
-        <FilterSubmenu
-          icon={Pause}
-          label={t("state")}
-          selectedCount={filters.states.length}
-        >
-          {STATE_OPTIONS.map((option) => (
-            <DropdownMenuItem
-              key={option.value}
-              onSelect={(event) => {
-                event.preventDefault();
-                toggleState(option.value);
-              }}
-              className="cursor-pointer"
-            >
-              <option.icon className="size-4 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">
-                {t(`states.${option.labelKey}`)}
-              </span>
-              <span className="tabular-nums text-[11px] text-muted-foreground">
-                {counts.states[option.value]}
-              </span>
-              {filters.states.includes(option.value) ? (
-                <Check className="size-4" />
-              ) : null}
-            </DropdownMenuItem>
-          ))}
-        </FilterSubmenu>
+      <FilterSubmenu icon={Pause} label={t("state")} selectedCount={filters.states.length}>
+        {STATE_OPTIONS.map((option) => (
+          <DropdownMenuItem
+            key={option.value}
+            onSelect={(event) => {
+              event.preventDefault();
+              toggleState(option.value);
+            }}
+            className="cursor-pointer"
+          >
+            <option.icon className="size-4 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate">{t(`states.${option.labelKey}`)}</span>
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+              {counts.states[option.value]}
+            </span>
+            {filters.states.includes(option.value) ? <Check className="size-4" /> : null}
+          </DropdownMenuItem>
+        ))}
+      </FilterSubmenu>
 
-        {activeFilterCount > 0 ? (
-          <>
-            <DropdownMenuSeparator className="mx-2" />
-            <DropdownMenuItem
-              onClick={() => onFiltersChange(EMPTY_AUTOMATION_LIST_FILTERS)}
-              className="text-xs font-medium text-muted-foreground"
-            >
-              {t("clearAll")}
-            </DropdownMenuItem>
-          </>
-        ) : null}
+      {activeFilterCount > 0 ? (
+        <>
+          <DropdownMenuSeparator className="mx-2" />
+          <DropdownMenuItem
+            onClick={() => onFiltersChange(EMPTY_AUTOMATION_LIST_FILTERS)}
+            className="text-xs font-medium text-muted-foreground"
+          >
+            {t("clearAll")}
+          </DropdownMenuItem>
+        </>
+      ) : null}
     </PageFilterButton>
   );
 }
@@ -250,7 +229,7 @@ function FilterSubmenu({
         <Icon className="size-4" />
         <span className="min-w-0 flex-1 truncate">{label}</span>
         {selectedCount > 0 ? (
-          <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+          <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
             {selectedCount}
           </span>
         ) : null}
@@ -261,7 +240,5 @@ function FilterSubmenu({
 }
 
 function toggleValue<T extends string>(values: T[], value: T) {
-  return values.includes(value)
-    ? values.filter((item) => item !== value)
-    : [...values, value];
+  return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 }

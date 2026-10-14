@@ -26,20 +26,12 @@ export const AgentIcon: React.FC<{
    */
   color?: string;
   className?: string;
-}> = ({
-  registryId,
-  name,
-  size = 18,
-  registryIcon = null,
-  color,
-  className,
-}) => {
+}> = ({ registryId, name, size = 18, registryIcon = null, color, className }) => {
   const { resolvedTheme } = useTheme();
 
   const sources = React.useMemo(() => {
     const normalizedRegistryIcon = registryIcon?.trim() || null;
-    const skipLocalHunt =
-      registryId.includes(" ") || registryId.includes("%20");
+    const skipLocalHunt = registryId.includes(" ") || registryId.includes("%20");
     if (skipLocalHunt) {
       return normalizedRegistryIcon ? [normalizedRegistryIcon] : [];
     }
@@ -49,8 +41,7 @@ export const AgentIcon: React.FC<{
     const localCandidates = getAgentIconCandidates(registryId);
     const themePairKey = Object.keys(AGENT_THEME_PAIR_ICONS).find(
       (key) =>
-        key === registryId ||
-        localCandidates.some((path) => path.includes(`/agents/${key}`)),
+        key === registryId || localCandidates.some((path) => path.includes(`/agents/${key}`)),
     );
     const themePair = themePairKey ? AGENT_THEME_PAIR_ICONS[themePairKey] : undefined;
 

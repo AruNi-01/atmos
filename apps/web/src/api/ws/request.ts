@@ -1,18 +1,10 @@
 "use client";
 
-import type {
-  MappedWsAction,
-  WsContract,
-} from "@atmos/api-types/ws/contract";
+import type { MappedWsAction, WsContract } from "@atmos/api-types/ws/contract";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
-import {
-  getComputerQueryScope,
-  type ComputerQueryScope,
-} from "@/api/query/query-scope";
+import { getComputerQueryScope, type ComputerQueryScope } from "@/api/query/query-scope";
 
-export function isComputerQueryScopeCurrent(
-  expectedScope: ComputerQueryScope,
-): boolean {
+export function isComputerQueryScopeCurrent(expectedScope: ComputerQueryScope): boolean {
   return areComputerQueryScopesEqual(getComputerQueryScope(), expectedScope);
 }
 
@@ -28,9 +20,7 @@ export function areComputerQueryScopesEqual(
 }
 
 async function waitUntilConnected(): Promise<void> {
-  const { waitForWebSocketConnection } = await import(
-    "@/features/connection/hooks/use-websocket"
-  );
+  const { waitForWebSocketConnection } = await import("@/features/connection/hooks/use-websocket");
   await waitForWebSocketConnection();
 }
 

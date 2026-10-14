@@ -177,8 +177,7 @@ export function CenterPaneEmptyState({
 
   const compact = plan.mode === "grid";
   const itemCount = emptyPaneGridItemCount(actions.length, hasClose);
-  const lastSpansFullRow =
-    compact && emptyPaneLastItemSpansFullRow(itemCount, plan.columns);
+  const lastSpansFullRow = compact && emptyPaneLastItemSpansFullRow(itemCount, plan.columns);
 
   return (
     <div
@@ -224,11 +223,7 @@ export function CenterPaneEmptyState({
           }
         >
           {actions.map((action) => (
-            <EmptyPaneTypeButton
-              key={action.id}
-              action={action}
-              plan={plan}
-            />
+            <EmptyPaneTypeButton key={action.id} action={action} plan={plan} />
           ))}
           {onClose ? (
             <button
@@ -260,20 +255,14 @@ export function CenterPaneEmptyState({
                   "inline-flex shrink-0 items-center justify-center text-muted-foreground",
                   compact ? "[&_svg]:h-full [&_svg]:w-full" : "size-5",
                 )}
-                style={
-                  compact
-                    ? { width: plan.iconSize, height: plan.iconSize }
-                    : undefined
-                }
+                style={compact ? { width: plan.iconSize, height: plan.iconSize } : undefined}
               >
                 <X className={compact ? undefined : "size-4"} />
               </span>
               <span
                 className={cn(
                   "min-w-0 font-medium",
-                  compact
-                    ? "w-full truncate text-sm leading-tight"
-                    : "truncate",
+                  compact ? "w-full truncate text-sm leading-tight" : "truncate",
                 )}
               >
                 {t("closePane")}
@@ -426,11 +415,7 @@ const GALLERY_LAUNCHER_NOOP = () => {};
  * live mosaic. The launcher otherwise exists only inside that one mosaic, so
  * the other card is a black slab. Clicks stay on the gallery card.
  */
-export function GallerySpaceEmptyLauncher({
-  hideGitChrome = false,
-}: {
-  hideGitChrome?: boolean;
-}) {
+export function GallerySpaceEmptyLauncher({ hideGitChrome = false }: { hideGitChrome?: boolean }) {
   const t = useTranslations("appShell.centerStageTabBar");
   const modKey =
     typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/i.test(navigator.platform)

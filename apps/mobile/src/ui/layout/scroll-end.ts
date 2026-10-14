@@ -21,7 +21,9 @@ export type SessionListScrollMetrics = {
  */
 export function sessionListDistanceFromEnd(metrics: SessionListScrollMetrics): number | null {
   if (metrics.viewportHeight <= 0 || metrics.contentHeight <= 0) return null;
-  return metrics.contentHeight - (metrics.insetBottom ?? 0) - metrics.viewportHeight - metrics.offsetY;
+  return (
+    metrics.contentHeight - (metrics.insetBottom ?? 0) - metrics.viewportHeight - metrics.offsetY
+  );
 }
 
 /**

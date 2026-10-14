@@ -50,9 +50,9 @@ export function resolvePermissionCommand(input: {
 
   if (toolIsCommand) {
     if (
-      description
-      && looksLikeShellCommand(description)
-      && description.toLowerCase() !== input.tool.trim().toLowerCase()
+      description &&
+      looksLikeShellCommand(description) &&
+      description.toLowerCase() !== input.tool.trim().toLowerCase()
     ) {
       return stripPromptPrefix(description);
     }
@@ -93,25 +93,22 @@ export function permissionDescriptionToRender(
   return text;
 }
 
-export function permissionOptionVariant(
-  kind: string,
-): "default" | "secondary" | "ghost" {
-  const normalized = kind.trim().toLowerCase().replace(/[\s-]+/g, "_");
+export function permissionOptionVariant(kind: string): "default" | "secondary" | "ghost" {
+  const normalized = kind
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
   if (
-    normalized.includes("reject")
-    || normalized.includes("deny")
-    || normalized.includes("decline")
-    || normalized === "no"
-    || normalized === "cancel"
+    normalized.includes("reject") ||
+    normalized.includes("deny") ||
+    normalized.includes("decline") ||
+    normalized === "no" ||
+    normalized === "cancel"
   ) {
     return "ghost";
   }
   if (normalized.includes("always") || normalized.includes("session")) return "secondary";
-  if (
-    normalized.includes("once")
-    || normalized.includes("allow")
-    || normalized === "accept"
-  ) {
+  if (normalized.includes("once") || normalized.includes("allow") || normalized === "accept") {
     return "default";
   }
   return "secondary";

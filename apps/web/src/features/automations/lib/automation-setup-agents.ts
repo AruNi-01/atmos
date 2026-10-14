@@ -17,11 +17,7 @@ export function shouldAutofillChatAgent(args: {
   chatAgentId: string;
   hasChatAgents: boolean;
 }): boolean {
-  return (
-    args.executeMode === "chat" &&
-    args.chatAgentId.trim().length === 0 &&
-    args.hasChatAgents
-  );
+  return args.executeMode === "chat" && args.chatAgentId.trim().length === 0 && args.hasChatAgents;
 }
 
 export function resolveSetupAgentId(args: {

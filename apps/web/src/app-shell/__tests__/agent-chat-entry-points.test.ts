@@ -8,10 +8,10 @@ describe("S2 Agent Chat entry points", () => {
   it("plus menu and empty launcher can start Chat; ⌘N stays New Workspace", () => {
     const tabBar = readFileSync(join(ROOT, "CenterStageTabBar.tsx"), "utf8");
     expect(tabBar).toContain("onCreateAgentChat");
-    expect(tabBar.indexOf("id=\"create-terminal\"")).toBeLessThan(
-      tabBar.indexOf("id=\"create-agent-chat\""),
+    expect(tabBar.indexOf('id="create-terminal"')).toBeLessThan(
+      tabBar.indexOf('id="create-agent-chat"'),
     );
-    expect(tabBar).toContain("id=\"create-agent-chat\"");
+    expect(tabBar).toContain('id="create-agent-chat"');
     expect(tabBar).toContain('tab.kind === "agent-chat"');
 
     const empty = readFileSync(join(ROOT, "center-pane/CenterPaneEmptyState.tsx"), "utf8");
@@ -60,7 +60,9 @@ describe("S2 Agent Chat entry points", () => {
     expect(centerStage).not.toContain("agentChatApi.create");
     expect(centerStage).toContain("agentChatTabsHydrated");
     expect(centerStage).toContain("agentChatHydrated: agentChatTabsHydrated");
-    expect(centerStage).toContain("...agentChatTabs.map((tab) => ({ id: tab.value, openedAt: tab.openedAt }))");
+    expect(centerStage).toContain(
+      "...agentChatTabs.map((tab) => ({ id: tab.value, openedAt: tab.openedAt }))",
+    );
     expect(centerStage).toContain("agentChatTabs");
     expect(centerStage).toContain('tab.kind === "agent-chat"');
     expect(centerStage).toContain("agentChatNeedsCloseConfirm");
@@ -94,8 +96,10 @@ describe("S2 Agent Chat entry points", () => {
     expect(panel).toContain('data-agent-chat-standalone-paused="true"');
     expect(panel).toContain("header.standaloneWindow.returnHere");
     expect(panel).toContain("border-dashed");
-    expect(panel).toContain("if (!active || (variant === \"modal\" && !layoutLoaded)) return null");
-    expect(panel).not.toContain("if (!session.isPanelOpen || (variant === \"modal\" && !layoutLoaded)) return null");
+    expect(panel).toContain('if (!active || (variant === "modal" && !layoutLoaded)) return null');
+    expect(panel).not.toContain(
+      'if (!session.isPanelOpen || (variant === "modal" && !layoutLoaded)) return null',
+    );
     expect(panel).toContain("instanceKey || liveChatId || chatId || null");
     expect(panel).toContain("onPointerEnter={ackVisibleChatAttention}");
     expect(panel).toContain("onPointerDown={ackVisibleChatAttention}");
@@ -119,12 +123,12 @@ describe("S2 Agent Chat entry points", () => {
       join(ROOT, "../features/agent/components/AgentChatHeader.tsx"),
       "utf8",
     );
-    expect(header).toContain("constrainWidth && \"mx-auto w-full max-w-3xl\"");
+    expect(header).toContain('constrainWidth && "mx-auto w-full max-w-3xl"');
     expect(header).toContain("truncate text-sm font-medium");
     expect(header).toContain("flex min-w-0 max-w-[50%] items-start gap-2");
     expect(header).toContain("inline-flex w-fit max-w-full");
     expect(header).toContain("lockedContextLabel");
-    expect(panel).toContain("variant === \"modal\" && !liveChatId");
+    expect(panel).toContain('variant === "modal" && !liveChatId');
     expect(header).toContain("handleCreateNewSession");
     expect(header).toContain("<Plus");
     expect(header).toContain('aria-label={t("header.newSession.aria")}');
@@ -138,8 +142,8 @@ describe("S2 Agent Chat entry points", () => {
     expect(header).not.toContain("displayedAgentName");
     expect(header).not.toContain("AgentIcon");
     expect(panel).toContain("agentLocked={agentLocked}");
-    expect(panel).not.toContain("variant !== \"modal\" && agentLocked");
-    expect(panel).toContain("{variant !== \"center\" ? (");
+    expect(panel).not.toContain('variant !== "modal" && agentLocked');
+    expect(panel).toContain('{variant !== "center" ? (');
     expect(panel).toContain("handleCreateNewSession={handleCreateNewSession}");
     expect(panel).toContain('variant === "modal"');
     expect(panel).not.toContain("hideCwdChip");

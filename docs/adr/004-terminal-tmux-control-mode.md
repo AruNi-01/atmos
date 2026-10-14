@@ -47,11 +47,13 @@ Atmos 的 tmux-backed terminal 统一改为 **tmux control mode** transport：
 **描述**: 保留旧 transport，在 CMD_END、resize、copy-mode、capture-pane replay 上继续加 generation token、cooldown、状态机和清屏策略。
 
 **优点**:
+
 - 改动范围相对小。
 - 不需要实现 tmux control mode parser。
 - 对旧代码路径扰动较低。
 
 **缺点**:
+
 - 根因仍在：前端看到的是 tmux client 的渲染结果，不是 pane 原始输出模型。
 - `capture-pane` 仍无法恢复 parser mode、mouse tracking、cursor 等状态。
 - 复杂度会继续增长，每个 TUI bug 都会变成特殊补丁。
@@ -66,11 +68,13 @@ Atmos 的 tmux-backed terminal 统一改为 **tmux control mode** transport：
 **描述**: 沿用 ADR-003 的方向，在 tmux 配置中 override `smcup/rmcup`，让 TUI 内容进入 xterm.js normal buffer，并靠 CSI 3J / resize cooldown 清理残影。
 
 **优点**:
+
 - xterm.js 本地 scrollback 更容易工作。
 - 普通 shell 场景的滚动体验较好。
 - 不需要 control mode 大重构。
 
 **缺点**:
+
 - 破坏全屏 TUI 对 alternate screen 的假设。
 - TUI 的擦除、局部重绘、内部滚动会污染 normal buffer。
 - 退出 TUI 后容易残留旧 UI。
@@ -85,6 +89,7 @@ Atmos 的 tmux-backed terminal 统一改为 **tmux control mode** transport：
 **描述**: 使用 tmux control mode 作为 tmux-backed terminal 的唯一 transport。后端处理 control protocol 和 pane routing，前端 xterm.js 处理 terminal byte stream。
 
 **优点**:
+
 - terminal state ownership 清晰：tmux 维护 pane，xterm.js 维护前端 parser/screen，后端不伪造终端状态。
 - 全屏 TUI 的 alternate screen、mouse tracking、synchronized output、局部擦除可以自然工作。
 - live output 不再依赖命令结束后的整屏重写。
@@ -92,6 +97,7 @@ Atmos 的 tmux-backed terminal 统一改为 **tmux control mode** transport：
 - close/destroy 语义更清楚：close 只销毁临时 client session，master window 保留；destroy kill master window。
 
 **缺点**:
+
 - 改动大，涉及 `core-engine`、`core-service`、`api`、前端 WS 和 renderer。
 - 需要维护 tmux control mode parser、octal decoder、input/report encoder。
 - refresh/reattach snapshot 仍然不是完整 terminal state，只能作为 hydration。需要非常克制地使用。
@@ -178,13 +184,13 @@ snapshot 只用于刷新/重连 hydration：
 
 ### 风险和缓解措施 🛡️
 
-| 风险 | 严重程度 | 概率 | 缓解措施 |
-|------|---------|------|---------|
-| tmux control mode 协议解析漏 case | 高 | 中 | 增加 parser/octal/input encoder 单元测试；未知 notification 默认忽略 |
-| snapshot reattach 与 live state 不一致 | 中 | 中 | snapshot 只做 hydration；live output 仍是唯一可信状态来源；alternate screen 特化 viewport capture |
-| WebSocket binary/text 混用导致前端处理遗漏 | 中 | 低 | WS hook 明确区分 binary terminal output 和 JSON control message |
-| 多 client resize 互相影响 | 中 | 中 | 使用 per-connection client session；窗口尺寸策略保持显式，后续可加 active-client policy |
-| TUI mouse mode 在 reattach 后丢失 | 中 | 中 | snapshot 在 alternate 或 inline mouse TUI 白名单前台时设置 `restore_mouse_tracking`；hydration 后恢复 mouse tracking，CMD_END 时关闭 |
+| 风险                                       | 严重程度 | 概率 | 缓解措施                                                                                                                             |
+| ------------------------------------------ | -------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| tmux control mode 协议解析漏 case          | 高       | 中   | 增加 parser/octal/input encoder 单元测试；未知 notification 默认忽略                                                                 |
+| snapshot reattach 与 live state 不一致     | 中       | 中   | snapshot 只做 hydration；live output 仍是唯一可信状态来源；alternate screen 特化 viewport capture                                    |
+| WebSocket binary/text 混用导致前端处理遗漏 | 中       | 低   | WS hook 明确区分 binary terminal output 和 JSON control message                                                                      |
+| 多 client resize 互相影响                  | 中       | 中   | 使用 per-connection client session；窗口尺寸策略保持显式，后续可加 active-client policy                                              |
+| TUI mouse mode 在 reattach 后丢失          | 中       | 中   | snapshot 在 alternate 或 inline mouse TUI 白名单前台时设置 `restore_mouse_tracking`；hydration 后恢复 mouse tracking，CMD_END 时关闭 |
 
 ## 验证 (Validation)
 
@@ -208,16 +214,16 @@ snapshot 只用于刷新/重连 hydration：
 
 ## 相关文件
 
-| 文件 | 用途 |
-|------|------|
-| `crates/core-engine/src/tmux/control.rs` | tmux control mode parser、octal decoder、input/report encoder |
-| `crates/core-engine/src/tmux/mod.rs` | tmux session/window 管理、snapshot capture、标准配置 |
-| `crates/core-service/src/service/terminal.rs` | terminal session runner、control client 生命周期、resize/input/report |
-| `crates/core-service/src/service/ws_message.rs` | terminal WebSocket message DTO |
-| `apps/api/src/api/ws/terminal_handler.rs` | terminal WS handler、binary output 转发 |
-| `apps/web/src/components/terminal/Terminal.tsx` | xterm.js renderer、snapshot hydration、mouse mode 恢复 |
-| `apps/web/src/components/terminal/use-terminal-websocket.ts` | 前端 WS binary/text 处理 |
-| `apps/web/src/components/terminal/types.ts` | terminal snapshot/types |
+| 文件                                                         | 用途                                                                  |
+| ------------------------------------------------------------ | --------------------------------------------------------------------- |
+| `crates/core-engine/src/tmux/control.rs`                     | tmux control mode parser、octal decoder、input/report encoder         |
+| `crates/core-engine/src/tmux/mod.rs`                         | tmux session/window 管理、snapshot capture、标准配置                  |
+| `crates/core-service/src/service/terminal.rs`                | terminal session runner、control client 生命周期、resize/input/report |
+| `crates/core-service/src/service/ws_message.rs`              | terminal WebSocket message DTO                                        |
+| `apps/api/src/api/ws/terminal_handler.rs`                    | terminal WS handler、binary output 转发                               |
+| `apps/web/src/components/terminal/Terminal.tsx`              | xterm.js renderer、snapshot hydration、mouse mode 恢复                |
+| `apps/web/src/components/terminal/use-terminal-websocket.ts` | 前端 WS binary/text 处理                                              |
+| `apps/web/src/components/terminal/types.ts`                  | terminal snapshot/types                                               |
 
 ## 相关决策 (Related Decisions)
 

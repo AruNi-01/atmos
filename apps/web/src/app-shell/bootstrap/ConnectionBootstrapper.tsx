@@ -1,24 +1,24 @@
-'use client';
+"use client";
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 import {
   prepareConnectionTargetChange,
   reloadActiveConnectionData as reloadActiveConnectionDataFromLifecycle,
-} from '@/app-shell/bootstrap/connection-target-lifecycle';
-import { ensureLocalAppConnectionBootstrap } from '@/features/connection/lib/app-connection-bootstrap';
-import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
-import { isHostedAtmosOrigin } from '@/shared/lib/desktop-runtime';
-import { useHostedConnectionStore } from '@/features/connection/store/hosted-connection-store';
+} from "@/app-shell/bootstrap/connection-target-lifecycle";
+import { ensureLocalAppConnectionBootstrap } from "@/features/connection/lib/app-connection-bootstrap";
+import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
+import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
+import { useHostedConnectionStore } from "@/features/connection/store/hosted-connection-store";
 import {
   createHostedRemoteSession,
   detectHostedLocalServer,
   readHostedConnectionPreference,
   runtimeT,
-} from '@/features/connection/lib/hosted-connection';
+} from "@/features/connection/lib/hosted-connection";
 import {
   activateHostedLocalConnection,
   activateHostedRemoteConnection,
-} from '@/features/connection/lib/hosted-connection-actions';
+} from "@/features/connection/lib/hosted-connection-actions";
 
 /**
  * Hydrates computer-client token, syncs active connection instance, restores UI prefs.
@@ -56,38 +56,36 @@ export function ConnectionBootstrapper() {
             hostedStore.setLocalAvailable(local.config, local.status);
           } catch (err) {
             hostedStore.setLocalUnavailable(
-              err instanceof Error ? err.message : runtimeT('hostedConnection.errors.cannotReachLocalServer'),
+              err instanceof Error
+                ? err.message
+                : runtimeT("hostedConnection.errors.cannotReachLocalServer"),
             );
           }
 
-          if (local && preferredTarget === 'local') {
+          if (local && preferredTarget === "local") {
             try {
               await activateHostedLocalConnection(local.config);
-              hostedStore.setConnected('local');
+              hostedStore.setConnected("local");
               return;
             } catch (err) {
-              console.warn('[ConnectionBootstrapper] hosted local reconnect failed:', err);
+              console.warn("[ConnectionBootstrapper] hosted local reconnect failed:", err);
             }
           }
 
-          const {
-            accessToken,
-            relayUrl,
-            selectedServerId,
-          } = useAtmosComputerStore.getState();
+          const { accessToken, relayUrl, selectedServerId } = useAtmosComputerStore.getState();
 
           if (
-            preferredTarget === 'relay' &&
+            preferredTarget === "relay" &&
             accessToken.trim().length >= 32 &&
             selectedServerId?.trim()
           ) {
             if (local?.status.server_id && selectedServerId === local.status.server_id) {
               try {
                 await activateHostedLocalConnection(local.config);
-                hostedStore.setConnected('local');
+                hostedStore.setConnected("local");
                 return;
               } catch (err) {
-                console.warn('[ConnectionBootstrapper] hosted self-relay fallback failed:', err);
+                console.warn("[ConnectionBootstrapper] hosted self-relay fallback failed:", err);
               }
             }
             try {
@@ -97,16 +95,16 @@ export function ConnectionBootstrapper() {
                 selectedServerId,
               );
               await activateHostedRemoteConnection(selectedServerId, session);
-              hostedStore.setConnected('relay');
+              hostedStore.setConnected("relay");
               return;
             } catch (err) {
               hostedStore.setRemoteError(
-                err instanceof Error ? err.message : 'Could not reconnect remote computer.',
+                err instanceof Error ? err.message : "Could not reconnect remote computer.",
               );
             }
           }
         } catch (err) {
-          console.warn('[ConnectionBootstrapper] hosted bootstrap failed:', err);
+          console.warn("[ConnectionBootstrapper] hosted bootstrap failed:", err);
         }
 
         hostedStore.setOnboarding();

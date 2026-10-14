@@ -40,17 +40,17 @@
 
 ## Common Code Smells (Beyond SOLID)
 
-| Smell | Signs |
-|-------|-------|
-| **Long method** | Function > 30 lines, multiple levels of nesting |
-| **Feature envy** | Method uses more data from another class than its own |
-| **Data clumps** | Same group of parameters passed together repeatedly |
-| **Primitive obsession** | Using strings/numbers instead of domain types |
-| **Shotgun surgery** | One change requires edits across many files |
-| **Divergent change** | One file changes for many unrelated reasons |
-| **Dead code** | Unreachable or never-called code |
-| **Speculative generality** | Abstractions for hypothetical future needs |
-| **Magic numbers/strings** | Hardcoded values without named constants |
+| Smell                      | Signs                                                 |
+| -------------------------- | ----------------------------------------------------- |
+| **Long method**            | Function > 30 lines, multiple levels of nesting       |
+| **Feature envy**           | Method uses more data from another class than its own |
+| **Data clumps**            | Same group of parameters passed together repeatedly   |
+| **Primitive obsession**    | Using strings/numbers instead of domain types         |
+| **Shotgun surgery**        | One change requires edits across many files           |
+| **Divergent change**       | One file changes for many unrelated reasons           |
+| **Dead code**              | Unreachable or never-called code                      |
+| **Speculative generality** | Abstractions for hypothetical future needs            |
+| **Magic numbers/strings**  | Hardcoded values without named constants              |
 
 ---
 

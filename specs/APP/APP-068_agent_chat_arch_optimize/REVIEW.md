@@ -10,13 +10,13 @@
 
 ## How to use this file
 
-| Rule | Detail |
-|------|--------|
+| Rule            | Detail                                                                                                         |
+| --------------- | -------------------------------------------------------------------------------------------------------------- |
 | **When to add** | After code implementation reaches review or post-review and the findings need durable tracking before cleanup. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-006**). |
-| **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
-| **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
-| **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
+| **Entry id**    | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-006**).                                           |
+| **Status**      | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason).                                  |
+| **Do not**      | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status.       |
+| **Fix proof**   | Each fixed item should name the code change and the verification command or manual check.                      |
 
 ---
 
@@ -24,17 +24,17 @@
 
 Layers match [TECH.md](./TECH.md) overview: web → `/ws` `agent_chat_*` → `apps/api` DTO map → `AgentChatService` persist/fold → `crates/agent` domain + `providers/{claude,codex,opencode,pi,acp}`. Vendor wires stay off the browser. Tools are `kind` + `params` + `result`. `get` does not spawn. Chat spawn overrides Terminal argv; `resources/terminal-agents/builtin_agents.json` params were not rewritten for Chat.
 
-| Contract | Spec source | Implementation | Match |
-|----------|-------------|----------------|-------|
-| Descriptor 4-field + closed capabilities | TECH / descriptor.md | `domain/descriptor.rs` | Yes |
-| Runtime `send`/`cancel`/`close`/`action(AgentAction)` | TECH / runtime.md | `domain/session.rs`, `action.rs` | Yes (`action` returns `AgentActionError`, not `AgentResult`) |
-| Events tagged Atmos; sequence host-only | events.md | domain envelope has no sequence; `apply_event` stamps WS seq | Yes vs events.md; parent TECH envelope now matches (`payload`, no timestamp) |
-| Tools no dual-write | tools.md | `AgentTool`; persist `TranscriptEvent::ToolCall` | Yes |
-| Native four + ACP else | TECH / acp-adapter.md | `chat_provider_kind` + factory | Yes (alias fold; TECH table updated) |
-| Steer honesty | TECH matrix | `capabilities_for_provider` canonicalizes first | Yes including `codex-acp` / `pi-acp` |
-| Persist files, no SQLite chat, no old jsonl migrator | persistence.md | `meta.json` + `transcript.jsonl` | Yes |
-| WS names frozen; `applied_*` persist-only | ws-contract.md | `AgentChatMetaWire` | Yes; envelope `turn_id` on Rust+TS |
-| Web reads Atmos only | web.md | `part.kind` / `meta.descriptor` | Yes; probe remnants deleted |
+| Contract                                              | Spec source           | Implementation                                               | Match                                                                        |
+| ----------------------------------------------------- | --------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Descriptor 4-field + closed capabilities              | TECH / descriptor.md  | `domain/descriptor.rs`                                       | Yes                                                                          |
+| Runtime `send`/`cancel`/`close`/`action(AgentAction)` | TECH / runtime.md     | `domain/session.rs`, `action.rs`                             | Yes (`action` returns `AgentActionError`, not `AgentResult`)                 |
+| Events tagged Atmos; sequence host-only               | events.md             | domain envelope has no sequence; `apply_event` stamps WS seq | Yes vs events.md; parent TECH envelope now matches (`payload`, no timestamp) |
+| Tools no dual-write                                   | tools.md              | `AgentTool`; persist `TranscriptEvent::ToolCall`             | Yes                                                                          |
+| Native four + ACP else                                | TECH / acp-adapter.md | `chat_provider_kind` + factory                               | Yes (alias fold; TECH table updated)                                         |
+| Steer honesty                                         | TECH matrix           | `capabilities_for_provider` canonicalizes first              | Yes including `codex-acp` / `pi-acp`                                         |
+| Persist files, no SQLite chat, no old jsonl migrator  | persistence.md        | `meta.json` + `transcript.jsonl`                             | Yes                                                                          |
+| WS names frozen; `applied_*` persist-only             | ws-contract.md        | `AgentChatMetaWire`                                          | Yes; envelope `turn_id` on Rust+TS                                           |
+| Web reads Atmos only                                  | web.md                | `part.kind` / `meta.descriptor`                              | Yes; probe remnants deleted                                                  |
 
 No open P0/P1. REV-001–005 closed after Wave 11.
 
@@ -44,25 +44,25 @@ Verification gaps (not architecture mismatches): Live CLI spawn, dual-agent visu
 
 ## Index
 
-| Id | Severity | Area | Title | Status |
-|----|----------|------|-------|--------|
-| REV-001 | P2 | docs | Parent TECH routing table omits alias fold | verified |
-| REV-002 | P2 | backend | Crate-root Chat API does not re-export native providers | verified |
-| REV-003 | P1 | backend | Capability helper ignores provider aliases | verified |
-| REV-004 | P2 | api | WS `AgentChatEvent.turn_id` Rust/TS/spec disagree | verified |
-| REV-005 | P2 | frontend | Dead vendor probe helpers still in the Chat tree | verified |
+| Id      | Severity | Area     | Title                                                   | Status   |
+| ------- | -------- | -------- | ------------------------------------------------------- | -------- |
+| REV-001 | P2       | docs     | Parent TECH routing table omits alias fold              | verified |
+| REV-002 | P2       | backend  | Crate-root Chat API does not re-export native providers | verified |
+| REV-003 | P1       | backend  | Capability helper ignores provider aliases              | verified |
+| REV-004 | P2       | api      | WS `AgentChatEvent.turn_id` Rust/TS/spec disagree       | verified |
+| REV-005 | P2       | frontend | Dead vendor probe helpers still in the Chat tree        | verified |
 
 ---
 
 ## REV-001 · Parent TECH routing table omits alias fold
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | docs |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | docs            |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -91,19 +91,19 @@ Update parent TECH and `runtime.md` routing sections to the acp-adapter alias ta
 
 ## REV-002 · Crate-root Chat API does not re-export native providers
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
 [TECH.md](./TECH.md) and [acp-adapter.md](./reference/acp-adapter.md) say the crate-root Chat API includes the four native providers plus `AcpAgentProvider`. `lib.rs` exports domain, catalog, manager, models, and `AcpAgentProvider` only. Factory construction uses `agent::providers::{claude,codex,opencode,pi}` — layering still works; the published Chat surface is narrower than TECH.
 
-ACP session types are correctly *not* crate-root Chat types.
+ACP session types are correctly _not_ crate-root Chat types.
 
 ### Evidence
 
@@ -127,13 +127,13 @@ Either crate-root `pub use` the four `*NativeProvider` types, or change TECH/acp
 
 ## REV-003 · Capability helper ignores provider aliases
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -167,13 +167,13 @@ Route `capabilities_for_provider_id` through the same canonicalize function as `
 
 ## REV-004 · WS `AgentChatEvent.turn_id` Rust/TS/spec disagree
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | api |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | api             |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -203,13 +203,13 @@ Pick one envelope: add `turn_id?: string | null` to the TS DTO and ws-contract, 
 
 ## REV-005 · Dead vendor probe helpers still in the Chat tree
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 

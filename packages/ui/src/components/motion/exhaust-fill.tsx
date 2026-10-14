@@ -10,13 +10,7 @@ import {
   type Star,
 } from "./exhaust-flame";
 
-export function ExhaustFill({
-  reduce,
-  active,
-}: {
-  reduce: boolean | null;
-  active: boolean;
-}) {
+export function ExhaustFill({ reduce, active }: { reduce: boolean | null; active: boolean }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 

@@ -57,20 +57,14 @@ describe("simulator url + reasons", () => {
 
 describe("control plane", () => {
   it("talks to the local API over websocket, not Electron IPC", () => {
-    const client = readFileSync(
-      join(import.meta.dir, "../../../api/ws/simulator-api.ts"),
-      "utf8",
-    );
+    const client = readFileSync(join(import.meta.dir, "../../../api/ws/simulator-api.ts"), "utf8");
     expect(client).toContain('wsRequest("simulator_probe")');
     expect(client).toContain("workspace_id: workspaceId");
     expect(client).not.toContain("desktopInvoke");
   });
 
   it("does not start a helper until the user picks iOS or Android", () => {
-    const hook = readFileSync(
-      join(import.meta.dir, "../hooks/use-simulator-session.ts"),
-      "utf8",
-    );
+    const hook = readFileSync(join(import.meta.dir, "../hooks/use-simulator-session.ts"), "utf8");
     const card = readFileSync(
       join(import.meta.dir, "../components/SimulatorSetupCard.tsx"),
       "utf8",
@@ -103,9 +97,7 @@ function enSimulatorActions(): {
   startAndroid: string;
   stop: string;
 } {
-  const en = JSON.parse(
-    readFileSync(join(repoRoot, "apps/web/messages/en.json"), "utf8"),
-  ) as {
+  const en = JSON.parse(readFileSync(join(repoRoot, "apps/web/messages/en.json"), "utf8")) as {
     features: {
       simulator: {
         actions: {
@@ -122,10 +114,7 @@ function enSimulatorActions(): {
 
 describe("no custom phone chrome", () => {
   it("preview is an iframe and not a canvas shell", () => {
-    const panel = readFileSync(
-      join(import.meta.dir, "../components/SimulatorPanel.tsx"),
-      "utf8",
-    );
+    const panel = readFileSync(join(import.meta.dir, "../components/SimulatorPanel.tsx"), "utf8");
     expect(panel).toContain("<iframe");
     expect(panel).toContain("data-atmos-guest-iframe");
     expect(panel).toContain("simulator-guest.css");
@@ -135,16 +124,16 @@ describe("no custom phone chrome", () => {
   });
 
   it("stops the helper from the preview toolbar after confirm", () => {
-    const panel = readFileSync(
-      join(import.meta.dir, "../components/SimulatorPanel.tsx"),
-      "utf8",
-    );
+    const panel = readFileSync(join(import.meta.dir, "../components/SimulatorPanel.tsx"), "utf8");
     const header = readFileSync(
       join(import.meta.dir, "../../../app-shell/header-action-controls.tsx"),
       "utf8",
     );
     const stop = readFileSync(
-      join(repoRoot, "vendor/serve-sim/packages/serve-sim/src/client/components/stop-preview-button.tsx"),
+      join(
+        repoRoot,
+        "vendor/serve-sim/packages/serve-sim/src/client/components/stop-preview-button.tsx",
+      ),
       "utf8",
     );
     const client = readFileSync(
@@ -171,10 +160,7 @@ describe("no custom phone chrome", () => {
   });
 
   it("freezes the guest iframe while host tooltips or sidebar drags use the pointer", () => {
-    const css = readFileSync(
-      join(import.meta.dir, "../simulator-guest.css"),
-      "utf8",
-    );
+    const css = readFileSync(join(import.meta.dir, "../simulator-guest.css"), "utf8");
     expect(css).toContain("data-atmos-guest-iframe");
     expect(css).toContain("tooltip-content");
     expect(css).toContain("data-resize-handle-active");
@@ -187,7 +173,7 @@ describe("no custom phone chrome", () => {
       join(import.meta.dir, "../../../app-shell/PanelLayout.tsx"),
       "utf8",
     );
-    expect(layout).toContain('data-atmos-drag-active');
+    expect(layout).toContain("data-atmos-drag-active");
     expect(layout).toContain("relative z-20");
     expect(layout).toContain("-mx-1.5");
     expect(layout).not.toContain("rightPanelRef");
@@ -196,9 +182,7 @@ describe("no custom phone chrome", () => {
 
 describe("i18n", () => {
   it("uses sentence case and translated zh without npx", () => {
-    const en = JSON.parse(
-      readFileSync(join(repoRoot, "apps/web/messages/en.json"), "utf8"),
-    ) as {
+    const en = JSON.parse(readFileSync(join(repoRoot, "apps/web/messages/en.json"), "utf8")) as {
       features: {
         simulator: {
           tab: string;
@@ -210,9 +194,7 @@ describe("i18n", () => {
       };
       appShell: { centerStageTabGroups: { groups: { simulator: string } } };
     };
-    const zh = JSON.parse(
-      readFileSync(join(repoRoot, "apps/web/messages/zh.json"), "utf8"),
-    ) as {
+    const zh = JSON.parse(readFileSync(join(repoRoot, "apps/web/messages/zh.json"), "utf8")) as {
       features: {
         simulator: {
           tab: string;
@@ -463,10 +445,7 @@ function bothBlockedProbe(): SimulatorProbe {
 
 describe("local web vs remote computer", () => {
   it("lets loopback Computers start, including hosted web, and blocks relay", () => {
-    const hook = readFileSync(
-      join(import.meta.dir, "../hooks/use-simulator-session.ts"),
-      "utf8",
-    );
+    const hook = readFileSync(join(import.meta.dir, "../hooks/use-simulator-session.ts"), "utf8");
     expect(hook).not.toContain("isHostedAtmosOrigin()");
     expect(hook).not.toMatch(/if\s*\(\s*!isDesktopRuntime\(\)\s*\)/);
     expect(hook).toContain("simulatorHelperReachable(connectionMode)");
@@ -478,7 +457,13 @@ describe("local web vs remote computer", () => {
   });
 
   it("parses iframe device-switch messages", () => {
-    expect(parseSimulatorDeviceMessage({ type: "atmos:simulator-device", udid: "Pixel_8", platform: "android" })).toEqual({
+    expect(
+      parseSimulatorDeviceMessage({
+        type: "atmos:simulator-device",
+        udid: "Pixel_8",
+        platform: "android",
+      }),
+    ).toEqual({
       udid: "Pixel_8",
       platform: "android",
     });
@@ -490,19 +475,13 @@ describe("local web vs remote computer", () => {
 describe("serve-sim pin 0.1.48", () => {
   it("pins 0.1.48-atmos.1 with Atmos patches and omits simcam from pack", () => {
     const pin = JSON.parse(
-      readFileSync(
-        join(repoRoot, "crates/core-service/pins/serve-sim-requirement.json"),
-        "utf8",
-      ),
+      readFileSync(join(repoRoot, "crates/core-service/pins/serve-sim-requirement.json"), "utf8"),
     ) as { version: string; asset: string };
     const upstream = readFileSync(join(repoRoot, "vendor/serve-sim/UPSTREAM.md"), "utf8");
     const patches = readFileSync(join(repoRoot, "vendor/serve-sim/ATMOS-PATCHES.md"), "utf8");
     const pack = readFileSync(join(repoRoot, "scripts/serve-sim/pack.sh"), "utf8");
     const pkg = JSON.parse(
-      readFileSync(
-        join(repoRoot, "vendor/serve-sim/packages/serve-sim/package.json"),
-        "utf8",
-      ),
+      readFileSync(join(repoRoot, "vendor/serve-sim/packages/serve-sim/package.json"), "utf8"),
     ) as { version: string };
     const index = readFileSync(
       join(repoRoot, "vendor/serve-sim/packages/serve-sim/src/index.ts"),
@@ -517,7 +496,10 @@ describe("serve-sim pin 0.1.48", () => {
       "utf8",
     );
     const stop = readFileSync(
-      join(repoRoot, "vendor/serve-sim/packages/serve-sim/src/client/components/stop-preview-button.tsx"),
+      join(
+        repoRoot,
+        "vendor/serve-sim/packages/serve-sim/src/client/components/stop-preview-button.tsx",
+      ),
       "utf8",
     );
 
@@ -543,10 +525,7 @@ describe("serve-sim pin 0.1.48", () => {
 describe("serve-emu vendor + install", () => {
   it("pins serve-emu under runtime-manager paths without npx or serve-avd", () => {
     const pin = JSON.parse(
-      readFileSync(
-        join(repoRoot, "crates/core-service/pins/serve-emu-requirement.json"),
-        "utf8",
-      ),
+      readFileSync(join(repoRoot, "crates/core-service/pins/serve-emu-requirement.json"), "utf8"),
     ) as { version: string; asset: string; upstream_commit: string };
     expect(pin.version).toBe("0.0.5-atmos.1");
     expect(pin.asset).toContain("serve-emu-");
@@ -621,7 +600,7 @@ describe("serve-emu vendor + install", () => {
     expect(app).toContain("data-atmos-tools-panel");
     expect(app).toContain("Stop the emulator preview?");
     expect(app).toContain("atmos:simulator-stop");
-    expect(app).toContain('useState(false)');
+    expect(app).toContain("useState(false)");
     expect(status).toContain("Device preview");
     expect(status).not.toContain(">serve-emu<");
     expect(panel).toContain('device.kind !== "physical"');
@@ -635,10 +614,7 @@ describe("serve-emu vendor + install", () => {
 
 describe("device preview chrome and inventory", () => {
   it("keeps appearance and android camera on Atmos chrome around the iframe", () => {
-    const panel = readFileSync(
-      join(import.meta.dir, "../components/SimulatorPanel.tsx"),
-      "utf8",
-    );
+    const panel = readFileSync(join(import.meta.dir, "../components/SimulatorPanel.tsx"), "utf8");
     const appearance = readFileSync(
       join(import.meta.dir, "../components/SimulatorAppearanceControl.tsx"),
       "utf8",
@@ -674,10 +650,7 @@ describe("device preview chrome and inventory", () => {
   });
 
   it("lists host devices and gates add/boot when relay is blocked", () => {
-    const panel = readFileSync(
-      join(import.meta.dir, "../components/SimulatorPanel.tsx"),
-      "utf8",
-    );
+    const panel = readFileSync(join(import.meta.dir, "../components/SimulatorPanel.tsx"), "utf8");
     const inventory = readFileSync(
       join(import.meta.dir, "../components/SimulatorInventoryPanel.tsx"),
       "utf8",
@@ -686,10 +659,7 @@ describe("device preview chrome and inventory", () => {
       join(import.meta.dir, "../components/SimulatorCreateDeviceDialog.tsx"),
       "utf8",
     );
-    const hook = readFileSync(
-      join(import.meta.dir, "../hooks/use-simulator-inventory.ts"),
-      "utf8",
-    );
+    const hook = readFileSync(join(import.meta.dir, "../hooks/use-simulator-inventory.ts"), "utf8");
     expect(SIMULATOR_TAB_VALUE).toBe("simulator");
     expect(panel).toContain('session.reason === "not_desktop"');
     expect(panel).toContain("SimulatorSetupCard");
@@ -725,10 +695,7 @@ describe("device preview chrome and inventory", () => {
       join(repoRoot, "packages/api-types/src/ws/contract/simulator.ts"),
       "utf8",
     );
-    const client = readFileSync(
-      join(import.meta.dir, "../../../api/ws/simulator-api.ts"),
-      "utf8",
-    );
+    const client = readFileSync(join(import.meta.dir, "../../../api/ws/simulator-api.ts"), "utf8");
     const serveSimUi = readFileSync(
       join(repoRoot, "vendor/serve-sim/packages/serve-sim/src/client/client.tsx"),
       "utf8",
@@ -761,8 +728,12 @@ describe("device preview chrome and inventory", () => {
   });
 
   it("parses typed simulator errors and android names", () => {
-    expect(parseSimulatorError(new Error("[NO_CLAIM] no live Device Preview claim"))).toBe("no_claim");
-    expect(parseSimulatorError(new Error("[error] Processing error: boot_failed"))).toBe("boot_failed");
+    expect(parseSimulatorError(new Error("[NO_CLAIM] no live Device Preview claim"))).toBe(
+      "no_claim",
+    );
+    expect(parseSimulatorError(new Error("[error] Processing error: boot_failed"))).toBe(
+      "boot_failed",
+    );
     expect(parseSimulatorError(new Error("[CAMERA_UNAVAILABLE] camera is unavailable"))).toBe(
       "camera_unavailable",
     );
@@ -771,9 +742,7 @@ describe("device preview chrome and inventory", () => {
   });
 
   it("localizes chrome copy in sentence case", () => {
-    const en = JSON.parse(
-      readFileSync(join(repoRoot, "apps/web/messages/en.json"), "utf8"),
-    ) as {
+    const en = JSON.parse(readFileSync(join(repoRoot, "apps/web/messages/en.json"), "utf8")) as {
       features: {
         simulator: {
           appearance: string;
@@ -801,9 +770,7 @@ describe("device preview chrome and inventory", () => {
         };
       };
     };
-    const zh = JSON.parse(
-      readFileSync(join(repoRoot, "apps/web/messages/zh.json"), "utf8"),
-    ) as {
+    const zh = JSON.parse(readFileSync(join(repoRoot, "apps/web/messages/zh.json"), "utf8")) as {
       features: {
         simulator: {
           appearance: string;
@@ -858,7 +825,9 @@ describe("device preview chrome and inventory", () => {
     expect(zh.features.simulator.reasons.camera_unavailable.body).not.toBe(
       en.features.simulator.reasons.camera_unavailable.body,
     );
-    expect(zh.features.simulator.actions.addDevice).not.toBe(en.features.simulator.actions.addDevice);
+    expect(zh.features.simulator.actions.addDevice).not.toBe(
+      en.features.simulator.actions.addDevice,
+    );
     expect(JSON.stringify(en.features.simulator)).not.toMatch(/\b(LIGHT|DARK|BOOT|FRONT|BACK)\b/);
     expect(JSON.stringify(en.features.simulator).toLowerCase()).not.toContain("npx");
     expect(JSON.stringify(zh.features.simulator).toLowerCase()).not.toContain("npx");

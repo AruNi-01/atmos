@@ -28,10 +28,7 @@ export type GroupedTimelineEntry<T> =
   | { kind: "commits"; commits: T[]; startIndex: number }
   | { kind: "cross-referenced"; items: T[]; startIndex: number };
 
-export function isTimelineCommitItem(item: {
-  event?: string;
-  type?: string;
-}): boolean {
+export function isTimelineCommitItem(item: { event?: string; type?: string }): boolean {
   return item.event === "committed" || item.type === "commit";
 }
 
@@ -83,10 +80,7 @@ export function getTimelineCommitAuthor(item: TimelineCommitLike): {
   avatarUrl?: string;
 } {
   const author = item.author ?? item.actor;
-  const login =
-    author?.login ||
-    (author as { name?: string } | undefined)?.name ||
-    "unknown";
+  const login = author?.login || (author as { name?: string } | undefined)?.name || "unknown";
   const avatarUrl =
     author?.avatar_url ||
     author?.avatarUrl ||

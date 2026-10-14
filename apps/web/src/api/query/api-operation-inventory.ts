@@ -371,7 +371,8 @@ export const apiOperationInventory = [
     legacyOwner: "useAutomationWebsocketSync + live-run-output",
     phase: "extended",
     status: "complete",
-    rationale: "Streaming incremental output; no Query snapshot. Buffer lives in live-run-output.ts.",
+    rationale:
+      "Streaming incremental output; no Query snapshot. Buffer lives in live-run-output.ts.",
   },
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -656,7 +657,8 @@ export const apiOperationInventory = [
     legacyOwner: "useTerminalStore",
     phase: "deferred",
     status: "deferred",
-    rationale: "Requires separate layout/runtime design; client and server lifecycle are tightly coupled.",
+    rationale:
+      "Requires separate layout/runtime design; client and server lifecycle are tightly coupled.",
   },
 
   // ──────────────────────────────────────────────────────────────────────────

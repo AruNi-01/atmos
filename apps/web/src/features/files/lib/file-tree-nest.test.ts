@@ -19,10 +19,7 @@ describe("nestTreeItemsByParent", () => {
     );
 
     expect(nested.map((node) => node.item.id)).toEqual(["src", "README.md"]);
-    expect(nested[0]?.children.map((node) => node.item.id)).toEqual([
-      "src/lib",
-      "src/app.ts",
-    ]);
+    expect(nested[0]?.children.map((node) => node.item.id)).toEqual(["src/lib", "src/app.ts"]);
     expect(nested[1]?.children).toEqual([]);
   });
 });
@@ -43,14 +40,8 @@ describe("isFileTreeBranchOpen", () => {
 
 describe("file tree expand animation wiring", () => {
   test("expands and collapses folder children as one motion group", () => {
-    const tree = readFileSync(
-      join(import.meta.dir, "../components/FileTree.tsx"),
-      "utf8",
-    );
-    const branch = readFileSync(
-      join(import.meta.dir, "../components/FileTreeBranch.tsx"),
-      "utf8",
-    );
+    const tree = readFileSync(join(import.meta.dir, "../components/FileTree.tsx"), "utf8");
+    const branch = readFileSync(join(import.meta.dir, "../components/FileTreeBranch.tsx"), "utf8");
     expect(tree).toContain("FileTreeBranch");
     expect(tree).toContain("nestTreeItemsByParent");
     expect(tree).toContain("isFileTreeBranchOpen");

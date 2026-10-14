@@ -4,10 +4,10 @@ Local Atmos runtime: manifest discovery, relay identity, and optional process su
 
 ## Features
 
-| Feature | Enables |
-|---------|---------|
-| `client` (default) | `runtime_manifest.json`, `relay_identity.json`, `register_computer` |
-| `supervisor` | `ensure_running` / `stop_running` / `runtime_status` for `~/.atmos/runtime/current` or `ATMOS_RUNTIME_DIR` |
+| Feature            | Enables                                                                                                    |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `client` (default) | `runtime_manifest.json`, `relay_identity.json`, `register_computer`                                        |
+| `supervisor`       | `ensure_running` / `stop_running` / `runtime_status` for `~/.atmos/runtime/current` or `ATMOS_RUNTIME_DIR` |
 
 ## Consumers
 

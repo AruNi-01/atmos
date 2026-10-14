@@ -2,11 +2,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { Window } from "happy-dom";
 
-import {
-  clearRuntimeApiConfigCache,
-  getRuntimeHttpConfig,
-  httpBase,
-} from "../desktop-runtime";
+import { clearRuntimeApiConfigCache, getRuntimeHttpConfig, httpBase } from "../desktop-runtime";
 
 describe("local-web HTTP target", () => {
   const previousTarget = process.env.NEXT_PUBLIC_BUILD_TARGET;

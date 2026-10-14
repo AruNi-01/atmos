@@ -27,9 +27,12 @@ export function useAgentChatExpand(
 ): [boolean, (next: boolean) => void] {
   const stored = useAgentChatExpandStore((state) => state.values[key]);
   const setExpand = useAgentChatExpandStore((state) => state.setExpand);
-  const onChange = useCallback((next: boolean) => {
-    setExpand(key, next);
-  }, [key, setExpand]);
+  const onChange = useCallback(
+    (next: boolean) => {
+      setExpand(key, next);
+    },
+    [key, setExpand],
+  );
   return [stored ?? fallback, onChange];
 }
 

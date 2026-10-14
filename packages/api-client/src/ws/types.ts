@@ -1,9 +1,5 @@
 import type { WsAction } from "@atmos/api-types/ws/actions";
-import type {
-  MappedWsAction,
-  UnmappedWsAction,
-  WsContract,
-} from "@atmos/api-types/ws/contract";
+import type { MappedWsAction, UnmappedWsAction, WsContract } from "@atmos/api-types/ws/contract";
 import type { WsSessionPlatform } from "../platform/types";
 
 export type ConnectionState =
@@ -15,9 +11,7 @@ export type ConnectionState =
   | "closed"
   | "error";
 
-export type ExhaustedBehavior =
-  | { type: "stop" }
-  | { type: "slow_retry"; delayMs: number };
+export type ExhaustedBehavior = { type: "stop" } | { type: "slow_retry"; delayMs: number };
 
 export type ReconnectPolicy = {
   enabled: boolean;

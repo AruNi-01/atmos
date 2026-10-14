@@ -48,9 +48,7 @@ function persistLocal(doc: CenterLayoutDocument) {
 }
 
 function readLocal(): CenterLayoutDocument {
-  return normalizeCenterLayoutDocument(
-    readJson<CenterLayoutDocument | null>(STORAGE_KEY, null),
-  );
+  return normalizeCenterLayoutDocument(readJson<CenterLayoutDocument | null>(STORAGE_KEY, null));
 }
 
 function applyDocument(doc: CenterLayoutDocument, keepThumbs: boolean) {
@@ -83,9 +81,7 @@ function applyDocument(doc: CenterLayoutDocument, keepThumbs: boolean) {
 
 function snapshotSpaceTerminals() {
   const terminalState = useTerminalStore.getState();
-  const contextIds = new Set<string>(
-    Object.keys(useCenterPaneLayoutStore.getState().byContext),
-  );
+  const contextIds = new Set<string>(Object.keys(useCenterPaneLayoutStore.getState().byContext));
   for (const [hostId, host] of Object.entries(useCenterSpaceStore.getState().byHost)) {
     contextIds.add(hostId);
     for (const space of host.spaces) {
@@ -200,4 +196,3 @@ export async function syncCenterLayoutFromDisk(): Promise<void> {
     useCenterPaneSavedLayoutStore.setState({ diskSynced: true });
   }
 }
-

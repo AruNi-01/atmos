@@ -1,11 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,12 +16,8 @@ const repoRoot = join(appRoot, "../..");
 
 describe("prepare-package CLI floor overlay", () => {
   it("keeps tracked and staged pins on distinct paths", () => {
-    expect(TRACKED_CLI_REQUIREMENT_REL).toBe(
-      "resources/desktop-use/cli-requirement.json",
-    );
-    expect(STAGED_CLI_REQUIREMENT_REL).toBe(
-      "resources/desktop-use-stage/cli-requirement.json",
-    );
+    expect(TRACKED_CLI_REQUIREMENT_REL).toBe("resources/desktop-use/cli-requirement.json");
+    expect(STAGED_CLI_REQUIREMENT_REL).toBe("resources/desktop-use-stage/cli-requirement.json");
     expect(STAGED_CLI_REQUIREMENT_REL).not.toBe(TRACKED_CLI_REQUIREMENT_REL);
   });
 
@@ -46,7 +36,7 @@ describe("prepare-package CLI floor overlay", () => {
   it("falls back to crates pin when Cargo.toml has no version", () => {
     expect(
       resolveMinCliVersion({
-        cliCargoText: "[package]\nname = \"atmos\"\n",
+        cliCargoText: '[package]\nname = "atmos"\n',
         fallbackJsonText: `{"min_cli_version":"2026.8.7"}`,
       }),
     ).toBe("2026.8.7");
@@ -83,9 +73,7 @@ describe("prepare-package CLI floor overlay", () => {
     const yml = readFileSync(join(appRoot, "electron-builder.yml"), "utf8");
     expect(yml).toContain("from: resources/desktop-use\n");
     expect(yml).toContain("!cli-requirement.json");
-    expect(yml).toContain(
-      "from: resources/desktop-use-stage/cli-requirement.json",
-    );
+    expect(yml).toContain("from: resources/desktop-use-stage/cli-requirement.json");
     expect(yml).toContain("to: desktop-use/cli-requirement.json");
 
     const gitignore = readFileSync(join(appRoot, ".gitignore"), "utf8");
@@ -98,10 +86,7 @@ describe("prepare-package CLI floor overlay", () => {
       readFileSync(join(appRoot, TRACKED_CLI_REQUIREMENT_REL), "utf8"),
     ) as { min_cli_version: string };
     const cratesPin = JSON.parse(
-      readFileSync(
-        join(repoRoot, "crates/desktop-use/manifest/cli-requirement.json"),
-        "utf8",
-      ),
+      readFileSync(join(repoRoot, "crates/desktop-use/manifest/cli-requirement.json"), "utf8"),
     ) as { min_cli_version: string };
     expect(tracked.min_cli_version).toBe(cratesPin.min_cli_version);
   });

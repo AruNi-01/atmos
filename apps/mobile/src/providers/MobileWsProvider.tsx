@@ -89,7 +89,11 @@ export function MobileWsProvider({ children }: PropsWithChildren) {
     };
   }, [client, queryClient, setDisconnectedReason]);
 
-  return <MobileWsContext.Provider value={{ client, state: wsState }}>{children}</MobileWsContext.Provider>;
+  return (
+    <MobileWsContext.Provider value={{ client, state: wsState }}>
+      {children}
+    </MobileWsContext.Provider>
+  );
 }
 
 export function useMobileWs() {

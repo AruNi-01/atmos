@@ -71,7 +71,11 @@ function PermissionBellFull({ tool }: { tool?: string }) {
       <span className="inline-flex items-center text-amber-400/70">
         <FilledBellIcon ref={bellRef} size={14} color="currentColor" strokeWidth={0} />
       </span>
-      <TextShimmer as="span" className="text-[10px] whitespace-nowrap text-amber-400/60" duration={2}>
+      <TextShimmer
+        as="span"
+        className="text-[10px] whitespace-nowrap text-amber-400/60"
+        duration={2}
+      >
         {tool ? t("waitingForPermissionWithTool", { tool }) : t("waitingForPermission")}
       </TextShimmer>
     </div>

@@ -42,9 +42,11 @@ export function ChevronRight16({ className }: { className?: string }) {
 }
 
 export function formatTriggerDate(date: CalendarDate, locale?: string) {
-  return new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", year: "numeric" }).format(
-    date.toDate(getLocalTimeZone()),
-  );
+  return new Intl.DateTimeFormat(locale, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date.toDate(getLocalTimeZone()));
 }
 
 export function formatChipDate(date: CalendarDate, locale?: string) {
@@ -118,7 +120,7 @@ export function DayCell(props: CalendarCellRenderProps & { isRange: boolean }) {
           "relative flex size-8 items-center justify-center rounded-lg outline-none",
           !isSelected && isHovered && "bg-accent",
           "transition-colors duration-100 ease-out",
-          isFocusVisible && "ring-2 ring-inset ring-ring",
+          isFocusVisible && "ring-2 ring-ring ring-inset",
         )}
       >
         <span
@@ -185,7 +187,7 @@ export function MonthPanel({
             {showPrev ? (
               <RACButton
                 slot="previous"
-                className="flex size-4 cursor-pointer items-center justify-center rounded-[3px] text-muted-foreground outline-none transition-colors duration-150 ease-out hover:bg-accent"
+                className="flex size-4 cursor-pointer items-center justify-center rounded-[3px] text-muted-foreground transition-colors duration-150 ease-out outline-none hover:bg-accent"
               >
                 <ChevronLeft16 />
               </RACButton>
@@ -196,7 +198,7 @@ export function MonthPanel({
             {showNext ? (
               <RACButton
                 slot="next"
-                className="flex size-4 cursor-pointer items-center justify-center rounded-[3px] text-muted-foreground outline-none transition-colors duration-150 ease-out hover:bg-accent"
+                className="flex size-4 cursor-pointer items-center justify-center rounded-[3px] text-muted-foreground transition-colors duration-150 ease-out outline-none hover:bg-accent"
               >
                 <ChevronRight16 />
               </RACButton>
@@ -208,7 +210,7 @@ export function MonthPanel({
         <CalendarGrid
           offset={{ months: offset }}
           weekdayStyle="short"
-          className="-m-3 self-start border-separate outline-none"
+          className="-m-3 border-separate self-start outline-none"
           style={{ borderSpacing: "12px 12px" }}
         >
           <CalendarGridHeader>
@@ -270,7 +272,7 @@ export function DateChipInput({
         if (event.key === "Escape") setText(formatted);
       }}
       aria-label={label}
-      className="w-[104px] rounded-[10px] border border-input bg-background px-2 py-2 text-sm text-foreground shadow-xs outline-none transition-colors duration-100 ease-out focus-visible:border-ring"
+      className="w-[104px] rounded-[10px] border border-input bg-background px-2 py-2 text-sm text-foreground shadow-xs transition-colors duration-100 ease-out outline-none focus-visible:border-ring"
     />
   );
 }
@@ -278,14 +280,14 @@ export function DateChipInput({
 export const triggerButtonClassName = cn(
   "inline-flex h-11 shrink-0 cursor-pointer items-center gap-0.5 rounded-xl border border-border/50 bg-muted/20 p-2 shadow-sm outline-none",
   "transition-[background-color,border-color,box-shadow] duration-150 ease-out",
-  "hover:bg-background hover:border-border",
-  "focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-ring",
+  "hover:border-border hover:bg-background",
+  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
   "disabled:cursor-not-allowed disabled:opacity-64 disabled:shadow-none",
 );
 
 export const popoverClassName = cn(
   "origin-top rounded-3xl bg-popover text-popover-foreground shadow-lg",
   "transition duration-150 ease-out",
-  "data-[entering]:opacity-0 data-[entering]:scale-95 data-[entering]:blur-[2px]",
-  "data-[exiting]:opacity-0 data-[exiting]:scale-95 data-[exiting]:blur-[2px]",
+  "data-[entering]:scale-95 data-[entering]:opacity-0 data-[entering]:blur-[2px]",
+  "data-[exiting]:scale-95 data-[exiting]:opacity-0 data-[exiting]:blur-[2px]",
 );

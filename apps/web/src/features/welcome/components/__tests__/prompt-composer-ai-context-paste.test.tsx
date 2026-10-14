@@ -18,8 +18,7 @@ type TestIconProps = {
 };
 
 mock.module("@workspace/ui", () => ({
-  cn: (...values: Array<string | false | null | undefined>) =>
-    values.filter(Boolean).join(" "),
+  cn: (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" "),
   getFileIconProps: ({ className }: TestIconProps) => ({
     alt: "",
     className,
@@ -82,9 +81,7 @@ describe("PromptComposer AI context paste", () => {
     placeCaretAtEnd(editor);
 
     await act(async () => {
-      editor.dispatchEvent(
-        pasteEvent(wrapAiContextClipboard("code-selection", codeBody)),
-      );
+      editor.dispatchEvent(pasteEvent(wrapAiContextClipboard("code-selection", codeBody)));
     });
 
     const chips = editor.querySelectorAll("[data-kind='ai-context:code-selection']");
@@ -113,15 +110,11 @@ describe("PromptComposer AI context paste", () => {
 
     const reviewBody = "Run a full code review of the current diff.";
     await act(async () => {
-      editor.dispatchEvent(
-        pasteEvent(wrapAiContextClipboard("review-run", reviewBody)),
-      );
+      editor.dispatchEvent(pasteEvent(wrapAiContextClipboard("review-run", reviewBody)));
     });
 
     expect(editor.querySelector("[data-kind='ai-context:review-run']")).not.toBeNull();
-    expect(materializeAiContextText(composerRef.current?.getText().trim() ?? "")).toBe(
-      reviewBody,
-    );
+    expect(materializeAiContextText(composerRef.current?.getText().trim() ?? "")).toBe(reviewBody);
   });
 
   it("renders slash command chips without a leading slash and file mentions as chips", async () => {
@@ -144,9 +137,7 @@ describe("PromptComposer AI context paste", () => {
     expect(commandChip?.textContent).toBe("copy-request-id");
     expect(commandChip?.getAttribute("data-tooltip")).toBe("/copy-request-id");
     expect(composerRef.current?.getText()).toContain("/cmd:copy-request-id");
-    expect(editor.querySelector("[data-tooltip='README.md']")?.textContent).toContain(
-      "README.md",
-    );
+    expect(editor.querySelector("[data-tooltip='README.md']")?.textContent).toContain("README.md");
   });
 
   it("inserts a selected ACP slash command as a chip without a leading slash", async () => {

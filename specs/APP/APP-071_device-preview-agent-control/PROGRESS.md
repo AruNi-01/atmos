@@ -32,14 +32,14 @@
 
 > Orchestration board for `atmos-long-task-impl`. Not a requirements source.
 
-| ID | Wave | Owns | Forbids | Depends | Status | Impl | Review | Verify |
-|----|------|------|---------|---------|--------|------|--------|--------|
-| S0 | 0 | `crates/core-engine/src/device_control/**`, `crates/core-engine/src/lib.rs` | `crates/core-service/**`, `apps/**`, `packages/**`, `skills/**` | — | done | ok | pass | `cargo test -p core-engine device_control` |
-| S1 | 1 | `crates/core-service/src/service/device_preview/**`, `crates/core-service/src/lib.rs` (re-exports only), `crates/core-service/src/error.rs` if new codes required | `apps/**`, `packages/api-types/**`, `crates/core-engine/**` except using public APIs | S0 | done | ok | pass | `cargo test -p core-service device_preview` |
-| S2 | 2 | `apps/api/src/api/ws/message.rs`, `apps/api/src/api/ws/router/mod.rs`, `apps/api/src/api/ws/router/simulator.rs`, `apps/api/src/api/cli/invoke.rs`, `apps/api/src/relay/external_events.rs` (ServiceError match only), `crates/core-service/src/error.rs` (DeviceControl mapping only), `packages/api-types` simulator + extract fixtures | `apps/cli/**`, `apps/web/**`, `skills/**`, `crates/core-engine/**`, `crates/core-service/src/service/device_preview/**` | S1 | done | ok | pass | `cargo test -p api` + api-types extract/check/test |
-| S3 | 3 | `apps/cli/src/**` | `apps/web/**`, `crates/**`, `skills/**` | S2 | done | ok | pass | `cargo test -p atmos` |
-| S4 | 3 | `skills/atmos-device-preview/**`, `skills/system-skills-manifest.json`, `crates/infra/src/utils/system_skill_sync.rs`, `skills/atmos-cli/SKILL.md`, `skills/atmos-desktop-use/SKILL.md` | `apps/**`, `crates/core-*/**` | S2 | done | ok | pass | grep ALL_SYSTEM_SKILL_NAMES + manifest |
-| S5 | 3 | `apps/web/src/features/simulator/**`, `apps/web/src/api/ws/simulator-api.ts`, `apps/web/src/shared/lib/ai-context-protocol.ts`, WelcomePage, SlashCommandPopover, TerminalAgentInputOverlay, use-agent-composer-popovers, AgentPromptComposer, en.json, zh.json | `apps/cli/**`, `vendor/**`, `crates/**` | S2 | done | ok | pass | bun tests for prompt + structural grep |
+| ID  | Wave | Owns                                                                                                                                                                                                                                                                                                                                      | Forbids                                                                                                                 | Depends | Status | Impl | Review | Verify                                             |
+| --- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------- | ------ | ---- | ------ | -------------------------------------------------- |
+| S0  | 0    | `crates/core-engine/src/device_control/**`, `crates/core-engine/src/lib.rs`                                                                                                                                                                                                                                                               | `crates/core-service/**`, `apps/**`, `packages/**`, `skills/**`                                                         | —       | done   | ok   | pass   | `cargo test -p core-engine device_control`         |
+| S1  | 1    | `crates/core-service/src/service/device_preview/**`, `crates/core-service/src/lib.rs` (re-exports only), `crates/core-service/src/error.rs` if new codes required                                                                                                                                                                         | `apps/**`, `packages/api-types/**`, `crates/core-engine/**` except using public APIs                                    | S0      | done   | ok   | pass   | `cargo test -p core-service device_preview`        |
+| S2  | 2    | `apps/api/src/api/ws/message.rs`, `apps/api/src/api/ws/router/mod.rs`, `apps/api/src/api/ws/router/simulator.rs`, `apps/api/src/api/cli/invoke.rs`, `apps/api/src/relay/external_events.rs` (ServiceError match only), `crates/core-service/src/error.rs` (DeviceControl mapping only), `packages/api-types` simulator + extract fixtures | `apps/cli/**`, `apps/web/**`, `skills/**`, `crates/core-engine/**`, `crates/core-service/src/service/device_preview/**` | S1      | done   | ok   | pass   | `cargo test -p api` + api-types extract/check/test |
+| S3  | 3    | `apps/cli/src/**`                                                                                                                                                                                                                                                                                                                         | `apps/web/**`, `crates/**`, `skills/**`                                                                                 | S2      | done   | ok   | pass   | `cargo test -p atmos`                              |
+| S4  | 3    | `skills/atmos-device-preview/**`, `skills/system-skills-manifest.json`, `crates/infra/src/utils/system_skill_sync.rs`, `skills/atmos-cli/SKILL.md`, `skills/atmos-desktop-use/SKILL.md`                                                                                                                                                   | `apps/**`, `crates/core-*/**`                                                                                           | S2      | done   | ok   | pass   | grep ALL_SYSTEM_SKILL_NAMES + manifest             |
+| S5  | 3    | `apps/web/src/features/simulator/**`, `apps/web/src/api/ws/simulator-api.ts`, `apps/web/src/shared/lib/ai-context-protocol.ts`, WelcomePage, SlashCommandPopover, TerminalAgentInputOverlay, use-agent-composer-popovers, AgentPromptComposer, en.json, zh.json                                                                           | `apps/cli/**`, `vendor/**`, `crates/**`                                                                                 | S2      | done   | ok   | pass   | bun tests for prompt + structural grep             |
 
 **Status**: `planned` · `ready` · `in_progress` · `blocked` · `in_review` · `rework` · `done`
 
@@ -136,21 +136,21 @@
 
 ## Decisions Since TECH
 
-| ID | Decision | Why | Source update |
-|----|----------|-----|---------------|
-| D1 | CLI `NO_CLAIM` envelope `fix` is “Start the Simulator tab, then retry” (mapped in `commands/simulator.rs`, not global invoke) | PRD M2; CROSS-A P2 | none (behavior matches PRD) |
+| ID  | Decision                                                                                                                      | Why                | Source update               |
+| --- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------ | --------------------------- |
+| D1  | CLI `NO_CLAIM` envelope `fix` is “Start the Simulator tab, then retry” (mapped in `commands/simulator.rs`, not global invoke) | PRD M2; CROSS-A P2 | none (behavior matches PRD) |
 
 ## Verification Status
 
-| Area | Command / Method | Last result | Notes |
-|------|------------------|-------------|-------|
-| Rust tests | `cargo test -p core-engine device_control` | pass (19) | S0 |
-| Rust tests | `cargo test -p core-service device_preview` | pass (35) | S1 |
-| Rust tests | `cargo test -p api` | pass (75) | S2 |
-| Rust tests | `cargo test -p atmos` | pass | S3 |
-| Rust tests | `cargo test -p infra system_skill` | pass (4) | S4 |
-| Web tests | `bun test` simulator + slash-icons + ai-context | pass (40 in CROSS-B) | S5 |
-| E2E / manual | live HID | not_run | atmos-specs-test-run |
+| Area         | Command / Method                                | Last result          | Notes                |
+| ------------ | ----------------------------------------------- | -------------------- | -------------------- |
+| Rust tests   | `cargo test -p core-engine device_control`      | pass (19)            | S0                   |
+| Rust tests   | `cargo test -p core-service device_preview`     | pass (35)            | S1                   |
+| Rust tests   | `cargo test -p api`                             | pass (75)            | S2                   |
+| Rust tests   | `cargo test -p atmos`                           | pass                 | S3                   |
+| Rust tests   | `cargo test -p infra system_skill`              | pass (4)             | S4                   |
+| Web tests    | `bun test` simulator + slash-icons + ai-context | pass (40 in CROSS-B) | S5                   |
+| E2E / manual | live HID                                        | not_run              | atmos-specs-test-run |
 
 ## Known Blockers
 

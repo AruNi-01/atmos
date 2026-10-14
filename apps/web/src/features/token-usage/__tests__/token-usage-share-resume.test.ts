@@ -20,9 +20,7 @@ describe("token usage share resume", () => {
 
   test("stamps /token-usage return paths with the resume tab", () => {
     markTokenUsageShareResume("publish");
-    expect(applyTokenUsageShareResumeToPath("/token-usage")).toBe(
-      "/token-usage?share=publish",
-    );
+    expect(applyTokenUsageShareResumeToPath("/token-usage")).toBe("/token-usage?share=publish");
     expect(applyTokenUsageShareResumeToPath("/settings")).toBe("/settings");
   });
 

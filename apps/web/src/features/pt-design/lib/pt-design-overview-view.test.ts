@@ -1,9 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { globalKey, removeKey } from "@/shared/lib/browser-store";
-import {
-  readPtDesignOverviewView,
-  writePtDesignOverviewView,
-} from "./pt-design-overview-view";
+import { readPtDesignOverviewView, writePtDesignOverviewView } from "./pt-design-overview-view";
 
 const KEY = globalKey("pt-design-overview-view");
 const mem = new Map<string, string>();

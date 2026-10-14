@@ -13,47 +13,47 @@
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S2 |
-| M2 | S3, S4 |
-| M3 | S4 |
-| M14 | S5, S6, S7, S8 |
-| M4 | S9 |
-| M5 | S10 |
-| M6 | S11, S12 |
-| M7 | S13 |
-| M8 | S14 |
-| M9 | S15 |
-| M10 | S16 |
-| M11 | S17 |
-| M12 | S18 |
-| M13 | S11, S19 |
-| N1–N5 | deferred |
+| PRD item | Scenario IDs   |
+| -------- | -------------- |
+| M1       | S1, S2         |
+| M2       | S3, S4         |
+| M3       | S4             |
+| M14      | S5, S6, S7, S8 |
+| M4       | S9             |
+| M5       | S10            |
+| M6       | S11, S12       |
+| M7       | S13            |
+| M8       | S14            |
+| M9       | S15            |
+| M10      | S16            |
+| M11      | S17            |
+| M12      | S18            |
+| M13      | S11, S19       |
+| N1–N5    | deferred       |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Rust + Bun | `cargo test`, `bun test` | `extract_search_hits` + search card | grep stdout `path:line:snippet` | `result.type === search_hits`; card lists path/line | covered |
-| S2 | Rust | `cargo test` | search extract fail | unparseable stdout | stays `Text`; not mixed with `web_search` | covered |
-| S3 | Rust | `cargo test` | `chat_provider_kind` | `grok`, `grok-build`, `grok-acp`, `codex-acp` | `grok` NativeGrok; ACP registry ids ACP | covered |
-| S4 | Rust | `cargo test` | grok spawn argv | Chat spawn | `grok agent stdio`; no `streaming-json -p`; no `xai-grok-*` in Cargo.toml | covered |
-| S5 | Rust | `cargo test` | `options_probe_spec_for` | claude/codex/opencode/pi/grok | `acp: false`; strategies include Native not Acp | covered |
-| S6 | Rust | `cargo test` | Grok thinking overlay | models `grok-4.5`, `grok-4.6`, `grok-composer` | 4.5 three levels; 4.6 four with `xhigh`; composer none | covered |
-| S7 | Rust | `cargo test` | ACP probe mapper | `permission_mode` config option | fills Atmos `permission_modes`; Claude `support.modes` and `support.permission_modes` both Supported | covered |
-| S8 | Bun | `bun test` | `descriptorToConfigOptions` | support flags + lists | hidden when Unsupported or empty; `permission_mode` leading | covered |
-| S9 | Bun | `bun test` | composer | Chat chrome | no standing Fork/Rewind buttons; `/` lists commands | covered |
-| S10 | Rust + Bun | `cargo test`, `bun test` | ACP send `/rewind` | ACP available_commands | persisted as user prompt; no session-op chrome | covered |
-| S11 | Rust | `cargo test` | Claude rewind | control fixtures | conversation and/or files; no summarize subtype | covered |
-| S12 | Rust | `cargo test` | Codex rewind | app-server | conversation revert only; no Restore code option | covered |
-| S13 | Rust | `cargo test` | failed rewind | vendor error | `rewind_view` unchanged; jsonl intact | covered |
-| S14 | Rust | `cargo test` | OpenCode unrevert | revert then unrevert | jsonl still has later turns; view restores | covered |
-| S15 | Rust | `cargo test` | rewind files | any native | Atmos does not `git checkout` / write workspace files | covered |
-| S16 | Rust | `cargo test` | fork | vendor success | new `chat_id`, `parent_chat_id`; parent unchanged | covered |
-| S17 | Rust | `cargo test` | Grok worktree fork | `x.ai/git/worktree/create` then fork | Atmos does not run `git worktree` | covered |
-| S18 | api-types | `bun test` | contract | extract | still `agent_chat_*`; one new `agent_chat_session_op_respond`; no REST | covered |
-| S19 | Rust | `cargo test` | Grok rewind mode | omit vs explicit | omit would be `all`; adapter always sends explicit snake_case | covered |
+| Scenario | Level      | Expected tool            | Target command / method             | Fixture / data                                 | Signals                                                                                              | Status  |
+| -------- | ---------- | ------------------------ | ----------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------- |
+| S1       | Rust + Bun | `cargo test`, `bun test` | `extract_search_hits` + search card | grep stdout `path:line:snippet`                | `result.type === search_hits`; card lists path/line                                                  | covered |
+| S2       | Rust       | `cargo test`             | search extract fail                 | unparseable stdout                             | stays `Text`; not mixed with `web_search`                                                            | covered |
+| S3       | Rust       | `cargo test`             | `chat_provider_kind`                | `grok`, `grok-build`, `grok-acp`, `codex-acp`  | `grok` NativeGrok; ACP registry ids ACP                                                              | covered |
+| S4       | Rust       | `cargo test`             | grok spawn argv                     | Chat spawn                                     | `grok agent stdio`; no `streaming-json -p`; no `xai-grok-*` in Cargo.toml                            | covered |
+| S5       | Rust       | `cargo test`             | `options_probe_spec_for`            | claude/codex/opencode/pi/grok                  | `acp: false`; strategies include Native not Acp                                                      | covered |
+| S6       | Rust       | `cargo test`             | Grok thinking overlay               | models `grok-4.5`, `grok-4.6`, `grok-composer` | 4.5 three levels; 4.6 four with `xhigh`; composer none                                               | covered |
+| S7       | Rust       | `cargo test`             | ACP probe mapper                    | `permission_mode` config option                | fills Atmos `permission_modes`; Claude `support.modes` and `support.permission_modes` both Supported | covered |
+| S8       | Bun        | `bun test`               | `descriptorToConfigOptions`         | support flags + lists                          | hidden when Unsupported or empty; `permission_mode` leading                                          | covered |
+| S9       | Bun        | `bun test`               | composer                            | Chat chrome                                    | no standing Fork/Rewind buttons; `/` lists commands                                                  | covered |
+| S10      | Rust + Bun | `cargo test`, `bun test` | ACP send `/rewind`                  | ACP available_commands                         | persisted as user prompt; no session-op chrome                                                       | covered |
+| S11      | Rust       | `cargo test`             | Claude rewind                       | control fixtures                               | conversation and/or files; no summarize subtype                                                      | covered |
+| S12      | Rust       | `cargo test`             | Codex rewind                        | app-server                                     | conversation revert only; no Restore code option                                                     | covered |
+| S13      | Rust       | `cargo test`             | failed rewind                       | vendor error                                   | `rewind_view` unchanged; jsonl intact                                                                | covered |
+| S14      | Rust       | `cargo test`             | OpenCode unrevert                   | revert then unrevert                           | jsonl still has later turns; view restores                                                           | covered |
+| S15      | Rust       | `cargo test`             | rewind files                        | any native                                     | Atmos does not `git checkout` / write workspace files                                                | covered |
+| S16      | Rust       | `cargo test`             | fork                                | vendor success                                 | new `chat_id`, `parent_chat_id`; parent unchanged                                                    | covered |
+| S17      | Rust       | `cargo test`             | Grok worktree fork                  | `x.ai/git/worktree/create` then fork           | Atmos does not run `git worktree`                                                                    | covered |
+| S18      | api-types  | `bun test`               | contract                            | extract                                        | still `agent_chat_*`; one new `agent_chat_session_op_respond`; no REST                               | covered |
+| S19      | Rust       | `cargo test`             | Grok rewind mode                    | omit vs explicit                               | omit would be `all`; adapter always sends explicit snake_case                                        | covered |
 
 ## Scenarios
 

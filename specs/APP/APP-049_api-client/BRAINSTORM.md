@@ -8,12 +8,12 @@ Web and mobile each implement WS connect/reconnect and pending maps. Extract a f
 
 ## Options considered
 
-| Option | Outcome |
-|--------|---------|
-| A Minimal shared WS kernel | **Chosen** |
-| B Full shared domain state in package | Rejected |
-| C Docs only | Rejected |
-| D Kernel inside shared | Rejected (APP-050) |
+| Option                                | Outcome            |
+| ------------------------------------- | ------------------ |
+| A Minimal shared WS kernel            | **Chosen**         |
+| B Full shared domain state in package | Rejected           |
+| C Docs only                           | Rejected           |
+| D Kernel inside shared                | Rejected (APP-050) |
 
 ## Settled decisions (post-review)
 

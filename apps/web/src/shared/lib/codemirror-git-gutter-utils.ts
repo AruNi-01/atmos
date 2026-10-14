@@ -1,9 +1,9 @@
-import type { Chunk } from '@codemirror/merge';
-import { Text } from '@codemirror/state';
+import type { Chunk } from "@codemirror/merge";
+import { Text } from "@codemirror/state";
 
 export const DIFF_CFG = { scanLimit: 3000, timeout: 400 } as const;
 
-export type GitChunkKind = 'added' | 'deleted' | 'modified';
+export type GitChunkKind = "added" | "deleted" | "modified";
 
 /**
  * Inclusive 1-based line range in the **current document** covered by this chunk.
@@ -19,8 +19,7 @@ export function chunkDocLineRange(chunk: Chunk, doc: Text): { from: number; to: 
     return { from, to };
   }
   // Pure deletion in B: anchor at the insertion point (one logical line).
-  const pos =
-    chunk.fromB <= 0 ? 1 : Math.min(Math.max(chunk.fromB, 1), Math.max(doc.length, 1));
+  const pos = chunk.fromB <= 0 ? 1 : Math.min(Math.max(chunk.fromB, 1), Math.max(doc.length, 1));
   const ln = doc.lineAt(pos).number;
   return { from: ln, to: ln };
 }
@@ -46,9 +45,9 @@ export function gitChunkIndicesForLineRanges(
 export function classifyChunkKind(chunk: Chunk): GitChunkKind {
   const oldEmpty = chunk.fromA === chunk.toA;
   const newEmpty = chunk.fromB === chunk.toB;
-  if (oldEmpty && !newEmpty) return 'added';
-  if (!oldEmpty && newEmpty) return 'deleted';
-  return 'modified';
+  if (oldEmpty && !newEmpty) return "added";
+  if (!oldEmpty && newEmpty) return "deleted";
+  return "modified";
 }
 
 /** Start position of the first line in doc B for this chunk — expanded panel sits above it. */
@@ -63,7 +62,7 @@ export function chunkFirstLineFrom(chunk: Chunk, doc: Text): number {
 
 export function textFromStringContent(s: string): Text {
   if (!s) return Text.empty;
-  return Text.of(s.replace(/\r\n/g, '\n').split('\n'));
+  return Text.of(s.replace(/\r\n/g, "\n").split("\n"));
 }
 
 /**
@@ -71,6 +70,6 @@ export function textFromStringContent(s: string): Text {
  * The gutter bar for `modified` stays yellow; only the in-text highlight follows “latest = green”.
  */
 export function lineBgClassForChunk(expanded: boolean): string {
-  const base = 'cm-git-line-bg-added';
+  const base = "cm-git-line-bg-added";
   return expanded ? `${base} cm-git-line-bg-expanded cm-git-active-hunk-target` : base;
 }

@@ -1,16 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import {
-  buildErrorPageHtml,
-  errorPageDataUrl,
-  formatUnknownError,
-} from "./error-page.ts";
+import { buildErrorPageHtml, errorPageDataUrl, formatUnknownError } from "./error-page.ts";
 
 describe("error-page", () => {
   it("escapes HTML in details and keeps content scrollable region", () => {
     const html = buildErrorPageHtml({
       title: "Boot failed",
       summary: "Could not start <Atmos>",
-      details: 'line1\n<script>alert(1)</script>\nport 30303',
+      details: "line1\n<script>alert(1)</script>\nport 30303",
       logPath: "/tmp/desktop-main.log",
     });
     expect(html).toContain("Boot failed");

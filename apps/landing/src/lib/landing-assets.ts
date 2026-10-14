@@ -1,8 +1,7 @@
 const DEFAULT_ASSETS_BASE_URL = "https://assets.atmos.land";
 
 const isPagesBuild =
-  process.env.NEXT_PUBLIC_BUILD_TARGET === "pages" ||
-  process.env.BUILD_TARGET === "pages";
+  process.env.NEXT_PUBLIC_BUILD_TARGET === "pages" || process.env.BUILD_TARGET === "pages";
 
 function normalizeFilename(filename: string): string {
   return filename

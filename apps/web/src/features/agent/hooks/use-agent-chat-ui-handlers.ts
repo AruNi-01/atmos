@@ -39,15 +39,21 @@ export function useAgentChatUiHandlers({
   const scrollToIndexRef = useRef<((index: number) => void) | null>(null);
 
   const userMessageIndices = useMemo(
-    () => messages.map((message, index) => (message.role === "user" ? index : -1)).filter((index) => index >= 0),
+    () =>
+      messages
+        .map((message, index) => (message.role === "user" ? index : -1))
+        .filter((index) => index >= 0),
     [messages],
   );
 
-  const handleSelectMessage = useCallback((messageIndex: number) => {
-    if (!userMessageIndices.includes(messageIndex)) return;
-    scrollToIndexRef.current?.(messageIndex);
-    setMessageNavIndex(messageIndex);
-  }, [userMessageIndices]);
+  const handleSelectMessage = useCallback(
+    (messageIndex: number) => {
+      if (!userMessageIndices.includes(messageIndex)) return;
+      scrollToIndexRef.current?.(messageIndex);
+      setMessageNavIndex(messageIndex);
+    },
+    [userMessageIndices],
+  );
 
   useEffect(() => {
     if (userMessageIndices.length === 0) {
@@ -74,10 +80,13 @@ export function useAgentChatUiHandlers({
     }, 120);
   }, [clearCloseAgentsMenuTimer]);
 
-  const handleSetDefaultAgent = useCallback((agentId: string) => {
-    setDefaultRegistryId(agentId);
-    writeDefaultAgentRegistryId(agentId);
-  }, [setDefaultRegistryId]);
+  const handleSetDefaultAgent = useCallback(
+    (agentId: string) => {
+      setDefaultRegistryId(agentId);
+      writeDefaultAgentRegistryId(agentId);
+    },
+    [setDefaultRegistryId],
+  );
 
   useEffect(() => clearCloseAgentsMenuTimer, [clearCloseAgentsMenuTimer]);
 

@@ -19,7 +19,9 @@ function assistant(parts: AgentPart[], extra: Partial<AgentMessage> = {}): Agent
   return { id: "a1", role: "assistant", parts, ...extra };
 }
 
-function subagent(partial: Partial<AgentToolCallPart> & Pick<AgentToolCallPart, "tool_call_id">): AgentToolCallPart {
+function subagent(
+  partial: Partial<AgentToolCallPart> & Pick<AgentToolCallPart, "tool_call_id">,
+): AgentToolCallPart {
   return {
     type: "tool_call",
     name: "Task",
@@ -115,7 +117,8 @@ describe("currentTurnSubagentTasks", () => {
       status: "completed",
       params: { type: "subagent", description: "Explore atmos monorepo", agent_type: "Explore" },
     });
-    const notice = "<task-notification>\n<task-id>a827867c2504be0f1</task-id>\n<tool-use-id>call_task_1</tool-use-id>\n</task-notification>";
+    const notice =
+      "<task-notification>\n<task-id>a827867c2504be0f1</task-id>\n<tool-use-id>call_task_1</tool-use-id>\n</task-notification>";
     expect(isClaudeTaskNotificationText(notice)).toBe(true);
     const tasks = currentTurnSubagentTasks([
       { id: "u1", role: "user", parts: [{ type: "text", text: "启动一个 subagent" }] },
@@ -127,10 +130,12 @@ describe("currentTurnSubagentTasks", () => {
   });
 
   it("returns empty when the current turn has no subagents", () => {
-    expect(currentTurnSubagentTasks([
-      { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] },
-      assistant([{ type: "text", text: "hello" }]),
-    ])).toEqual({ items: [], tools: [] });
+    expect(
+      currentTurnSubagentTasks([
+        { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] },
+        assistant([{ type: "text", text: "hello" }]),
+      ]),
+    ).toEqual({ items: [], tools: [] });
   });
 
   it("keeps completed current-turn rows until a follow-up is pending", () => {
@@ -367,14 +372,15 @@ describe("messagesForSubagent", () => {
       { type: "text", text: "nested hello" },
     ]);
     expect(
-      projected![1]?.parts.every((part) =>
-        !("parent_tool_call_id" in part) || !part.parent_tool_call_id,
+      projected![1]?.parts.every(
+        (part) => !("parent_tool_call_id" in part) || !part.parent_tool_call_id,
       ),
     ).toBe(true);
   });
 
   it("does not project Claude async-launch dispatch ack as the child answer", () => {
-    const ack = "Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.) agentId: a827867c2504be0f1 The agent is working in the background.";
+    const ack =
+      "Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.) agentId: a827867c2504be0f1 The agent is working in the background.";
     expect(isSubagentDispatchAckText(ack)).toBe(true);
     const parent = subagent({
       tool_call_id: "parent",
@@ -393,9 +399,7 @@ describe("messagesForSubagent", () => {
       ],
       "parent",
     );
-    expect(projected![1]?.parts).toEqual([
-      { type: "text", text: "mapped the repo" },
-    ]);
+    expect(projected![1]?.parts).toEqual([{ type: "text", text: "mapped the repo" }]);
   });
 
   it("uses the stored prompt as the overlay user message", () => {
@@ -410,10 +414,7 @@ describe("messagesForSubagent", () => {
       },
     });
     const projected = messagesForSubagent(
-      [
-        { id: "u1", role: "user", parts: [{ type: "text", text: "go" }] },
-        assistant([parent]),
-      ],
+      [{ id: "u1", role: "user", parts: [{ type: "text", text: "go" }] }, assistant([parent])],
       "parent",
     );
     expect(projected![0]?.parts).toEqual([
@@ -640,5 +641,3 @@ describe("subagentChildActivity", () => {
     expect(JSON.stringify(projected)).not.toContain("01a0a960");
   });
 });
-
-

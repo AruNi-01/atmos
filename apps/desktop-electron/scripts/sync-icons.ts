@@ -5,12 +5,7 @@
  * Does **not** touch `icon.icon/` (macOS 26 Liquid Glass Icon Composer package) —
  * that tree is Electron-owned and must stay in resources/icons.
  */
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-} from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -57,9 +52,7 @@ function main() {
     );
   }
 
-  console.log(
-    `[sync-icons] ${copied}/${REQUIRED.length} icons → ${destDir}`,
-  );
+  console.log(`[sync-icons] ${copied}/${REQUIRED.length} icons → ${destDir}`);
 }
 
 main();

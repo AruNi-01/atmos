@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import type { TerminalSelectionChrome, TerminalSelectionHandle } from "@/features/terminal/terminal-selection-chrome";
+import type {
+  TerminalSelectionChrome,
+  TerminalSelectionHandle,
+} from "@/features/terminal/terminal-selection-chrome";
 import { radii } from "@/theme/radii";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
-
 
 export function TerminalSelectionOverlay({
   onCopy,
@@ -27,7 +29,11 @@ export function TerminalSelectionOverlay({
 
   if (!selection) return null;
 
-  const left = clamp(selection.anchorX - toolbarSize.width / 2, 8, Math.max(8, bounds.width - toolbarSize.width - 8));
+  const left = clamp(
+    selection.anchorX - toolbarSize.width / 2,
+    8,
+    Math.max(8, bounds.width - toolbarSize.width - 8),
+  );
   let top = selection.anchorY - toolbarSize.height - 18;
   if (top < 8) top = selection.anchorY + 28;
   top = Math.min(top, Math.max(8, bounds.height - toolbarSize.height - 8));
@@ -40,17 +46,25 @@ export function TerminalSelectionOverlay({
     <View
       onLayout={(event) => {
         const { width, height } = event.nativeEvent.layout;
-        setBounds((current) => (current.width === width && current.height === height ? current : { height, width }));
+        setBounds((current) =>
+          current.width === width && current.height === height ? current : { height, width },
+        );
       }}
       pointerEvents="box-none"
       style={styles.overlay}
     >
-      {selection.start ? <SelectionHandle anchor={selection.start} color={handleColor} edge="start" /> : null}
-      {selection.end ? <SelectionHandle anchor={selection.end} color={handleColor} edge="end" /> : null}
+      {selection.start ? (
+        <SelectionHandle anchor={selection.start} color={handleColor} edge="start" />
+      ) : null}
+      {selection.end ? (
+        <SelectionHandle anchor={selection.end} color={handleColor} edge="end" />
+      ) : null}
       <View
         onLayout={(event) => {
           const { width, height } = event.nativeEvent.layout;
-          setToolbarSize((current) => (current.width === width && current.height === height ? current : { height, width }));
+          setToolbarSize((current) =>
+            current.width === width && current.height === height ? current : { height, width },
+          );
         }}
         pointerEvents="box-none"
         style={[styles.toolbarSlot, { left, top }]}
@@ -71,7 +85,9 @@ export function TerminalSelectionOverlay({
             }}
             style={({ pressed }) => [styles.keycap, keycapStyle, pressed && keycapPressedStyle]}
           >
-            <Text style={[styles.keycapText, { color: theme.colors.terminalFg }]}>{copied ? "Copied" : "Copy"}</Text>
+            <Text style={[styles.keycapText, { color: theme.colors.terminalFg }]}>
+              {copied ? "Copied" : "Copy"}
+            </Text>
           </Pressable>
           <Pressable
             accessibilityLabel="Paste"
@@ -101,7 +117,13 @@ function SelectionHandle({
       pointerEvents="none"
       style={[styles.handle, { height: anchor.height, left: anchor.x - 14, top: anchor.y }]}
     >
-      <View style={[styles.knob, edge === "start" ? styles.knobStart : styles.knobEnd, { backgroundColor: color }]} />
+      <View
+        style={[
+          styles.knob,
+          edge === "start" ? styles.knobStart : styles.knobEnd,
+          { backgroundColor: color },
+        ]}
+      />
       <View style={[styles.bar, { backgroundColor: color }]} />
     </View>
   );

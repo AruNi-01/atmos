@@ -128,10 +128,10 @@ export function HeaderGitContext({
   return (
     <div
       className={cn(
-        "relative z-10 desktop-no-drag flex items-center space-x-1.5 px-2 py-1.5 rounded-md h-8",
+        "desktop-no-drag relative z-10 flex h-8 items-center space-x-1.5 rounded-md px-2 py-1.5",
         HEADER_CHIP_SURFACE_CLASS,
         currentWorkspace && isEditingCurrentBranch
-          ? "border-sidebar-border bg-background shadow-xs w-fit"
+          ? "w-fit border-sidebar-border bg-background shadow-xs"
           : cn(HEADER_CHIP_HOVER_CLASS, "w-fit max-w-[500px]"),
       )}
     >
@@ -143,7 +143,7 @@ export function HeaderGitContext({
                 <button
                   type="button"
                   onClick={openManagedPullRequest}
-                  className="group/pr flex items-center space-x-1 py-0.5 px-1.5 rounded text-[12px] font-medium hover:bg-accent shrink-0"
+                  className="group/pr flex shrink-0 items-center space-x-1 rounded px-1.5 py-0.5 text-[12px] font-medium hover:bg-accent"
                   aria-label={t("gitContext.openPr", { number: managedPr.number })}
                 >
                   <WorkspacePrLifecycleIcon
@@ -161,18 +161,18 @@ export function HeaderGitContext({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <div className="h-4 w-px bg-border/60 shrink-0 mx-1.5" />
+          <div className="mx-1.5 h-4 w-px shrink-0 bg-border/60" />
         </>
       ) : null}
 
-      <div className="flex items-center space-x-1 shrink-0">
+      <div className="flex shrink-0 items-center space-x-1">
         <BranchSyncIndicator state={branchSyncState} />
         {currentWorkspace && isEditingCurrentBranch ? (
-          <div className="flex items-center space-x-1 animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex animate-in items-center space-x-1 duration-200 zoom-in-95 fade-in">
             <Input
               value={editedCurrentBranch}
               onChange={(e) => setEditedCurrentBranch(e.target.value)}
-              className="h-6 w-48 text-[13px] px-2 py-0 bg-secondary/50 border-transparent focus:bg-background rounded-sm focus:border-primary/20"
+              className="h-6 w-48 rounded-sm border-transparent bg-secondary/50 px-2 py-0 text-[13px] focus:border-primary/20 focus:bg-background"
               placeholder={t("gitContext.branchNamePlaceholder")}
               onKeyDown={(e) => {
                 if (e.key === "Enter") void onSaveCurrentBranch();
@@ -182,14 +182,14 @@ export function HeaderGitContext({
             />
             <button
               onClick={() => void onSaveCurrentBranch()}
-              className="relative z-20 flex size-6 items-center justify-center rounded-sm text-success hover:bg-success/10 shrink-0"
+              className="relative z-20 flex size-6 shrink-0 items-center justify-center rounded-sm text-success hover:bg-success/10"
               aria-label={t("gitContext.saveCurrentBranch")}
             >
               <Check className="size-3.5" />
             </button>
             <button
               onClick={onCancelEditCurrentBranch}
-              className="size-6 flex items-center justify-center hover:bg-muted rounded-sm text-muted-foreground shrink-0"
+              className="flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted"
               aria-label={t("gitContext.cancelEditing")}
             >
               <X className="size-3.5" />
@@ -200,8 +200,8 @@ export function HeaderGitContext({
             role={currentWorkspace ? "button" : undefined}
             tabIndex={currentWorkspace ? 0 : undefined}
             className={cn(
-              "flex items-center space-x-1.5 py-0.5 px-1 rounded overflow-hidden",
-              currentWorkspace && "cursor-pointer group/branch hover:bg-accent",
+              "flex items-center space-x-1.5 overflow-hidden rounded px-1 py-0.5",
+              currentWorkspace && "group/branch cursor-pointer hover:bg-accent",
             )}
             onClick={currentWorkspace ? () => setIsEditingCurrentBranch(true) : undefined}
             onKeyDown={
@@ -215,26 +215,26 @@ export function HeaderGitContext({
                 : undefined
             }
           >
-            <span className="text-[13px] font-medium text-foreground truncate block max-w-[120px]">
+            <span className="block max-w-[120px] truncate text-[13px] font-medium text-foreground">
               {displayCurrentBranch}
             </span>
             {(hasUncommittedChanges || hasUnpushedCommits) && (
-              <span className="text-[11px] text-warning font-medium shrink-0">
+              <span className="shrink-0 text-[11px] font-medium text-warning">
                 {hasUncommittedChanges && `+${uncommittedCount}`}
                 {hasUncommittedChanges && hasUnpushedCommits && " "}
                 {hasUnpushedCommits && `↑${unpushedCount}`}
               </span>
             )}
             {currentWorkspace && (
-              <Edit2 className="size-2.5 opacity-0 group-hover/branch:opacity-100 transition-opacity text-muted-foreground shrink-0" />
+              <Edit2 className="size-2.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/branch:opacity-100" />
             )}
           </div>
         )}
       </div>
 
-      <ArrowRight className="size-3 text-muted-foreground/50 shrink-0 -ml-1" />
+      <ArrowRight className="-ml-1 size-3 shrink-0 text-muted-foreground/50" />
 
-      <div className="flex items-center shrink-0 min-w-0">
+      <div className="flex min-w-0 shrink-0 items-center">
         <DropdownMenu
           open={isTargetBranchOpen}
           onOpenChange={(open) => {
@@ -243,26 +243,26 @@ export function HeaderGitContext({
           }}
         >
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center space-x-1 text-[13px] font-medium text-muted-foreground hover:text-foreground outline-none cursor-pointer group/target py-0.5 px-1 rounded hover:bg-accent max-w-full">
-              <span className="opacity-50 shrink-0">origin/</span>
-              <span className="truncate block max-w-[100px]">{displayTargetBranch}</span>
-              <Edit2 className="size-2.5 opacity-0 group-hover/target:opacity-100 transition-opacity ml-0.5 shrink-0" />
+            <button className="group/target flex max-w-full cursor-pointer items-center space-x-1 rounded px-1 py-0.5 text-[13px] font-medium text-muted-foreground outline-none hover:bg-accent hover:text-foreground">
+              <span className="shrink-0 opacity-50">origin/</span>
+              <span className="block max-w-[100px] truncate">{displayTargetBranch}</span>
+              <Edit2 className="ml-0.5 size-2.5 shrink-0 opacity-0 transition-opacity group-hover/target:opacity-100" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="center" className="w-72 p-3 bg-background overflow-visible">
+          <DropdownMenuContent align="center" className="w-72 overflow-visible bg-background p-3">
             <div className="space-y-2">
               <p className="text-[12px] text-foreground/90">{t("gitContext.selectTargetBranch")}</p>
               <Input
                 value={targetBranchFilter}
                 onChange={(e) => setTargetBranchFilter(e.target.value)}
                 placeholder={t("gitContext.searchBranches")}
-                className="h-8 text-[12px] bg-background"
+                className="h-8 bg-background text-[12px]"
               />
             </div>
-            <ScrollArea className="h-[240px] mt-2 overflow-x-auto">
-              <div className="p-1 w-max min-w-full">
+            <ScrollArea className="mt-2 h-[240px] overflow-x-auto">
+              <div className="w-max min-w-full p-1">
                 {isLoadingBranches ? (
-                  <div className="p-2 text-[12px] text-muted-foreground text-center">
+                  <div className="p-2 text-center text-[12px] text-muted-foreground">
                     {t("gitContext.loadingBranches")}
                   </div>
                 ) : filteredBranches.length > 0 ? (
@@ -275,23 +275,24 @@ export function HeaderGitContext({
                         await onRefreshChangedFiles();
                       }}
                       className={cn(
-                        "flex items-center justify-between text-[13px] cursor-pointer whitespace-nowrap min-w-max",
-                        displayTargetBranch === branch && "bg-accent text-accent-foreground font-medium",
+                        "flex min-w-max cursor-pointer items-center justify-between text-[13px] whitespace-nowrap",
+                        displayTargetBranch === branch &&
+                          "bg-accent font-medium text-accent-foreground",
                       )}
                     >
                       <div className="flex items-center whitespace-nowrap">
                         {displayTargetBranch === branch ? (
-                          <Check className="size-3.5 mr-2 text-emerald-500 shrink-0" />
+                          <Check className="mr-2 size-3.5 shrink-0 text-emerald-500" />
                         ) : (
-                          <GitBranch className="size-3.5 mr-2 text-muted-foreground shrink-0" />
+                          <GitBranch className="mr-2 size-3.5 shrink-0 text-muted-foreground" />
                         )}
-                        <span className="text-muted-foreground/60 mr-1">origin/</span>
+                        <span className="mr-1 text-muted-foreground/60">origin/</span>
                         <span>{branch}</span>
                       </div>
                     </DropdownMenuItem>
                   ))
                 ) : (
-                  <div className="p-2 text-[12px] text-muted-foreground text-center">
+                  <div className="p-2 text-center text-[12px] text-muted-foreground">
                     {t("gitContext.noMatchingBranches")}
                   </div>
                 )}

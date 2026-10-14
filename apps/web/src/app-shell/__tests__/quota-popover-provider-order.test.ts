@@ -6,11 +6,7 @@ import {
   sortQuotaProvidersBySwitchAndOrder,
 } from "@/app-shell/quota-popover-utils";
 
-function provider(
-  id: string,
-  switchEnabled: boolean,
-  label = id,
-) {
+function provider(id: string, switchEnabled: boolean, label = id) {
   return { id, label, switch_enabled: switchEnabled };
 }
 
@@ -47,12 +43,10 @@ describe("sortQuotaProvidersBySwitchAndOrder", () => {
 describe("reorderQuotaProvidersKeepingEnabledFirst", () => {
   test("snaps an enabled provider dropped after disabled ones to the end of enabled", () => {
     const visualIds = ["codex", "grok", "claude", "gemini"];
-    const next = reorderQuotaProvidersKeepingEnabledFirst(
-      visualIds,
+    const next = reorderQuotaProvidersKeepingEnabledFirst(visualIds, "codex", "gemini", [
       "codex",
-      "gemini",
-      ["codex", "grok"],
-    );
+      "grok",
+    ]);
 
     expect(next).toEqual(["grok", "codex", "claude", "gemini"]);
   });
@@ -94,10 +88,7 @@ describe("reorderQuotaProvidersKeepingEnabledFirst", () => {
 describe("partitionQuotaProviderIdsBySwitch", () => {
   test("does not change relative order when already partitioned", () => {
     expect(
-      partitionQuotaProviderIdsBySwitch(
-        ["codex", "grok", "claude"],
-        ["codex", "grok"],
-      ),
+      partitionQuotaProviderIdsBySwitch(["codex", "grok", "claude"], ["codex", "grok"]),
     ).toEqual(["codex", "grok", "claude"]);
   });
 });

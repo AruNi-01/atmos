@@ -39,7 +39,12 @@ function sortThinkingLevels(options: string[]): string[] {
 }
 
 function thinkingLevelRank(level: string): number {
-  switch (level.trim().toLowerCase().replace(/[-_\s]/g, "")) {
+  switch (
+    level
+      .trim()
+      .toLowerCase()
+      .replace(/[-_\s]/g, "")
+  ) {
     case "off":
     case "none":
       return 0;
@@ -116,7 +121,10 @@ export function thinkingLevelMessageKey(value: string): string | null {
 }
 
 function compactConfigId(value: string): string {
-  return value.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 }
 
 export function permissionModeMessageKey(value: string): string | null {
@@ -164,10 +172,7 @@ export function configPickerGroupMessageKey(id: string): string | null {
   }
 }
 
-export function isThinkingConfigId(
-  id: string,
-  category?: string | null,
-): boolean {
+export function isThinkingConfigId(id: string, category?: string | null): boolean {
   return [id, category ?? ""].some((value) => {
     const token = value.trim().toLowerCase();
     if (!token) return false;
@@ -274,7 +279,9 @@ export function modelPickerName(
   return `${base} ${suffix}`;
 }
 
-function booleanFastModes(defaultOn = false): Array<{ id: string; label: string; is_default?: boolean }> {
+function booleanFastModes(
+  defaultOn = false,
+): Array<{ id: string; label: string; is_default?: boolean }> {
   return [
     { id: "false", label: "Off", is_default: !defaultOn },
     { id: "true", label: "On", is_default: defaultOn },
@@ -298,9 +305,7 @@ const GROK_FAST_ID_SUFFIX = "-build-fast";
 
 export function isDroidChatProvider(providerId: string): boolean {
   const compact = providerId.trim().toLowerCase().replace(/_/g, "-");
-  return compact === "droid"
-    || compact === "factory-droid"
-    || compact.startsWith("factory-droid-");
+  return compact === "droid" || compact === "factory-droid" || compact.startsWith("factory-droid-");
 }
 
 export function isGrokChatProvider(providerId: string): boolean {
@@ -372,11 +377,21 @@ type DroidCollapseModel = {
 };
 
 export function collapseDroidFastModels<T extends DroidCollapseModel>(models: T[]): T[] {
-  return collapseFastSiblingModels(models, DROID_FAST_ID_SUFFIX, droidFastBase, droidCleanDisplayLabel);
+  return collapseFastSiblingModels(
+    models,
+    DROID_FAST_ID_SUFFIX,
+    droidFastBase,
+    droidCleanDisplayLabel,
+  );
 }
 
 export function collapseGrokFastModels<T extends DroidCollapseModel>(models: T[]): T[] {
-  return collapseFastSiblingModels(models, GROK_FAST_ID_SUFFIX, grokFastBase, grokCleanDisplayLabel);
+  return collapseFastSiblingModels(
+    models,
+    GROK_FAST_ID_SUFFIX,
+    grokFastBase,
+    grokCleanDisplayLabel,
+  );
 }
 
 function collapseFastSiblingModels<T extends DroidCollapseModel>(
@@ -467,9 +482,8 @@ function mergeDroidFastGroup<T extends DroidCollapseModel>(
       entry.model = { ...entry.model, fast_multiplier: fastMultiplier };
     }
   }
-  const cleaned = (fromFast || entry.hasFast)
-    ? cleanLabel(model.label ?? "")
-    : (model.label ?? "").trim();
+  const cleaned =
+    fromFast || entry.hasFast ? cleanLabel(model.label ?? "") : (model.label ?? "").trim();
   if (!cleaned) return;
   if (!entry.label || !fromFast) entry.label = cleaned;
   if (!fromFast) {
@@ -478,9 +492,10 @@ function mergeDroidFastGroup<T extends DroidCollapseModel>(
       is_default: Boolean(entry.model.is_default || model.is_default),
       group: entry.model.group || model.group,
       thinking: thinkingIsUsable(entry.model.thinking) ? entry.model.thinking : model.thinking,
-      context: Array.isArray(entry.model.context) && entry.model.context.length >= 2
-        ? entry.model.context
-        : model.context,
+      context:
+        Array.isArray(entry.model.context) && entry.model.context.length >= 2
+          ? entry.model.context
+          : model.context,
       fast_multiplier: entry.model.fast_multiplier || model.fast_multiplier,
     };
   }
@@ -558,7 +573,10 @@ function foldFastSiblingSelection(
 }
 
 function compactDroidToken(raw: string): string {
-  return raw.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 }
 
 export function droidInteractionWire(raw: string): "auto" | "spec" {
@@ -613,17 +631,21 @@ export function foldDroidComposerOptions<T extends DroidComposerMode>(
   let specDefault = false;
   let defaultPermission: ReturnType<typeof droidAutonomyId> = null;
   for (const item of modes) {
-    if (droidInteractionWire(item.id) === "spec" || droidInteractionWire(item.label ?? "") === "spec") {
+    if (
+      droidInteractionWire(item.id) === "spec" ||
+      droidInteractionWire(item.label ?? "") === "spec"
+    ) {
       if (item.is_default) specDefault = true;
     }
     if (item.is_default) {
-      defaultPermission = droidAutonomyId(item.id) ?? droidAutonomyId(item.label ?? "") ?? defaultPermission;
+      defaultPermission =
+        droidAutonomyId(item.id) ?? droidAutonomyId(item.label ?? "") ?? defaultPermission;
     }
   }
   for (const item of permissionModes) {
     if (!item.is_default) continue;
-    const mapped = droidAutonomyId(item.id)
-      ?? (permissionModeMessageKey(item.id) === "auto" ? "auto" : null);
+    const mapped =
+      droidAutonomyId(item.id) ?? (permissionModeMessageKey(item.id) === "auto" ? "auto" : null);
     if (mapped) defaultPermission = mapped;
   }
   const nextModes = [
@@ -658,14 +680,19 @@ export function foldDroidModePermissionSelection(
   let nextPermission = permissionId;
   if (modeId.trim()) {
     const autonomy = droidAutonomyId(modeId);
-    if (autonomy && !droidAutonomyId(permissionId) && permissionModeMessageKey(permissionId) !== "auto") {
+    if (
+      autonomy &&
+      !droidAutonomyId(permissionId) &&
+      permissionModeMessageKey(permissionId) !== "auto"
+    ) {
       nextPermission = autonomy;
     }
     nextMode = droidInteractionWire(modeId);
   }
   if (permissionId.trim()) {
-    const mapped = droidAutonomyId(permissionId)
-      ?? (permissionModeMessageKey(permissionId) === "auto" ? "auto" : null);
+    const mapped =
+      droidAutonomyId(permissionId) ??
+      (permissionModeMessageKey(permissionId) === "auto" ? "auto" : null);
     if (mapped) nextPermission = mapped;
   }
   return { modeId: nextMode, permissionId: nextPermission };
@@ -785,15 +812,15 @@ export function optionsSnapshotToConfigOptions(
   if (permissionModes.length > 0) {
     const listed = permissionModes.map((mode) => mode.id);
     const defaultPermissionMode =
-      permissionModes.find((mode) => mode.is_default)?.id
-      || defaultListedConfigValue(listed, "permission_mode");
+      permissionModes.find((mode) => mode.is_default)?.id ||
+      defaultListedConfigValue(listed, "permission_mode");
     options.push({
       id: "permission_mode",
       name: "Permission mode",
       type: "select",
       currentValue:
-        matchListedConfigValue(listed, permissionModeId, "permission_mode")
-        || defaultPermissionMode,
+        matchListedConfigValue(listed, permissionModeId, "permission_mode") ||
+        defaultPermissionMode,
       options: permissionModes.map((mode) => ({
         value: mode.id,
         name: mode.label || mode.id,
@@ -802,8 +829,7 @@ export function optionsSnapshotToConfigOptions(
   }
   if (composer.modes.length > 0) {
     const listed = composer.modes.map((mode) => mode.id);
-    const defaultMode =
-      composer.modes.find((mode) => mode.is_default)?.id || listed[0] || "";
+    const defaultMode = composer.modes.find((mode) => mode.is_default)?.id || listed[0] || "";
     options.push({
       id: "mode",
       name: "Mode",
@@ -817,10 +843,14 @@ export function optionsSnapshotToConfigOptions(
   }
   const resolvedModelId = defaultOptionsModelId(catalog, modelId);
   const context = contextChoices(catalog, resolvedModelId);
-  const resolvedContextId = context.length >= 2
-    ? (matchListedConfigValue(context.map((item) => item.id), contextId, "context")
-      || defaultContextChoiceId(context))
-    : "";
+  const resolvedContextId =
+    context.length >= 2
+      ? matchListedConfigValue(
+          context.map((item) => item.id),
+          contextId,
+          "context",
+        ) || defaultContextChoiceId(context)
+      : "";
   if (catalog.models.length > 0) {
     options.push({
       id: "model",
@@ -838,9 +868,7 @@ export function optionsSnapshotToConfigOptions(
         ),
         ...(model.group?.trim() ? { group: model.group.trim() } : {}),
         ...(model.multiplier?.trim() ? { multiplier: model.multiplier.trim() } : {}),
-        ...(model.fast_multiplier?.trim()
-          ? { fastMultiplier: model.fast_multiplier.trim() }
-          : {}),
+        ...(model.fast_multiplier?.trim() ? { fastMultiplier: model.fast_multiplier.trim() } : {}),
       })),
     });
   } else if (resolvedModelId) {
@@ -885,7 +913,7 @@ export function optionsSnapshotToConfigOptions(
       id: "fast",
       name: "Fast",
       type: "select",
-      currentValue: (fastId && listedFast.has(fastId) ? fastId : defaultFast),
+      currentValue: fastId && listedFast.has(fastId) ? fastId : defaultFast,
       options: fastModes.map((mode) => ({
         value: mode.id,
         name: mode.label || mode.id,
@@ -895,7 +923,11 @@ export function optionsSnapshotToConfigOptions(
   return options;
 }
 
-export function configKindMatches(id: string, category: string | null | undefined, kind: string): boolean {
+export function configKindMatches(
+  id: string,
+  category: string | null | undefined,
+  kind: string,
+): boolean {
   if (kind === "thinking") return isThinkingConfigId(id, category);
   if (kind === "fast") {
     const needle = id.trim().toLowerCase();
@@ -953,15 +985,15 @@ export function overlayPendingConfigValues(
     if (!trimmed) return option;
     const listed = option.options.map((item) => item.value);
     const kind = configKindMatches(option.id, option.category, "permission_mode")
-      ? "permission_mode" as const
+      ? ("permission_mode" as const)
       : configKindMatches(option.id, option.category, "mode")
-        ? "mode" as const
+        ? ("mode" as const)
         : configKindMatches(option.id, option.category, "thinking")
-          ? "thinking" as const
+          ? ("thinking" as const)
           : configKindMatches(option.id, option.category, "fast")
-            ? "fast" as const
+            ? ("fast" as const)
             : configKindMatches(option.id, option.category, "context")
-              ? "context" as const
+              ? ("context" as const)
               : null;
     if (kind) {
       const matched = matchListedConfigValue(listed, trimmed, kind);
@@ -992,9 +1024,7 @@ export function composerConfigOptions(args: {
     args.permissionModeId,
   );
   const matched = descriptorForComposerProvider(args.descriptor, args.providerId);
-  const filled = matched
-    ? fillEmptyDescriptorOptionsFromSnapshot(matched, args.catalog)
-    : null;
+  const filled = matched ? fillEmptyDescriptorOptionsFromSnapshot(matched, args.catalog) : null;
   const base = filled
     ? descriptorToConfigOptions(filled, args.modelId, args.contextId)
     : optionsSnapshotToConfigOptions(
@@ -1030,11 +1060,7 @@ export function displayedComposerConfigValue(
   }
   const fromSelected = matchListedConfigValue(listed, selected, kind);
   if (fromSelected) return fromSelected;
-  const fromCurrent = matchListedConfigValue(
-    listed,
-    option?.currentValue ?? "",
-    kind,
-  );
+  const fromCurrent = matchListedConfigValue(listed, option?.currentValue ?? "", kind);
   if (fromCurrent) return fromCurrent;
   return defaultListedConfigValue(listed, kind);
 }
@@ -1094,47 +1120,29 @@ export function fillEmptyDescriptorOptionsFromSnapshot(
   if (!catalog || catalog.status !== "ok") return descriptor;
   if (catalog.agent_id !== descriptor.identity.id) return descriptor;
   const options = descriptor.supported_options;
-  const isCursor =
-    catalog.agent_id === "cursor" || descriptor.identity.id === "cursor";
+  const isCursor = catalog.agent_id === "cursor" || descriptor.identity.id === "cursor";
   // Cursor PMP catalog is bare models + separate effort/fast. Older sessions keep a
   // CLI-encoded exploded list (`gpt-5.3-codex-low-fast`, thinking=encoded_in_model)
   // or stamp boolean `thinking` ahead of select `effort`. Prefer the catalog then.
   // Shape heuristics are Cursor-scoped — do not apply to other ACP agents.
   const preferCatalogModels =
-    isCursor
-    && catalog.models.length > 0
-    && (
-      options.models.length === 0
-      || (
-        modelsLookLikeCursorCliEncoded(options.models)
-        && !modelsLookLikeCursorCliEncoded(catalog.models)
-      )
-      || (
-        thinkingIsEncodedInModel(options.thinking)
-        && !thinkingIsEncodedInModel(catalog.thinking)
-        && !thinkingSupportIsEmpty(catalog.thinking)
-      )
-    );
+    isCursor &&
+    catalog.models.length > 0 &&
+    (options.models.length === 0 ||
+      (modelsLookLikeCursorCliEncoded(options.models) &&
+        !modelsLookLikeCursorCliEncoded(catalog.models)) ||
+      (thinkingIsEncodedInModel(options.thinking) &&
+        !thinkingIsEncodedInModel(catalog.thinking) &&
+        !thinkingSupportIsEmpty(catalog.thinking)));
   const preferCatalogThinking =
-    !thinkingSupportIsEmpty(catalog.thinking)
-    && (
-      preferCatalogModels
-      || (
-        isCursor
-        && (
-          thinkingIsEncodedInModel(options.thinking)
-          || (
-            thinkingLooksLikeBooleanOnly(options.thinking)
-            && !thinkingLooksLikeBooleanOnly(catalog.thinking)
-          )
-        )
-      )
-      || (
-        thinkingSupportIsEmpty(options.thinking)
-      )
-    );
-  const grokCatalog =
-    isGrokChatAgent(catalog.agent_id) || isGrokChatAgent(descriptor.identity.id);
+    !thinkingSupportIsEmpty(catalog.thinking) &&
+    (preferCatalogModels ||
+      (isCursor &&
+        (thinkingIsEncodedInModel(options.thinking) ||
+          (thinkingLooksLikeBooleanOnly(options.thinking) &&
+            !thinkingLooksLikeBooleanOnly(catalog.thinking)))) ||
+      thinkingSupportIsEmpty(options.thinking));
+  const grokCatalog = isGrokChatAgent(catalog.agent_id) || isGrokChatAgent(descriptor.identity.id);
   const sourceModels = preferCatalogModels
     ? catalog.models
     : grokCatalog && catalog.models.length > 0
@@ -1142,17 +1150,11 @@ export function fillEmptyDescriptorOptionsFromSnapshot(
       : options.models.length > 0
         ? options.models
         : catalog.models;
-  const collapsedSource = collapseDroidFastModelsIfNeeded(
-    catalog.agent_id,
-    sourceModels,
-  );
+  const collapsedSource = collapseDroidFastModelsIfNeeded(catalog.agent_id, sourceModels);
   const models = overlayCatalogModelLabels(
     overlayCatalogModelFast(
       overlayCatalogModelContext(
-        overlayCatalogModelThinking(
-          collapsedSource,
-          catalog.models,
-        ),
+        overlayCatalogModelThinking(collapsedSource, catalog.models),
         catalog.models,
       ),
       catalog.models,
@@ -1171,19 +1173,18 @@ export function fillEmptyDescriptorOptionsFromSnapshot(
   );
   const modes = composer.modes;
   const permissionModes = composer.permissionModes;
-  const thinking =
-    preferCatalogThinking
+  const thinking = preferCatalogThinking
+    ? catalog.thinking
+    : thinkingSupportIsEmpty(options.thinking) && !thinkingSupportIsEmpty(catalog.thinking)
       ? catalog.thinking
-      : thinkingSupportIsEmpty(options.thinking) && !thinkingSupportIsEmpty(catalog.thinking)
-        ? catalog.thinking
-        : options.thinking;
+      : options.thinking;
   if (
-    models === options.models
-    && modes === options.modes
-    && permissionModes === options.permission_modes
-    && thinking === options.thinking
-    && !preferCatalogModels
-    && !preferCatalogThinking
+    models === options.models &&
+    modes === options.modes &&
+    permissionModes === options.permission_modes &&
+    thinking === options.thinking &&
+    !preferCatalogModels &&
+    !preferCatalogThinking
   ) {
     return descriptor;
   }
@@ -1213,9 +1214,7 @@ export function fillEmptyDescriptorOptionsFromSnapshot(
       permission_modes: permissionModes ?? [],
       thinking: thinking ?? { type: "none" },
       fast: fast ?? [],
-      context: (options.context?.length ?? 0) >= 2
-        ? options.context
-        : catalog.context,
+      context: (options.context?.length ?? 0) >= 2 ? options.context : catalog.context,
     },
     current_config: {
       ...descriptor.current_config,
@@ -1228,8 +1227,8 @@ export function fillEmptyDescriptorOptionsFromSnapshot(
       ...(selection.modeId && selection.modeId !== (descriptor.current_config.mode || "")
         ? { mode: selection.modeId }
         : {}),
-      ...(selection.permissionId
-        && selection.permissionId !== (descriptor.current_config.permission_mode || "")
+      ...(selection.permissionId &&
+      selection.permissionId !== (descriptor.current_config.permission_mode || "")
         ? { permission_mode: selection.permissionId }
         : {}),
     },
@@ -1250,14 +1249,19 @@ function thinkingLooksLikeBooleanOnly(
   if (options.length === 0) return false;
   return options.every((value) => {
     const token = value.trim().toLowerCase();
-    return token === "true" || token === "false" || token === "on" || token === "off" || token === "0" || token === "1";
+    return (
+      token === "true" ||
+      token === "false" ||
+      token === "on" ||
+      token === "off" ||
+      token === "0" ||
+      token === "1"
+    );
   });
 }
 
 /** CLI-encoded Cursor variants: `gpt-5.3-codex-low-fast`, not bracket ACP ids. */
-function modelsLookLikeCursorCliEncoded(
-  models: Array<{ id: string }> | null | undefined,
-): boolean {
+function modelsLookLikeCursorCliEncoded(models: Array<{ id: string }> | null | undefined): boolean {
   if (!models || models.length < 8) return false;
   const encoded = models.filter((model) => {
     const id = model.id.trim();
@@ -1267,9 +1271,7 @@ function modelsLookLikeCursorCliEncoded(
   return encoded >= Math.max(4, Math.floor(models.length / 4));
 }
 
-function overlayCatalogModelFast<
-  T extends { id: string; fast?: boolean | null },
->(
+function overlayCatalogModelFast<T extends { id: string; fast?: boolean | null }>(
   models: T[],
   catalogModels: T[],
 ): T[] {
@@ -1287,10 +1289,7 @@ function overlayCatalogModelFast<
 
 function overlayCatalogModelContext<
   T extends { id: string; context?: AgentContextChoice[] | null },
->(
-  models: T[],
-  catalogModels: T[],
-): T[] {
+>(models: T[], catalogModels: T[]): T[] {
   if (models.length === 0 || catalogModels.length === 0) return models;
   let changed = false;
   const next = models.map((model) => {
@@ -1304,10 +1303,9 @@ function overlayCatalogModelContext<
   return changed ? next : models;
 }
 
-function overlayCatalogModelThinking<T extends { id: string; thinking?: AgentThinkingSupport | null }>(
-  models: T[],
-  catalogModels: T[],
-): T[] {
+function overlayCatalogModelThinking<
+  T extends { id: string; thinking?: AgentThinkingSupport | null },
+>(models: T[], catalogModels: T[]): T[] {
   if (models.length === 0 || catalogModels.length === 0) return models;
   let changed = false;
   const next = models.map((model) => {
@@ -1354,10 +1352,7 @@ function overlayCatalogModelLabels<
     multiplier?: string | null;
     fast_multiplier?: string | null;
   },
->(
-  models: T[],
-  catalogModels: T[],
-): T[] {
+>(models: T[], catalogModels: T[]): T[] {
   if (models.length === 0 || catalogModels.length === 0) return models;
   let changed = false;
   const next = models.map((model) => {
@@ -1366,10 +1361,10 @@ function overlayCatalogModelLabels<
     const catalogGroup = catalogModel?.group?.trim() ?? "";
     let nextModel = model;
     if (
-      catalogLabel
-      && !labelNeedsUpgrade(catalogLabel, catalogModel!.id)
-      && labelNeedsUpgrade(model.label ?? "", model.id)
-      && (model.label ?? "") !== catalogLabel
+      catalogLabel &&
+      !labelNeedsUpgrade(catalogLabel, catalogModel!.id) &&
+      labelNeedsUpgrade(model.label ?? "", model.id) &&
+      (model.label ?? "") !== catalogLabel
     ) {
       changed = true;
       nextModel = { ...nextModel, label: catalogLabel };
@@ -1468,16 +1463,16 @@ export function descriptorToConfigOptions(
   if (optionSupportEnabled(support, "permission_modes") && permissionModes.length > 0) {
     const listed = permissionModes.map((mode) => mode.id);
     const defaultPermissionMode =
-      permissionModes.find((mode) => mode.is_default)?.id
-      || defaultListedConfigValue(listed, "permission_mode");
+      permissionModes.find((mode) => mode.is_default)?.id ||
+      defaultListedConfigValue(listed, "permission_mode");
     options.push({
       id: "permission_mode",
       name: "Permission mode",
       type: "select",
       // Map vendor ids (e.g. Claude/Cursor `default`) onto Atmos listed ids.
       currentValue:
-        matchListedConfigValue(listed, selection.permissionId, "permission_mode")
-        || defaultPermissionMode,
+        matchListedConfigValue(listed, selection.permissionId, "permission_mode") ||
+        defaultPermissionMode,
       options: permissionModes.map((mode) => ({
         value: mode.id,
         name: mode.label || mode.id,
@@ -1501,25 +1496,21 @@ export function descriptorToConfigOptions(
   }
   if (optionSupportEnabled(support, "models") && models.length > 0) {
     const selected = selectedModelId.trim();
-    const modelId = selected
-      && models.some((model) => model.id === selected)
-      ? selected
-      : current.model
-        && models.some((model) => model.id === current.model)
-        ? current.model
-        : (models.find((model) => model.is_default)?.id || models[0]?.id || "");
-    const context = contextChoicesForModels(
-      models,
-      descriptor.supported_options.context,
-      modelId,
-    );
-    const resolvedContextId = context.length >= 2
-      ? (matchListedConfigValue(
-          context.map((item) => item.id),
-          selectedContextId || current.context || "",
-          "context",
-        ) || defaultContextChoiceId(context))
-      : "";
+    const modelId =
+      selected && models.some((model) => model.id === selected)
+        ? selected
+        : current.model && models.some((model) => model.id === current.model)
+          ? current.model
+          : models.find((model) => model.is_default)?.id || models[0]?.id || "";
+    const context = contextChoicesForModels(models, descriptor.supported_options.context, modelId);
+    const resolvedContextId =
+      context.length >= 2
+        ? matchListedConfigValue(
+            context.map((item) => item.id),
+            selectedContextId || current.context || "",
+            "context",
+          ) || defaultContextChoiceId(context)
+        : "";
     options.push({
       id: "model",
       name: "Model",
@@ -1536,9 +1527,7 @@ export function descriptorToConfigOptions(
         ),
         ...(model.group?.trim() ? { group: model.group.trim() } : {}),
         ...(model.multiplier?.trim() ? { multiplier: model.multiplier.trim() } : {}),
-        ...(model.fast_multiplier?.trim()
-          ? { fastMultiplier: model.fast_multiplier.trim() }
-          : {}),
+        ...(model.fast_multiplier?.trim() ? { fastMultiplier: model.fast_multiplier.trim() } : {}),
       })),
     });
     if (optionSupportEnabled(support, "thinking")) {
@@ -1549,7 +1538,9 @@ export function descriptorToConfigOptions(
           name: "Thinking",
           type: "select",
           currentValue:
-            (current.thinking && thinking.includes(current.thinking) ? current.thinking : thinking[0]) || "",
+            (current.thinking && thinking.includes(current.thinking)
+              ? current.thinking
+              : thinking[0]) || "",
           options: thinking.map((value) => ({
             value,
             name: thinkingLevelLabel(value),
@@ -1557,10 +1548,7 @@ export function descriptorToConfigOptions(
         });
       }
     }
-    if (
-      (optionSupportEnabled(support, "context") || context.length >= 2)
-      && context.length >= 2
-    ) {
+    if ((optionSupportEnabled(support, "context") || context.length >= 2) && context.length >= 2) {
       options.push({
         id: "context",
         name: "Context",
@@ -1572,14 +1560,15 @@ export function descriptorToConfigOptions(
         })),
       });
     }
-    const sessionFast = (descriptor.supported_options.fast?.length ?? 0) > 0
-      ? descriptor.supported_options.fast ?? []
-      : models.some((model) => model.fast)
-        ? booleanFastModes()
-        : [];
+    const sessionFast =
+      (descriptor.supported_options.fast?.length ?? 0) > 0
+        ? (descriptor.supported_options.fast ?? [])
+        : models.some((model) => model.fast)
+          ? booleanFastModes()
+          : [];
     if (
-      (optionSupportEnabled(support, "fast") || sessionFast.length > 0)
-      && selectedModelSupportsFast(models, modelId, sessionFast)
+      (optionSupportEnabled(support, "fast") || sessionFast.length > 0) &&
+      selectedModelSupportsFast(models, modelId, sessionFast)
     ) {
       const fastModes = sessionFast.length > 0 ? sessionFast : booleanFastModes();
       const defaultFast = fastModes.find((mode) => mode.is_default)?.id || fastModes[0]?.id || "";
@@ -1589,7 +1578,7 @@ export function descriptorToConfigOptions(
         id: "fast",
         name: "Fast",
         type: "select",
-        currentValue: (currentFast && listedFast.has(currentFast) ? currentFast : defaultFast),
+        currentValue: currentFast && listedFast.has(currentFast) ? currentFast : defaultFast,
         options: fastModes.map((mode) => ({
           value: mode.id,
           name: mode.label || mode.id,
@@ -1654,9 +1643,7 @@ export function chatTitleFromPrompt(text: string): string {
   return `${chars.slice(0, CHAT_PROMPT_TITLE_MAX_CHARS).join("")}…`;
 }
 
-export function chatsToHistoryRows(
-  items: AgentChatIndexEntry[],
-): AgentChatHistoryRow[] {
+export function chatsToHistoryRows(items: AgentChatIndexEntry[]): AgentChatHistoryRow[] {
   return items.map((item) => ({
     chat_id: item.id,
     provider_id: item.provider_id,

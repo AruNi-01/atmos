@@ -15,26 +15,26 @@ Use this template only when creating or substantially refreshing a spec-level `R
 
 ## How to use this file
 
-| Rule | Detail |
-|------|--------|
+| Rule            | Detail                                                                                                         |
+| --------------- | -------------------------------------------------------------------------------------------------------------- |
 | **When to add** | After code implementation reaches review or post-review and the findings need durable tracking before cleanup. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-001**). |
-| **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
-| **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
-| **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
+| **Entry id**    | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-001**).                                           |
+| **Status**      | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason).                                  |
+| **Do not**      | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status.       |
+| **Fix proof**   | Each fixed item should name the code change and the verification command or manual check.                      |
 
 ### Entry template (copy for new findings)
 
 ```markdown
 ## REV-NNN · Short title
 
-| Field | Value |
-|-------|--------|
-| **Status** | open \| in_progress \| fixed \| verified \| wont-fix |
-| **Severity** | P0 \| P1 \| P2 \| P3 |
-| **Area** | backend \| frontend \| api \| infra \| test \| docs |
-| **Reported by** | internal review \| user review \| code review |
-| **Owner** | unassigned |
+| Field           | Value                                                |
+| --------------- | ---------------------------------------------------- |
+| **Status**      | open \| in_progress \| fixed \| verified \| wont-fix |
+| **Severity**    | P0 \| P1 \| P2 \| P3                                 |
+| **Area**        | backend \| frontend \| api \| infra \| test \| docs  |
+| **Reported by** | internal review \| user review \| code review        |
+| **Owner**       | unassigned                                           |
 
 ### Finding
 
@@ -61,20 +61,20 @@ Use this template only when creating or substantially refreshing a spec-level `R
 
 ## Index
 
-| Id | Severity | Area | Title | Status |
-|----|----------|------|-------|--------|
+| Id  | Severity | Area | Title | Status |
+| --- | -------- | ---- | ----- | ------ |
 
 ---
 
 ## REV-NNN · Short title
 
-| Field | Value |
-|-------|--------|
-| **Status** | open \| in_progress \| fixed \| verified \| wont-fix |
-| **Severity** | P0 \| P1 \| P2 \| P3 |
-| **Area** | backend \| frontend \| api \| infra \| test \| docs |
-| **Reported by** | internal review \| user review \| code review |
-| **Owner** | unassigned |
+| Field           | Value                                                |
+| --------------- | ---------------------------------------------------- |
+| **Status**      | open \| in_progress \| fixed \| verified \| wont-fix |
+| **Severity**    | P0 \| P1 \| P2 \| P3                                 |
+| **Area**        | backend \| frontend \| api \| infra \| test \| docs  |
+| **Reported by** | internal review \| user review \| code review        |
+| **Owner**       | unassigned                                           |
 
 ### Finding
 

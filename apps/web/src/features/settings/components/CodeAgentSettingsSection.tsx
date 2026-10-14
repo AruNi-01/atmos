@@ -12,13 +12,7 @@ import {
   Switch,
   cn,
 } from "@workspace/ui";
-import {
-  Bot,
-  ChevronDown,
-  LoaderCircle,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { Bot, ChevronDown, LoaderCircle, Plus, Trash2 } from "lucide-react";
 import { AGENT_OPTIONS } from "@/features/wiki/components/AgentSelect";
 import { resolveAgentLaunchFlags } from "@/features/agent/lib/terminal-agent-yolo";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
@@ -44,7 +38,10 @@ import type { TerminalAgentSavedRunConfig } from "@/features/agent/lib/terminal-
 
 export type { BehaviourSettingsValues };
 
-type BuiltInAgentSettings = Record<string, { cmd?: string; flags?: string; interactiveFlags?: string; enabled?: boolean }>;
+type BuiltInAgentSettings = Record<
+  string,
+  { cmd?: string; flags?: string; interactiveFlags?: string; enabled?: boolean }
+>;
 type AgentOption = { id: string; label: string };
 
 interface CodeAgentSettingsSectionProps {
@@ -91,9 +88,17 @@ interface CodeAgentSettingsSectionProps {
   onYoloModeChange: (enabled: boolean) => void;
   onRestoreAllYoloMode: () => void;
   onAddCustomAgent: () => void;
-  onAgentSettingChange: (agentId: string, field: "cmd" | "flags" | "interactiveFlags" | "enabled", value: string | boolean) => void;
+  onAgentSettingChange: (
+    agentId: string,
+    field: "cmd" | "flags" | "interactiveFlags" | "enabled",
+    value: string | boolean,
+  ) => void;
   onBuiltInEnabledChange: (agentId: string, enabled: boolean) => void;
-  onCustomAgentChange: (id: string, field: keyof CodeAgentCustomEntry, value: string | boolean) => void;
+  onCustomAgentChange: (
+    id: string,
+    field: keyof CodeAgentCustomEntry,
+    value: string | boolean,
+  ) => void;
   onCustomAgentEnabledChange: (id: string, enabled: boolean) => void;
   onRemoveCustomAgent: (id: string) => void;
   onSaveBuiltInAgent: (agentId: string) => void;
@@ -207,9 +212,7 @@ export function CodeAgentSettingsSection({
             className="shrink-0 cursor-pointer"
             onClick={onRestoreAllYoloMode}
           >
-            {yoloModeRestoring ? (
-              <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
-            ) : null}
+            {yoloModeRestoring ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : null}
             {t("yolo.restoreAll")}
           </Button>
         </SettingsGroupRow>
@@ -233,100 +236,113 @@ export function CodeAgentSettingsSection({
           </div>
         ) : (
           AGENT_OPTIONS.map((agent) => {
-                const custom = agentCustomSettings[agent.id];
-                const isOpen = builtInAgentOpen[agent.id] ?? false;
-                const defaults = resolveAgentLaunchFlags(agent, yoloMode);
-                const savedAgent = savedAgentCustomSettings[agent.id];
-                const isDirty =
-                  (savedAgent?.cmd ?? agent.cmd) !== (custom?.cmd ?? agent.cmd) ||
-                  (savedAgent?.flags ?? defaults.params) !== (custom?.flags ?? defaults.params) ||
-                  (savedAgent?.interactiveFlags ?? defaults.interactiveParams) !==
-                    (custom?.interactiveFlags ?? defaults.interactiveParams);
-                const isSaving = !!savingBuiltInAgentIds[agent.id];
-                const isSyncingEnabled = !!syncingBuiltInEnabledIds[agent.id];
-                const enabled = custom?.enabled ?? true;
+            const custom = agentCustomSettings[agent.id];
+            const isOpen = builtInAgentOpen[agent.id] ?? false;
+            const defaults = resolveAgentLaunchFlags(agent, yoloMode);
+            const savedAgent = savedAgentCustomSettings[agent.id];
+            const isDirty =
+              (savedAgent?.cmd ?? agent.cmd) !== (custom?.cmd ?? agent.cmd) ||
+              (savedAgent?.flags ?? defaults.params) !== (custom?.flags ?? defaults.params) ||
+              (savedAgent?.interactiveFlags ?? defaults.interactiveParams) !==
+                (custom?.interactiveFlags ?? defaults.interactiveParams);
+            const isSaving = !!savingBuiltInAgentIds[agent.id];
+            const isSyncingEnabled = !!syncingBuiltInEnabledIds[agent.id];
+            const enabled = custom?.enabled ?? true;
 
-                return (
-                  <Collapsible
-                    key={agent.id}
-                    open={isOpen}
-                    onOpenChange={(open) => setBuiltInAgentOpen((prev) => ({ ...prev, [agent.id]: open }))}
-                    className="border-b border-border/60 px-2 py-3 last:border-b-0"
-                  >
-                    <div className="flex items-center gap-3">
-                      <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left">
-                        <ChevronDown
-                          className={cn(
-                            settingsCollapsibleChevronTriggerClassName,
-                            "size-4 shrink-0 transition-transform duration-150 group-hover:text-foreground",
-                            !isOpen && "-rotate-90",
-                          )}
+            return (
+              <Collapsible
+                key={agent.id}
+                open={isOpen}
+                onOpenChange={(open) =>
+                  setBuiltInAgentOpen((prev) => ({ ...prev, [agent.id]: open }))
+                }
+                className="border-b border-border/60 px-2 py-3 last:border-b-0"
+              >
+                <div className="flex items-center gap-3">
+                  <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left">
+                    <ChevronDown
+                      className={cn(
+                        settingsCollapsibleChevronTriggerClassName,
+                        "size-4 shrink-0 transition-transform duration-150 group-hover:text-foreground",
+                        !isOpen && "-rotate-90",
+                      )}
+                    />
+                    <AgentIcon registryId={agent.id} name={agent.label} size={20} />
+                    <p
+                      className={cn(
+                        "min-w-0 flex-1 truncate",
+                        isOpen
+                          ? "text-sm font-medium text-foreground"
+                          : settingsCollapsibleTitleClassName,
+                      )}
+                    >
+                      {agent.label}
+                    </p>
+                  </CollapsibleTrigger>
+
+                  <div className="flex items-center gap-3">
+                    {(isDirty || isSaving) && (
+                      <SaveActionButton
+                        saving={isSaving}
+                        onClick={() => onSaveBuiltInAgent(agent.id)}
+                      />
+                    )}
+                    <Switch
+                      checked={enabled}
+                      disabled={isSyncingEnabled}
+                      onCheckedChange={(checked) => onBuiltInEnabledChange(agent.id, !!checked)}
+                    />
+                  </div>
+                </div>
+
+                <CollapsibleContent>
+                  <div className="space-y-3 pt-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-xs text-muted-foreground">
+                          {t("fields.command")}
+                        </label>
+                        <Input
+                          value={custom?.cmd ?? agent.cmd}
+                          placeholder={agent.cmd}
+                          onChange={(event) =>
+                            onAgentSettingChange(agent.id, "cmd", event.target.value)
+                          }
+                          className="h-9 font-mono text-sm"
                         />
-                        <AgentIcon registryId={agent.id} name={agent.label} size={20} />
-                        <p
-                          className={cn(
-                            "min-w-0 flex-1 truncate",
-                            isOpen
-                              ? "text-sm font-medium text-foreground"
-                              : settingsCollapsibleTitleClassName,
-                          )}
-                        >
-                          {agent.label}
-                        </p>
-                      </CollapsibleTrigger>
-
-                      <div className="flex items-center gap-3">
-                        {(isDirty || isSaving) && (
-                          <SaveActionButton saving={isSaving} onClick={() => onSaveBuiltInAgent(agent.id)} />
-                        )}
-                        <Switch
-                          checked={enabled}
-                          disabled={isSyncingEnabled}
-                          onCheckedChange={(checked) => onBuiltInEnabledChange(agent.id, !!checked)}
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs text-muted-foreground">
+                          {t("fields.interactiveParameters")}
+                        </label>
+                        <Input
+                          value={custom?.interactiveFlags ?? defaults.interactiveParams}
+                          placeholder={defaults.interactiveParams || t("common.noParameters")}
+                          onChange={(event) =>
+                            onAgentSettingChange(agent.id, "interactiveFlags", event.target.value)
+                          }
+                          className="h-9 font-mono text-sm"
                         />
                       </div>
                     </div>
-
-                    <CollapsibleContent>
-                      <div className="space-y-3 pt-4">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="mb-1 block text-xs text-muted-foreground">{t("fields.command")}</label>
-                            <Input
-                              value={custom?.cmd ?? agent.cmd}
-                              placeholder={agent.cmd}
-                              onChange={(event) => onAgentSettingChange(agent.id, "cmd", event.target.value)}
-                              className="h-9 text-sm font-mono"
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs text-muted-foreground">
-                              {t("fields.interactiveParameters")}
-                            </label>
-                            <Input
-                              value={custom?.interactiveFlags ?? defaults.interactiveParams}
-                              placeholder={defaults.interactiveParams || t("common.noParameters")}
-                              onChange={(event) => onAgentSettingChange(agent.id, "interactiveFlags", event.target.value)}
-                              className="h-9 text-sm font-mono"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs text-muted-foreground">
-                            {t("fields.automationParameters")}
-                          </label>
-                          <Input
-                            value={custom?.flags ?? defaults.params}
-                            placeholder={defaults.params || t("common.noDefaultParameters")}
-                            onChange={(event) => onAgentSettingChange(agent.id, "flags", event.target.value)}
-                            className="h-9 text-sm font-mono"
-                          />
-                        </div>
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                );
-              })
+                    <div>
+                      <label className="mb-1 block text-xs text-muted-foreground">
+                        {t("fields.automationParameters")}
+                      </label>
+                      <Input
+                        value={custom?.flags ?? defaults.params}
+                        placeholder={defaults.params || t("common.noDefaultParameters")}
+                        onChange={(event) =>
+                          onAgentSettingChange(agent.id, "flags", event.target.value)
+                        }
+                        className="h-9 font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          })
         )}
       </SettingsGroupCard>
 
@@ -342,114 +358,129 @@ export function CodeAgentSettingsSection({
           </Button>
         }
       >
-          {customAgents.length === 0 ? (
-            <div className="py-3 text-sm text-muted-foreground">
-              {t("custom.empty")}
-            </div>
-          ) : (
-            customAgents.map((agent) => {
-                const isOpen = customAgentOpen[agent.id] ?? false;
-                const savedAgent = savedCustomAgents.find((item) => item.id === agent.id);
-                const isDirty =
-                  !savedAgent ||
-                  savedAgent.label !== agent.label ||
-                  savedAgent.cmd !== agent.cmd ||
-                  savedAgent.flags !== agent.flags;
-                const isSaving = !!savingCustomAgentIds[agent.id];
-                const isSyncingEnabled = !!syncingCustomEnabledIds[agent.id];
-                const isRemoving = !!removingCustomAgentIds[agent.id];
-                const enabled = agent.enabled !== false;
+        {customAgents.length === 0 ? (
+          <div className="py-3 text-sm text-muted-foreground">{t("custom.empty")}</div>
+        ) : (
+          customAgents.map((agent) => {
+            const isOpen = customAgentOpen[agent.id] ?? false;
+            const savedAgent = savedCustomAgents.find((item) => item.id === agent.id);
+            const isDirty =
+              !savedAgent ||
+              savedAgent.label !== agent.label ||
+              savedAgent.cmd !== agent.cmd ||
+              savedAgent.flags !== agent.flags;
+            const isSaving = !!savingCustomAgentIds[agent.id];
+            const isSyncingEnabled = !!syncingCustomEnabledIds[agent.id];
+            const isRemoving = !!removingCustomAgentIds[agent.id];
+            const enabled = agent.enabled !== false;
 
-                return (
-                  <Collapsible
-                    key={agent.id}
-                    open={isOpen}
-                    onOpenChange={(open) => setCustomAgentOpen((prev) => ({ ...prev, [agent.id]: open }))}
-                    className="border-b border-border/60 px-2 py-3 last:border-b-0"
+            return (
+              <Collapsible
+                key={agent.id}
+                open={isOpen}
+                onOpenChange={(open) =>
+                  setCustomAgentOpen((prev) => ({ ...prev, [agent.id]: open }))
+                }
+                className="border-b border-border/60 px-2 py-3 last:border-b-0"
+              >
+                <div className="flex items-center gap-3">
+                  <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left">
+                    <ChevronDown
+                      className={cn(
+                        settingsCollapsibleChevronTriggerClassName,
+                        "size-4 shrink-0 transition-transform duration-150 group-hover:text-foreground",
+                        !isOpen && "-rotate-90",
+                      )}
+                    />
+                    <Bot className="size-5 shrink-0 text-muted-foreground" />
+                    <p
+                      className={cn(
+                        "min-w-0 flex-1 truncate",
+                        isOpen
+                          ? "text-sm font-medium text-foreground"
+                          : settingsCollapsibleTitleClassName,
+                      )}
+                    >
+                      {agent.label || t("custom.newAgent")}
+                    </p>
+                  </CollapsibleTrigger>
+
+                  <div className="flex items-center gap-3">
+                    {(isDirty || isSaving) && (
+                      <SaveActionButton
+                        saving={isSaving}
+                        onClick={() => onSaveCustomAgent(agent.id)}
+                      />
+                    )}
+                    <Switch
+                      checked={enabled}
+                      disabled={isSyncingEnabled}
+                      onCheckedChange={(checked) => onCustomAgentEnabledChange(agent.id, !!checked)}
+                    />
+                  </div>
+                  <button
+                    className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => onRemoveCustomAgent(agent.id)}
+                    title={t("custom.removeAgent")}
+                    disabled={isRemoving}
                   >
-                    <div className="flex items-center gap-3">
-                      <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left">
-                        <ChevronDown
-                          className={cn(
-                            settingsCollapsibleChevronTriggerClassName,
-                            "size-4 shrink-0 transition-transform duration-150 group-hover:text-foreground",
-                            !isOpen && "-rotate-90",
-                          )}
-                        />
-                        <Bot className="size-5 shrink-0 text-muted-foreground" />
-                        <p
-                          className={cn(
-                            "min-w-0 flex-1 truncate",
-                            isOpen
-                              ? "text-sm font-medium text-foreground"
-                              : settingsCollapsibleTitleClassName,
-                          )}
-                        >
-                          {agent.label || t("custom.newAgent")}
-                        </p>
-                      </CollapsibleTrigger>
+                    {isRemoving ? (
+                      <LoaderCircle className="animate-spin-reverse size-4" />
+                    ) : (
+                      <Trash2 className="size-4" />
+                    )}
+                  </button>
+                </div>
 
-                      <div className="flex items-center gap-3">
-                        {(isDirty || isSaving) && (
-                          <SaveActionButton saving={isSaving} onClick={() => onSaveCustomAgent(agent.id)} />
-                        )}
-                        <Switch
-                          checked={enabled}
-                          disabled={isSyncingEnabled}
-                          onCheckedChange={(checked) => onCustomAgentEnabledChange(agent.id, !!checked)}
-                        />
-                      </div>
-                      <button
-                        className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => onRemoveCustomAgent(agent.id)}
-                        title={t("custom.removeAgent")}
-                        disabled={isRemoving}
-                      >
-                        {isRemoving ? (
-                          <LoaderCircle className="size-4 animate-spin-reverse" />
-                        ) : (
-                          <Trash2 className="size-4" />
-                        )}
-                      </button>
+                <CollapsibleContent>
+                  <div className="space-y-3 pt-4">
+                    <div>
+                      <label className="mb-1 block text-xs text-muted-foreground">
+                        {t("fields.name")}
+                      </label>
+                      <Input
+                        value={agent.label}
+                        placeholder={t("custom.placeholders.name")}
+                        onChange={(event) =>
+                          onCustomAgentChange(agent.id, "label", event.target.value)
+                        }
+                        className="h-9 text-sm font-medium"
+                      />
                     </div>
-
-                    <CollapsibleContent>
-                      <div className="space-y-3 pt-4">
-                        <div>
-                          <label className="mb-1 block text-xs text-muted-foreground">{t("fields.name")}</label>
-                          <Input
-                            value={agent.label}
-                            placeholder={t("custom.placeholders.name")}
-                            onChange={(event) => onCustomAgentChange(agent.id, "label", event.target.value)}
-                            className="h-9 text-sm font-medium"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="mb-1 block text-xs text-muted-foreground">{t("fields.command")}</label>
-                            <Input
-                              value={agent.cmd}
-                              placeholder={t("custom.placeholders.command")}
-                              onChange={(event) => onCustomAgentChange(agent.id, "cmd", event.target.value)}
-                              className="h-9 text-sm font-mono"
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs text-muted-foreground">{t("fields.parameters")}</label>
-                            <Input
-                              value={agent.flags}
-                              placeholder={t("custom.placeholders.parameters")}
-                              onChange={(event) => onCustomAgentChange(agent.id, "flags", event.target.value)}
-                              className="h-9 text-sm font-mono"
-                            />
-                          </div>
-                        </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-xs text-muted-foreground">
+                          {t("fields.command")}
+                        </label>
+                        <Input
+                          value={agent.cmd}
+                          placeholder={t("custom.placeholders.command")}
+                          onChange={(event) =>
+                            onCustomAgentChange(agent.id, "cmd", event.target.value)
+                          }
+                          className="h-9 font-mono text-sm"
+                        />
                       </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                );
-              })
-          )}
+                      <div>
+                        <label className="mb-1 block text-xs text-muted-foreground">
+                          {t("fields.parameters")}
+                        </label>
+                        <Input
+                          value={agent.flags}
+                          placeholder={t("custom.placeholders.parameters")}
+                          onChange={(event) =>
+                            onCustomAgentChange(agent.id, "flags", event.target.value)
+                          }
+                          className="h-9 font-mono text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          })
+        )}
       </SettingsGroupCard>
 
       <CodeAgentRunConfigSettingsSection

@@ -53,13 +53,13 @@ Canonical on-disk layout (no legacy root-level secret/config files).
 
 ## Rules
 
-| Kind | Directory | Examples |
-|------|-----------|----------|
-| Secrets | `credentials/` | device credential, Linear API keys, server_secret |
-| Session / discovery | `state/` | runtime manifest, relay client session |
-| Preferences | `config/` | function_settings, code agents, LLM providers |
-| Large / feature data | `data/` | SQLite, workspaces, desktop-use |
-| Install | top-level | `bin/`, `runtime/`, `skills/` |
+| Kind                 | Directory      | Examples                                          |
+| -------------------- | -------------- | ------------------------------------------------- |
+| Secrets              | `credentials/` | device credential, Linear API keys, server_secret |
+| Session / discovery  | `state/`       | runtime manifest, relay client session            |
+| Preferences          | `config/`      | function_settings, code agents, LLM providers     |
+| Large / feature data | `data/`        | SQLite, workspaces, desktop-use                   |
+| Install              | top-level      | `bin/`, `runtime/`, `skills/`                     |
 
 - Hub OAuth tokens stay on **Hub**, not under `credentials/`.
 - Path helpers: `runtime_manager::layout` (and matching crates that mirror the same relative paths).
@@ -71,15 +71,15 @@ Desktop may set `ATMOS_DATA_DIR=~/.atmos/data/desktop` for **shell-scoped** Serv
 
 **Do not** nest product feature stores under it. These always resolve to fixed layout paths (with optional feature-specific env overrides for tests):
 
-| Feature | Canonical path | Override env |
-|---------|----------------|--------------|
-| Token usage | `~/.atmos/data/token-usage` | `ATMOS_TOKEN_USAGE_DIR` |
-| Quota usage | `~/.atmos/data/quota-usage` | `ATMOS_QUOTA_USAGE_DIR` |
+| Feature           | Canonical path                    | Override env                  |
+| ----------------- | --------------------------------- | ----------------------------- |
+| Token usage       | `~/.atmos/data/token-usage`       | `ATMOS_TOKEN_USAGE_DIR`       |
+| Quota usage       | `~/.atmos/data/quota-usage`       | `ATMOS_QUOTA_USAGE_DIR`       |
 | Permission Access | `~/.atmos/data/permission-access` | `ATMOS_PERMISSION_ACCESS_DIR` |
-| Agent Observer | `~/.atmos/data/agent-observer` | — |
-| SQLite | `~/.atmos/data/db/atmos.db` | (infra path) |
-| Workspaces | `~/.atmos/data/workspaces` | — |
-| Prototype Design | `~/.atmos/data/pt-design` | `ATMOS_PT_DESIGN_DIR` |
-| Center layout | `~/.atmos/data/layout/center` | `ATMOS_CENTER_LAYOUT_DIR` |
+| Agent Observer    | `~/.atmos/data/agent-observer`    | —                             |
+| SQLite            | `~/.atmos/data/db/atmos.db`       | (infra path)                  |
+| Workspaces        | `~/.atmos/data/workspaces`        | —                             |
+| Prototype Design  | `~/.atmos/data/pt-design`         | `ATMOS_PT_DESIGN_DIR`         |
+| Center layout     | `~/.atmos/data/layout/center`     | `ATMOS_CENTER_LAYOUT_DIR`     |
 
 Wrong (historical): `$ATMOS_DATA_DIR/token-usage` → `data/desktop/token-usage`.

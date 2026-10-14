@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import { createTranslator } from 'next-intl';
-import type { DiffIndicators } from '@pierre/diffs';
-import { create } from 'zustand';
-import { functionSettingsApi } from '@/api/ws-api';
-import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
-import { toastManager } from '@workspace/ui';
-import { currentAppLocale } from '@/shared/lib/current-app-locale';
-import enMessages from '../../../../messages/en.json';
-import zhMessages from '../../../../messages/zh.json';
+import { createTranslator } from "next-intl";
+import type { DiffIndicators } from "@pierre/diffs";
+import { create } from "zustand";
+import { functionSettingsApi } from "@/api/ws-api";
+import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
+import { toastManager } from "@workspace/ui";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
 
-export type DiffSettingsStyle = 'split' | 'unified';
+export type DiffSettingsStyle = "split" | "unified";
 
 interface DiffSettingsState {
   diffStyle: DiffSettingsStyle;
@@ -29,27 +29,27 @@ interface DiffSettingsState {
 }
 
 const DEFAULT_DIFF_SETTINGS = {
-  diffStyle: 'split' as DiffSettingsStyle,
+  diffStyle: "split" as DiffSettingsStyle,
   showBackgrounds: true,
   lineNumbers: true,
   wordWrap: false,
-  diffIndicators: 'bars' as DiffIndicators,
+  diffIndicators: "bars" as DiffIndicators,
 };
 
-type SettingsLocale = 'en' | 'zh';
+type SettingsLocale = "en" | "zh";
 
 let cachedLocale: SettingsLocale | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedTranslator: any = null;
 
 function diffSettingsT(key: string, values?: Record<string, string | number>) {
-  const locale: SettingsLocale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  const locale: SettingsLocale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedTranslator || cachedLocale !== locale) {
     cachedLocale = locale;
     cachedTranslator = createTranslator({
       locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'settings.store.diff',
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "settings.store.diff",
     });
   }
 
@@ -57,27 +57,23 @@ function diffSettingsT(key: string, values?: Record<string, string | number>) {
 }
 
 function isDiffStyle(value: unknown): value is DiffSettingsStyle {
-  return value === 'split' || value === 'unified';
+  return value === "split" || value === "unified";
 }
 
 function isDiffIndicators(value: unknown): value is DiffIndicators {
-  return value === 'bars' || value === 'classic' || value === 'none';
+  return value === "bars" || value === "classic" || value === "none";
 }
 
-async function updateDiffSetting(
-  key: string,
-  value: unknown,
-  rollback: () => void,
-) {
+async function updateDiffSetting(key: string, value: unknown, rollback: () => void) {
   try {
-    await functionSettingsApi.update('diff', key, value);
+    await functionSettingsApi.update("diff", key, value);
     useFunctionSettingsStore.getState().invalidate();
   } catch {
     rollback();
     toastManager.add({
-      title: diffSettingsT('syncFailedTitle'),
-      description: diffSettingsT('syncFailedDescription'),
-      type: 'error',
+      title: diffSettingsT("syncFailedTitle"),
+      description: diffSettingsT("syncFailedDescription"),
+      type: "error",
     });
   }
 }
@@ -98,8 +94,7 @@ export const useDiffSettingsStore = create<DiffSettingsState>((set, get) => ({
         diffStyle: isDiffStyle(settings.diff?.diff_style)
           ? settings.diff.diff_style
           : DEFAULT_DIFF_SETTINGS.diffStyle,
-        showBackgrounds:
-          settings.diff?.show_backgrounds ?? DEFAULT_DIFF_SETTINGS.showBackgrounds,
+        showBackgrounds: settings.diff?.show_backgrounds ?? DEFAULT_DIFF_SETTINGS.showBackgrounds,
         lineNumbers: settings.diff?.line_numbers ?? DEFAULT_DIFF_SETTINGS.lineNumbers,
         wordWrap: settings.diff?.word_wrap ?? DEFAULT_DIFF_SETTINGS.wordWrap,
         diffIndicators: isDiffIndicators(settings.diff?.diff_indicators)
@@ -111,9 +106,9 @@ export const useDiffSettingsStore = create<DiffSettingsState>((set, get) => ({
     } catch {
       set({ loading: false });
       toastManager.add({
-        title: diffSettingsT('loadFailedTitle'),
-        description: diffSettingsT('loadFailedDescription'),
-        type: 'error',
+        title: diffSettingsT("loadFailedTitle"),
+        description: diffSettingsT("loadFailedDescription"),
+        type: "error",
       });
     }
   },
@@ -121,13 +116,13 @@ export const useDiffSettingsStore = create<DiffSettingsState>((set, get) => ({
   setDiffStyle: async (diffStyle) => {
     const previous = get().diffStyle;
     set({ diffStyle });
-    await updateDiffSetting('diff_style', diffStyle, () => set({ diffStyle: previous }));
+    await updateDiffSetting("diff_style", diffStyle, () => set({ diffStyle: previous }));
   },
 
   setShowBackgrounds: async (showBackgrounds) => {
     const previous = get().showBackgrounds;
     set({ showBackgrounds });
-    await updateDiffSetting('show_backgrounds', showBackgrounds, () =>
+    await updateDiffSetting("show_backgrounds", showBackgrounds, () =>
       set({ showBackgrounds: previous }),
     );
   },
@@ -135,21 +130,19 @@ export const useDiffSettingsStore = create<DiffSettingsState>((set, get) => ({
   setLineNumbers: async (lineNumbers) => {
     const previous = get().lineNumbers;
     set({ lineNumbers });
-    await updateDiffSetting('line_numbers', lineNumbers, () =>
-      set({ lineNumbers: previous }),
-    );
+    await updateDiffSetting("line_numbers", lineNumbers, () => set({ lineNumbers: previous }));
   },
 
   setWordWrap: async (wordWrap) => {
     const previous = get().wordWrap;
     set({ wordWrap });
-    await updateDiffSetting('word_wrap', wordWrap, () => set({ wordWrap: previous }));
+    await updateDiffSetting("word_wrap", wordWrap, () => set({ wordWrap: previous }));
   },
 
   setDiffIndicators: async (diffIndicators) => {
     const previous = get().diffIndicators;
     set({ diffIndicators });
-    await updateDiffSetting('diff_indicators', diffIndicators, () =>
+    await updateDiffSetting("diff_indicators", diffIndicators, () =>
       set({ diffIndicators: previous }),
     );
   },

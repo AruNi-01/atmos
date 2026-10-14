@@ -15,9 +15,7 @@ import {
   shouldFlashTerminalLocate,
 } from "../agent-status-navigation";
 
-function session(
-  overrides: Partial<AgentStatusRecord> = {},
-): AgentStatusRecord {
+function session(overrides: Partial<AgentStatusRecord> = {}): AgentStatusRecord {
   return {
     session_id: "sess-1",
     tool: "claude-code",
@@ -102,9 +100,7 @@ describe("resolveAgentStatusNavigationTarget", () => {
 
   it("resolves the extra center space from a namespaced tmux window", () => {
     expect(
-      resolveAgentStatusNavigationTarget(
-        session({ pane_id: "ws-1:cs__space-abc__Claude Code" }),
-      ),
+      resolveAgentStatusNavigationTarget(session({ pane_id: "ws-1:cs__space-abc__Claude Code" })),
     ).toEqual({
       contextId: "ws-1",
       spaceId: "space-abc",
@@ -167,9 +163,7 @@ describe("buildAgentStatusSessionPath", () => {
       projects,
       { terminalTabId: "term-tab-1" },
     );
-    expect(path).toBe(
-      "/workspace?id=ws-1&tab=term-tab-1&terminalTmux=2&sideChat=side-abcd",
-    );
+    expect(path).toBe("/workspace?id=ws-1&tab=term-tab-1&terminalTmux=2&sideChat=side-abcd");
   });
 
   it("can navigate a main pane without a sideChat param", () => {
@@ -180,11 +174,7 @@ describe("buildAgentStatusSessionPath", () => {
 
   it("keeps the host workspace id when jumping to an extra space pane", () => {
     expect(
-      buildAgentStatusSessionPath(
-        session({ pane_id: "ws-1:cs__space-abc__1" }),
-        projects,
-        null,
-      ),
+      buildAgentStatusSessionPath(session({ pane_id: "ws-1:cs__space-abc__1" }), projects, null),
     ).toBe("/workspace?id=ws-1&terminalTmux=cs__space-abc__1");
   });
 
@@ -235,9 +225,9 @@ describe("canNavigateToAgentStatusSession", () => {
   });
 
   it("rejects a session with no context", () => {
-    expect(
-      canNavigateToAgentStatusSession(session({ context_id: null, pane_id: null })),
-    ).toBe(false);
+    expect(canNavigateToAgentStatusSession(session({ context_id: null, pane_id: null }))).toBe(
+      false,
+    );
   });
 
   it("allows a chat session that has a context and chat id", () => {

@@ -36,8 +36,7 @@ export function BrowserContent({
   const shouldPortalMaximizedLayout = isMaximized && !isMaximizedLayoutManaged;
   // Tauri child webviews sit above the parent DOM, so hidden chrome must reserve
   // layout space instead of relying on z-index when previewing external pages.
-  const shouldReserveNativeChromeSpace =
-    isChromeHidden && reserveNativeSurfaceChromeSpace;
+  const shouldReserveNativeChromeSpace = isChromeHidden && reserveNativeSurfaceChromeSpace;
 
   const toolbar = (
     <div className="shrink-0">
@@ -68,13 +67,11 @@ export function BrowserContent({
       ref={previewRootRef}
       // Maximized preview portals above the shell; opt into APP-029 so other
       // desktop webviews suspend while this surface covers them.
-      data-atmos-browser-surface-overlay={
-        shouldPortalMaximizedLayout ? "true" : undefined
-      }
+      data-atmos-browser-surface-overlay={shouldPortalMaximizedLayout ? "true" : undefined}
       className={cn(
         "flex flex-col overflow-hidden bg-background transition-all duration-300 ease-in-out",
         shouldPortalMaximizedLayout
-          ? "fixed inset-0 z-[1000] h-screen w-screen animate-in fade-in zoom-in-95 slide-in-from-bottom-2"
+          ? "fixed inset-0 z-[1000] h-screen w-screen animate-in zoom-in-95 fade-in slide-in-from-bottom-2"
           : "h-full w-full",
       )}
     >
@@ -95,9 +92,7 @@ export function BrowserContent({
               {toolbar}
             </HiddenPreviewChrome>
           ) : (
-            <div className="flex shrink-0 flex-col bg-zinc-300/80 dark:bg-zinc-900">
-              {toolbar}
-            </div>
+            <div className="flex shrink-0 flex-col bg-zinc-300/80 dark:bg-zinc-900">{toolbar}</div>
           )}
           {viewport}
         </>
@@ -139,7 +134,7 @@ function HiddenPreviewChrome({
           onTransitionEnd={onNativeSurfaceChromeLayoutChange}
           className={cn(
             "max-h-4 min-h-4 overflow-hidden rounded-b-md border-b border-border/70 bg-background/95 opacity-0 shadow-xl backdrop-blur-md transition-all duration-300 ease-in-out supports-[backdrop-filter]:bg-background/85",
-            "group-hover/preview-chrome:max-h-40 group-hover/preview-chrome:opacity-100 group-focus-within/preview-chrome:max-h-40 group-focus-within/preview-chrome:opacity-100",
+            "group-focus-within/preview-chrome:max-h-40 group-focus-within/preview-chrome:opacity-100 group-hover/preview-chrome:max-h-40 group-hover/preview-chrome:opacity-100",
           )}
         >
           {children}

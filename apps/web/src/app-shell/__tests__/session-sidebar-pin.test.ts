@@ -4,10 +4,7 @@ import { join } from "node:path";
 
 describe("session sidebar pin", () => {
   it("swaps the agent icon for pin or unpin and keeps archive actions on the right", () => {
-    const source = readFileSync(
-      join(import.meta.dir, "../sidebar/SessionSidebarList.tsx"),
-      "utf8",
-    );
+    const source = readFileSync(join(import.meta.dir, "../sidebar/SessionSidebarList.tsx"), "utf8");
     const row = source.slice(
       source.indexOf("function SessionSidebarRow"),
       source.indexOf("function DeleteOption"),

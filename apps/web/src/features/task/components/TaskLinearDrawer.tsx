@@ -27,10 +27,7 @@ import {
 } from "lucide-react";
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
 import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
-import type {
-  LinearGithubRefPayload,
-  LinearIssuePayload,
-} from "@atmos/api-types/ws/dto/linear";
+import type { LinearGithubRefPayload, LinearIssuePayload } from "@atmos/api-types/ws/dto/linear";
 import { useTaskDrawerInsets } from "@/features/task/components/task-github-drawer/use-task-drawer-insets";
 import {
   LinearAssigneeAvatar,
@@ -70,12 +67,7 @@ function MetaRow({
   className?: string;
 }) {
   return (
-    <div
-      className={cn(
-        "flex min-w-0 items-center justify-between gap-3",
-        className,
-      )}
-    >
+    <div className={cn("flex min-w-0 items-center justify-between gap-3", className)}>
       <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground">
         <span className="inline-flex size-3.5 shrink-0 items-center justify-center text-muted-foreground/80 [&>svg]:size-3.5">
           {icon}
@@ -174,233 +166,214 @@ export function TaskLinearDrawer({
       <DrawerPortal>
         <DrawerOverlay className="bg-black/40" style={{ zIndex: 50 }} />
         <DrawerContentBare
-          className="fixed z-50 flex overflow-hidden rounded-xl border border-border/70 bg-background outline-none shadow-2xl"
+          className="fixed z-50 flex overflow-hidden rounded-xl border border-border/70 bg-background shadow-2xl outline-none"
           style={contentStyle}
         >
           <DrawerTitle className="sr-only">
-            {issue
-              ? `${issue.identifier} ${issue.title}`
-              : t("drawer.titleFallback")}
+            {issue ? `${issue.identifier} ${issue.title}` : t("drawer.titleFallback")}
           </DrawerTitle>
 
           <DrawerCloseReserveProvider>
             <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
               <DrawerCloseButton onClick={close} aria-label={t("drawer.close")} />
 
-            {issue ? (
-              <>
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6 pt-5">
-                  <div className={cn("mb-5 flex items-start gap-3", drawerCloseReserveClass)}>
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/40 text-muted-foreground">
-                      <LinearIcon className="size-5" size={20} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      {/* Identifier + linked GitHub only (status/priority live in meta below) */}
-                      <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <a
-                          href={issue.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="shrink-0 font-mono text-sm tabular-nums text-muted-foreground hover:text-foreground hover:underline"
-                        >
-                          {issue.identifier}
-                        </a>
-                        {(issue.github_refs?.length ?? 0) > 0
-                          ? issue.github_refs.map((ref) => (
-                              <button
-                                key={ref.url}
-                                type="button"
-                                className="inline-flex max-w-full items-center gap-1 rounded-md border border-border/60 bg-muted/25 px-1.5 py-0.5 text-[11px] font-medium text-foreground hover:bg-muted/50"
-                                title={`${ref.owner}/${ref.repo}#${ref.number}`}
-                                onClick={() => {
-                                  if (onOpenGithubRef) {
-                                    onOpenGithubRef(ref);
-                                    return;
-                                  }
-                                  if (ref.url) {
-                                    window.open(
-                                      ref.url,
-                                      "_blank",
-                                      "noopener,noreferrer",
-                                    );
-                                  }
-                                }}
-                              >
-                                <Github className="size-3 shrink-0 text-muted-foreground" />
-                                <span className="min-w-0 truncate font-mono">
-                                  {ref.owner}/{ref.repo}#{ref.number}
-                                </span>
-                              </button>
-                            ))
-                          : null}
+              {issue ? (
+                <>
+                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-5 pb-6">
+                    <div className={cn("mb-5 flex items-start gap-3", drawerCloseReserveClass)}>
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/40 text-muted-foreground">
+                        <LinearIcon className="size-5" size={20} />
                       </div>
-                      <h2 className="mt-1.5 text-lg font-semibold leading-snug text-foreground">
-                        {issue.title}
-                      </h2>
-                    </div>
-                  </div>
-
-                  <div className="mb-6 space-y-2.5 rounded-lg border border-border/60 bg-muted/15 px-3 py-3 text-xs">
-                    {/* Status + Assignee */}
-                    <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-4">
-                      <MetaRow
-                        icon={
-                          <LinearStatusIcon
-                            stateType={issue.state_type}
-                            stateName={issue.state_name}
-                          />
-                        }
-                        label={t("drawer.status")}
-                      >
-                        <span className="truncate">
-                          {issue.state_name?.trim() ||
-                            issue.state_type?.trim() ||
-                            "—"}
-                        </span>
-                      </MetaRow>
-                      <MetaRow
-                        icon={<UserRound className="size-3.5" aria-hidden />}
-                        label={t("table.assignee")}
-                      >
-                        <LinearAssigneeAvatar
-                          name={issue.assignee?.name}
-                          avatarUrl={issue.assignee?.avatar_url}
-                        />
-                        <span className="min-w-0 truncate">
-                          {issue.assignee?.name?.trim() ||
-                            t("drawer.unassigned")}
-                        </span>
-                      </MetaRow>
-                    </div>
-
-                    {/* Priority + Project */}
-                    <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-4">
-                      <MetaRow
-                        icon={<Signal className="size-3.5" aria-hidden />}
-                        label={t("table.priority")}
-                      >
-                        <LinearPriorityMark priority={issue.priority} />
-                        <span className="truncate">
-                          {t(linearPriorityLabelKey(issue.priority))}
-                        </span>
-                      </MetaRow>
-                      <MetaRow
-                        icon={<FolderKanban className="size-3.5" aria-hidden />}
-                        label={t("drawer.project")}
-                      >
-                        <span className="truncate">
-                          {issue.project_name?.trim() || t("drawer.noProject")}
-                        </span>
-                      </MetaRow>
+                      <div className="min-w-0 flex-1">
+                        {/* Identifier + linked GitHub only (status/priority live in meta below) */}
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <a
+                            href={issue.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="shrink-0 font-mono text-sm text-muted-foreground tabular-nums hover:text-foreground hover:underline"
+                          >
+                            {issue.identifier}
+                          </a>
+                          {(issue.github_refs?.length ?? 0) > 0
+                            ? issue.github_refs.map((ref) => (
+                                <button
+                                  key={ref.url}
+                                  type="button"
+                                  className="inline-flex max-w-full items-center gap-1 rounded-md border border-border/60 bg-muted/25 px-1.5 py-0.5 text-[11px] font-medium text-foreground hover:bg-muted/50"
+                                  title={`${ref.owner}/${ref.repo}#${ref.number}`}
+                                  onClick={() => {
+                                    if (onOpenGithubRef) {
+                                      onOpenGithubRef(ref);
+                                      return;
+                                    }
+                                    if (ref.url) {
+                                      window.open(ref.url, "_blank", "noopener,noreferrer");
+                                    }
+                                  }}
+                                >
+                                  <Github className="size-3 shrink-0 text-muted-foreground" />
+                                  <span className="min-w-0 truncate font-mono">
+                                    {ref.owner}/{ref.repo}#{ref.number}
+                                  </span>
+                                </button>
+                              ))
+                            : null}
+                        </div>
+                        <h2 className="mt-1.5 text-lg leading-snug font-semibold text-foreground">
+                          {issue.title}
+                        </h2>
+                      </div>
                     </div>
 
-                    {/* Created + Updated */}
-                    <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-4">
-                      <MetaRow
-                        icon={<CalendarPlus className="size-3.5" aria-hidden />}
-                        label={t("table.createdAt")}
-                      >
-                        <span className="truncate">
-                          {formatWhen(issue.created_at) ?? "—"}
-                        </span>
-                      </MetaRow>
-                      <MetaRow
-                        icon={
-                          <CalendarClock className="size-3.5" aria-hidden />
-                        }
-                        label={t("table.updatedAt")}
-                      >
-                        <span className="truncate">
-                          {formatWhen(issue.updated_at) ?? "—"}
-                        </span>
-                      </MetaRow>
-                    </div>
-
-                    {/* Labels last */}
-                    <div className="flex min-w-0 items-start justify-between gap-3">
-                      <span className="flex shrink-0 items-center gap-1.5 pt-0.5 text-muted-foreground">
-                        <Tag className="size-3.5 shrink-0 text-muted-foreground/80" />
-                        <span>{t("drawer.labels")}</span>
-                      </span>
-                      {(issue.labels?.length ?? 0) > 0 ? (
-                        <div className="flex min-w-0 flex-wrap justify-end gap-1">
-                          {issue.labels.map((label) => (
-                            <LinearLabelChip
-                              key={label.name}
-                              name={label.name}
-                              color={label.color}
+                    <div className="mb-6 space-y-2.5 rounded-lg border border-border/60 bg-muted/15 px-3 py-3 text-xs">
+                      {/* Status + Assignee */}
+                      <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-4">
+                        <MetaRow
+                          icon={
+                            <LinearStatusIcon
+                              stateType={issue.state_type}
+                              stateName={issue.state_name}
                             />
-                          ))}
+                          }
+                          label={t("drawer.status")}
+                        >
+                          <span className="truncate">
+                            {issue.state_name?.trim() || issue.state_type?.trim() || "—"}
+                          </span>
+                        </MetaRow>
+                        <MetaRow
+                          icon={<UserRound className="size-3.5" aria-hidden />}
+                          label={t("table.assignee")}
+                        >
+                          <LinearAssigneeAvatar
+                            name={issue.assignee?.name}
+                            avatarUrl={issue.assignee?.avatar_url}
+                          />
+                          <span className="min-w-0 truncate">
+                            {issue.assignee?.name?.trim() || t("drawer.unassigned")}
+                          </span>
+                        </MetaRow>
+                      </div>
+
+                      {/* Priority + Project */}
+                      <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-4">
+                        <MetaRow
+                          icon={<Signal className="size-3.5" aria-hidden />}
+                          label={t("table.priority")}
+                        >
+                          <LinearPriorityMark priority={issue.priority} />
+                          <span className="truncate">
+                            {t(linearPriorityLabelKey(issue.priority))}
+                          </span>
+                        </MetaRow>
+                        <MetaRow
+                          icon={<FolderKanban className="size-3.5" aria-hidden />}
+                          label={t("drawer.project")}
+                        >
+                          <span className="truncate">
+                            {issue.project_name?.trim() || t("drawer.noProject")}
+                          </span>
+                        </MetaRow>
+                      </div>
+
+                      {/* Created + Updated */}
+                      <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-4">
+                        <MetaRow
+                          icon={<CalendarPlus className="size-3.5" aria-hidden />}
+                          label={t("table.createdAt")}
+                        >
+                          <span className="truncate">{formatWhen(issue.created_at) ?? "—"}</span>
+                        </MetaRow>
+                        <MetaRow
+                          icon={<CalendarClock className="size-3.5" aria-hidden />}
+                          label={t("table.updatedAt")}
+                        >
+                          <span className="truncate">{formatWhen(issue.updated_at) ?? "—"}</span>
+                        </MetaRow>
+                      </div>
+
+                      {/* Labels last */}
+                      <div className="flex min-w-0 items-start justify-between gap-3">
+                        <span className="flex shrink-0 items-center gap-1.5 pt-0.5 text-muted-foreground">
+                          <Tag className="size-3.5 shrink-0 text-muted-foreground/80" />
+                          <span>{t("drawer.labels")}</span>
+                        </span>
+                        {(issue.labels?.length ?? 0) > 0 ? (
+                          <div className="flex min-w-0 flex-wrap justify-end gap-1">
+                            {issue.labels.map((label) => (
+                              <LinearLabelChip
+                                key={label.name}
+                                name={label.name}
+                                color={label.color}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="font-medium text-muted-foreground">
+                            {t("drawer.noLabels")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <section className="mb-2">
+                      <h3 className="mb-2 text-xs font-medium text-muted-foreground">
+                        {t("drawer.description")}
+                      </h3>
+                      {issue.description?.trim() ? (
+                        <div className="rounded-lg border border-border/60 bg-background px-3 py-3">
+                          <MarkdownRenderer className="prose prose-sm dark:prose-invert prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-headings:my-2 max-w-none text-[13px] leading-relaxed">
+                            {issue.description.trim()}
+                          </MarkdownRenderer>
                         </div>
                       ) : (
-                        <span className="font-medium text-muted-foreground">
-                          {t("drawer.noLabels")}
-                        </span>
+                        <p className="text-sm text-muted-foreground">{t("drawer.noDescription")}</p>
                       )}
-                    </div>
+                    </section>
                   </div>
 
-                  <section className="mb-2">
-                    <h3 className="mb-2 text-xs font-medium text-muted-foreground">
-                      {t("drawer.description")}
-                    </h3>
-                    {issue.description?.trim() ? (
-                      <div className="rounded-lg border border-border/60 bg-background px-3 py-3">
-                        <MarkdownRenderer className="prose prose-sm max-w-none text-[13px] leading-relaxed dark:prose-invert prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-headings:my-2">
-                          {issue.description.trim()}
-                        </MarkdownRenderer>
-                      </div>
+                  <div className="flex shrink-0 items-center justify-between gap-2 bg-background px-5 pt-1 pb-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => window.open(issue.url, "_blank", "noopener,noreferrer")}
+                    >
+                      <ExternalLink className="size-3.5" />
+                      {t("openInLinear")}
+                    </Button>
+                    {linkedWorkspaceId ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => {
+                          onEnterWorkspace(linkedWorkspaceId);
+                          close();
+                        }}
+                      >
+                        <ArrowRight className="size-3.5" />
+                        {t("drawer.enterWorkspace")}
+                      </Button>
                     ) : (
-                      <p className="text-sm text-muted-foreground">
-                        {t("drawer.noDescription")}
-                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => {
+                          onCreateWorkspace(issue);
+                          close();
+                        }}
+                      >
+                        <Rocket className="size-3.5" />
+                        {t("create")}
+                      </Button>
                     )}
-                  </section>
-                </div>
-
-                <div className="flex shrink-0 items-center justify-between gap-2 bg-background px-5 pb-4 pt-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={() =>
-                      window.open(issue.url, "_blank", "noopener,noreferrer")
-                    }
-                  >
-                    <ExternalLink className="size-3.5" />
-                    {t("openInLinear")}
-                  </Button>
-                  {linkedWorkspaceId ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={() => {
-                        onEnterWorkspace(linkedWorkspaceId);
-                        close();
-                      }}
-                    >
-                      <ArrowRight className="size-3.5" />
-                      {t("drawer.enterWorkspace")}
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={() => {
-                        onCreateWorkspace(issue);
-                        close();
-                      }}
-                    >
-                      <Rocket className="size-3.5" />
-                      {t("create")}
-                    </Button>
-                  )}
-                </div>
-              </>
-            ) : null}
+                  </div>
+                </>
+              ) : null}
             </div>
           </DrawerCloseReserveProvider>
         </DrawerContentBare>

@@ -14,19 +14,19 @@ This feature spans shared capability discovery, saved-template management, web U
 ## Coverage map
 
 | PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S2, S3, S5 |
-| M2 | S2, S3 |
-| M3 | S1 |
-| M4 | S1, S2, S3 |
-| M5 | S4, S9 |
-| M6 | S2, S4 |
-| M7 | S5 |
-| M8 | S5, S6, S7 |
-| M9 | S6 |
-| M10 | S1, S3 |
-| M11 | S4, S9 |
-| M12 | S8 |
+| -------- | ------------ |
+| M1       | S2, S3, S5   |
+| M2       | S2, S3       |
+| M3       | S1           |
+| M4       | S1, S2, S3   |
+| M5       | S4, S9       |
+| M6       | S2, S4       |
+| M7       | S5           |
+| M8       | S5, S6, S7   |
+| M9       | S6           |
+| M10      | S1, S3       |
+| M11      | S4, S9       |
+| M12      | S8           |
 
 ## Scenarios
 

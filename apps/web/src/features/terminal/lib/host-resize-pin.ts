@@ -27,8 +27,10 @@ export type HostResizePinScheduler = {
 };
 
 export function isHostResizeDragActive(
-  root: { hasAttribute: (name: string) => boolean } | null | undefined =
-    typeof document === "undefined" ? null : document.documentElement,
+  root: { hasAttribute: (name: string) => boolean } | null | undefined = typeof document ===
+  "undefined"
+    ? null
+    : document.documentElement,
 ): boolean {
   return Boolean(root?.hasAttribute(HOST_RESIZE_DRAG_ATTR));
 }
@@ -36,22 +38,22 @@ export function isHostResizeDragActive(
 type MouseTrackingMode = "none" | "x10" | "vt200" | "drag" | "any";
 
 function asMouseTrackingMode(value: string | undefined): MouseTrackingMode {
-  if (
-    value === "x10" ||
-    value === "vt200" ||
-    value === "drag" ||
-    value === "any"
-  ) {
+  if (value === "x10" || value === "vt200" || value === "drag" || value === "any") {
     return value;
   }
   return "none";
 }
 
-export function hostResizeSurfaceKind(term: {
-  buffer: { active: { type: string } };
-  modes?: { mouseTrackingMode?: string };
-  element?: HTMLElement;
-} | null | undefined): HostResizeSurfaceKind {
+export function hostResizeSurfaceKind(
+  term:
+    | {
+        buffer: { active: { type: string } };
+        modes?: { mouseTrackingMode?: string };
+        element?: HTMLElement;
+      }
+    | null
+    | undefined,
+): HostResizeSurfaceKind {
   if (!term) return "shell";
   if (term.buffer.active.type === "alternate") return "alt-screen";
   if (
@@ -88,10 +90,7 @@ export function shouldDiscardXtermScrollbackOnResize(input: {
   return input.inlineMouseTuiActive;
 }
 
-type ScheduleTimeout = (
-  fn: () => void,
-  ms: number,
-) => ReturnType<typeof setTimeout>;
+type ScheduleTimeout = (fn: () => void, ms: number) => ReturnType<typeof setTimeout>;
 
 /**
  * Leading + trailing throttle for `terminal_resize`.

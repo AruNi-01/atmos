@@ -3,10 +3,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Check, SwatchBook } from "lucide-react";
 import React from "react";
-import {
-  PT_RADIUS_GLOBAL_OPTIONS,
-  type PtRadiusToken,
-} from "../components/radius";
+import { PT_RADIUS_GLOBAL_OPTIONS, type PtRadiusToken } from "../components/radius";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 const PRESS = { scale: 0.96 };
@@ -88,7 +85,9 @@ export function CatalogStyleMenu({
                 onClick={() => setSection("radius")}
               >
                 <span>Radius</span>
-                <span className="pt-design-catalog-style-row__value">{current?.label ?? "Small"}</span>
+                <span className="pt-design-catalog-style-row__value">
+                  {current?.label ?? "Small"}
+                </span>
               </button>
             ) : (
               PT_RADIUS_GLOBAL_OPTIONS.map((option) => {

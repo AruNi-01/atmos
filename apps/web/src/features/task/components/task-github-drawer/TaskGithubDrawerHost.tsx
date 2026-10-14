@@ -33,23 +33,19 @@ import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
 
 const PRDetailView = dynamic(
-  () =>
-    import("@/features/github/components/PRDetailView").then((m) => m.PRDetailView),
+  () => import("@/features/github/components/PRDetailView").then((m) => m.PRDetailView),
   { ssr: false },
 );
 const IssueDetailView = dynamic(
-  () =>
-    import("@/features/github/components/IssueDetailView").then((m) => m.IssueDetailView),
+  () => import("@/features/github/components/IssueDetailView").then((m) => m.IssueDetailView),
   { ssr: false },
 );
 const GitCommitDiffView = dynamic(
-  () =>
-    import("@/features/git/components/GitCommitDiffView").then((m) => m.GitCommitDiffView),
+  () => import("@/features/git/components/GitCommitDiffView").then((m) => m.GitCommitDiffView),
   { ssr: false },
 );
 const ActionsDetailView = dynamic(
-  () =>
-    import("@/features/github/components/ActionsDetailView").then((m) => m.ActionsDetailView),
+  () => import("@/features/github/components/ActionsDetailView").then((m) => m.ActionsDetailView),
   { ssr: false },
 );
 
@@ -265,9 +261,7 @@ function DrawerLayer({
           Non-front overlays must not capture clicks.
         */}
         <DrawerOverlay
-          className={cn(
-            isFront ? "bg-black/40" : "pointer-events-none bg-transparent",
-          )}
+          className={cn(isFront ? "bg-black/40" : "pointer-events-none bg-transparent")}
           style={{ zIndex: 50 }}
         />
         <DrawerContentBare
@@ -276,7 +270,7 @@ function DrawerLayer({
           data-nested-drawer-open={levelsBehind > 0 ? "" : undefined}
           className={cn(
             // `fixed` + outline-none mirror the official side drawer Content class.
-            "fixed z-50 flex overflow-hidden rounded-xl border border-border/70 bg-background outline-none shadow-2xl",
+            "fixed z-50 flex overflow-hidden rounded-xl border border-border/70 bg-background shadow-2xl outline-none",
             levelsBehind > 0 && "pointer-events-none",
           )}
           style={contentStyle}
@@ -296,57 +290,57 @@ function DrawerLayer({
               <DrawerCloseButton onClick={beginClose} aria-label={t("close")} />
 
               <div className="min-h-0 flex-1 overflow-hidden">
-              {entry.kind === "issue" || entry.kind === "pr" ? (
-                (() => {
-                  const action = resolveWorkspaceAction(entry);
-                  const headerTrailing = action ? (
-                    <WorkspaceHeaderAction
-                      mode={action.mode}
-                      label={action.label}
-                      shortLabel={action.shortLabel}
-                      onClick={() => onWorkspaceAction(entry)}
-                    />
-                  ) : null;
-                  return entry.kind === "issue" ? (
-                    <IssueDetailView
-                      owner={entry.owner}
-                      repo={entry.repo}
-                      issueNumber={entry.issueNumber}
-                      active={isFront}
-                      headerTrailing={headerTrailing}
-                    />
-                  ) : (
-                    <PRDetailView
-                      owner={entry.owner}
-                      repo={entry.repo}
-                      branch={entry.branch}
-                      prNumber={entry.prNumber}
-                      active={isFront}
-                      onRequestClose={beginClose}
-                      headerTrailing={headerTrailing}
-                    />
-                  );
-                })()
-              ) : entry.kind === "commit" ? (
-                <GitCommitDiffView
-                  owner={entry.owner}
-                  repo={entry.repo}
-                  sha={entry.sha}
-                  subject={entry.subject}
-                  authorName={entry.authorName}
-                  active={isFront}
-                  onRequestClose={beginClose}
-                />
-              ) : (
-                <ActionsDetailView
-                  owner={entry.owner}
-                  repo={entry.repo}
-                  runId={entry.runId}
-                  run={entry.run as unknown as ActionRun}
-                  active={isFront}
-                  onRequestClose={beginClose}
-                />
-              )}
+                {entry.kind === "issue" || entry.kind === "pr" ? (
+                  (() => {
+                    const action = resolveWorkspaceAction(entry);
+                    const headerTrailing = action ? (
+                      <WorkspaceHeaderAction
+                        mode={action.mode}
+                        label={action.label}
+                        shortLabel={action.shortLabel}
+                        onClick={() => onWorkspaceAction(entry)}
+                      />
+                    ) : null;
+                    return entry.kind === "issue" ? (
+                      <IssueDetailView
+                        owner={entry.owner}
+                        repo={entry.repo}
+                        issueNumber={entry.issueNumber}
+                        active={isFront}
+                        headerTrailing={headerTrailing}
+                      />
+                    ) : (
+                      <PRDetailView
+                        owner={entry.owner}
+                        repo={entry.repo}
+                        branch={entry.branch}
+                        prNumber={entry.prNumber}
+                        active={isFront}
+                        onRequestClose={beginClose}
+                        headerTrailing={headerTrailing}
+                      />
+                    );
+                  })()
+                ) : entry.kind === "commit" ? (
+                  <GitCommitDiffView
+                    owner={entry.owner}
+                    repo={entry.repo}
+                    sha={entry.sha}
+                    subject={entry.subject}
+                    authorName={entry.authorName}
+                    active={isFront}
+                    onRequestClose={beginClose}
+                  />
+                ) : (
+                  <ActionsDetailView
+                    owner={entry.owner}
+                    repo={entry.repo}
+                    runId={entry.runId}
+                    run={entry.run as unknown as ActionRun}
+                    active={isFront}
+                    onRequestClose={beginClose}
+                  />
+                )}
               </div>
             </div>
           </DrawerCloseReserveProvider>
@@ -369,10 +363,7 @@ function DrawerLayer({
   );
 }
 
-export function TaskGithubDrawerHost({
-  controllerRef,
-  onOpenChange,
-}: TaskGithubDrawerHostProps) {
+export function TaskGithubDrawerHost({ controllerRef, onOpenChange }: TaskGithubDrawerHostProps) {
   const t = useTranslations("appShell.task.github");
   const router = useAppRouter();
   const projects = useProjects();
@@ -395,8 +386,7 @@ export function TaskGithubDrawerHost({
 
   const isOpen = stack.length > 0;
   // Treat exiting layers as already gone for peek/restore geometry.
-  const visualLen =
-    exitingFrom != null ? Math.min(exitingFrom, stack.length) : stack.length;
+  const visualLen = exitingFrom != null ? Math.min(exitingFrom, stack.length) : stack.length;
 
   React.useEffect(() => {
     onOpenChange?.(isOpen);

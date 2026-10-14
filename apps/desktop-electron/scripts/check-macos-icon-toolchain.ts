@@ -4,11 +4,7 @@
  */
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  checkActool26,
-  hasIconComposerPackage,
-  ICON_COMPOSER_REL,
-} from "./macos-icon.ts";
+import { checkActool26, hasIconComposerPackage, ICON_COMPOSER_REL } from "./macos-icon.ts";
 
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 

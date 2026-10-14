@@ -49,8 +49,26 @@ Use a single ordered cue map:
 
 ```js
 const cues = [
-  { name: "intro", start: 0, chord: [73.42, 110, 146.83, 220], pad: 0.9, arp: 0.05, drums: 0.05, sub: 0.14, shimmer: 0.24 },
-  { name: "build", start: 4.0, chord: [58.27, 116.54, 174.61, 233.08], pad: 0.82, arp: 0.28, drums: 0.35, sub: 0.28, shimmer: 0.3 }
+  {
+    name: "intro",
+    start: 0,
+    chord: [73.42, 110, 146.83, 220],
+    pad: 0.9,
+    arp: 0.05,
+    drums: 0.05,
+    sub: 0.14,
+    shimmer: 0.24,
+  },
+  {
+    name: "build",
+    start: 4.0,
+    chord: [58.27, 116.54, 174.61, 233.08],
+    pad: 0.82,
+    arp: 0.28,
+    drums: 0.35,
+    sub: 0.28,
+    shimmer: 0.3,
+  },
 ];
 ```
 

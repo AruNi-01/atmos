@@ -6,7 +6,13 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AppProviders } from "@/providers/AppProviders";
 import { useMobileTheme } from "@/theme/theme-store";
 
-function navigationTheme(isDark: boolean, background: string, text: string, border: string, primary: string): Theme {
+function navigationTheme(
+  isDark: boolean,
+  background: string,
+  text: string,
+  border: string,
+  primary: string,
+): Theme {
   const base = isDark ? DarkTheme : DefaultTheme;
   return {
     ...base,
@@ -45,118 +51,116 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <AppProviders>
         <ThemeProvider value={navigation}>
-        <GlassProvider>
-        <Stack
-          screenOptions={{
-            headerShadowVisible: false,
-            headerTintColor: theme.colors.label,
-            contentStyle: screenContentStyle,
-          }}
-        >
-          <Stack.Screen name="(home)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="quota-settings"
-            options={{
-              contentStyle: sheetContentStyle,
-              presentation: sheetPresentation,
-              sheetCornerRadius: 32,
-              sheetGrabberVisible: isIos,
-              sheetLargestUndimmedDetentIndex: "none",
-              ...(isIos
-                ? {
-                    sheetAllowedDetents: [1],
-                    sheetInitialDetentIndex: 0,
-                    sheetExpandsWhenScrolledToEdge: false,
-                  }
-                : null),
-            }}
-          />
-          <Stack.Screen
-            name="settings"
-            options={{
-              contentStyle: sheetContentStyle,
-              headerShown: false,
-              presentation: sheetPresentation,
-              sheetCornerRadius: 32,
-              sheetGrabberVisible: isIos,
-              sheetLargestUndimmedDetentIndex: "none",
-              // Full height only. A half detent lets the sheet rest mid-screen.
-              ...(isIos
-                ? {
-                    sheetAllowedDetents: [1],
-                    sheetInitialDetentIndex: 0,
-                    sheetExpandsWhenScrolledToEdge: false,
-                  }
-                : null),
-            }}
-          />
-          <Stack.Screen
-            name="sign-in"
-            options={{
-              // Fill tracks the dock (light: near-black, dark: elevated card).
-              contentStyle: {
-                backgroundColor: theme.isDark
-                  ? theme.colors.cardElevated
-                  : "#0a0a0b",
-                flex: 1,
-              },
-              headerShown: false,
-              presentation: sheetPresentation,
-              sheetCornerRadius: 32,
-              sheetGrabberVisible: isIos,
-              sheetLargestUndimmedDetentIndex: "none",
-              // Single large detent — sheet fills the stack height.
-              ...(isIos
-                ? {
-                    sheetAllowedDetents: [1],
-                    sheetInitialDetentIndex: 0,
-                    sheetExpandsWhenScrolledToEdge: false,
-                  }
-                : null),
-            }}
-          />
-          <Stack.Screen
-            name="workspace-filters"
-            options={{
-              contentStyle: sheetContentStyle,
-              headerShown: false,
-              presentation: sheetPresentation,
-              sheetCornerRadius: 32,
-              sheetGrabberVisible: isIos,
-              ...(isIos
-                ? {
-                    sheetAllowedDetents: [1],
-                    sheetInitialDetentIndex: 0,
-                  }
-                : null),
-            }}
-          />
-          <Stack.Screen
-            name="workspaces"
-            options={{
-              presentation: sheetPresentation,
-              sheetGrabberVisible: isIos,
-              contentStyle: sheetContentStyle,
-            }}
-          />
-          <Stack.Screen
-            name="create-workspace"
-            options={{
-              presentation: sheetPresentation,
-              sheetGrabberVisible: isIos,
-              contentStyle: sheetContentStyle,
-            }}
-          />
-          <Stack.Screen
-            name="preview"
-            options={{
-              headerBackButtonDisplayMode: "minimal",
-            }}
-          />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-        </GlassProvider>
-        <StatusBar style={theme.statusBarStyle} />
+          <GlassProvider>
+            <Stack
+              screenOptions={{
+                headerShadowVisible: false,
+                headerTintColor: theme.colors.label,
+                contentStyle: screenContentStyle,
+              }}
+            >
+              <Stack.Screen name="(home)" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="quota-settings"
+                options={{
+                  contentStyle: sheetContentStyle,
+                  presentation: sheetPresentation,
+                  sheetCornerRadius: 32,
+                  sheetGrabberVisible: isIos,
+                  sheetLargestUndimmedDetentIndex: "none",
+                  ...(isIos
+                    ? {
+                        sheetAllowedDetents: [1],
+                        sheetInitialDetentIndex: 0,
+                        sheetExpandsWhenScrolledToEdge: false,
+                      }
+                    : null),
+                }}
+              />
+              <Stack.Screen
+                name="settings"
+                options={{
+                  contentStyle: sheetContentStyle,
+                  headerShown: false,
+                  presentation: sheetPresentation,
+                  sheetCornerRadius: 32,
+                  sheetGrabberVisible: isIos,
+                  sheetLargestUndimmedDetentIndex: "none",
+                  // Full height only. A half detent lets the sheet rest mid-screen.
+                  ...(isIos
+                    ? {
+                        sheetAllowedDetents: [1],
+                        sheetInitialDetentIndex: 0,
+                        sheetExpandsWhenScrolledToEdge: false,
+                      }
+                    : null),
+                }}
+              />
+              <Stack.Screen
+                name="sign-in"
+                options={{
+                  // Fill tracks the dock (light: near-black, dark: elevated card).
+                  contentStyle: {
+                    backgroundColor: theme.isDark ? theme.colors.cardElevated : "#0a0a0b",
+                    flex: 1,
+                  },
+                  headerShown: false,
+                  presentation: sheetPresentation,
+                  sheetCornerRadius: 32,
+                  sheetGrabberVisible: isIos,
+                  sheetLargestUndimmedDetentIndex: "none",
+                  // Single large detent — sheet fills the stack height.
+                  ...(isIos
+                    ? {
+                        sheetAllowedDetents: [1],
+                        sheetInitialDetentIndex: 0,
+                        sheetExpandsWhenScrolledToEdge: false,
+                      }
+                    : null),
+                }}
+              />
+              <Stack.Screen
+                name="workspace-filters"
+                options={{
+                  contentStyle: sheetContentStyle,
+                  headerShown: false,
+                  presentation: sheetPresentation,
+                  sheetCornerRadius: 32,
+                  sheetGrabberVisible: isIos,
+                  ...(isIos
+                    ? {
+                        sheetAllowedDetents: [1],
+                        sheetInitialDetentIndex: 0,
+                      }
+                    : null),
+                }}
+              />
+              <Stack.Screen
+                name="workspaces"
+                options={{
+                  presentation: sheetPresentation,
+                  sheetGrabberVisible: isIos,
+                  contentStyle: sheetContentStyle,
+                }}
+              />
+              <Stack.Screen
+                name="create-workspace"
+                options={{
+                  presentation: sheetPresentation,
+                  sheetGrabberVisible: isIos,
+                  contentStyle: sheetContentStyle,
+                }}
+              />
+              <Stack.Screen
+                name="preview"
+                options={{
+                  headerBackButtonDisplayMode: "minimal",
+                }}
+              />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+          </GlassProvider>
+          <StatusBar style={theme.statusBarStyle} />
         </ThemeProvider>
       </AppProviders>
     </GestureHandlerRootView>

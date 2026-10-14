@@ -1,22 +1,22 @@
-'use client';
+"use client";
 
-import { toastManager } from '@workspace/ui';
-import { getComputerQueryScope } from '@/api/query/query-scope';
-import { wsProjectApi, wsWorkspaceApi } from '@/api/ws-api';
-import type { Project, Workspace } from '@/shared/types/domain';
-import { waitForConnection } from './project-store-connection';
-import { sortWorkspaces } from './project-store-mappers';
-import type { ProjectStore, ProjectStoreGet, ProjectStoreSet } from './project-store-types';
+import { toastManager } from "@workspace/ui";
+import { getComputerQueryScope } from "@/api/query/query-scope";
+import { wsProjectApi, wsWorkspaceApi } from "@/api/ws-api";
+import type { Project, Workspace } from "@/shared/types/domain";
+import { waitForConnection } from "./project-store-connection";
+import { sortWorkspaces } from "./project-store-mappers";
+import type { ProjectStore, ProjectStoreGet, ProjectStoreSet } from "./project-store-types";
 import {
   cancelProjectBootstrapQuery,
   getProjectBootstrapSnapshot,
   invalidateProjectBootstrap,
   patchProjectBootstrapSnapshotAt,
   setProjectBootstrapSnapshotAt,
-} from '@/features/project/hooks/use-project-bootstrap-query';
+} from "@/features/project/hooks/use-project-bootstrap-query";
 
-type ProjectStorePinOrderActions = Pick<ProjectStore, 'updateWorkspacePinOrder'>;
-type ProjectStoreReorderActions = Pick<ProjectStore, 'reorderProjects' | 'reorderWorkspaces'>;
+type ProjectStorePinOrderActions = Pick<ProjectStore, "updateWorkspacePinOrder">;
+type ProjectStoreReorderActions = Pick<ProjectStore, "reorderProjects" | "reorderWorkspaces">;
 
 export function createProjectStorePinOrderActions(
   _set: ProjectStoreSet,
@@ -46,7 +46,7 @@ export function createProjectStorePinOrderActions(
         await waitForConnection();
         await wsWorkspaceApi.updatePinOrder(orderedWorkspaceIds);
       } catch (error) {
-        console.error('Error updating pinned order:', error);
+        console.error("Error updating pinned order:", error);
         if (previousSnapshot) {
           setProjectBootstrapSnapshotAt(scope, previousSnapshot);
         }
@@ -77,16 +77,16 @@ export function createProjectStoreReorderActions(
         );
 
         toastManager.add({
-          title: 'Success',
-          description: 'Project order saved',
-          type: 'success',
+          title: "Success",
+          description: "Project order saved",
+          type: "success",
         });
       } catch (error) {
-        console.error('Error reordering projects:', error);
+        console.error("Error reordering projects:", error);
         toastManager.add({
-          title: 'Error',
-          description: 'Failed to save project order',
-          type: 'error',
+          title: "Error",
+          description: "Failed to save project order",
+          type: "error",
         });
         // Revert by re-fetching from server
         await invalidateProjectBootstrap();
@@ -108,22 +108,20 @@ export function createProjectStoreReorderActions(
         }));
 
         await Promise.all(
-          newOrder.map((workspace, index) =>
-            wsWorkspaceApi.updateOrder(workspace.id, index),
-          ),
+          newOrder.map((workspace, index) => wsWorkspaceApi.updateOrder(workspace.id, index)),
         );
 
         toastManager.add({
-          title: 'Success',
-          description: 'Workspace order saved',
-          type: 'success',
+          title: "Success",
+          description: "Workspace order saved",
+          type: "success",
         });
       } catch (error) {
-        console.error('Error reordering workspaces:', error);
+        console.error("Error reordering workspaces:", error);
         toastManager.add({
-          title: 'Error',
-          description: 'Failed to save workspace order',
-          type: 'error',
+          title: "Error",
+          description: "Failed to save workspace order",
+          type: "error",
         });
         // Revert by re-fetching from server
         await invalidateProjectBootstrap();

@@ -20,7 +20,13 @@ import {
   SelectValue,
 } from "@workspace/ui";
 import { Download, Loader2, FilePlus } from "lucide-react";
-import { AgentSelect, buildWikiTerminalRun, toTerminalPaneAgent, type AgentId, type WikiTerminalRun } from "./AgentSelect";
+import {
+  AgentSelect,
+  buildWikiTerminalRun,
+  toTerminalPaneAgent,
+  type AgentId,
+  type WikiTerminalRun,
+} from "./AgentSelect";
 import { getWikiLanguageOptions } from "../lib/wiki-languages";
 import { systemApi } from "@/api/rest-api";
 import { skillsApi } from "@/api/ws-api";
@@ -70,7 +76,9 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
   const t = useTranslations("wiki.specifyDialog");
   const [topic, setTopic] = useState("");
   const [agentId, setAgentId] = useState<AgentId>("claude");
-  const [agentRunConfigs, setAgentRunConfigs] = useState<Record<string, TerminalAgentRunConfigInput | null>>({});
+  const [agentRunConfigs, setAgentRunConfigs] = useState<
+    Record<string, TerminalAgentRunConfigInput | null>
+  >({});
   const [language, setLanguage] = useState("en");
   const [customLanguage, setCustomLanguage] = useState("");
   const [isRunning, setIsRunning] = useState(false);
@@ -156,14 +164,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
       onComplete?.();
       onOpenChange(false);
     },
-    [
-      terminalGridRef,
-      onSwitchToTerminal,
-      onSwitchToProjectWikiAndRun,
-      onComplete,
-      onOpenChange,
-      t,
-    ]
+    [terminalGridRef, onSwitchToTerminal, onSwitchToProjectWikiAndRun, onComplete, onOpenChange, t],
   );
 
   const handleRunSpecify = useCallback(async () => {
@@ -198,7 +199,16 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
     } finally {
       setIsRunning(false);
     }
-  }, [topic, agentId, currentAgentRunConfig, language, customLanguage, workspaceId, doRunSpecify, t]);
+  }, [
+    topic,
+    agentId,
+    currentAgentRunConfig,
+    language,
+    customLanguage,
+    workspaceId,
+    doRunSpecify,
+    t,
+  ]);
 
   const handleConfirmReplaceAndRun = useCallback(async () => {
     const cmd = pendingCommand;
@@ -238,17 +248,13 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
               <FilePlus className="size-5 text-muted-foreground" />
               {t("title")}
             </DialogTitle>
-            <DialogDescription>
-              {t("description")}
-            </DialogDescription>
+            <DialogDescription>{t("description")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {(skillLoading || systemHasSkill !== true) && (
-              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+              <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
                 <p className="text-sm text-muted-foreground">
-                  {skillLoading
-                    ? t("skills.checking")
-                    : t("skills.notInstalled")}
+                  {skillLoading ? t("skills.checking") : t("skills.notInstalled")}
                 </p>
                 {!skillLoading && (
                   <Button
@@ -257,24 +263,24 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
                     onClick={handleInstallSkill}
                     disabled={isInstalling}
                     className="cursor-pointer"
-                    >
-                      {isInstalling ? (
-                        <>
-                          <Loader2 className="size-4 animate-spin mr-2" />
-                          {t("skills.installing")}
-                        </>
-                      ) : (
-                        <>
-                          <Download className="size-4 mr-2" />
-                          {t("skills.install")}
-                        </>
-                      )}
+                  >
+                    {isInstalling ? (
+                      <>
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                        {t("skills.installing")}
+                      </>
+                    ) : (
+                      <>
+                        <Download className="mr-2 size-4" />
+                        {t("skills.install")}
+                      </>
+                    )}
                   </Button>
                 )}
               </div>
             )}
             <div>
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2">
+              <label className="mb-2 block text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 {t("topic.label")}
               </label>
               <Textarea
@@ -284,8 +290,8 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
                 rows={3}
                 className="resize-none"
               />
-              <p className="text-xs text-muted-foreground mt-1.5">{t("topic.examplesLabel")}</p>
-              <div className="flex flex-wrap gap-1.5 mt-1">
+              <p className="mt-1.5 text-xs text-muted-foreground">{t("topic.examplesLabel")}</p>
+              <div className="mt-1 flex flex-wrap gap-1.5">
                 {[
                   t("topic.examples.featureImplementation"),
                   t("topic.examples.technologyChoice"),
@@ -297,7 +303,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
                     key={ex}
                     type="button"
                     onClick={() => handleExampleClick(ex)}
-                    className="text-[11px] px-2 py-1 rounded-md bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground truncate max-w-[280px] cursor-pointer"
+                    className="max-w-[280px] cursor-pointer truncate rounded-md bg-muted px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                   >
                     {ex}
                   </button>
@@ -319,12 +325,12 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
               }}
             />
             <div>
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2">
+              <label className="mb-2 block text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 {t("language.label")}
               </label>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex flex-wrap gap-2">
                 <Select value={language} onValueChange={setLanguage}>
-                  <SelectTrigger className="w-full sm:w-48 cursor-pointer">
+                  <SelectTrigger className="w-full cursor-pointer sm:w-48">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -340,14 +346,19 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
                     placeholder={t("language.customPlaceholder")}
                     value={customLanguage}
                     onChange={(e) => setCustomLanguage(e.target.value)}
-                    className="flex-1 min-w-[120px]"
+                    className="min-w-[120px] flex-1"
                   />
                 )}
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isRunning} className="cursor-pointer">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isRunning}
+              className="cursor-pointer"
+            >
               {t("actions.cancel")}
             </Button>
             <Button
@@ -357,12 +368,12 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
             >
               {isRunning ? (
                 <>
-                  <Loader2 className="size-4 animate-spin mr-2" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                   {t("actions.starting")}
                 </>
               ) : (
                 <>
-                  <FilePlus className="size-4 mr-2" />
+                  <FilePlus className="mr-2 size-4" />
                   {t("actions.generateArticle")}
                 </>
               )}
@@ -378,18 +389,24 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("conflict.title")}</DialogTitle>
-            <DialogDescription>
-              {t("conflict.description")}
-            </DialogDescription>
+            <DialogDescription>{t("conflict.description")}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => (setConflictDialogOpen(false), setPendingCommand(null))} className="cursor-pointer">
+            <Button
+              variant="outline"
+              onClick={() => (setConflictDialogOpen(false), setPendingCommand(null))}
+              className="cursor-pointer"
+            >
               {t("actions.cancel")}
             </Button>
-            <Button onClick={handleConfirmReplaceAndRun} disabled={isRunning} className="cursor-pointer">
+            <Button
+              onClick={handleConfirmReplaceAndRun}
+              disabled={isRunning}
+              className="cursor-pointer"
+            >
               {isRunning ? (
                 <>
-                  <Loader2 className="size-4 animate-spin mr-2" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                   {t("actions.starting")}
                 </>
               ) : (

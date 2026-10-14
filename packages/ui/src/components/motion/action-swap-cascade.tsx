@@ -10,11 +10,7 @@ import {
   type ActionSwapTextProps,
 } from "./action-swap";
 
-export type {
-  ActionSwapButtonSize,
-  ActionSwapButtonVariant,
-  ActionSwapItem,
-} from "./action-swap";
+export type { ActionSwapButtonSize, ActionSwapButtonVariant, ActionSwapItem } from "./action-swap";
 
 export type ActionSwapCascadeButtonProps = Omit<ActionSwapButtonProps, "animation">;
 export type ActionSwapCascadeTextProps = Omit<ActionSwapTextProps, "animation">;

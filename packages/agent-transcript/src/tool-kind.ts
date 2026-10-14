@@ -1,14 +1,6 @@
-import type {
-  AgentPart,
-  AgentToolKind,
-  AgentToolParams,
-} from "@atmos/api-types/ws/dto/agent-chat";
+import type { AgentPart, AgentToolKind, AgentToolParams } from "@atmos/api-types/ws/dto/agent-chat";
 
-export type TranscriptVisibility =
-  | "visible"
-  | "hidden_chrome"
-  | "nested_child"
-  | "subagent_wait";
+export type TranscriptVisibility = "visible" | "hidden_chrome" | "nested_child" | "subagent_wait";
 
 export type AgentToolCallPart = Extract<AgentPart, { type: "tool_call" }>;
 
@@ -84,22 +76,23 @@ export function isSubagentWaitTool(
   const raw = `${part.name} ${part.title ?? ""}`;
   const blob = `${name} ${title}`;
   if (
-    blob.includes("taskoutput")
-    || blob.includes("task_output")
-    || blob.includes("agentoutput")
-    || blob.includes("agent_output")
-    || blob.includes("subagent_output")
-    || blob.includes("get_command_or_subagent")
+    blob.includes("taskoutput") ||
+    blob.includes("task_output") ||
+    blob.includes("agentoutput") ||
+    blob.includes("agent_output") ||
+    blob.includes("subagent_output") ||
+    blob.includes("get_command_or_subagent")
   ) {
     return true;
   }
   // Grok labels the poll with the child command instead of TaskOutput.
   if (raw.includes("[subagent:")) return true;
   if (otherParamsLookLikeWaitPoll(part.params)) return true;
-  return blob.includes("wait") && (
-    blob.includes("subagent")
-    || blob.includes("background_agent")
-    || blob.includes("backgroundagent")
+  return (
+    blob.includes("wait") &&
+    (blob.includes("subagent") ||
+      blob.includes("background_agent") ||
+      blob.includes("backgroundagent"))
   );
 }
 
@@ -108,10 +101,10 @@ function otherParamsLookLikeWaitPoll(params: AgentToolCallPart["params"] | undef
   const value = params.value as Record<string, unknown>;
   const variant = String(value.variant ?? value.type ?? "").toLowerCase();
   if (
-    variant === "taskoutput"
-    || variant === "task_output"
-    || variant === "agentoutput"
-    || variant === "agent_output"
+    variant === "taskoutput" ||
+    variant === "task_output" ||
+    variant === "agentoutput" ||
+    variant === "agent_output"
   ) {
     return true;
   }
@@ -119,21 +112,22 @@ function otherParamsLookLikeWaitPoll(params: AgentToolCallPart["params"] | undef
 }
 
 function normalizeLabel(value?: string | null): string {
-  return (value || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return (value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
 }
 
-export function isPlanModeChromeTool(
-  part: Pick<AgentToolCallPart, "name" | "title">,
-): boolean {
+export function isPlanModeChromeTool(part: Pick<AgentToolCallPart, "name" | "title">): boolean {
   const blob = `${normalizeLabel(part.name)} ${normalizeLabel(part.title)}`;
   if (blob.includes("update_plan") || blob.includes("updateplan")) return false;
   return (
-    blob.includes("enter_plan")
-    || blob.includes("enterplan")
-    || blob.includes("exit_plan")
-    || blob.includes("exitplan")
-    || blob.includes("approve_plan")
-    || blob.includes("approveplan")
+    blob.includes("enter_plan") ||
+    blob.includes("enterplan") ||
+    blob.includes("exit_plan") ||
+    blob.includes("exitplan") ||
+    blob.includes("approve_plan") ||
+    blob.includes("approveplan")
   );
 }
 

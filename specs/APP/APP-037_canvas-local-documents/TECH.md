@@ -36,18 +36,18 @@ crates/infra
 
 ## Resolved decisions
 
-| ID | Decision |
-|----|----------|
-| D1 | Document root = `dirs::home_dir()/.atmos/canvas` (expand `~` consistently with other Atmos paths). |
-| D2 | Extension = `.atmos.tldr` (case-sensitive match on list: prefer lowercase suffix). |
-| D3 | File payload = **JSON** `AtmosCanvasFile` envelope (below), not opaque zip, for debuggability and tests. Can evolve later. |
-| D4 | Display name = filename stem (strip `.atmos.tldr`). Save As prompts for stem; service sanitizes to safe filename. |
-| D5 | First Canvas open: if last-opened path missing (N6 not shipped), open **in-memory untitled** (no path, dirty=false until edit) OR if directory has exactly one file, open it — **prefer untitled empty** for predictability. |
-| D6 | Switch = full editor remount or `loadSnapshot` replace; abort any future script host; clear selection. |
-| D7 | Dirty = editor store changed since last successful save (or since load if never saved). |
-| D8 | Remove `CanvasService` board JSON API; replace with `CanvasDocumentService`. |
-| D9 | Drop `canvas_board` table via new migration. |
-| D10 | Autosave: **optional Phase 2** — if implemented, debounce ~1s writes only when `path` is set; never autosave untitled without path. Phase 1 may be explicit Save only. |
+| ID  | Decision                                                                                                                                                                                                                     |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Document root = `dirs::home_dir()/.atmos/canvas` (expand `~` consistently with other Atmos paths).                                                                                                                           |
+| D2  | Extension = `.atmos.tldr` (case-sensitive match on list: prefer lowercase suffix).                                                                                                                                           |
+| D3  | File payload = **JSON** `AtmosCanvasFile` envelope (below), not opaque zip, for debuggability and tests. Can evolve later.                                                                                                   |
+| D4  | Display name = filename stem (strip `.atmos.tldr`). Save As prompts for stem; service sanitizes to safe filename.                                                                                                            |
+| D5  | First Canvas open: if last-opened path missing (N6 not shipped), open **in-memory untitled** (no path, dirty=false until edit) OR if directory has exactly one file, open it — **prefer untitled empty** for predictability. |
+| D6  | Switch = full editor remount or `loadSnapshot` replace; abort any future script host; clear selection.                                                                                                                       |
+| D7  | Dirty = editor store changed since last successful save (or since load if never saved).                                                                                                                                      |
+| D8  | Remove `CanvasService` board JSON API; replace with `CanvasDocumentService`.                                                                                                                                                 |
+| D9  | Drop `canvas_board` table via new migration.                                                                                                                                                                                 |
+| D10 | Autosave: **optional Phase 2** — if implemented, debounce ~1s writes only when `path` is set; never autosave untitled without path. Phase 1 may be explicit Save only.                                                       |
 
 ## Module-by-module design
 
@@ -77,16 +77,19 @@ impl CanvasDocumentService {
 ```
 
 **Path safety**:
+
 - Only allow access to files whose canonical path is **inside** `canvas_dir()`.
 - API takes **file name** (e.g. `Ops Desk.atmos.tldr`) or stem; reject `..`, absolute paths, nested dirs in v1 (flat directory only).
 
 **Sanitize stem**:
+
 - Trim; reject empty.
 - Replace path separators and reserved chars with `-` or strip.
 - Max length e.g. 120 chars.
 - Ensure final name ends with `.atmos.tldr`.
 
 **List item**:
+
 ```rust
 pub struct CanvasDocumentListItem {
     pub file_name: String,    // "Ops Desk.atmos.tldr"
@@ -100,17 +103,17 @@ pub struct CanvasDocumentListItem {
 
 Replace old canvas board routes under `apps/api/src/api/canvas/`:
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| `GET` | `/api/canvas/documents` | List `*.atmos.tldr` in canvas dir |
-| `POST` | `/api/canvas/documents/new` | Create Untitled / Untitled-N |
-| `POST` | `/api/canvas/documents/sanitize-name` | Sanitize display name → file name |
-| `GET` | `/api/canvas/documents/:file_name` | Read file JSON body |
-| `PUT` | `/api/canvas/documents/:file_name` | Write full file (`overwrite` query) |
-| `DELETE` | `/api/canvas/documents/:file_name` | Delete file |
-| `POST` | `/api/canvas/documents/:file_name/rename` | Rename file |
-| `POST` | `/api/canvas/documents/:file_name/duplicate` | Duplicate file |
-| ~~GET/PUT~~ | ~~`/api/canvas/default`~~ | **Removed** (no legacy clients) |
+| Method      | Path                                         | Purpose                             |
+| ----------- | -------------------------------------------- | ----------------------------------- |
+| `GET`       | `/api/canvas/documents`                      | List `*.atmos.tldr` in canvas dir   |
+| `POST`      | `/api/canvas/documents/new`                  | Create Untitled / Untitled-N        |
+| `POST`      | `/api/canvas/documents/sanitize-name`        | Sanitize display name → file name   |
+| `GET`       | `/api/canvas/documents/:file_name`           | Read file JSON body                 |
+| `PUT`       | `/api/canvas/documents/:file_name`           | Write full file (`overwrite` query) |
+| `DELETE`    | `/api/canvas/documents/:file_name`           | Delete file                         |
+| `POST`      | `/api/canvas/documents/:file_name/rename`    | Rename file                         |
+| `POST`      | `/api/canvas/documents/:file_name/duplicate` | Duplicate file                      |
+| ~~GET/PUT~~ | ~~`/api/canvas/default`~~                    | **Removed** (no legacy clients)     |
 
 Auth: same as existing local API auth for canvas board routes.
 
@@ -126,12 +129,12 @@ DTO request/response use the `AtmosCanvasFile` schema below.
 
 ```ts
 type CanvasDocumentState = {
-  path: string | null;          // file_name in canvas dir, null = untitled
-  title: string;                // display
+  path: string | null; // file_name in canvas dir, null = untitled
+  title: string; // display
   dirty: boolean;
   file: AtmosCanvasFile | null; // last loaded/saved envelope
   // plus loading/error
-}
+};
 ```
 
 - Load: `GET` document → apply `tldrawDocument` + `session` into editor (reuse `createCanvasSnapshot` patterns; **drop** `schema: canvas.v1` / `boardSlug` wrapper).
@@ -186,17 +189,17 @@ No special case beyond local Server already exposing home FS. Ensure `~/.atmos` 
 {
   "schema": "atmos-canvas-file.1",
   "title": "Ops Desk",
-  "tldrawDocument": { },
+  "tldrawDocument": {},
   "session": { "version": 0, "isGridMode": true }
 }
 ```
 
-| Field | Notes |
-|-------|-------|
-| `schema` | Constant `atmos-canvas-file.1`; reject unknown on read with clear error |
-| `title` | Display title; usually equals stem; may be updated on Save As |
+| Field            | Notes                                                                      |
+| ---------------- | -------------------------------------------------------------------------- |
+| `schema`         | Constant `atmos-canvas-file.1`; reject unknown on read with clear error    |
+| `title`          | Display title; usually equals stem; may be updated on Save As              |
 | `tldrawDocument` | tldraw document store snapshot (same shape as today’s normalized document) |
-| `session` | tldraw session slice needed for restore (grid, etc.) |
+| `session`        | tldraw session slice needed for restore (grid, etc.)                       |
 
 **Pages**: all tldraw pages live inside `tldrawDocument` — no per-page files.
 
@@ -211,10 +214,10 @@ No special case beyond local Server already exposing home FS. Ensure `~/.atmos` 
 
 ### Filename mapping
 
-| Display name (user) | File name |
-|---------------------|-----------|
-| `Ops Desk` | `Ops Desk.atmos.tldr` |
-| `a/b` | sanitized e.g. `a-b.atmos.tldr` |
+| Display name (user) | File name                       |
+| ------------------- | ------------------------------- |
+| `Ops Desk`          | `Ops Desk.atmos.tldr`           |
+| `a/b`               | sanitized e.g. `a-b.atmos.tldr` |
 
 Collision on Save As: if target exists and is not the current file → error or confirm overwrite (product: **confirm overwrite** in UI).
 
@@ -238,12 +241,12 @@ Body: AtmosCanvasFile
 
 Errors:
 
-| Code / status | When |
-|---------------|------|
-| 400 | invalid name, bad schema, path escape |
-| 404 | read missing file |
-| 409 | optional: overwrite refused |
-| 500 | IO failure |
+| Code / status | When                                  |
+| ------------- | ------------------------------------- |
+| 400           | invalid name, bad schema, path escape |
+| 404           | read missing file                     |
+| 409           | optional: overwrite refused           |
+| 500           | IO failure                            |
 
 ### WebSocket
 

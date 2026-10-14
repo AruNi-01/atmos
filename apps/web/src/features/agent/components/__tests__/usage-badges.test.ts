@@ -3,10 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const badges = readFileSync(join(import.meta.dir, "../UsageBadges.tsx"), "utf8");
-const composer = readFileSync(
-  join(import.meta.dir, "../AgentPromptComposer.tsx"),
-  "utf8",
-);
+const composer = readFileSync(join(import.meta.dir, "../AgentPromptComposer.tsx"), "utf8");
 const overlays = readFileSync(
   join(import.meta.dir, "../AgentChatAboveComposerOverlays.tsx"),
   "utf8",
@@ -49,13 +46,19 @@ describe("context window usage control", () => {
     // Floating cards match the prompt lane. When plan/queue/background docks
     // are present they stay inset (mx-6) and the overlay uses px-6 to align.
     expect(overlays).toContain("OVERLAY_CARD_MAX_HEIGHT_CLASS");
-    expect(overlays).toContain("pointer-events-auto flex min-h-0 w-full max-w-full flex-col overflow-hidden");
-    expect(overlays).not.toContain("pointer-events-auto mx-6\">\n                <ContextUsageDetailsPanel");
+    expect(overlays).toContain(
+      "pointer-events-auto flex min-h-0 w-full max-w-full flex-col overflow-hidden",
+    );
+    expect(overlays).not.toContain(
+      'pointer-events-auto mx-6">\n                <ContextUsageDetailsPanel',
+    );
     expect(overlays).toContain('hasUpperComposerCards && "px-6"');
     expect(composer).not.toContain("showComposerCardStack");
     expect(composer).not.toContain("contextWindowUsesInlinePanel");
     expect(composer).not.toContain("contextUsageInlinePanel");
-    expect(overlays).not.toContain("<ContextUsageDetailsPanel\n              usage={sessionUsage}\n              providerId={registryId}\n              embedded");
+    expect(overlays).not.toContain(
+      "<ContextUsageDetailsPanel\n              usage={sessionUsage}\n              providerId={registryId}\n              embedded",
+    );
     // Context usage / approvals float above the input with a gap. Plan and
     // queue sit in-flow, inset, and flush against the prompt chrome.
     const overlayAt = overlays.indexOf("data-agent-chat-above-composer-overlays");
@@ -69,7 +72,9 @@ describe("context window usage control", () => {
     expect(composer).toContain(
       "relative z-[1] mx-6 overflow-hidden rounded-t-3xl border border-b-0 border-foreground/10 bg-foreground/[0.04]",
     );
-    expect(composer).not.toContain("mx-6 overflow-hidden rounded-3xl border border-border/70 bg-background/95");
+    expect(composer).not.toContain(
+      "mx-6 overflow-hidden rounded-3xl border border-border/70 bg-background/95",
+    );
     expect(composer).not.toContain("border-b-0 border-border/70 bg-background/95");
   });
 

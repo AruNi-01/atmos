@@ -5,9 +5,9 @@ import type { TLShapeId } from "tldraw";
 
 import type { TerminalRef } from "@/features/terminal/components/Terminal";
 
-const CanvasTerminalRefContext = React.createContext<
-  React.MutableRefObject<Map<TLShapeId, TerminalRef>> | null
->(null);
+const CanvasTerminalRefContext = React.createContext<React.MutableRefObject<
+  Map<TLShapeId, TerminalRef>
+> | null>(null);
 
 export function CanvasTerminalRefProvider({ children }: { children: React.ReactNode }) {
   const refs = React.useRef(new Map<TLShapeId, TerminalRef>());

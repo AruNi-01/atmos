@@ -157,19 +157,23 @@ The session sidebar should include 4 tabs:
 - `Summary`
 
 `Comments`
+
 - all review comments grouped by status
 - jump to comment in diff
 
 `Files`
+
 - files in session with:
   - comment count
   - reviewed state
   - outdated indicator if needed
 
 `Runs`
+
 - AI fix runs, status, mode, timestamps
 
 `Summary`
+
 - generated or user-edited session summary
 
 ---
@@ -495,12 +499,8 @@ Recommended anchor payload:
   "end_line": 44,
   "line_range_kind": "range",
   "selected_text": "const diff = await gitApi.getFileDiff(repoPath, filePath);",
-  "before_context": [
-    "try {"
-  ],
-  "after_context": [
-    "setWorkingDiff(parseDiffFromFile(nextOldFile, nextNewFile));"
-  ],
+  "before_context": ["try {"],
+  "after_context": ["setWorkingDiff(parseDiffFromFile(nextOldFile, nextNewFile));"],
   "hunk_header": "@@ -280,6 +280,10 @@"
 }
 ```
@@ -888,7 +888,7 @@ Three execution modes share the same underlying review capability:
   - comment status update
   - run summary write
   - finalize call
-  implicitly transitions the run to `running`
+    implicitly transitions the run to `running`
 
 This keeps `copy_prompt` transparent to skills and avoids introducing a separate “start” protocol.
 

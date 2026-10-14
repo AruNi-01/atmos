@@ -5,7 +5,7 @@ import { Command } from "lucide-react";
 
 export function ShortcutHint({ digit }: { digit: number | string }) {
   return (
-    <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+    <kbd className="pointer-events-none inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90 select-none">
       <Command className="size-3" />
       <span className="text-xs">{digit}</span>
     </kbd>
@@ -17,7 +17,7 @@ export function CenterStageTabKindChip({ children }: { children: React.ReactNode
   return (
     <span
       data-center-tab-kind-chip=""
-      className="pointer-events-none inline-flex h-5 shrink-0 select-none items-center rounded-full border border-border bg-muted px-1.5 text-[10px] font-medium leading-none text-foreground/90"
+      className="pointer-events-none inline-flex h-5 shrink-0 items-center rounded-full border border-border bg-muted px-1.5 text-[10px] leading-none font-medium text-foreground/90 select-none"
     >
       {children}
     </span>

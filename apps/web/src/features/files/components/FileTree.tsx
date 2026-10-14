@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import React, { useMemo, useCallback, useState, useEffect, type ComponentProps } from 'react';
-import { useTree } from '@headless-tree/react';
-import { asyncDataLoaderFeature } from '@headless-tree/core';
-import type { ItemInstance } from '@headless-tree/core';
-import { useTranslations } from 'next-intl';
-import { cn, Loader2, Folder, toastManager } from '@workspace/ui';
-import { FileTreeNode, fsApi } from '@/api/ws-api';
-import { useEditorStore } from '@/features/editor/store/use-editor-store';
+import React, { useMemo, useCallback, useState, useEffect, type ComponentProps } from "react";
+import { useTree } from "@headless-tree/react";
+import { asyncDataLoaderFeature } from "@headless-tree/core";
+import type { ItemInstance } from "@headless-tree/core";
+import { useTranslations } from "next-intl";
+import { cn, Loader2, Folder, toastManager } from "@workspace/ui";
+import { FileTreeNode, fsApi } from "@/api/ws-api";
+import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import {
   buildFallbackFileTreeItem,
   buildDuplicateName,
@@ -19,12 +19,9 @@ import {
   type FileTreeItem,
   type FileTreeMenuState,
   type PendingPanelState,
-} from '../lib/file-tree-utils';
-import {
-  nestTreeItemsByParent,
-  type NestedTreeNode,
-} from '../lib/file-tree-nest';
-import { isFileTreeBranchOpen } from '../lib/file-tree-branch-open';
+} from "../lib/file-tree-utils";
+import { nestTreeItemsByParent, type NestedTreeNode } from "../lib/file-tree-nest";
+import { isFileTreeBranchOpen } from "../lib/file-tree-branch-open";
 import {
   expandFileTreeRevealAncestors,
   FILE_TREE_SCROLL_ATTR,
@@ -34,12 +31,12 @@ import {
   resolveFileTreeScrollElement,
   scrollFileTreeRowIntoView,
   waitForFileTreeRowLayout,
-} from '../lib/file-tree-reveal';
+} from "../lib/file-tree-reveal";
 import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
 import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
-import { FileTreeBranch } from './FileTreeBranch';
-import { FileTreeContextMenu } from './FileTreeContextMenu';
-import { FileTreeRow } from './FileTreeRow';
+import { FileTreeBranch } from "./FileTreeBranch";
+import { FileTreeContextMenu } from "./FileTreeContextMenu";
+import { FileTreeRow } from "./FileTreeRow";
 
 interface FileTreeProps {
   data: FileTreeNode[];
@@ -52,17 +49,14 @@ interface FileTreeProps {
    * @deprecated Context menu always uses viewport client coords via a
    * body-portaled fixed trigger. Kept for call-site compatibility.
    */
-  contextMenuAnchor?: 'fixed' | 'local';
+  contextMenuAnchor?: "fixed" | "local";
   /** Runs synchronously before opening a file from the tree (e.g. close ancestor Popovers). */
   beforeOpenFile?: () => void;
   contextId?: string | null;
   activeFilePath?: string | null;
   currentProjectPath?: string | null;
   revealEnabled?: boolean;
-  onOpenFile?: (
-    path: string,
-    options: { preview: boolean },
-  ) => Promise<void> | void;
+  onOpenFile?: (path: string, options: { preview: boolean }) => Promise<void> | void;
 }
 
 function FileTreeNodes({
@@ -102,9 +96,7 @@ function FileTreeNodes({
           rootPath={rootPath}
         />
         {item.isFolder() ? (
-          <FileTreeBranch
-            open={isFileTreeBranchOpen(item.isExpanded(), children.length)}
-          >
+          <FileTreeBranch open={isFileTreeBranchOpen(item.isExpanded(), children.length)}>
             <FileTreeNodes
               nodes={children}
               activeFilePath={activeFilePath}
@@ -135,7 +127,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   revealEnabled = true,
   onOpenFile,
 }) => {
-  const t = useTranslations('files.components');
+  const t = useTranslations("files.components");
   const paintContextId = useCenterPaintContextId();
   const editorContextId = contextId ?? paintContextId;
   const openFile = useEditorStore((s) => s.openFile);
@@ -156,7 +148,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   const [menuState, setMenuState] = useState<FileTreeMenuState | null>(null);
   const [panelState, setPanelState] = useState<PendingPanelState>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [panelName, setPanelName] = useState('');
+  const [panelName, setPanelName] = useState("");
   const [isMutating, setIsMutating] = useState(false);
   const panelInputRef = React.useRef<HTMLInputElement | null>(null);
   const renameSelectionAppliedRef = React.useRef(false);
@@ -187,10 +179,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   // on every expand/load and hits "Maximum update depth exceeded".
   const resolveItem = useCallback(
     (itemId: string): FileTreeItem | undefined => {
-      return (
-        initialItemsMap.get(itemId) ||
-        knownItemsRef.current.items.get(itemId)
-      );
+      return initialItemsMap.get(itemId) || knownItemsRef.current.items.get(itemId);
     },
     [initialItemsMap],
   );
@@ -206,74 +195,77 @@ export const FileTree: React.FC<FileTreeProps> = ({
     };
   }, [rootPath, showHidden, data]); // eslint-disable-line react-hooks/exhaustive-deps -- initialItemsMap is derived from data
 
-  const loadDirectoryChildren = useCallback(async (itemPath: string): Promise<string[]> => {
-    const existingItem = resolveItem(itemPath);
-    if (!existingItem?.isDir) return [];
+  const loadDirectoryChildren = useCallback(
+    async (itemPath: string): Promise<string[]> => {
+      const existingItem = resolveItem(itemPath);
+      if (!existingItem?.isDir) return [];
 
-    // Prefer authoritative recursive children from list_project_files when present.
-    // Empty/missing children (gitignored dirs, max-depth cutoffs) always re-list from disk.
-    if (existingItem.children && existingItem.children.length > 0) {
-      return existingItem.children;
-    }
+      // Prefer authoritative recursive children from list_project_files when present.
+      // Empty/missing children (gitignored dirs, max-depth cutoffs) always re-list from disk.
+      if (existingItem.children && existingItem.children.length > 0) {
+        return existingItem.children;
+      }
 
-    const response = await fsApi.listDir(itemPath, {
-      showHidden,
-      dirsOnly: false,
-    });
-    const newChildren = response.entries.map((entry) => entry.path);
-    const newEntriesMap = new Map<string, FileTreeItem>();
-
-    // If the parent directory is gitignored, every descendant is effectively
-    // ignored too. The backend's per-directory gitignore check can't see that
-    // because an ignored directory's own contents aren't separately covered
-    // by any rule — the rule lives on the ancestor. Propagate the flag here
-    // so the UI can dim the entire subtree consistently.
-    const parentIgnored = existingItem.isIgnored;
-
-    response.entries.forEach((entry) => {
-      newEntriesMap.set(entry.path, {
-        id: entry.path,
-        name: entry.name,
-        path: entry.path,
-        isDir: entry.is_dir,
-        isSymlink: entry.is_symlink,
-        isIgnored: entry.is_ignored || parentIgnored,
-        symlinkTarget: entry.symlink_target,
+      const response = await fsApi.listDir(itemPath, {
+        showHidden,
+        dirsOnly: false,
       });
-    });
+      const newChildren = response.entries.map((entry) => entry.path);
+      const newEntriesMap = new Map<string, FileTreeItem>();
 
-    // Sync write BEFORE returning so getItem(child) in the same async turn
-    // sees real isDir/name instead of a file-like fallback.
-    newEntriesMap.forEach((value, key) => {
-      knownItemsRef.current.items.set(key, value);
-    });
-    const parentUpdate: FileTreeItem = {
-      ...existingItem,
-      children: newChildren,
-    };
-    knownItemsRef.current.items.set(itemPath, parentUpdate);
+      // If the parent directory is gitignored, every descendant is effectively
+      // ignored too. The backend's per-directory gitignore check can't see that
+      // because an ignored directory's own contents aren't separately covered
+      // by any rule — the rule lives on the ancestor. Propagate the flag here
+      // so the UI can dim the entire subtree consistently.
+      const parentIgnored = existingItem.isIgnored;
 
-    setLazyItemsMap((prev) => {
-      const next = new Map(prev);
-      newEntriesMap.forEach((value, key) => next.set(key, value));
-      next.set(itemPath, parentUpdate);
-      return next;
-    });
+      response.entries.forEach((entry) => {
+        newEntriesMap.set(entry.path, {
+          id: entry.path,
+          name: entry.name,
+          path: entry.path,
+          isDir: entry.is_dir,
+          isSymlink: entry.is_symlink,
+          isIgnored: entry.is_ignored || parentIgnored,
+          symlinkTarget: entry.symlink_target,
+        });
+      });
 
-    return newChildren;
-  }, [resolveItem, showHidden]);
+      // Sync write BEFORE returning so getItem(child) in the same async turn
+      // sees real isDir/name instead of a file-like fallback.
+      newEntriesMap.forEach((value, key) => {
+        knownItemsRef.current.items.set(key, value);
+      });
+      const parentUpdate: FileTreeItem = {
+        ...existingItem,
+        children: newChildren,
+      };
+      knownItemsRef.current.items.set(itemPath, parentUpdate);
+
+      setLazyItemsMap((prev) => {
+        const next = new Map(prev);
+        newEntriesMap.forEach((value, key) => next.set(key, value));
+        next.set(itemPath, parentUpdate);
+        return next;
+      });
+
+      return newChildren;
+    },
+    [resolveItem, showHidden],
+  );
 
   const tree = useTree<FileTreeItem>({
-    rootItemId: 'root',
-    getItemName: (item: ItemInstance<FileTreeItem>) => item.getItemData()?.name ?? '',
+    rootItemId: "root",
+    getItemName: (item: ItemInstance<FileTreeItem>) => item.getItemData()?.name ?? "",
     isItemFolder: (item: ItemInstance<FileTreeItem>) => item.getItemData()?.isDir ?? false,
     dataLoader: {
       getItem: (itemId: string): FileTreeItem => {
-        if (itemId === 'root') {
+        if (itemId === "root") {
           return {
-            id: 'root',
-            name: 'root',
-            path: '',
+            id: "root",
+            name: "root",
+            path: "",
             isDir: true,
             isSymlink: false,
             isIgnored: false,
@@ -285,7 +277,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         return item || buildFallbackFileTreeItem(itemId, knownItemsRef.current.items);
       },
       getChildren: async (itemId: string): Promise<string[]> => {
-        if (itemId === 'root') return rootItemIds;
+        if (itemId === "root") return rootItemIds;
 
         const item = resolveItem(itemId);
         if (!item) return [];
@@ -296,7 +288,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
             // (typically gitignored / hidden roots after the eye toggle).
             return await loadDirectoryChildren(item.path);
           } catch (error) {
-            console.error('Failed to load children for', itemId, error);
+            console.error("Failed to load children for", itemId, error);
             return [];
           }
         }
@@ -339,7 +331,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
 
   const closePanel = useCallback(() => {
     setPanelState(null);
-    setPanelName('');
+    setPanelName("");
   }, []);
 
   const closeOverlays = useCallback(() => {
@@ -348,29 +340,35 @@ export const FileTree: React.FC<FileTreeProps> = ({
     closePanel();
   }, [closePanel]);
 
-  const handleItemClick = useCallback((item: FileTreeItem, isFolder: boolean, toggle: () => void) => {
-    if (isFolder) {
-      toggle();
-    } else {
-      beforeOpenFile?.();
-      if (onOpenFile) {
-        void onOpenFile(item.path, { preview: true });
-      } else if (editorContextId) {
-        void openFile(item.path, editorContextId, { preview: true });
-        activateCenterChromeTab(editorContextId, item.path, { placement: "focused" });
-      }
-    }
-  }, [beforeOpenFile, editorContextId, onOpenFile, openFile]);
-
-  const handleItemDoubleClick = useCallback((item: FileTreeItem, isFolder: boolean) => {
-    if (!isFolder) {
-      if (onOpenFile) {
-        void onOpenFile(item.path, { preview: false });
+  const handleItemClick = useCallback(
+    (item: FileTreeItem, isFolder: boolean, toggle: () => void) => {
+      if (isFolder) {
+        toggle();
       } else {
-        pinFile(item.path, editorContextId || undefined);
+        beforeOpenFile?.();
+        if (onOpenFile) {
+          void onOpenFile(item.path, { preview: true });
+        } else if (editorContextId) {
+          void openFile(item.path, editorContextId, { preview: true });
+          activateCenterChromeTab(editorContextId, item.path, { placement: "focused" });
+        }
       }
-    }
-  }, [editorContextId, onOpenFile, pinFile]);
+    },
+    [beforeOpenFile, editorContextId, onOpenFile, openFile],
+  );
+
+  const handleItemDoubleClick = useCallback(
+    (item: FileTreeItem, isFolder: boolean) => {
+      if (!isFolder) {
+        if (onOpenFile) {
+          void onOpenFile(item.path, { preview: false });
+        } else {
+          pinFile(item.path, editorContextId || undefined);
+        }
+      }
+    },
+    [editorContextId, onOpenFile, pinFile],
+  );
 
   const selectedItem = menuState
     ? initialItemsMap.get(menuState.itemPath) ||
@@ -378,48 +376,49 @@ export const FileTree: React.FC<FileTreeProps> = ({
       buildFallbackFileTreeItem(menuState.itemPath, knownItemsRef.current.items)
     : null;
 
-  const relativePath = selectedItem && rootPath
-    ? selectedItem.path === rootPath
-      ? '.'
-      : selectedItem.path.startsWith(`${rootPath}/`)
-        ? selectedItem.path.slice(rootPath.length + 1)
-        : selectedItem.path
-    : null;
+  const relativePath =
+    selectedItem && rootPath
+      ? selectedItem.path === rootPath
+        ? "."
+        : selectedItem.path.startsWith(`${rootPath}/`)
+          ? selectedItem.path.slice(rootPath.length + 1)
+          : selectedItem.path
+      : null;
 
-  const openCreatePanel = (mode: 'create-file' | 'create-folder') => {
+  const openCreatePanel = (mode: "create-file" | "create-folder") => {
     if (!selectedItem) return;
     const parentPath = selectedItem.isDir ? selectedItem.path : getParentPath(selectedItem.path);
     setPanelState({
       mode,
       targetPath: parentPath,
       parentPath,
-      initialName: '',
+      initialName: "",
       title:
-        mode === 'create-file'
-          ? t('fileTree.panels.newFile.title')
-          : t('fileTree.panels.newFolder.title'),
+        mode === "create-file"
+          ? t("fileTree.panels.newFile.title")
+          : t("fileTree.panels.newFolder.title"),
       description:
-        mode === 'create-file'
-          ? t('fileTree.panels.newFile.description', { name: getBaseName(parentPath) })
-          : t('fileTree.panels.newFolder.description', { name: getBaseName(parentPath) }),
+        mode === "create-file"
+          ? t("fileTree.panels.newFile.description", { name: getBaseName(parentPath) })
+          : t("fileTree.panels.newFolder.description", { name: getBaseName(parentPath) }),
       confirmLabel:
-        mode === 'create-file'
-          ? t('fileTree.panels.newFile.confirmLabel')
-          : t('fileTree.panels.newFolder.confirmLabel'),
+        mode === "create-file"
+          ? t("fileTree.panels.newFile.confirmLabel")
+          : t("fileTree.panels.newFolder.confirmLabel"),
     });
-    setPanelName('');
+    setPanelName("");
   };
 
   const openRenamePanel = () => {
     if (!selectedItem) return;
     setPanelState({
-      mode: 'rename',
+      mode: "rename",
       targetPath: selectedItem.path,
       parentPath: getParentPath(selectedItem.path),
       initialName: selectedItem.name,
-      title: t('fileTree.panels.rename.title'),
-      description: t('fileTree.panels.rename.description', { name: selectedItem.name }),
-      confirmLabel: t('fileTree.panels.rename.confirmLabel'),
+      title: t("fileTree.panels.rename.title"),
+      description: t("fileTree.panels.rename.description", { name: selectedItem.name }),
+      confirmLabel: t("fileTree.panels.rename.confirmLabel"),
     });
     setPanelName(selectedItem.name);
   };
@@ -434,16 +433,16 @@ export const FileTree: React.FC<FileTreeProps> = ({
       await fsApi.duplicatePath(selectedItem.path, destination);
       await handleRefresh();
       toastManager.add({
-        title: t('fileTree.toasts.duplicated.title'),
-        description: t('fileTree.toasts.duplicated.description', { name: selectedItem.name }),
-        type: 'success',
+        title: t("fileTree.toasts.duplicated.title"),
+        description: t("fileTree.toasts.duplicated.description", { name: selectedItem.name }),
+        type: "success",
       });
     } catch (error) {
-      console.error('Failed to duplicate path:', error);
+      console.error("Failed to duplicate path:", error);
       toastManager.add({
-        title: t('fileTree.toasts.duplicateFailed.title'),
-        description: t('fileTree.toasts.duplicateFailed.description', { name: selectedItem.name }),
-        type: 'error',
+        title: t("fileTree.toasts.duplicateFailed.title"),
+        description: t("fileTree.toasts.duplicateFailed.description", { name: selectedItem.name }),
+        type: "error",
       });
     } finally {
       setIsMutating(false);
@@ -460,17 +459,20 @@ export const FileTree: React.FC<FileTreeProps> = ({
       closeFilesByPrefix(selectedItem.path, editorContextId || undefined);
       await handleRefresh();
       toastManager.add({
-        title: t('fileTree.toasts.deleted.title'),
-        description: t('fileTree.toasts.deleted.description'),
-        type: 'success',
+        title: t("fileTree.toasts.deleted.title"),
+        description: t("fileTree.toasts.deleted.description"),
+        type: "success",
       });
       closeOverlays();
     } catch (error) {
-      console.error('Failed to delete path:', error);
+      console.error("Failed to delete path:", error);
       toastManager.add({
-        title: t('fileTree.toasts.deleteFailed.title'),
-        description: error instanceof Error ? error.message : t('fileTree.toasts.deleteFailed.description', { name: selectedItem.name }),
-        type: 'error',
+        title: t("fileTree.toasts.deleteFailed.title"),
+        description:
+          error instanceof Error
+            ? error.message
+            : t("fileTree.toasts.deleteFailed.description", { name: selectedItem.name }),
+        type: "error",
       });
     } finally {
       setIsMutating(false);
@@ -483,9 +485,9 @@ export const FileTree: React.FC<FileTreeProps> = ({
     const trimmedName = panelName.trim();
     if (!trimmedName) {
       toastManager.add({
-        title: t('fileTree.toasts.nameRequired.title'),
-        description: t('fileTree.toasts.nameRequired.description'),
-        type: 'warning',
+        title: t("fileTree.toasts.nameRequired.title"),
+        description: t("fileTree.toasts.nameRequired.description"),
+        type: "warning",
       });
       return;
     }
@@ -493,9 +495,9 @@ export const FileTree: React.FC<FileTreeProps> = ({
     try {
       setIsMutating(true);
 
-      if (panelState.mode === 'create-file') {
+      if (panelState.mode === "create-file") {
         const nextPath = joinPath(panelState.parentPath, trimmedName);
-        await fsApi.writeFile(nextPath, '');
+        await fsApi.writeFile(nextPath, "");
         await handleRefresh();
         if (onOpenFile) {
           await onOpenFile(nextPath, { preview: false });
@@ -505,10 +507,10 @@ export const FileTree: React.FC<FileTreeProps> = ({
             activateCenterChromeTab(editorContextId, nextPath, { placement: "focused" });
           }
         }
-      } else if (panelState.mode === 'create-folder') {
+      } else if (panelState.mode === "create-folder") {
         await fsApi.createDir(joinPath(panelState.parentPath, trimmedName));
         await handleRefresh();
-      } else if (panelState.mode === 'rename') {
+      } else if (panelState.mode === "rename") {
         const nextPath = joinPath(panelState.parentPath, trimmedName);
         await fsApi.renamePath(panelState.targetPath, nextPath);
         replaceOpenFilePath(panelState.targetPath, nextPath, editorContextId || undefined);
@@ -516,23 +518,24 @@ export const FileTree: React.FC<FileTreeProps> = ({
       }
 
       toastManager.add({
-        title: t('fileTree.toasts.actionSuccess.title'),
+        title: t("fileTree.toasts.actionSuccess.title"),
         description:
-          panelState.mode === 'create-file'
-            ? t('fileTree.toasts.actionSuccess.fileCreated')
-            : panelState.mode === 'create-folder'
-              ? t('fileTree.toasts.actionSuccess.folderCreated')
-              : t('fileTree.toasts.actionSuccess.renamed'),
-        type: 'success',
+          panelState.mode === "create-file"
+            ? t("fileTree.toasts.actionSuccess.fileCreated")
+            : panelState.mode === "create-folder"
+              ? t("fileTree.toasts.actionSuccess.folderCreated")
+              : t("fileTree.toasts.actionSuccess.renamed"),
+        type: "success",
       });
       closePanel();
       setMenuState(null);
     } catch (error) {
-      console.error('File tree action failed:', error);
+      console.error("File tree action failed:", error);
       toastManager.add({
-        title: t('fileTree.toasts.actionFailed.title'),
-        description: error instanceof Error ? error.message : t('fileTree.toasts.actionFailed.description'),
-        type: 'error',
+        title: t("fileTree.toasts.actionFailed.title"),
+        description:
+          error instanceof Error ? error.message : t("fileTree.toasts.actionFailed.description"),
+        type: "error",
       });
     } finally {
       setIsMutating(false);
@@ -549,28 +552,31 @@ export const FileTree: React.FC<FileTreeProps> = ({
     t,
   ]);
 
-  const applyRenameSelection = React.useCallback((input: HTMLInputElement | null) => {
-    if (!input || !panelState || panelState.mode !== 'rename') return;
+  const applyRenameSelection = React.useCallback(
+    (input: HTMLInputElement | null) => {
+      if (!input || !panelState || panelState.mode !== "rename") return;
 
-    const originalName = panelState.initialName;
-    if (!originalName) {
-      input.select();
-      return;
-    }
+      const originalName = panelState.initialName;
+      if (!originalName) {
+        input.select();
+        return;
+      }
 
-    input.setSelectionRange(
-      0,
-      getRenameSelectionEnd(originalName, Boolean(selectedItem?.isDir)),
-    );
-  }, [panelState, selectedItem]);
+      input.setSelectionRange(0, getRenameSelectionEnd(originalName, Boolean(selectedItem?.isDir)));
+    },
+    [panelState, selectedItem],
+  );
 
-  const handlePanelInputKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
-    event.stopPropagation();
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      void submitPanel();
-    }
-  }, [submitPanel]);
+  const handlePanelInputKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      event.stopPropagation();
+      if (event.key === "Enter") {
+        event.preventDefault();
+        void submitPanel();
+      }
+    },
+    [submitPanel],
+  );
 
   useEffect(() => {
     renameSelectionAppliedRef.current = false;
@@ -578,7 +584,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
     requestAnimationFrame(() => {
       const input = panelInputRef.current;
       input?.focus({ preventScroll: true });
-      if (panelState.mode === 'rename' && input) {
+      if (panelState.mode === "rename" && input) {
         const selectionEnd = getRenameSelectionEnd(
           panelState.initialName,
           Boolean(selectedItem?.isDir),
@@ -599,7 +605,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
   useEffect(() => {
     if (!revealEnabled) return;
     if (!fileTreeRevealTarget || !currentProjectPath) return;
-    if (fileTreeRevealTarget.workspaceId && fileTreeRevealTarget.workspaceId !== editorContextId) return;
+    if (fileTreeRevealTarget.workspaceId && fileTreeRevealTarget.workspaceId !== editorContextId)
+      return;
     if (
       fileTreeRevealTarget.path !== currentProjectPath &&
       !fileTreeRevealTarget.path.startsWith(`${currentProjectPath}/`)
@@ -641,8 +648,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           targetPath: target.path,
           loadDirectoryChildren: (path) => loadDirectoryChildrenRef.current(path),
           getTree: () => treeRef.current,
-          isCancelled: () =>
-            cancelled || revealRequestIdRef.current !== revealRequestId,
+          isCancelled: () => cancelled || revealRequestIdRef.current !== revealRequestId,
         });
         if (cancelled || revealRequestIdRef.current !== revealRequestId) return;
 
@@ -650,8 +656,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         const row = await waitForFileTreeRowLayout(
           () => resolveFileTreeRowElement(targetItem, target.path),
           {
-            isCancelled: () =>
-              cancelled || revealRequestIdRef.current !== revealRequestId,
+            isCancelled: () => cancelled || revealRequestIdRef.current !== revealRequestId,
             minDelayMs: expandedAny ? fileTreeBranchRevealDelayMs() : 0,
           },
         );
@@ -666,7 +671,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           }, 1800);
         }
       } catch (error) {
-        console.error('Failed to reveal file tree path', target.path, error);
+        console.error("Failed to reveal file tree path", target.path, error);
       } finally {
         if (!cancelled) {
           clearFileTreeRevealTarget(target.requestId);
@@ -706,9 +711,9 @@ export const FileTree: React.FC<FileTreeProps> = ({
   if (data.length === 0) {
     return (
       <div className="px-4 py-8 text-center">
-        <Folder className="size-8 mx-auto text-muted-foreground mb-2 opacity-50" />
-        <p className="text-muted-foreground text-xs text-pretty italic">
-          {t('fileTree.empty.noFilesFound')}
+        <Folder className="mx-auto mb-2 size-8 text-muted-foreground opacity-50" />
+        <p className="text-xs text-pretty text-muted-foreground italic">
+          {t("fileTree.empty.noFilesFound")}
         </p>
       </div>
     );
@@ -724,11 +729,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
     <div className="relative px-2">
       <div
         ref={tree.registerElement}
-        {...tree.getContainerProps(t('fileTree.containerAriaLabel'))}
-        className={cn(
-          'text-sm rounded-md',
-          isTreeHighlighted && 'bg-sidebar-accent/35',
-        )}
+        {...tree.getContainerProps(t("fileTree.containerAriaLabel"))}
+        className={cn("rounded-md text-sm", isTreeHighlighted && "bg-sidebar-accent/35")}
       >
         <FileTreeNodes
           nodes={nestedItems}

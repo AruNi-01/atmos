@@ -42,13 +42,7 @@ export interface TerminalAgentSelectorOption {
   iconType?: "built-in" | "custom";
 }
 
-function AgentGlyph({
-  option,
-  size = 16,
-}: {
-  option: TerminalAgentSelectorOption;
-  size?: number;
-}) {
+function AgentGlyph({ option, size = 16 }: { option: TerminalAgentSelectorOption; size?: number }) {
   if (option.iconType === "custom") {
     return <Bot className={cn(size >= 18 ? "size-5" : "size-4", "text-muted-foreground")} />;
   }
@@ -111,15 +105,9 @@ type PanelProps = SharedProps & {
   onRunConfigChange: (agentId: string, value: TerminalAgentRunConfigInput | null) => void;
 };
 
-type TerminalAgentSelectorWithRunConfigProps =
-  | FloatingProps
-  | FieldProps
-  | MenuProps
-  | PanelProps;
+type TerminalAgentSelectorWithRunConfigProps = FloatingProps | FieldProps | MenuProps | PanelProps;
 
-export function TerminalAgentSelectorWithRunConfig(
-  props: TerminalAgentSelectorWithRunConfigProps,
-) {
+export function TerminalAgentSelectorWithRunConfig(props: TerminalAgentSelectorWithRunConfigProps) {
   const t = useTranslations("Agent.components.selector");
   const runConfigText = useTranslations("Agent.components.runConfig");
   const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false);
@@ -135,9 +123,7 @@ export function TerminalAgentSelectorWithRunConfig(
   const settings = useFunctionSettingsStore((state) => state.settings);
   const loadFunctionSettings = useFunctionSettingsStore((state) => state.load);
   const allowRunConfig =
-    props.variant === "field" || props.variant === "panel"
-      ? props.showRunConfig !== false
-      : true;
+    props.variant === "field" || props.variant === "panel" ? props.showRunConfig !== false : true;
 
   const [agentListOpen, setAgentListOpen] = React.useState(false);
   const [lockedAgentId, setLockedAgentId] = React.useState<string | null>(null);
@@ -152,11 +138,14 @@ export function TerminalAgentSelectorWithRunConfig(
     setLockedAgentId(null);
   }, [open]);
 
-  const openRunConfig = React.useCallback((agentId: string) => {
-    if (!allowRunConfig) return;
-    setLockedAgentId(agentId);
-    setAgentListOpen(false);
-  }, [allowRunConfig]);
+  const openRunConfig = React.useCallback(
+    (agentId: string) => {
+      if (!allowRunConfig) return;
+      setLockedAgentId(agentId);
+      setAgentListOpen(false);
+    },
+    [allowRunConfig],
+  );
 
   const savedRunConfigs = React.useMemo(
     () => readSavedRunConfigs(settings?.agent_cli?.saved_run_configs),
@@ -200,16 +189,19 @@ export function TerminalAgentSelectorWithRunConfig(
 
   const pickerAgentId = lockedAgentId ?? props.value;
   const pickerLocked = lockedAgentId !== null;
-  const pickerOption = options.find((item) => item.id === pickerAgentId)
-    ?? (pickerAgentId ? { id: pickerAgentId, label: pickerAgentId } : null);
+  const pickerOption =
+    options.find((item) => item.id === pickerAgentId) ??
+    (pickerAgentId ? { id: pickerAgentId, label: pickerAgentId } : null);
   const pickerOptions = pickerLocked && pickerOption ? [pickerOption] : options;
-  const showAgentList = props.variant !== "panel" && allowRunConfig && agentListOpen && !pickerLocked;
+  const showAgentList =
+    props.variant !== "panel" && allowRunConfig && agentListOpen && !pickerLocked;
   const barePicker = !showAgentList && !(options.length === 0 && props.variant === "floating");
   const menuSurface = barePicker
     ? "min-w-0 overflow-x-visible overflow-y-visible border-0 bg-transparent p-0 shadow-none"
     : "p-1.5";
   const agentTemplates = savedRunConfigs.filter((item) => item.agent_id === pickerAgentId);
-  const showTemplates = allowRunConfig && props.purpose !== "automation" && agentTemplates.length > 0 && !showAgentList;
+  const showTemplates =
+    allowRunConfig && props.purpose !== "automation" && agentTemplates.length > 0 && !showAgentList;
 
   const agentRows = (
     <div className="grid gap-0.5">
@@ -254,9 +246,9 @@ export function TerminalAgentSelectorWithRunConfig(
             </button>
             <span className="relative inline-flex size-7 shrink-0 items-center justify-center">
               {selected ? (
-                <Check className="size-4 text-foreground group-hover/agent:opacity-0 group-focus-within/agent:opacity-0" />
+                <Check className="size-4 text-foreground group-focus-within/agent:opacity-0 group-hover/agent:opacity-0" />
               ) : (
-                <Settings2 className="size-3.5 text-muted-foreground group-hover/agent:opacity-0 group-focus-within/agent:opacity-0" />
+                <Settings2 className="size-3.5 text-muted-foreground group-focus-within/agent:opacity-0 group-hover/agent:opacity-0" />
               )}
               <button
                 type="button"
@@ -266,7 +258,7 @@ export function TerminalAgentSelectorWithRunConfig(
                   event.stopPropagation();
                   if (!disabledReason) openRunConfig(option.id);
                 }}
-                className="absolute inset-0 inline-flex items-center justify-center rounded-md text-muted-foreground opacity-0 pointer-events-none group-hover/agent:pointer-events-auto group-hover/agent:opacity-100 group-focus-within/agent:pointer-events-auto group-focus-within/agent:opacity-100 hover:bg-background hover:text-foreground"
+                className="pointer-events-none absolute inset-0 inline-flex items-center justify-center rounded-md text-muted-foreground opacity-0 group-focus-within/agent:pointer-events-auto group-focus-within/agent:opacity-100 group-hover/agent:pointer-events-auto group-hover/agent:opacity-100 hover:bg-background hover:text-foreground"
                 aria-label={t("configureAgent", { label: option.label })}
               >
                 <Settings2 className="size-3.5" />
@@ -295,7 +287,12 @@ export function TerminalAgentSelectorWithRunConfig(
     ) : showAgentList ? (
       agentRows
     ) : (
-      <div className={cn("flex w-full min-w-[22rem] flex-col", (pickerLocked || showTemplates) && "gap-2")}>
+      <div
+        className={cn(
+          "flex w-full min-w-[22rem] flex-col",
+          (pickerLocked || showTemplates) && "gap-2",
+        )}
+      >
         {pickerLocked ? (
           <button
             type="button"
@@ -342,7 +339,11 @@ export function TerminalAgentSelectorWithRunConfig(
             if (terminalPickerClosesOnModelChoice() && props.variant !== "panel") setOpen(false);
           }}
           menuInline
-          className={props.variant === "panel" ? undefined : "rounded-2xl bg-popover shadow-[0_10px_18px_rgba(0,0,0,0.14)]"}
+          className={
+            props.variant === "panel"
+              ? undefined
+              : "rounded-2xl bg-popover shadow-[0_10px_18px_rgba(0,0,0,0.14)]"
+          }
           onOpenAgentList={
             props.variant !== "panel" && allowRunConfig && !pickerLocked
               ? () => setAgentListOpen(true)
@@ -388,7 +389,7 @@ export function TerminalAgentSelectorWithRunConfig(
                 type="button"
                 className={cn(
                   "z-20 inline-flex size-10 cursor-pointer items-center justify-center rounded-lg border border-border/60 bg-background text-foreground/90 shadow-[0_6px_20px_rgba(0,0,0,0.18)] backdrop-blur-sm hover:bg-accent hover:text-foreground",
-                  props.triggerPlacement === "inline" ? "relative" : "absolute -left-3 -top-3",
+                  props.triggerPlacement === "inline" ? "relative" : "absolute -top-3 -left-3",
                 )}
                 aria-label={t("selectAgent")}
               >
@@ -422,7 +423,7 @@ export function TerminalAgentSelectorWithRunConfig(
   if (props.variant === "field") {
     return (
       <div className={props.className}>
-        <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <label className="mb-2 block text-xs font-medium tracking-wide text-muted-foreground uppercase">
           {props.label ?? t("fieldLabel")}
         </label>
         <DropdownMenu modal={false} open={open} onOpenChange={setOpen}>
@@ -468,9 +469,7 @@ export function TerminalAgentSelectorWithRunConfig(
 
   if (props.variant === "panel") {
     return (
-      <div
-        className={cn("max-h-[min(24rem,70vh)] overflow-auto", props.className)}
-      >
+      <div className={cn("max-h-[min(24rem,70vh)] overflow-auto", props.className)}>
         {overlayContent}
       </div>
     );
@@ -489,7 +488,8 @@ export function TerminalAgentSelectorWithRunConfig(
         onMouseDown={handleContentInteraction}
         onPointerDownOutside={(event) => {
           keepPickerOpenForEffortPopover(event);
-          if (!pointerDownKeepsTerminalPickerOpen(event.target)) props.onPointerDownOutside?.(event);
+          if (!pointerDownKeepsTerminalPickerOpen(event.target))
+            props.onPointerDownOutside?.(event);
         }}
         onPointerDown={handleContentInteraction}
         onWheel={handleContentInteraction}

@@ -16,13 +16,7 @@ const suiteMap = {
     "--grep-invert",
     "@stateful",
   ],
-  "smoke-stateful": [
-    "test",
-    "--project=chromium",
-    "--grep",
-    "@stateful",
-    ...statefulWorkerArgs,
-  ],
+  "smoke-stateful": ["test", "--project=chromium", "--grep", "@stateful", ...statefulWorkerArgs],
   "smoke-routes": ["test", "--project=chromium", "tests/smoke/routes"],
   "smoke-onboarding": ["test", "--project=chromium", "tests/smoke/onboarding"],
   "smoke-app-shell": ["test", "--project=chromium", "tests/smoke/app-shell", ...statefulWorkerArgs],
@@ -50,8 +44,7 @@ const args = [
 const env = {
   ...process.env,
   CI: process.env.CI ?? "1",
-  PLAYWRIGHT_BLOB_OUTPUT_DIR:
-    process.env.PLAYWRIGHT_BLOB_OUTPUT_DIR ?? `reports/blob/${suite}`,
+  PLAYWRIGHT_BLOB_OUTPUT_DIR: process.env.PLAYWRIGHT_BLOB_OUTPUT_DIR ?? `reports/blob/${suite}`,
 };
 
 if (dryRun) {

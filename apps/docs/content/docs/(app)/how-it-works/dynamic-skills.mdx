@@ -9,11 +9,11 @@ It uses the same on-disk enable/disable mechanism as [Skill Management](/feature
 
 ## When to use it
 
-| Situation | What Dynamic Skills does |
-|-----------|--------------------------|
-| A project skill keeps steering the Agent the wrong way | Disable it for this project; Skills page stays in sync |
-| A workspace synced skills from the project, but this task does not need one | Disable under the **workplace** only; the project copy stays untouched |
-| You already started an Agent session | Disable removes the live `SKILL.md` entrypoint so the current session cannot reload that path |
+| Situation                                                                   | What Dynamic Skills does                                                                      |
+| --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| A project skill keeps steering the Agent the wrong way                      | Disable it for this project; Skills page stays in sync                                        |
+| A workspace synced skills from the project, but this task does not need one | Disable under the **workplace** only; the project copy stays untouched                        |
+| You already started an Agent session                                        | Disable removes the live `SKILL.md` entrypoint so the current session cannot reload that path |
 
 Global skills remain toggleable when Atmos marks them manageable. System and Inside Project skills stay read-only.
 
@@ -125,10 +125,10 @@ So “materialize” means: **turn one thick symlink into a local folder skeleto
 
 Enable moves back whatever was stored under `.disabled`:
 
-| How the skill arrived | What `.disabled` usually holds | After enable |
-|-----------------------|--------------------------------|--------------|
-| Copy | Real skill files | Real files at the live path |
-| Symlink (after materialize) | The symlink node pointing at the project | That symlink again |
+| How the skill arrived       | What `.disabled` usually holds           | After enable                |
+| --------------------------- | ---------------------------------------- | --------------------------- |
+| Copy                        | Real skill files                         | Real files at the live path |
+| Symlink (after materialize) | The symlink node pointing at the project | That symlink again          |
 
 Materialized parent folders (for example `workplace/.claude` becoming a real directory) are **not** rebuilt into the original single parent symlink. Only the skill you toggled is restored.
 

@@ -5,10 +5,7 @@ import { Button, cn } from "@workspace/ui";
 import { Check, Copy, ImageOff, Trash2 } from "lucide-react";
 import { ImageCopyMenuHost } from "@/shared/components/image-copy-context-menu";
 
-import {
-  formatQualityLabel,
-  summarizeAppshotRecord,
-} from "../lib/appshot-protocol";
+import { formatQualityLabel, summarizeAppshotRecord } from "../lib/appshot-protocol";
 import type { AppshotRecordDetail } from "../types";
 
 type AppshotRecordRowProps = {
@@ -36,8 +33,7 @@ export function AppshotRecordRow({
   // Prefer real window title only — do not fall back to inventing "Untitled window"
   // when metadata has no distinct title (common for host list_windows empty titles).
   const distinctTitle = record.metadata.window_title?.trim() || "";
-  const hasDistinctTitle =
-    Boolean(distinctTitle) && distinctTitle !== summary.appLabel;
+  const hasDistinctTitle = Boolean(distinctTitle) && distinctTitle !== summary.appLabel;
   const previewLabel = hasDistinctTitle
     ? `${summary.appLabel} - ${distinctTitle}`
     : summary.appLabel;
@@ -58,7 +54,9 @@ export function AppshotRecordRow({
             <button
               type="button"
               className="block h-full w-full cursor-zoom-in overflow-hidden"
-              aria-label={t("history.recordRow.previewScreenshotAriaLabel", { label: previewLabel })}
+              aria-label={t("history.recordRow.previewScreenshotAriaLabel", {
+                label: previewLabel,
+              })}
               onClick={() => onPreview(record)}
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- Appshot thumbnails are local Tauri data URLs, not remote optimized assets. */}
@@ -97,7 +95,11 @@ export function AppshotRecordRow({
               size="icon-xs"
               disabled={disabled}
               title={copied ? t("history.recordRow.copiedTitle") : t("history.recordRow.copyTitle")}
-              aria-label={copied ? t("history.recordRow.copiedAriaLabel") : t("history.recordRow.copyAriaLabel")}
+              aria-label={
+                copied
+                  ? t("history.recordRow.copiedAriaLabel")
+                  : t("history.recordRow.copyAriaLabel")
+              }
               onClick={() => onCopy(record.timestamp)}
               className="cursor-pointer"
             >

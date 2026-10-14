@@ -20,10 +20,7 @@ describe("Desktop Use settings wiring", () => {
   });
 
   it("includes desktop-use in SettingsModalTab enum list", () => {
-    const params = readFileSync(
-      join(root, "apps/web/src/shared/lib/nuqs/searchParams.ts"),
-      "utf8",
-    );
+    const params = readFileSync(join(root, "apps/web/src/shared/lib/nuqs/searchParams.ts"), "utf8");
     expect(params).toContain('"desktop-use"');
     expect(params).not.toContain('"apps"');
   });
@@ -40,17 +37,11 @@ describe("Desktop Use settings wiring", () => {
 
   it("Desktop Use section sends OS grants to Permission access (not AppShot brand)", () => {
     const section = readFileSync(
-      join(
-        root,
-        "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx",
-      ),
+      join(root, "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx"),
       "utf8",
     );
     const access = readFileSync(
-      join(
-        root,
-        "apps/web/src/features/settings/components/PermissionAccessSettingsSection.tsx",
-      ),
+      join(root, "apps/web/src/features/settings/components/PermissionAccessSettingsSection.tsx"),
       "utf8",
     );
     expect(section).toContain("openPermissionAccessSettings");
@@ -64,10 +55,7 @@ describe("Desktop Use settings wiring", () => {
 
   it("separates install vs update and keeps grant only in permissions", () => {
     const section = readFileSync(
-      join(
-        root,
-        "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx",
-      ),
+      join(root, "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx"),
       "utf8",
     );
     // Install and update are distinct actions
@@ -81,10 +69,7 @@ describe("Desktop Use settings wiring", () => {
 
   it("groups engine (stop/uninstall), permissions, and visibility as collapsible cards", () => {
     const section = readFileSync(
-      join(
-        root,
-        "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx",
-      ),
+      join(root, "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx"),
       "utf8",
     );
     expect(section).toContain("SettingsGroupCard");
@@ -121,10 +106,7 @@ describe("Desktop Use settings wiring", () => {
 
   it("shows download progress left of install and Check toast for runtime", () => {
     const section = readFileSync(
-      join(
-        root,
-        "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx",
-      ),
+      join(root, "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx"),
       "utf8",
     );
     expect(section).toContain("downloadProgressAside");
@@ -136,10 +118,7 @@ describe("Desktop Use settings wiring", () => {
 
   it("uninstall requires a confirm dialog that lists feature impact", () => {
     const section = readFileSync(
-      join(
-        root,
-        "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx",
-      ),
+      join(root, "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx"),
       "utf8",
     );
     expect(section).toContain("uninstallOpen");
@@ -154,10 +133,7 @@ describe("Desktop Use settings wiring", () => {
 
   it("exposes operation border toggle via prefs IPC inside visibility group", () => {
     const section = readFileSync(
-      join(
-        root,
-        "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx",
-      ),
+      join(root, "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx"),
       "utf8",
     );
     expect(section).toContain('t("border.title")');
@@ -169,10 +145,7 @@ describe("Desktop Use settings wiring", () => {
 
   it("DesktopUsePermissionsPanel uses doctor + host grant only", () => {
     const panel = readFileSync(
-      join(
-        root,
-        "apps/web/src/features/settings/components/DesktopUsePermissionsPanel.tsx",
-      ),
+      join(root, "apps/web/src/features/settings/components/DesktopUsePermissionsPanel.tsx"),
       "utf8",
     );
     expect(panel).toContain("desktop_use_doctor");
@@ -197,10 +170,7 @@ describe("Desktop Use settings wiring", () => {
 
   it("Desktop Use settings does not reload engine status from permissions panel", () => {
     const section = readFileSync(
-      join(
-        root,
-        "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx",
-      ),
+      join(root, "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx"),
       "utf8",
     );
     expect(section).toContain("openPermissionAccessSettings");
@@ -210,17 +180,11 @@ describe("Desktop Use settings wiring", () => {
 
   it("install/update pokes permissions panel so grant rows appear without re-expand", () => {
     const section = readFileSync(
-      join(
-        root,
-        "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx",
-      ),
+      join(root, "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx"),
       "utf8",
     );
     const panel = readFileSync(
-      join(
-        root,
-        "apps/web/src/features/settings/components/DesktopUsePermissionsPanel.tsx",
-      ),
+      join(root, "apps/web/src/features/settings/components/DesktopUsePermissionsPanel.tsx"),
       "utf8",
     );
     // Parent → panel one-way signal after driver actions (not reverse onStatusChange).
@@ -229,17 +193,12 @@ describe("Desktop Use settings wiring", () => {
     expect(section).toContain("atmos_cli_probe");
     expect(panel).toContain("engineInstalledFromParent");
     expect(panel).toContain("doctorRefreshToken");
-    expect(section).toMatch(
-      /actionKey === "install"[\s\S]*setPermissionsOpen\(true\)/,
-    );
+    expect(section).toMatch(/actionKey === "install"[\s\S]*setPermissionsOpen\(true\)/);
   });
 
   it("gates Desktop Use on package min CLI version before engine install", () => {
     const section = readFileSync(
-      join(
-        root,
-        "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx",
-      ),
+      join(root, "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx"),
       "utf8",
     );
     expect(section).toContain("installOrUpdateCli");
@@ -260,17 +219,12 @@ describe("Desktop Use settings wiring", () => {
     expect(client).toContain("openPermissionAccessSettingsInApp");
     expect(client).toContain("Permission access");
     // No legacy standalone permission window as primary recovery
-    expect(client).not.toMatch(
-      /appshot_show_permissions_window[\s\S]*openDesktopUseSettingsInApp/,
-    );
+    expect(client).not.toMatch(/appshot_show_permissions_window[\s\S]*openDesktopUseSettingsInApp/);
   });
 
   it("header Appshots authorize opens Desktop Use settings", () => {
     const popover = readFileSync(
-      join(
-        root,
-        "apps/web/src/features/appshot/components/AppshotsHistoryPopover.tsx",
-      ),
+      join(root, "apps/web/src/features/appshot/components/AppshotsHistoryPopover.tsx"),
       "utf8",
     );
     expect(popover).toContain("useOpenPermissionAccessSettings");
@@ -280,10 +234,7 @@ describe("Desktop Use settings wiring", () => {
 
   it("settings sidebar uses DesktopUseIcon for desktop-use", () => {
     const sidebar = readFileSync(
-      join(
-        root,
-        "apps/web/src/features/settings/components/settings-modal-sidebar.tsx",
-      ),
+      join(root, "apps/web/src/features/settings/components/settings-modal-sidebar.tsx"),
       "utf8",
     );
     expect(sidebar).toContain("DesktopUseIcon");
@@ -301,10 +252,7 @@ describe("Desktop Use settings wiring", () => {
 
   it("Privacy lists Atmos.app OS grants with the drag overlay IPC", () => {
     const panel = readFileSync(
-      join(
-        root,
-        "apps/web/src/features/settings/components/AtmosAppPermissionsPanel.tsx",
-      ),
+      join(root, "apps/web/src/features/settings/components/AtmosAppPermissionsPanel.tsx"),
       "utf8",
     );
     expect(panel).toContain("macos_app_permissions_status");

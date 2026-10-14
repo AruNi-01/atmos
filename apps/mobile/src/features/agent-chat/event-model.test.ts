@@ -46,11 +46,19 @@ const parts: AgentPart[] = [
   }),
   tool("search", {
     params: { type: "search", query: "n" },
-    result: { type: "search_hits", query: "n", hits: [{ path: "src/a.ts", line: 1, snippet: "const n" }] },
+    result: {
+      type: "search_hits",
+      query: "n",
+      hits: [{ path: "src/a.ts", line: 1, snippet: "const n" }],
+    },
   }),
   tool("web_search", {
     params: { type: "web_search", query: "atmos" },
-    result: { type: "web_search", query: "atmos", links: [{ url: "https://example.com", title: "Example" }] },
+    result: {
+      type: "web_search",
+      query: "atmos",
+      links: [{ url: "https://example.com", title: "Example" }],
+    },
   }),
   tool("fetch", {
     params: { type: "fetch", url: "https://example.com" },
@@ -78,7 +86,10 @@ const parts: AgentPart[] = [
   }),
   tool("other", {
     tool_call_id: "todos",
-    result: { type: "other", value: { kind: "todos", todos: [{ content: "Ship", status: "pending" }] } },
+    result: {
+      type: "other",
+      value: { kind: "todos", todos: [{ content: "Ship", status: "pending" }] },
+    },
   }),
   tool("other", {
     tool_call_id: "json",
@@ -184,17 +195,21 @@ describe("mobile event view models", () => {
     expect(text.sheet).toBeNull();
     const next = openLeafSheet(initialExpandState(), "tour-text", text);
     expect(next.sheets).toHaveLength(1);
-    expect(next.sheets[0]?.model.blocks.some((block) => block.text.includes("child said hello"))).toBe(true);
+    expect(
+      next.sheets[0]?.model.blocks.some((block) => block.text.includes("child said hello")),
+    ).toBe(true);
     expect(furtherSheetTarget(next.sheets[0]!.model)).toBeNull();
     expect(openLeafSheet(next, "again", text).sheets).toHaveLength(1);
   });
 
   test("a tour event opens one leaf sheet and a sheet does not open another", () => {
     const initial = activateWaitForBar(initialExpandState(), "m1");
-    const tour = eventViewModel(tool("read", {
-      params: { type: "read", path: "src/a.ts" },
-      result: { type: "file_content", path: "src/a.ts", text: "const n = 1;\n" },
-    }));
+    const tour = eventViewModel(
+      tool("read", {
+        params: { type: "read", path: "src/a.ts" },
+        result: { type: "file_content", path: "src/a.ts", text: "const n = 1;\n" },
+      }),
+    );
     const next = openLeafSheet(initial, "read-1", tour);
     expect(next.sheets).toHaveLength(1);
     expect(furtherSheetTarget(next.sheets[0]!.model)).toBeNull();
@@ -205,39 +220,45 @@ describe("mobile event view models", () => {
   });
 
   test("an other-tool sheet shows params and the result", () => {
-    const model = eventViewModel(tool("other", {
-      name: "VendorTool",
-      title: "VendorTool",
-      params: { type: "other", value: { type: "ReadFile", path: "/tmp/a.ts" } },
-      result: { type: "other", value: { bytes: 12, ok: true } },
-    }));
+    const model = eventViewModel(
+      tool("other", {
+        name: "VendorTool",
+        title: "VendorTool",
+        params: { type: "other", value: { type: "ReadFile", path: "/tmp/a.ts" } },
+        result: { type: "other", value: { bytes: 12, ok: true } },
+      }),
+    );
     const text = model.blocks.map((block) => block.text).join("\n");
     expect(text).toContain("ReadFile");
     expect(text).toContain("/tmp/a.ts");
-    expect(text).toContain("\"bytes\": 12");
-    const listed = eventViewModel(tool("other", {
-      name: "Tool",
-      title: "List apps, crates, packages layout",
-      params: {
-        type: "other",
-        value: {
-          command: "ls apps crates packages",
-          description: "List apps, crates, packages layout",
+    expect(text).toContain('"bytes": 12');
+    const listed = eventViewModel(
+      tool("other", {
+        name: "Tool",
+        title: "List apps, crates, packages layout",
+        params: {
+          type: "other",
+          value: {
+            command: "ls apps crates packages",
+            description: "List apps, crates, packages layout",
+          },
         },
-      },
-      result: { type: "text", text: "apps\ncrates\n" },
-    }));
+        result: { type: "text", text: "apps\ncrates\n" },
+      }),
+    );
     const listedText = listed.blocks.map((block) => block.text).join("\n");
     expect(listedText).toContain("ls apps crates packages");
     expect(listedText).toContain("apps\ncrates");
   });
 
   test("an empty image read sheet keeps the path and preview kind", () => {
-    const model = eventViewModel(tool("read", {
-      name: "Read",
-      params: { type: "read", path: "shot.png" },
-      result: { type: "file_content", path: "shot.png", text: "" },
-    }));
+    const model = eventViewModel(
+      tool("read", {
+        name: "Read",
+        params: { type: "read", path: "shot.png" },
+        result: { type: "file_content", path: "shot.png", text: "" },
+      }),
+    );
     expect(model.kind).toBe("empty");
     expect(model.blocks.some((block) => block.text === "shot.png")).toBe(true);
     expect(model.blocks.some((block) => block.text === "Image")).toBe(true);
@@ -255,15 +276,26 @@ describe("mobile event view models", () => {
       params: { type: "read", path: "a.ts" },
       result: { type: "file_content", path: "a.ts", text: "export {}\n" },
     });
-    const model = transcriptEventModel(parent, [], [
-      { role: "assistant", parts: [parent] },
-      { role: "assistant", parts: [child, { type: "text", text: "from the child", parent_tool_call_id: "parent" }] },
-    ]);
+    const model = transcriptEventModel(
+      parent,
+      [],
+      [
+        { role: "assistant", parts: [parent] },
+        {
+          role: "assistant",
+          parts: [child, { type: "text", text: "from the child", parent_tool_call_id: "parent" }],
+        },
+      ],
+    );
     expect(model.sheet?.nested.map((row) => row.kind)).toEqual(["code", "text_part"]);
     expect(model.sheet?.nested.every((row) => row.sheet == null)).toBe(true);
     const opened = openLeafSheet(initialExpandState(), "parent", model);
     expect(opened.sheets).toHaveLength(1);
     expect(furtherSheetTarget(opened.sheets[0]!.model)).toBeNull();
-    expect(opened.sheets[0]!.model.nested.some((row) => row.blocks.some((block) => block.text.includes("export {}")))).toBe(true);
+    expect(
+      opened.sheets[0]!.model.nested.some((row) =>
+        row.blocks.some((block) => block.text.includes("export {}")),
+      ),
+    ).toBe(true);
   });
 });

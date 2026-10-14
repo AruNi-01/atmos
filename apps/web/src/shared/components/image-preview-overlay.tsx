@@ -3,7 +3,17 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
-import { Copy, Download, PencilSparkles, Redo2, Save, Undo2, X, ZoomIn, ZoomOut } from "lucide-react";
+import {
+  Copy,
+  Download,
+  PencilSparkles,
+  Redo2,
+  Save,
+  Undo2,
+  X,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import { toastManager } from "@workspace/ui";
 import {
   ImageCopyContextMenu,
@@ -175,7 +185,8 @@ export function imagePreviewOriginRectFromElement(
     height: frame.height,
     radius,
     naturalWidth: naturalImg && naturalImg.naturalWidth > 0 ? naturalImg.naturalWidth : undefined,
-    naturalHeight: naturalImg && naturalImg.naturalHeight > 0 ? naturalImg.naturalHeight : undefined,
+    naturalHeight:
+      naturalImg && naturalImg.naturalHeight > 0 ? naturalImg.naturalHeight : undefined,
   };
 }
 
@@ -198,7 +209,7 @@ export function imagePreviewStageRect(
   let top = topGap + pillHeight + toolbarGap;
   let bottomInset = Math.max(
     0,
-    Math.round(viewport.height * (1 - IMAGE_PREVIEW_STAGE_RATIO) / 2),
+    Math.round((viewport.height * (1 - IMAGE_PREVIEW_STAGE_RATIO)) / 2),
   );
 
   if (top + bottomInset >= viewport.height) {
@@ -259,10 +270,10 @@ export function imagePreviewImageRect(
 ): ImagePreviewOriginRect {
   const stage = imagePreviewStageRect(viewport, toolbarHeight);
   const size = imagePreviewContainedSize(
-    natural
-    ?? (origin.naturalWidth && origin.naturalHeight
-      ? { width: origin.naturalWidth, height: origin.naturalHeight }
-      : null),
+    natural ??
+      (origin.naturalWidth && origin.naturalHeight
+        ? { width: origin.naturalWidth, height: origin.naturalHeight }
+        : null),
     stage,
   );
   return {
@@ -323,9 +334,9 @@ export function ImagePreviewOverlay({
   const t = useTranslations("shared.imagePreviewOverlay");
   const { menu, onContextMenu, closeMenu, imgRef } = useImageCopyMenu();
   const reduceMotion =
-    typeof window !== "undefined"
-    && typeof window.matchMedia === "function"
-    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const duration = durationMs ?? (reduceMotion ? 0 : IMAGE_PREVIEW_ZOOM_MS);
   const [opened, setOpened] = React.useState(duration <= 0);
   const [closing, setClosing] = React.useState(false);
@@ -429,19 +440,21 @@ export function ImagePreviewOverlay({
     ? { x: 0, y: 0, scale: 1 }
     : { x: fromOrigin.x, y: fromOrigin.y, scale: fromOrigin.scale };
   const userTransform = `translate(${pan.x}px, ${pan.y}px) scale(${userZoom})`;
-  const visualRadius = Math.max(originRect?.radius ?? DEFAULT_THUMB_RADIUS_PX, DEFAULT_THUMB_RADIUS_PX);
-  const borderRadius = expanded
-    ? 0
-    : imagePreviewScaledRadius(visualRadius, fromOrigin.scale);
+  const visualRadius = Math.max(
+    originRect?.radius ?? DEFAULT_THUMB_RADIUS_PX,
+    DEFAULT_THUMB_RADIUS_PX,
+  );
+  const borderRadius = expanded ? 0 : imagePreviewScaledRadius(visualRadius, fromOrigin.scale);
   const radiusClip = `inset(0 round ${borderRadius}px)`;
-  const transition = duration <= 0
-    ? "none"
-    : [
-        `transform ${duration}ms ${ZOOM_EASE}`,
-        `opacity ${duration}ms ${ZOOM_EASE}`,
-        `border-radius ${duration}ms ${ZOOM_EASE}`,
-        `clip-path ${duration}ms ${ZOOM_EASE}`,
-      ].join(", ");
+  const transition =
+    duration <= 0
+      ? "none"
+      : [
+          `transform ${duration}ms ${ZOOM_EASE}`,
+          `opacity ${duration}ms ${ZOOM_EASE}`,
+          `border-radius ${duration}ms ${ZOOM_EASE}`,
+          `clip-path ${duration}ms ${ZOOM_EASE}`,
+        ].join(", ");
   const stageFade = duration <= 0 ? "none" : `opacity ${duration}ms ${ZOOM_EASE}`;
 
   React.useLayoutEffect(() => {
@@ -460,24 +473,27 @@ export function ImagePreviewOverlay({
     return () => observer.disconnect();
   }, [expanded, drawing, canAnnotate]);
 
-  const handlePointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
-    if (drawing) return;
-    event.preventDefault();
-    event.stopPropagation();
-    draggingRef.current = true;
-    didDragRef.current = false;
-    setDragging(true);
-    dragRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      panX: pan.x,
-      panY: pan.y,
-    };
-    if (typeof event.currentTarget.setPointerCapture === "function") {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    }
-  }, [drawing, pan]);
+  const handlePointerDown = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0) return;
+      if (drawing) return;
+      event.preventDefault();
+      event.stopPropagation();
+      draggingRef.current = true;
+      didDragRef.current = false;
+      setDragging(true);
+      dragRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+        panX: pan.x,
+        panY: pan.y,
+      };
+      if (typeof event.currentTarget.setPointerCapture === "function") {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }
+    },
+    [drawing, pan],
+  );
 
   const handlePointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (!draggingRef.current) return;
@@ -510,7 +526,11 @@ export function ImagePreviewOverlay({
   const rememberNaturalSize = React.useCallback((image: HTMLImageElement | null) => {
     if (!image || image.naturalWidth < 1 || image.naturalHeight < 1) return;
     setNatural((current) => {
-      if (current && current.width === image.naturalWidth && current.height === image.naturalHeight) {
+      if (
+        current &&
+        current.width === image.naturalWidth &&
+        current.height === image.naturalHeight
+      ) {
         return current;
       }
       return { width: image.naturalWidth, height: image.naturalHeight };
@@ -538,47 +558,56 @@ export function ImagePreviewOverlay({
     paintAnnotateStrokes(ctx, strokes, 1);
   }, [cssSize.height, cssSize.width, strokes]);
 
-  const handleAnnotatePointerDown = React.useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!drawing || event.button !== 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    didDragRef.current = true;
-    annotatingRef.current = true;
-    const canvas = event.currentTarget;
-    const width = Math.max(1, cssSize.width);
-    const height = Math.max(1, cssSize.height);
-    const point = pointerToCanvasPoint(event, canvas, width, height);
-    setRedoStrokes([]);
-    setStrokes((current) => [...current, { points: [point] }]);
-    if (typeof canvas.setPointerCapture === "function") {
-      canvas.setPointerCapture(event.pointerId);
-    }
-  }, [cssSize.height, cssSize.width, drawing]);
+  const handleAnnotatePointerDown = React.useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      if (!drawing || event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      didDragRef.current = true;
+      annotatingRef.current = true;
+      const canvas = event.currentTarget;
+      const width = Math.max(1, cssSize.width);
+      const height = Math.max(1, cssSize.height);
+      const point = pointerToCanvasPoint(event, canvas, width, height);
+      setRedoStrokes([]);
+      setStrokes((current) => [...current, { points: [point] }]);
+      if (typeof canvas.setPointerCapture === "function") {
+        canvas.setPointerCapture(event.pointerId);
+      }
+    },
+    [cssSize.height, cssSize.width, drawing],
+  );
 
-  const handleAnnotatePointerMove = React.useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!drawing || !annotatingRef.current) return;
-    const canvas = event.currentTarget;
-    const width = Math.max(1, cssSize.width);
-    const height = Math.max(1, cssSize.height);
-    const point = pointerToCanvasPoint(event, canvas, width, height);
-    setStrokes((current) => {
-      if (current.length === 0) return current;
-      const next = current.slice();
-      const last = next[next.length - 1]!;
-      next[next.length - 1] = { points: [...last.points, point] };
-      return next;
-    });
-  }, [cssSize.height, cssSize.width, drawing]);
+  const handleAnnotatePointerMove = React.useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      if (!drawing || !annotatingRef.current) return;
+      const canvas = event.currentTarget;
+      const width = Math.max(1, cssSize.width);
+      const height = Math.max(1, cssSize.height);
+      const point = pointerToCanvasPoint(event, canvas, width, height);
+      setStrokes((current) => {
+        if (current.length === 0) return current;
+        const next = current.slice();
+        const last = next[next.length - 1]!;
+        next[next.length - 1] = { points: [...last.points, point] };
+        return next;
+      });
+    },
+    [cssSize.height, cssSize.width, drawing],
+  );
 
-  const handleAnnotatePointerUp = React.useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
-    annotatingRef.current = false;
-    if (typeof event.currentTarget.releasePointerCapture !== "function") return;
-    try {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    } catch {
-      // Pointer was not captured in this environment.
-    }
-  }, []);
+  const handleAnnotatePointerUp = React.useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      annotatingRef.current = false;
+      if (typeof event.currentTarget.releasePointerCapture !== "function") return;
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      } catch {
+        // Pointer was not captured in this environment.
+      }
+    },
+    [],
+  );
 
   const handleSaveAnnotation = React.useCallback(() => {
     if (!onSaveAnnotation || strokes.length === 0 || savingAnnotation) return;
@@ -692,7 +721,7 @@ export function ImagePreviewOverlay({
         <div
           aria-hidden="true"
           data-image-preview-stage=""
-          className="absolute inset-0 bg-white/10 ring-1 ring-inset ring-white/20"
+          className="absolute inset-0 bg-white/10 ring-1 ring-white/20 ring-inset"
           style={{
             borderRadius: STAGE_RADIUS_PX,
             opacity: expanded ? 1 : 0,
@@ -776,11 +805,7 @@ export function ImagePreviewOverlay({
               >
                 <ZoomIn className="size-4" />
               </ImagePreviewToolbarButton>
-              <ImagePreviewToolbarButton
-                action="copy"
-                label={t("copyImage")}
-                onClick={handleCopy}
-              >
+              <ImagePreviewToolbarButton action="copy" label={t("copyImage")} onClick={handleCopy}>
                 <Copy className="size-4" />
               </ImagePreviewToolbarButton>
               <ImagePreviewToolbarButton
@@ -790,11 +815,7 @@ export function ImagePreviewOverlay({
               >
                 <Download className="size-4" />
               </ImagePreviewToolbarButton>
-              <ImagePreviewToolbarButton
-                action="close"
-                label={t("close")}
-                onClick={requestClose}
-              >
+              <ImagePreviewToolbarButton action="close" label={t("close")} onClick={requestClose}>
                 <X className="size-4" />
               </ImagePreviewToolbarButton>
             </div>
@@ -843,7 +864,7 @@ export function ImagePreviewOverlay({
               src={src}
               alt={alt}
               draggable={false}
-              className="pointer-events-none block h-full w-full select-none object-contain"
+              className="pointer-events-none block h-full w-full object-contain select-none"
               style={{
                 borderRadius: "inherit",
                 transform: userTransform,
@@ -872,12 +893,7 @@ export function ImagePreviewOverlay({
         </div>
       </div>
       {menu ? (
-        <ImageCopyContextMenu
-          src={src}
-          imgRef={imgRef}
-          position={menu}
-          onClose={closeMenu}
-        />
+        <ImageCopyContextMenu src={src} imgRef={imgRef} position={menu} onClose={closeMenu} />
       ) : null}
     </div>,
     document.body,

@@ -13,6 +13,7 @@ Return a complete commit message in this format:
 [optional footer]
 
 Requirements:
+
 - Use a valid conventional commit type
 - Keep the first line under 72 characters
 - Use imperative mood
@@ -21,9 +22,10 @@ Requirements:
 - Mention the concrete feature, area, or module that changed
 - Do not use bullets, code fences, quotes, or commentary outside the commit
 - Do not mention that the message was generated
-${outputLanguageInstruction}
+  ${outputLanguageInstruction}
 
 Allowed types:
+
 - feat: new feature or user-visible enhancement
 - fix: bug fix or regression fix
 - refactor: structural change without feature or bug behavior change
@@ -37,11 +39,13 @@ Allowed types:
 - revert: revert a previous change
 
 Scope guidance:
+
 - Add a scope only when it improves clarity and stays concise
 - Prefer concrete areas such as auth, landing, editor, git, api, ui, workspace
 - Skip the scope if it makes the subject clunky or overly specific
 
 Body guidance:
+
 - Explain what changed and why, not implementation trivia
 - Use one or two short paragraphs
 - Wrap lines naturally at about 72 characters
@@ -49,6 +53,7 @@ Body guidance:
 - If relevant, mention the most important files or surfaces affected
 
 Decision rules:
+
 - Prefer what changed over how it changed
 - Prefer specific product or code-area names over vague words like update or changes
 - Ignore local-only noise, caches, generated assets, and transient workspace metadata unless they are the main change

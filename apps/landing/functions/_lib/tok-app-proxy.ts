@@ -55,18 +55,12 @@ export function isProxiedAppAssetPath(pathname: string): boolean {
   );
 }
 
-export function appUpstreamUrl(
-  request: Request,
-  appOrigin: string = APP_ORIGIN,
-): URL {
+export function appUpstreamUrl(request: Request, appOrigin: string = APP_ORIGIN): URL {
   const incoming = new URL(request.url);
   return new URL(`${incoming.pathname}${incoming.search}`, appOrigin);
 }
 
-function copyUpstreamHeaders(
-  upstream: Headers,
-  extra?: Record<string, string>,
-): Headers {
+function copyUpstreamHeaders(upstream: Headers, extra?: Record<string, string>): Headers {
   const headers = new Headers();
   upstream.forEach((value, key) => {
     if (!STRIP_FROM_UPSTREAM.has(key.toLowerCase())) {
@@ -81,10 +75,7 @@ function copyUpstreamHeaders(
   return headers;
 }
 
-async function fetchApp(
-  request: Request,
-  appOrigin: string = APP_ORIGIN,
-): Promise<Response> {
+async function fetchApp(request: Request, appOrigin: string = APP_ORIGIN): Promise<Response> {
   const upstreamUrl = appUpstreamUrl(request, appOrigin);
   const headers = new Headers();
   const accept = request.headers.get("Accept");
@@ -121,9 +112,7 @@ export async function proxyTokPage(
 
   const contentType = upstream.headers.get("content-type") ?? "";
   const isHtml = contentType.includes("text/html");
-  const extra = isHtml
-    ? { "Cache-Control": "private, no-store" }
-    : undefined;
+  const extra = isHtml ? { "Cache-Control": "private, no-store" } : undefined;
 
   // Keep /_next URLs root-relative. Rewriting them to app.atmos.land makes
   // Next hydrate on a foreign origin and the page stays the empty dark shell.

@@ -21,11 +21,7 @@ export function usePausedDeadlineCountdown(input: {
   }
 
   const remainingMs =
-    shown.key === input.sessionKey
-      ? shown.remainingMs
-      : input.sessionKey
-        ? input.durationMs
-        : 0;
+    shown.key === input.sessionKey ? shown.remainingMs : input.sessionKey ? input.durationMs : 0;
 
   const onCompleteRef = useRef(input.onComplete);
   const leftoverRef = useRef(remainingMs);

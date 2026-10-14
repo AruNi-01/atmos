@@ -2,10 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const changeSection = readFileSync(
-  join(import.meta.dir, "../sidebar/ChangeSection.tsx"),
-  "utf8",
-);
+const changeSection = readFileSync(join(import.meta.dir, "../sidebar/ChangeSection.tsx"), "utf8");
 const changesPanel = readFileSync(
   join(import.meta.dir, "../../features/git/components/ChangesPanel.tsx"),
   "utf8",
@@ -75,9 +72,9 @@ describe("center list hover", () => {
     expect(changeSection).toContain("onStage([file.path])");
     expect(changeSection).toContain("onDiscard?.([file.path])");
 
-    const changeSectionUsages = [
-      ...changesPanel.matchAll(/<ChangeSection[\s\S]*?\/>/g),
-    ].map((match) => match[0]);
+    const changeSectionUsages = [...changesPanel.matchAll(/<ChangeSection[\s\S]*?\/>/g)].map(
+      (match) => match[0],
+    );
     expect(changeSectionUsages.length).toBeGreaterThan(0);
     for (const usage of changeSectionUsages) {
       expect(usage).not.toContain("onStageAll");
@@ -124,7 +121,7 @@ describe("center list hover", () => {
   it("uses instant hover on changes tree rows", () => {
     const rowClass = diffFileTree.slice(
       diffFileTree.indexOf("group/file relative flex h-7"),
-      diffFileTree.indexOf("file ? \"cursor-pointer\""),
+      diffFileTree.indexOf('file ? "cursor-pointer"'),
     );
     expect(rowClass).not.toContain("transition-colors");
   });
@@ -132,7 +129,7 @@ describe("center list hover", () => {
   it("uses instant hover on review diff file rows", () => {
     const rowClass = frozenFileList.slice(
       frozenFileList.indexOf("group flex items-center gap-2 rounded-md px-2 py-1.5"),
-      frozenFileList.indexOf("isCurrent && \"bg-sidebar-accent\""),
+      frozenFileList.indexOf('isCurrent && "bg-sidebar-accent"'),
     );
     expect(rowClass).toContain("hover:bg-sidebar-accent");
     expect(rowClass).not.toContain("transition-colors");

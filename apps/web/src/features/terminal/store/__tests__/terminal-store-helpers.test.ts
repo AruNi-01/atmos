@@ -112,8 +112,6 @@ describe("shouldHydrateFixedTabFromTmuxWindows", () => {
 describe("tmux window list encoding", () => {
   it("encodes standalone automation scope ids in tmux REST paths", () => {
     const restApi = readFileSync(join(import.meta.dir, "../../../../api/rest-api.ts"), "utf8");
-    expect(restApi).toContain(
-      "`/api/system/tmux-windows/${encodeURIComponent(workspaceId)}`",
-    );
+    expect(restApi).toContain("`/api/system/tmux-windows/${encodeURIComponent(workspaceId)}`");
   });
 });

@@ -60,36 +60,24 @@ function faviconCandidates(url: string): string[] {
   ].filter((item): item is string => Boolean(item));
 }
 
-export function SiteFavicon({
-  url,
-  className,
-}: {
-  url: string;
-  className?: string;
-}) {
+export function SiteFavicon({ url, className }: { url: string; className?: string }) {
   return <SiteFaviconInner key={url} url={url} className={className} />;
 }
 
-function SiteFaviconInner({
-  url,
-  className,
-}: {
-  url: string;
-  className?: string;
-}) {
+function SiteFaviconInner({ url, className }: { url: string; className?: string }) {
   const candidates = faviconCandidates(url);
   const [index, setIndex] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const src = candidates[index] ?? null;
 
   return (
-    <span className={cn("relative flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[3px]", className)}>
-      <Globe
-        className={cn(
-          "size-full text-muted-foreground",
-          loaded && "hidden",
-        )}
-      />
+    <span
+      className={cn(
+        "relative flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[3px]",
+        className,
+      )}
+    >
+      <Globe className={cn("size-full text-muted-foreground", loaded && "hidden")} />
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element -- Third-party favicons are tiny remote images.
         <img
@@ -97,10 +85,7 @@ function SiteFaviconInner({
           src={src}
           alt=""
           referrerPolicy="no-referrer"
-          className={cn(
-            "absolute inset-0 size-full object-contain",
-            !loaded && "opacity-0",
-          )}
+          className={cn("absolute inset-0 size-full object-contain", !loaded && "opacity-0")}
           onLoad={() => setLoaded(true)}
           onError={() => {
             setLoaded(false);
@@ -159,15 +144,18 @@ export function AgentToolFileChip({
   const rangeText = formatToolLineRange(lineRange);
   const tooltip = displayAgentChatFilePath(path, cwd, roots);
   const openable = resolveAgentChatOpenableFile(path, cwd, roots);
-  const resolvedKind = useAgentChatResolvedPathKind(hintedIsDir == null ? openable?.path : undefined);
-  const isDir = hintedIsDir ?? (
-    resolvedKind === "directory"
-    || (resolvedKind === "pending" && agentChatPathLooksLikeDirectory(path))
+  const resolvedKind = useAgentChatResolvedPathKind(
+    hintedIsDir == null ? openable?.path : undefined,
   );
-  const exists = hintedIsDir === true
-    || resolvedKind === "file"
-    || resolvedKind === "directory"
-    || (resolvedKind === "pending" && !agentChatPathLooksLikeDirectory(path));
+  const isDir =
+    hintedIsDir ??
+    (resolvedKind === "directory" ||
+      (resolvedKind === "pending" && agentChatPathLooksLikeDirectory(path)));
+  const exists =
+    hintedIsDir === true ||
+    resolvedKind === "file" ||
+    resolvedKind === "directory" ||
+    (resolvedKind === "pending" && !agentChatPathLooksLikeDirectory(path));
   const clickable = Boolean(openable) && exists;
   const chipClassName = cn(
     "inline-flex max-w-full min-w-0 items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-[12px] leading-4 text-foreground",
@@ -179,9 +167,7 @@ export function AgentToolFileChip({
     <>
       <AgentToolFileGlyph path={path} isDir={isDir} className="size-3.5" />
       <span className="min-w-0 truncate">{name}</span>
-      {rangeText ? (
-        <span className="shrink-0 text-muted-foreground">{rangeText}</span>
-      ) : null}
+      {rangeText ? <span className="shrink-0 text-muted-foreground">{rangeText}</span> : null}
     </>
   );
 
@@ -194,9 +180,9 @@ export function AgentToolFileChip({
         event.stopPropagation();
         void openWorkspacePath(path, {
           line: line ?? lineRange?.start,
-          isDir: hintedIsDir ?? (
-            resolvedKind === "directory" ? true : resolvedKind === "file" ? false : undefined
-          ),
+          isDir:
+            hintedIsDir ??
+            (resolvedKind === "directory" ? true : resolvedKind === "file" ? false : undefined),
           selectRanges,
         });
       }}
@@ -204,15 +190,13 @@ export function AgentToolFileChip({
       {label}
     </button>
   ) : (
-    <span className={chipClassName}>
-      {label}
-    </span>
+    <span className={chipClassName}>{label}</span>
   );
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>{chip}</TooltipTrigger>
-      <TooltipContent side="top" className="z-50 max-w-sm break-all font-mono text-xs">
+      <TooltipContent side="top" className="z-50 max-w-sm font-mono text-xs break-all">
         {tooltip}
       </TooltipContent>
     </Tooltip>
@@ -223,13 +207,7 @@ export type AgentToolSurface = "card" | "plain";
 
 export type AgentToolBody = "panel" | "plain";
 
-function AgentTreeFade({
-  enabled,
-  children,
-}: {
-  enabled: boolean;
-  children: React.ReactNode;
-}) {
+function AgentTreeFade({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
   const reduced = useReducedMotion();
   const skip = !enabled || Boolean(reduced);
   const [open, setOpen] = useState(skip);
@@ -320,7 +298,7 @@ export function AgentToolCard({
     >
       <div className="not-prose flex min-w-0 items-center gap-1" data-tree-header>
         <CollapsibleTrigger asChild>
-          <div className="group inline-flex min-w-0 max-w-full cursor-pointer items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground hover:text-foreground">
+          <div className="group inline-flex max-w-full min-w-0 cursor-pointer items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground hover:text-foreground">
             <span
               className={cn(
                 "flex size-4 shrink-0 items-center justify-center text-muted-foreground [&>svg]:size-3.5",
@@ -387,7 +365,9 @@ export function AgentToolDiffStats({
   return (
     <span className="shrink-0 font-mono text-xs">
       {deletions > 0 ? <span className="text-red-500">-{deletions}</span> : null}
-      {deletions > 0 && additions > 0 ? <span className="mx-1 text-muted-foreground">/</span> : null}
+      {deletions > 0 && additions > 0 ? (
+        <span className="mx-1 text-muted-foreground">/</span>
+      ) : null}
       {additions > 0 ? <span className="text-green-500">+{additions}</span> : null}
     </span>
   );

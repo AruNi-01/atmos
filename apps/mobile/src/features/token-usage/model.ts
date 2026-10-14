@@ -9,7 +9,10 @@ import {
   startOfWeek,
   startOfYear,
 } from "date-fns";
-import type { DailyTokenUsageResponse, TokenUsageOverviewResponse } from "@atmos/api-types/ws/dto/token-usage";
+import type {
+  DailyTokenUsageResponse,
+  TokenUsageOverviewResponse,
+} from "@atmos/api-types/ws/dto/token-usage";
 
 export type Resolution = "month" | "day";
 export type UsageMetric = "tokens" | "cost";
@@ -35,8 +38,26 @@ export const MIX_COLORS_LIGHT = ["#0284C7", "#16A34A", "#C026D3", "#D97706", "#6
 export const HEATMAP_DARK = ["#2f2f35", "#13362a", "#165742", "#11825f", "#12b886"] as const;
 export const HEATMAP_LIGHT = ["#ececf1", "#d0ece6", "#9edacd", "#5fc1ae", "#20a689"] as const;
 
-const PALETTE_DARK = ["#38BDF8", "#F97316", "#A78BFA", "#4ADE80", "#F472B6", "#FBBF24", "#2DD4BF", "#F87171"];
-const PALETTE_LIGHT = ["#0284C7", "#EA580C", "#7C3AED", "#16A34A", "#DB2777", "#D97706", "#0D9488", "#DC2626"];
+const PALETTE_DARK = [
+  "#38BDF8",
+  "#F97316",
+  "#A78BFA",
+  "#4ADE80",
+  "#F472B6",
+  "#FBBF24",
+  "#2DD4BF",
+  "#F87171",
+];
+const PALETTE_LIGHT = [
+  "#0284C7",
+  "#EA580C",
+  "#7C3AED",
+  "#16A34A",
+  "#DB2777",
+  "#D97706",
+  "#0D9488",
+  "#DC2626",
+];
 const OTHER = "other";
 
 export function sortDays(days: DailyTokenUsageResponse[]) {
@@ -86,12 +107,16 @@ export function overviewShares(
     }
   } else {
     for (const row of overview.by_client ?? []) {
-      totals.set(row.client_id, (totals.get(row.client_id) ?? 0) + amount(row.total_tokens, row.total_cost_usd, metric));
+      totals.set(
+        row.client_id,
+        (totals.get(row.client_id) ?? 0) + amount(row.total_tokens, row.total_cost_usd, metric),
+      );
     }
   }
   const ranked = [...totals.entries()].filter(([id]) => id !== OTHER).sort((a, b) => b[1] - a[1]);
   const top = ranked.slice(0, 5);
-  const other = ranked.slice(5).reduce((sum, [, value]) => sum + value, 0) + (totals.get(OTHER) ?? 0);
+  const other =
+    ranked.slice(5).reduce((sum, [, value]) => sum + value, 0) + (totals.get(OTHER) ?? 0);
   const rows = other > 0 ? [...top, [OTHER, other] as [string, number]] : top;
   const total = rows.reduce((sum, [, value]) => sum + value, 0);
   if (total <= 0) return [];
@@ -104,14 +129,19 @@ export function overviewShares(
   }));
 }
 
-export function buildHeatmap(days: DailyTokenUsageResponse[], year: string, metric: UsageMetric): HeatmapWeek[] {
+export function buildHeatmap(
+  days: DailyTokenUsageResponse[],
+  year: string,
+  metric: UsageMetric,
+): HeatmapWeek[] {
   if (!year) return [];
   const start = startOfWeek(startOfYear(new Date(Number(year), 0, 1)), { weekStartsOn: 0 });
   const end = endOfWeek(endOfYear(new Date(Number(year), 0, 1)), { weekStartsOn: 0 });
   const byDate = new Map(days.map((day) => [day.date, day]));
   let max = 0;
   for (const day of days) {
-    if (day.date.startsWith(`${year}-`)) max = Math.max(max, amount(day.total_tokens, day.total_cost_usd, metric));
+    if (day.date.startsWith(`${year}-`))
+      max = Math.max(max, amount(day.total_tokens, day.total_cost_usd, metric));
   }
   const calendar = eachDayOfInterval({ start, end });
   const weeks: HeatmapWeek[] = [];
@@ -121,7 +151,11 @@ export function buildHeatmap(days: DailyTokenUsageResponse[], year: string, metr
         const date = format(day, "yyyy-MM-dd");
         const inYear = format(day, "yyyy") === year;
         const detail = inYear ? (byDate.get(date) ?? null) : null;
-        const count = inYear ? (detail ? amount(detail.total_tokens, detail.total_cost_usd, metric) : 0) : null;
+        const count = inYear
+          ? detail
+            ? amount(detail.total_tokens, detail.total_cost_usd, metric)
+            : 0
+          : null;
         return { date, count, level: levelOf(count, max), detail };
       }),
     });
@@ -141,10 +175,14 @@ function levelOf(count: number | null, max: number): 0 | 1 | 2 | 3 | 4 {
 export function monthLabels(weeks: HeatmapWeek[], year: string) {
   return Array.from({ length: 12 }, (_, month) => {
     const prefix = `${year}-${String(month + 1).padStart(2, "0")}-`;
-    const weekIndex = weeks.findIndex((week) => week.cells.some((cell) => cell.date.startsWith(prefix)));
+    const weekIndex = weeks.findIndex((week) =>
+      week.cells.some((cell) => cell.date.startsWith(prefix)),
+    );
     if (weekIndex < 0) return null;
     return {
-      label: new Intl.DateTimeFormat("en", { month: "short" }).format(new Date(Number(year), month, 1)),
+      label: new Intl.DateTimeFormat("en", { month: "short" }).format(
+        new Date(Number(year), month, 1),
+      ),
       weekIndex,
     };
   }).filter((item): item is { label: string; weekIndex: number } => item !== null);
@@ -182,9 +220,14 @@ function periodLabel(key: string, resolution: Resolution) {
   return (resolution === "day" ? dayLabelFormat : monthLabelFormat).format(date);
 }
 
-export function timeline(days: DailyTokenUsageResponse[], resolution: Resolution, metric: UsageMetric) {
+export function timeline(
+  days: DailyTokenUsageResponse[],
+  resolution: Resolution,
+  metric: UsageMetric,
+) {
   const buckets = new Map<string, { label: string; value: number }>();
-  for (const key of periodKeys(days, resolution)) buckets.set(key, { label: periodLabel(key, resolution), value: 0 });
+  for (const key of periodKeys(days, resolution))
+    buckets.set(key, { label: periodLabel(key, resolution), value: 0 });
   for (const day of days) {
     const key = resolution === "day" ? day.date : day.date.slice(0, 7);
     const point = buckets.get(key) ?? { label: periodLabel(key, resolution), value: 0 };
@@ -214,17 +257,25 @@ export function stacked(
     }
     periods.set(key, bucket);
   }
-  const ranked = [...totals.entries()].filter(([id]) => id !== OTHER).sort((a, b) => b[1] - a[1]).map(([id]) => id);
+  const ranked = [...totals.entries()]
+    .filter(([id]) => id !== OTHER)
+    .sort((a, b) => b[1] - a[1])
+    .map(([id]) => id);
   const top = ranked.slice(0, 5);
   const hasOther = ranked.length > top.length;
   const keys = hasOther ? [...top, OTHER] : top;
-  const rows = [...periods.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([key, bucket]) => ({
-    label: periodLabel(key, resolution),
-    segments: keys.map((id) => {
-      if (id !== OTHER) return bucket[id] ?? 0;
-      return Object.entries(bucket).reduce((sum, [name, value]) => (top.includes(name) ? sum : sum + value), 0);
-    }),
-  }));
+  const rows = [...periods.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([key, bucket]) => ({
+      label: periodLabel(key, resolution),
+      segments: keys.map((id) => {
+        if (id !== OTHER) return bucket[id] ?? 0;
+        return Object.entries(bucket).reduce(
+          (sum, [name, value]) => (top.includes(name) ? sum : sum + value),
+          0,
+        );
+      }),
+    }));
   return { keys, bars: rows, labels: keys.map(humanize) };
 }
 
@@ -246,13 +297,25 @@ export function tokenMix(days: DailyTokenUsageResponse[]) {
 }
 
 export function formatDay(value: string) {
-  return new Intl.DateTimeFormat("en", { weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(parseISO(value));
+  return new Intl.DateTimeFormat("en", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(parseISO(value));
 }
 
 export function formatDayTitle(value: string) {
-  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(parseISO(value));
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(
+    parseISO(value),
+  );
 }
 
 export function formatUpdated(value: number) {
-  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value * 1000));
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value * 1000));
 }

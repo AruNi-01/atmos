@@ -8,10 +8,7 @@ interface UseTerminalInputReadyArgs {
   sessionId: string;
 }
 
-export function useTerminalInputReady({
-  onSessionReady,
-  sessionId,
-}: UseTerminalInputReadyArgs) {
+export function useTerminalInputReady({ onSessionReady, sessionId }: UseTerminalInputReadyArgs) {
   const inputReadyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputReadyFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputReadyNotifiedRef = useRef(false);

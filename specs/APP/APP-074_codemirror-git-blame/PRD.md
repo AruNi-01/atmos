@@ -5,7 +5,7 @@
 ## Context
 
 - **Problem**: When reading a file in Atmos, the user cannot tell which commit last touched the current line, or why, without leaving the editor for Git History. VS Code / GitLens already make this a one-hover lookup.
-- **Why now**: The CodeMirror file tab already has a git *change* gutter (index vs worktree hunks) and a header settings popover. Git log/history WS exists. Blame is the missing “who wrote this line” surface, and the interaction is settled: blame once per file, hover only reads cache, lazy commit stats.
+- **Why now**: The CodeMirror file tab already has a git _change_ gutter (index vs worktree hunks) and a header settings popover. Git log/history WS exists. Blame is the missing “who wrote this line” surface, and the interaction is settled: blame once per file, hover only reads cache, lazy commit stats.
 - **Related specs**:
   - Existing git change gutter in `apps/web` (`gitIntegration`) — **distinct**; this spec does not replace it.
   - APP-005 GitHub integration — optional later jump to a remote commit (Nice to Have).
@@ -48,7 +48,7 @@ flowchart TD
 ## User Stories
 
 - As a builder, I want the current line to show its last commit, so I do not have to open Git History for a one-line question.
-- As a builder, I want a hover card with the commit message and change stats, so I can judge *why* the line exists.
+- As a builder, I want a hover card with the commit message and change stats, so I can judge _why_ the line exists.
 - As a builder, I want that card to use Atmos controls and spacing, so it matches the rest of the editor chrome.
 - As a builder, I want a default-on switch next to the other CodeMirror settings, so I can silence blame without hunting a global page.
 - As a builder, I want uncommitted and skipped files to stay quiet, so blame never fights the existing git gutter or blocks editing.

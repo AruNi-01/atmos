@@ -9,10 +9,7 @@
  */
 
 import { useCallback } from "react";
-import {
-  settingsHref,
-  useOpenSettings,
-} from "@/features/settings/lib/open-settings";
+import { settingsHref, useOpenSettings } from "@/features/settings/lib/open-settings";
 import type { SettingsModalTab } from "@/shared/lib/nuqs/searchParams";
 
 function openSettingsTabInApp(tab: SettingsModalTab, hash?: string): void {

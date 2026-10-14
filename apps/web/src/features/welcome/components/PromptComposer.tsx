@@ -54,10 +54,7 @@ import {
 } from "@/shared/lib/link-preview";
 import { FollowHoverCard } from "@/shared/components/follow-hover-card";
 import { ComposerLinkOgPreview } from "@/shared/components/composer-link-og-preview";
-import {
-  fetchLinkPreview,
-  peekLinkPreview,
-} from "@/shared/lib/link-preview-query";
+import { fetchLinkPreview, peekLinkPreview } from "@/shared/lib/link-preview-query";
 import {
   imageExtensionForFile,
   normalizeComposerImageFile,
@@ -165,8 +162,7 @@ interface PromptComposerProps extends ComposerCallbacks {
   disabled?: boolean;
 }
 
-const CHIP_TOKEN_PATTERN =
-  String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\/cmd:[^\s]+|atmos:\/\/terminal-selection\/[a-zA-Z0-9_.:-]+|atmos:\/\/side-chat\/[a-zA-Z0-9_.:-]+|atmos:\/\/spawn\/[a-zA-Z0-9_.:-]+|atmos:\/\/skill-disable|\[#img-\d+\]|\[#appshot:\d{13}\]|\[#ctx:[a-z0-9-]+:[a-zA-Z0-9_-]+\]|${PASTE_TOKEN_SOURCE}|${URL_TOKEN_SOURCE}`;
+const CHIP_TOKEN_PATTERN = String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\/cmd:[^\s]+|atmos:\/\/terminal-selection\/[a-zA-Z0-9_.:-]+|atmos:\/\/side-chat\/[a-zA-Z0-9_.:-]+|atmos:\/\/spawn\/[a-zA-Z0-9_.:-]+|atmos:\/\/skill-disable|\[#img-\d+\]|\[#appshot:\d{13}\]|\[#ctx:[a-z0-9-]+:[a-zA-Z0-9_-]+\]|${PASTE_TOKEN_SOURCE}|${URL_TOKEN_SOURCE}`;
 const TOKEN_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})`, "g");
 const BACKSPACE_CHIP_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})\\u00A0?$`);
 const DELETE_CHIP_REGEX = new RegExp(`^(${CHIP_TOKEN_PATTERN})\\u00A0?`);
@@ -385,7 +381,11 @@ function buildDesktopUseChipIcon(): SVGSVGElement {
   svg.style.display = "block";
   svg.style.flexShrink = "0";
 
-  for (const d of ["M13 3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3", "M8 21h8", "M12 17v4"]) {
+  for (const d of [
+    "M13 3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3",
+    "M8 21h8",
+    "M12 17v4",
+  ]) {
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.setAttribute("d", d);
     svg.appendChild(path);
@@ -435,12 +435,7 @@ function buildAiContextIcon(icon: AiContextChipIcon): SVGSVGElement {
     case "code":
       return buildStrokeIcon(["m16 18 6-6-6-6", "m8 6-6 6 6 6"]);
     case "diff":
-      return buildStrokeIcon([
-        "M12 3v14",
-        "m7 8 5-5 5 5",
-        "M5 21h14",
-        "M9 17h6",
-      ]);
+      return buildStrokeIcon(["M12 3v14", "m7 8 5-5 5 5", "M5 21h14", "M9 17h6"]);
     case "book":
       return buildStrokeIcon([
         "M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20",
@@ -480,12 +475,7 @@ function buildAiContextIcon(icon: AiContextChipIcon): SVGSVGElement {
         "M6 21V9a9 9 0 0 0 9 9",
       ]);
     case "layout":
-      return buildStrokeIcon([
-        "M3 3h7v9H3z",
-        "M14 3h7v5h-7z",
-        "M14 12h7v9h-7z",
-        "M3 16h7v5H3z",
-      ]);
+      return buildStrokeIcon(["M3 3h7v9H3z", "M14 3h7v5h-7z", "M14 12h7v9h-7z", "M3 16h7v5H3z"]);
   }
 }
 
@@ -561,7 +551,11 @@ function buildChipNode(token: string): HTMLSpanElement {
     const isDir = relativePath.endsWith("/");
     span.dataset.tooltip = relativePath;
     span.className += " border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400";
-    const iconProps = getFileIconProps({ name: filename, isDir, className: "block size-3 shrink-0" });
+    const iconProps = getFileIconProps({
+      name: filename,
+      isDir,
+      className: "block size-3 shrink-0",
+    });
     const icon = document.createElement("img");
     icon.src = iconProps.src;
     icon.alt = iconProps.alt ?? "";
@@ -597,14 +591,19 @@ function buildChipNode(token: string): HTMLSpanElement {
     span.dataset.kind = "command";
     span.dataset.tooltip = `/${name}`;
     span.className += " border-border/70 bg-muted/60 text-foreground";
-    span.appendChild(buildStrokeIcon(["M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"]));
+    span.appendChild(
+      buildStrokeIcon([
+        "M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z",
+      ]),
+    );
     const label = document.createElement("span");
     label.textContent = name;
     span.appendChild(label);
   } else if (parseTerminalSelectionProtocolToken(token)) {
     span.dataset.kind = "terminal-selection";
     span.dataset.tooltip = promptComposerT("selectionContext.selectionTooltip");
-    span.className += " border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+    span.className +=
+      " border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
     span.appendChild(buildMessageCircleMoreIcon());
     const label = document.createElement("span");
     label.textContent = promptComposerT("selectionContext.selectionChip");
@@ -651,7 +650,8 @@ function buildChipNode(token: string): HTMLSpanElement {
     const countdown = document.createElement("span");
     countdown.dataset.sdCountdown = "true";
     countdown.hidden = true;
-    countdown.className = "px-0.5 text-[10px] font-semibold tabular-nums text-red-700/80 dark:text-red-300/80";
+    countdown.className =
+      "px-0.5 text-[10px] font-semibold tabular-nums text-red-700/80 dark:text-red-300/80";
     span.appendChild(countdown);
   } else if (token.startsWith("[#img-")) {
     span.dataset.kind = "img";
@@ -669,10 +669,7 @@ function buildChipNode(token: string): HTMLSpanElement {
   } else if (parseAiContextToken(token)) {
     const parsed = parseAiContextToken(token)!;
     const payload = resolveAiContextPrompt(token);
-    const presentation = presentAiContextChip(
-      parsed.kind,
-      payload?.promptText ?? "",
-    );
+    const presentation = presentAiContextChip(parsed.kind, payload?.promptText ?? "");
     span.dataset.kind = `ai-context:${parsed.kind}`;
     span.dataset.tooltip = presentation.tooltip;
     span.className += aiContextToneClassName(presentation.tone);
@@ -685,8 +682,7 @@ function buildChipNode(token: string): HTMLSpanElement {
     const lineCount = payload?.lineCount ?? 0;
     span.dataset.kind = "paste";
     span.dataset.pasteChip = "";
-    span.className +=
-      " cursor-pointer border-border/70 bg-muted/60 text-foreground";
+    span.className += " cursor-pointer border-border/70 bg-muted/60 text-foreground";
     span.appendChild(
       buildStrokeIcon([
         "M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2",
@@ -700,8 +696,7 @@ function buildChipNode(token: string): HTMLSpanElement {
     const url = parseUrlToken(token)!;
     span.dataset.kind = "url";
     span.dataset.tooltip = url;
-    span.className +=
-      " cursor-pointer border-border/70 bg-muted/60 text-foreground";
+    span.className += " cursor-pointer border-border/70 bg-muted/60 text-foreground";
     const icon = document.createElement("img");
     icon.dataset.urlChipIcon = "";
     icon.src = googleFaviconUrl(url);
@@ -828,17 +823,11 @@ function deleteChipNearCaret(root: HTMLElement, direction: "backward" | "forward
     return true;
   }
   const match =
-    direction === "backward"
-      ? before.match(BACKSPACE_CHIP_REGEX)
-      : after.match(DELETE_CHIP_REGEX);
+    direction === "backward" ? before.match(BACKSPACE_CHIP_REGEX) : after.match(DELETE_CHIP_REGEX);
   if (!match?.[0]) return false;
 
-  const deleteStart = direction === "backward"
-    ? caretOffset - match[0].length
-    : caretOffset;
-  const deleteEnd = direction === "backward"
-    ? caretOffset
-    : caretOffset + match[0].length;
+  const deleteStart = direction === "backward" ? caretOffset - match[0].length : caretOffset;
+  const deleteEnd = direction === "backward" ? caretOffset : caretOffset + match[0].length;
   const nextText = currentText.slice(0, deleteStart) + currentText.slice(deleteEnd);
 
   inflateInto(root, nextText);
@@ -950,10 +939,7 @@ function setCaretAtTextOffset(root: HTMLElement, target: number) {
 
 function setCaretAtClientPoint(root: HTMLElement, clientX: number, clientY: number): boolean {
   const documentWithCaret = root.ownerDocument as Document & {
-    caretPositionFromPoint?: (
-      x: number,
-      y: number,
-    ) => { offsetNode: Node; offset: number } | null;
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
     caretRangeFromPoint?: (x: number, y: number) => Range | null;
   };
   let range: Range | null = null;
@@ -1015,7 +1001,6 @@ function measureCaretRect(root: HTMLElement): DOMRect {
   }
   return rect;
 }
-
 
 function readAtContextFromSelection(root: HTMLElement): AtTriggerContext | null {
   const sel = window.getSelection();
@@ -1090,10 +1075,7 @@ function findSkillDisableFilter(chip: HTMLElement | null): HTMLElement | null {
 
 function isInsideSkillDisableFilter(node: Node | null): boolean {
   if (!node) return false;
-  const el =
-    node.nodeType === Node.ELEMENT_NODE
-      ? (node as Element)
-      : node.parentElement;
+  const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
   return Boolean(el?.closest?.("[data-sd-filter]"));
 }
 
@@ -1149,14 +1131,10 @@ function formatSkillDisableSessionTooltip(actions: SkillDisableSessionAction[]):
   const { enabled, disabled } = skillDisableSessionNameLists(actions);
   const lines: string[] = [];
   if (enabled.length > 0) {
-    lines.push(
-      promptComposerT("skillDisable.tooltipEnabled", { names: enabled.join(", ") }),
-    );
+    lines.push(promptComposerT("skillDisable.tooltipEnabled", { names: enabled.join(", ") }));
   }
   if (disabled.length > 0) {
-    lines.push(
-      promptComposerT("skillDisable.tooltipDisabled", { names: disabled.join(", ") }),
-    );
+    lines.push(promptComposerT("skillDisable.tooltipDisabled", { names: disabled.join(", ") }));
   }
   if (lines.length === 0) {
     return promptComposerT("skillDisable.chipTooltip");
@@ -1164,10 +1142,7 @@ function formatSkillDisableSessionTooltip(actions: SkillDisableSessionAction[]):
   return lines.join("\n");
 }
 
-function renderSkillDisableSessionActions(
-  chip: HTMLElement,
-  actions: SkillDisableSessionAction[],
-) {
+function renderSkillDisableSessionActions(chip: HTMLElement, actions: SkillDisableSessionAction[]) {
   const container = chip.querySelector("[data-sd-actions]");
   if (!container) return;
   container.replaceChildren();
@@ -1249,14 +1224,17 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       skillDisableDismissStateRef.current = null;
     }, [clearSkillDisableDismissTimer]);
 
-    const updateSkillDisableCountdownLabel = React.useCallback((chip: HTMLElement, left: number) => {
-      const countdown = chip.querySelector("[data-sd-countdown]") as HTMLElement | null;
-      if (!countdown) return;
-      countdown.hidden = false;
-      countdown.textContent = promptComposerT("skillDisable.countdown", {
-        seconds: left,
-      });
-    }, []);
+    const updateSkillDisableCountdownLabel = React.useCallback(
+      (chip: HTMLElement, left: number) => {
+        const countdown = chip.querySelector("[data-sd-countdown]") as HTMLElement | null;
+        if (!countdown) return;
+        countdown.hidden = false;
+        countdown.textContent = promptComposerT("skillDisable.countdown", {
+          seconds: left,
+        });
+      },
+      [],
+    );
 
     const fireChange = React.useCallback(() => {
       if (!editorRef.current) return;
@@ -1279,60 +1257,63 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       }
     }, []);
 
-    const bindSkillDisableFilter = React.useCallback((chip: HTMLElement) => {
-      const filter = findSkillDisableFilter(chip);
-      if (!filter || filter.dataset.sdBound === "1") return;
-      filter.dataset.sdBound = "1";
+    const bindSkillDisableFilter = React.useCallback(
+      (chip: HTMLElement) => {
+        const filter = findSkillDisableFilter(chip);
+        if (!filter || filter.dataset.sdBound === "1") return;
+        filter.dataset.sdBound = "1";
 
-      const clearDeleteArm = () => {
-        filter.dataset.sdDeleteArmed = "";
-        filter.dataset.placeholder = promptComposerT("skillDisable.filterPlaceholder");
-      };
+        const clearDeleteArm = () => {
+          filter.dataset.sdDeleteArmed = "";
+          filter.dataset.placeholder = promptComposerT("skillDisable.filterPlaceholder");
+        };
 
-      filter.addEventListener("input", () => {
-        if (!isSkillDisableFilterEmpty(filter)) {
-          clearDeleteArm();
-        }
-        onSkillDisableFilterChangeRef.current?.(filter.textContent ?? "");
-      });
-      filter.addEventListener("keydown", (event) => {
-        // Keep newlines/tabs out of the in-chip filter; Enter/Tab belong to the popover.
-        if (event.key === "Enter" || event.key === "Tab") {
-          event.preventDefault();
-          return;
-        }
-        if (event.key !== "Backspace" && event.key !== "Delete") return;
-        if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-        if (!isSkillDisableFilterEmpty(filter)) {
-          clearDeleteArm();
-          return;
-        }
-
-        // Empty filter: never let the caret escape in front of the chip.
-        event.preventDefault();
-        event.stopPropagation();
-        focusSkillDisableFilterElement(filter);
-
-        if (filter.dataset.sdDeleteArmed === "1") {
-          clearSkillDisableDismiss();
-          const editor = editorRef.current;
-          if (editor) {
-            placeCaretAtRemovedNode(editor, chip);
-            fireChange();
-            rememberCaretOffset();
-          } else {
-            chip.remove();
+        filter.addEventListener("input", () => {
+          if (!isSkillDisableFilterEmpty(filter)) {
+            clearDeleteArm();
           }
-          setChipTooltip(null);
-          onSkillDisableFilterChangeRef.current?.("");
-          onSkillDisableSessionClosedRef.current?.();
-          return;
-        }
+          onSkillDisableFilterChangeRef.current?.(filter.textContent ?? "");
+        });
+        filter.addEventListener("keydown", (event) => {
+          // Keep newlines/tabs out of the in-chip filter; Enter/Tab belong to the popover.
+          if (event.key === "Enter" || event.key === "Tab") {
+            event.preventDefault();
+            return;
+          }
+          if (event.key !== "Backspace" && event.key !== "Delete") return;
+          if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+          if (!isSkillDisableFilterEmpty(filter)) {
+            clearDeleteArm();
+            return;
+          }
 
-        filter.dataset.sdDeleteArmed = "1";
-        filter.dataset.placeholder = promptComposerT("skillDisable.deleteAgainHint");
-      });
-    }, [clearSkillDisableDismiss, fireChange, rememberCaretOffset]);
+          // Empty filter: never let the caret escape in front of the chip.
+          event.preventDefault();
+          event.stopPropagation();
+          focusSkillDisableFilterElement(filter);
+
+          if (filter.dataset.sdDeleteArmed === "1") {
+            clearSkillDisableDismiss();
+            const editor = editorRef.current;
+            if (editor) {
+              placeCaretAtRemovedNode(editor, chip);
+              fireChange();
+              rememberCaretOffset();
+            } else {
+              chip.remove();
+            }
+            setChipTooltip(null);
+            onSkillDisableFilterChangeRef.current?.("");
+            onSkillDisableSessionClosedRef.current?.();
+            return;
+          }
+
+          filter.dataset.sdDeleteArmed = "1";
+          filter.dataset.placeholder = promptComposerT("skillDisable.deleteAgainHint");
+        });
+      },
+      [clearSkillDisableDismiss, fireChange, rememberCaretOffset],
+    );
 
     const startSkillDisableDismissTicker = React.useCallback(() => {
       clearSkillDisableDismissTimer();
@@ -1437,9 +1418,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         const replaceTo = Math.min(atOffset + queryLength, currentText.length);
         const insertText = `${token}${CHIP_TRAILING_SPACER}`;
         const nextText =
-          currentText.slice(0, replaceFrom) +
-          insertText +
-          currentText.slice(replaceTo);
+          currentText.slice(0, replaceFrom) + insertText + currentText.slice(replaceTo);
         inflateInto(editorRef.current, nextText);
         fireChange();
         const nextCaretOffset = replaceFrom + insertText.length;
@@ -1453,9 +1432,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         const replaceTo = Math.min(slashOffset + queryLength, currentText.length);
         const insertText = `${tokenForMention(mention)}${CHIP_TRAILING_SPACER}`;
         const nextText =
-          currentText.slice(0, replaceFrom) +
-          insertText +
-          currentText.slice(replaceTo);
+          currentText.slice(0, replaceFrom) + insertText + currentText.slice(replaceTo);
         inflateInto(editorRef.current, nextText);
         fireChange();
         const nextCaretOffset = replaceFrom + insertText.length;
@@ -1467,9 +1444,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         const currentText = serialize(editorRef.current);
         const replaceFrom = Math.max(slashOffset - 1, 0);
         const replaceTo = Math.min(slashOffset + queryLength, currentText.length);
-        const nextText =
-          currentText.slice(0, replaceFrom) +
-          currentText.slice(replaceTo);
+        const nextText = currentText.slice(0, replaceFrom) + currentText.slice(replaceTo);
         inflateInto(editorRef.current, nextText);
         fireChange();
         setCaretAtOffsetAndRemember(replaceFrom);
@@ -1500,9 +1475,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         const replaceTo = Math.min(slashOffset + queryLength, currentText.length);
         const insertText = `${formatSideChatProtocol(contextId)}${CHIP_TRAILING_SPACER}`;
         const nextText =
-          currentText.slice(0, replaceFrom) +
-          insertText +
-          currentText.slice(replaceTo);
+          currentText.slice(0, replaceFrom) + insertText + currentText.slice(replaceTo);
         inflateInto(editorRef.current, nextText);
         fireChange();
         const nextCaretOffset = replaceFrom + insertText.length;
@@ -1525,9 +1498,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         const replaceTo = Math.min(slashOffset + queryLength, currentText.length);
         const insertText = `${formatSpawnProtocol(contextId)}${CHIP_TRAILING_SPACER}`;
         const nextText =
-          currentText.slice(0, replaceFrom) +
-          insertText +
-          currentText.slice(replaceTo);
+          currentText.slice(0, replaceFrom) + insertText + currentText.slice(replaceTo);
         inflateInto(editorRef.current, nextText);
         fireChange();
         const nextCaretOffset = replaceFrom + insertText.length;
@@ -1543,9 +1514,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         // Trailing spacer after the chip so caret can exit into normal input later.
         const insertText = `${formatSkillDisableProtocol()}${CHIP_TRAILING_SPACER}`;
         const nextText =
-          currentText.slice(0, replaceFrom) +
-          insertText +
-          currentText.slice(replaceTo);
+          currentText.slice(0, replaceFrom) + insertText + currentText.slice(replaceTo);
         inflateInto(editorRef.current, nextText);
         const chip = findSkillDisableChip(editorRef.current);
         if (chip) bindSkillDisableFilter(chip);
@@ -1568,9 +1537,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         const replaceTo = Math.min(slashOffset + queryLength, currentText.length);
         const insertText = `${token}${CHIP_TRAILING_SPACER}`;
         const nextText =
-          currentText.slice(0, replaceFrom) +
-          insertText +
-          currentText.slice(replaceTo);
+          currentText.slice(0, replaceFrom) + insertText + currentText.slice(replaceTo);
         inflateInto(editorRef.current, nextText);
         fireChange();
         const nextCaretOffset = replaceFrom + insertText.length;
@@ -1844,9 +1811,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         })();
         return;
       }
-      const htmlTokens = tokensFromClipboardHtml(
-        event.clipboardData.getData("text/html"),
-      );
+      const htmlTokens = tokensFromClipboardHtml(event.clipboardData.getData("text/html"));
       if (htmlTokens.length > 0 && editorRef.current) {
         event.preventDefault();
         for (const token of htmlTokens) {
@@ -1861,10 +1826,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       const appshotProtocol = parseAppshotProtocol(text);
       if (appshotProtocol && editorRef.current) {
         event.preventDefault();
-        insertChipAtCaret(
-          editorRef.current,
-          `[#appshot:${appshotProtocol.timestamp}]`,
-        );
+        insertChipAtCaret(editorRef.current, `[#appshot:${appshotProtocol.timestamp}]`);
         rememberCaretOffset();
         fireChange();
         return;
@@ -2012,7 +1974,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         {isEmpty && placeholder ? (
           <div
             className={cn(
-              "pointer-events-none absolute inset-y-auto right-2 top-2 left-0 overflow-hidden text-base leading-6 text-muted-foreground/65",
+              "pointer-events-none absolute inset-y-auto top-2 right-2 left-0 overflow-hidden text-base leading-6 text-muted-foreground/65",
               placeholderClassName,
             )}
           >
@@ -2036,7 +1998,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           onMouseOver={handleEditorMouseOver}
           onMouseOut={handleEditorMouseOut}
           className={cn(
-            "min-h-[88px] max-h-[148px] w-full overflow-y-auto whitespace-pre-wrap break-words rounded-t-xl rounded-b-none border border-transparent bg-transparent py-2 pl-0 pr-2 text-base leading-6 text-foreground outline-none [&_[data-token]]:align-top",
+            "max-h-[148px] min-h-[88px] w-full overflow-y-auto rounded-t-xl rounded-b-none border border-transparent bg-transparent py-2 pr-2 pl-0 text-base leading-6 break-words whitespace-pre-wrap text-foreground outline-none [&_[data-token]]:align-top",
             editorClassName,
           )}
           spellCheck={false}
@@ -2050,9 +2012,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           cardWidth={LINK_OG_CARD_WIDTH}
           cardApproxHeight={LINK_OG_CARD_HEIGHT}
           contentClassName="overflow-hidden p-0"
-          content={
-            urlHover ? <ComposerLinkOgPreview url={urlHover.url} /> : null
-          }
+          content={urlHover ? <ComposerLinkOgPreview url={urlHover.url} /> : null}
         />
         <FollowHoverCard
           open={chipTooltip?.kind === "paste"}
@@ -2064,7 +2024,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           content={
             chipTooltip?.kind === "paste" ? (
               <>
-                <div className="whitespace-pre-wrap break-words">
+                <div className="break-words whitespace-pre-wrap">
                   {(chipTooltip.head ?? []).join("\n")}
                 </div>
                 {(chipTooltip.more ?? 0) > 0 ? (
@@ -2073,7 +2033,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
                   </div>
                 ) : null}
                 {(chipTooltip.tail ?? []).length > 0 ? (
-                  <div className="whitespace-pre-wrap break-words">
+                  <div className="break-words whitespace-pre-wrap">
                     {(chipTooltip.tail ?? []).join("\n")}
                   </div>
                 ) : null}
@@ -2086,7 +2046,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
               chipTooltip.kind === "text" ? (
                 <div
                   role="tooltip"
-                  className="pointer-events-none fixed z-[2147483646] -translate-x-1/2 whitespace-pre-line rounded-md bg-foreground px-3 py-1.5 text-xs text-background shadow-md animate-in fade-in-0 zoom-in-95"
+                  className="pointer-events-none fixed z-[2147483646] -translate-x-1/2 animate-in rounded-md bg-foreground px-3 py-1.5 text-xs whitespace-pre-line text-background shadow-md fade-in-0 zoom-in-95"
                   style={{ top: chipTooltip.top, left: chipTooltip.left }}
                 >
                   {chipTooltip.text}
@@ -2149,12 +2109,8 @@ function insertChipAtCaret(root: HTMLElement, token: string) {
   insertNodeAtCaret(root, document.createTextNode(CHIP_TRAILING_SPACER));
   const insertedLength = token.length + CHIP_TRAILING_SPACER.length;
   const nextOffset =
-    (startOffset ?? Math.max(0, serialize(root).length - insertedLength)) +
-    insertedLength;
-  setCaretAtTextOffset(
-    root,
-    Math.max(0, Math.min(nextOffset, serialize(root).length)),
-  );
+    (startOffset ?? Math.max(0, serialize(root).length - insertedLength)) + insertedLength;
+  setCaretAtTextOffset(root, Math.max(0, Math.min(nextOffset, serialize(root).length)));
 }
 
 function expandPasteChipInPlace(chip: HTMLElement): boolean {
@@ -2265,8 +2221,7 @@ function insertNodeAtCaret(root: HTMLElement, node: Node) {
     return;
   }
   range.deleteContents();
-  const caretAfter =
-    node.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? node.lastChild : node;
+  const caretAfter = node.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? node.lastChild : node;
   range.insertNode(node);
   if (caretAfter) {
     range.setStartAfter(caretAfter);

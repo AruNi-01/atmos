@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useLocale, useTranslations } from 'next-intl';
-import { enUS, zhCN } from 'date-fns/locale';
+import React, { useState, useEffect, useMemo } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import { enUS, zhCN } from "date-fns/locale";
 import {
   Input,
   ScrollArea,
@@ -14,21 +14,31 @@ import {
   Button,
   Tooltip,
   TooltipContent,
-  TooltipTrigger
+  TooltipTrigger,
 } from "@workspace/ui";
-import { Workspace } from '@/shared/types/domain';
+import { Workspace } from "@/shared/types/domain";
 import {
   useProjects,
   useProjectsLoading,
-} from '@/features/project/hooks/use-project-bootstrap-query';
-import { gitApi, wsWorkspaceApi } from '@/api/ws-api';
+} from "@/features/project/hooks/use-project-bootstrap-query";
+import { gitApi, wsWorkspaceApi } from "@/api/ws-api";
 import { useQueryState } from "nuqs";
 import { workspacesParams } from "@/shared/lib/nuqs/searchParams";
-import { parseUTCDate, format, isToday, isYesterday, subDays, subWeeks, subMonths, isAfter, subYears } from '@atmos/shared';
-import { useAppRouter } from '@/shared/hooks/use-app-router';
+import {
+  parseUTCDate,
+  format,
+  isToday,
+  isYesterday,
+  subDays,
+  subWeeks,
+  subMonths,
+  isAfter,
+  subYears,
+} from "@atmos/shared";
+import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { motion, AnimatePresence } from "motion/react";
 import { Skeleton } from "@workspace/ui";
-import { buildWorkspaceGitStatusFanOut } from '@/features/workspace/lib/workspace-git-status-batch';
+import { buildWorkspaceGitStatusFanOut } from "@/features/workspace/lib/workspace-git-status-batch";
 
 interface EnrichedWorkspace extends Workspace {
   projectName: string;
@@ -52,24 +62,24 @@ interface GitStatus {
 }
 
 type TimeGroup =
-  | 'today'
-  | 'yesterday'
-  | 'days2To6Ago'
-  | 'weeks1To3Ago'
-  | 'months1To5Ago'
-  | 'halfYearAgo'
-  | 'year1Ago'
-  | 'older';
+  | "today"
+  | "yesterday"
+  | "days2To6Ago"
+  | "weeks1To3Ago"
+  | "months1To5Ago"
+  | "halfYearAgo"
+  | "year1Ago"
+  | "older";
 
 const GROUP_ORDER: TimeGroup[] = [
-  'today',
-  'yesterday',
-  'days2To6Ago',
-  'weeks1To3Ago',
-  'months1To5Ago',
-  'halfYearAgo',
-  'year1Ago',
-  'older'
+  "today",
+  "yesterday",
+  "days2To6Ago",
+  "weeks1To3Ago",
+  "months1To5Ago",
+  "halfYearAgo",
+  "year1Ago",
+  "older",
 ];
 
 interface RecentWorkspacesViewProps {
@@ -102,10 +112,13 @@ const OverflowTooltip: React.FC<OverflowTooltipProps> = ({
   </Tooltip>
 );
 
-export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refreshKey, viewSwitcher }) => {
-  const t = useTranslations('Workspace.components.recentView');
+export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({
+  refreshKey,
+  viewSwitcher,
+}) => {
+  const t = useTranslations("Workspace.components.recentView");
   const locale = useLocale();
-  const dateLocale = locale.startsWith('zh') ? zhCN : enUS;
+  const dateLocale = locale.startsWith("zh") ? zhCN : enUS;
   const router = useAppRouter();
   const projects = useProjects();
   const isStoreLoading = useProjectsLoading();
@@ -119,49 +132,59 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
   // Fetch archived workspaces
   useEffect(() => {
     setIsLoadingArchived(true);
-    wsWorkspaceApi.listArchived().then(res => {
-      const mapped = res.workspaces.map(aw => ({
-        id: aw.guid,
-        name: aw.name,
-        displayName: aw.display_name ?? undefined,
-        branch: aw.branch,
-        baseBranch: aw.base_branch,
-        isActive: false,
-        status: 'clean',
-        projectId: aw.project_guid,
-        isPinned: false,
-        isArchived: true,
-        isArchivedRemote: true,
-        createdAt: aw.archived_at,
-        localPath: '',
-        projectName: aw.project_name
-      } as EnrichedWorkspace));
-      setArchivedWorkspaces(mapped);
-    }).catch(console.error).finally(() => {
-      setIsLoadingArchived(false);
-    });
+    wsWorkspaceApi
+      .listArchived()
+      .then((res) => {
+        const mapped = res.workspaces.map(
+          (aw) =>
+            ({
+              id: aw.guid,
+              name: aw.name,
+              displayName: aw.display_name ?? undefined,
+              branch: aw.branch,
+              baseBranch: aw.base_branch,
+              isActive: false,
+              status: "clean",
+              projectId: aw.project_guid,
+              isPinned: false,
+              isArchived: true,
+              isArchivedRemote: true,
+              createdAt: aw.archived_at,
+              localPath: "",
+              projectName: aw.project_name,
+            }) as EnrichedWorkspace,
+        );
+        setArchivedWorkspaces(mapped);
+      })
+      .catch(console.error)
+      .finally(() => {
+        setIsLoadingArchived(false);
+      });
   }, []);
 
   // Combine all workspaces
   const allWorkspaces = useMemo(() => {
     // 1. Map active workspaces
-    const active = projects.flatMap(p =>
-      p.workspaces.map(w => ({
-        ...w,
-        projectName: p.name,
-        projectMainPath: p.mainFilePath
-      } as EnrichedWorkspace))
+    const active = projects.flatMap((p) =>
+      p.workspaces.map(
+        (w) =>
+          ({
+            ...w,
+            projectName: p.name,
+            projectMainPath: p.mainFilePath,
+          }) as EnrichedWorkspace,
+      ),
     );
 
     // 2. Map archived workspaces (joining with project data)
-    const archived = archivedWorkspaces.map(aw => {
+    const archived = archivedWorkspaces.map((aw) => {
       // Try to find project info from available projects
-      const project = projects.find(p => p.id === aw.projectId);
+      const project = projects.find((p) => p.id === aw.projectId);
       return {
         ...aw,
         // Override name/path if we have fresh data from project store, otherwise fallback to what we have
         projectName: project?.name || aw.projectName,
-        projectMainPath: project?.mainFilePath || aw.projectMainPath
+        projectMainPath: project?.mainFilePath || aw.projectMainPath,
       };
     });
 
@@ -176,28 +199,28 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
   const filteredWorkspaces = useMemo(() => {
     if (!searchQuery) return allWorkspaces;
     const lowQuery = searchQuery.toLowerCase();
-    return allWorkspaces.filter(w =>
-      w.name.toLowerCase().includes(lowQuery) ||
-      (w.displayName?.toLowerCase().includes(lowQuery) ?? false) ||
-      w.projectName.toLowerCase().includes(lowQuery) ||
-      w.branch.toLowerCase().includes(lowQuery)
+    return allWorkspaces.filter(
+      (w) =>
+        w.name.toLowerCase().includes(lowQuery) ||
+        (w.displayName?.toLowerCase().includes(lowQuery) ?? false) ||
+        w.projectName.toLowerCase().includes(lowQuery) ||
+        w.branch.toLowerCase().includes(lowQuery),
     );
   }, [allWorkspaces, searchQuery]);
 
   // Stable key for triggering git status refetch
   const workspaceStatusKey = useMemo(() => {
     return filteredWorkspaces
-      .filter(w => w.localPath && !w.isArchivedRemote)
-      .map(w => `${w.id}:${w.localPath}`)
+      .filter((w) => w.localPath && !w.isArchivedRemote)
+      .map((w) => `${w.id}:${w.localPath}`)
       .sort()
-      .join(',');
+      .join(",");
   }, [filteredWorkspaces]);
 
   // Fetch Git Status for visible/filtered workspaces
   useEffect(() => {
-    const toCheck = filteredWorkspaces.filter(w => w.localPath && !w.isArchivedRemote);
-    const { paths, workspaceIdsByPath } =
-      buildWorkspaceGitStatusFanOut(toCheck);
+    const toCheck = filteredWorkspaces.filter((w) => w.localPath && !w.isArchivedRemote);
+    const { paths, workspaceIdsByPath } = buildWorkspaceGitStatusFanOut(toCheck);
 
     let active = true;
 
@@ -208,9 +231,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
         const response = await gitApi.getStatuses(paths);
         if (!active) return;
 
-        const resultByPath = new Map(
-          response.results.map(result => [result.path, result]),
-        );
+        const resultByPath = new Map(response.results.map((result) => [result.path, result]));
         const nextStatuses: Record<string, GitStatus> = {};
 
         for (const path of paths) {
@@ -219,10 +240,9 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
           const workspaceStatus: GitStatus = status
             ? {
                 loading: false,
-                hasChanges:
-                  status.has_uncommitted_changes || status.has_unpushed_commits,
+                hasChanges: status.has_uncommitted_changes || status.has_unpushed_commits,
                 uncommitted: status.uncommitted_count,
-                unpushed: status.unpushed_count
+                unpushed: status.unpushed_count,
               }
             : { loading: false, error: true };
 
@@ -236,10 +256,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
         if (!active) return;
         setGitStatuses(
           Object.fromEntries(
-            toCheck.map(workspace => [
-              workspace.id,
-              { loading: false, error: true },
-            ]),
+            toCheck.map((workspace) => [workspace.id, { loading: false, error: true }]),
           ),
         );
       }
@@ -248,14 +265,14 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
     queueMicrotask(() => {
       if (!active) return;
       setGitStatuses(
-        Object.fromEntries(
-          toCheck.map(workspace => [workspace.id, { loading: true }]),
-        ),
+        Object.fromEntries(toCheck.map((workspace) => [workspace.id, { loading: true }])),
       );
     });
     void fetchStatus();
 
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey, workspaceStatusKey]);
 
@@ -268,12 +285,12 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
       months1To5Ago: [],
       halfYearAgo: [],
       year1Ago: [],
-      older: []
+      older: [],
     };
 
     const now = new Date();
 
-    filteredWorkspaces.forEach(ws => {
+    filteredWorkspaces.forEach((ws) => {
       const date = ws.createdAt ? parseUTCDate(ws.createdAt) : new Date();
       if (isNaN(date.getTime())) return;
 
@@ -302,9 +319,9 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
   const handleSelect = (ws: EnrichedWorkspace) => {
     if (ws.isArchivedRemote) {
       toastManager.add({
-        title: t('toasts.workspaceArchivedTitle'),
-        description: t('toasts.workspaceArchivedDescription'),
-        type: "info"
+        title: t("toasts.workspaceArchivedTitle"),
+        description: t("toasts.workspaceArchivedDescription"),
+        type: "info",
       });
       return;
     }
@@ -312,32 +329,32 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
   };
 
   const truncatePath = (path: string | undefined) => {
-    if (!path) return t('unknownPath');
+    if (!path) return t("unknownPath");
     // If path is too long, preserve the end (filename/last dir)
     if (path.length > 35) {
-      return '...' + path.slice(-32);
+      return "..." + path.slice(-32);
     }
     return path;
   };
 
   return (
-    <div className="flex flex-col h-full bg-background/50">
+    <div className="flex h-full flex-col bg-background/50">
       {/* Content with ScrollArea */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-hidden">
         <ScrollArea className="h-full" scrollFade>
-          <div className="max-w-5xl mx-auto w-full px-8">
+          <div className="mx-auto w-full max-w-5xl px-8">
             {/* Header / Title - Scrolls away */}
             <div className="pt-12 pb-8">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 space-y-2">
-                  <h2 className="text-2xl font-bold tracking-tight flex items-center gap-3">
+                  <h2 className="flex items-center gap-3 text-2xl font-bold tracking-tight">
                     <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
                       <Folder className="size-5" />
                     </div>
-                    {t('header.title')}
+                    {t("header.title")}
                   </h2>
-                  <p className="text-sm text-muted-foreground text-pretty max-w-sm">
-                    {t('header.description')}
+                  <p className="max-w-sm text-sm text-pretty text-muted-foreground">
+                    {t("header.description")}
                   </p>
                 </div>
                 {viewSwitcher ? <div className="shrink-0">{viewSwitcher}</div> : null}
@@ -345,14 +362,14 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
             </div>
 
             {/* Sticky Search Bar */}
-            <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md pt-2 pb-6 -mx-4 px-4 sm:-mx-8 sm:px-8">
-              <div className="relative group max-w-5xl mx-auto">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/60 group-focus-within:text-primary" />
+            <div className="sticky top-0 z-10 -mx-4 bg-background/80 px-4 pt-2 pb-6 backdrop-blur-md sm:-mx-8 sm:px-8">
+              <div className="group relative mx-auto max-w-5xl">
+                <Search className="absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t('searchPlaceholder')}
-                  className="pl-10 h-12 bg-muted/20 border-border/50 focus:bg-background transition-all rounded-xl shadow-sm focus-visible:ring-1 focus-visible:ring-primary/20"
+                  placeholder={t("searchPlaceholder")}
+                  className="h-12 rounded-xl border-border/50 bg-muted/20 pl-10 shadow-sm transition-all focus:bg-background focus-visible:ring-1 focus-visible:ring-primary/20"
                   autoFocus
                 />
               </div>
@@ -361,15 +378,18 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
             <div className="space-y-10 pb-12">
               {!isDataReady ? (
                 <div className="space-y-10">
-                  {[1, 2].map(g => (
+                  {[1, 2].map((g) => (
                     <div key={g} className="space-y-4">
-                      <div className="flex items-center gap-3 py-3 border-b border-border/40">
+                      <div className="flex items-center gap-3 border-b border-border/40 py-3">
                         <Skeleton className="h-3 w-20" />
                         <Skeleton className="h-5 w-6 rounded-full" />
                       </div>
                       <div className="grid gap-2.5">
                         {[...Array(3)].map((_, i) => (
-                          <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-border bg-background">
+                          <div
+                            key={i}
+                            className="flex items-center justify-between rounded-xl border border-border bg-background p-4"
+                          >
                             <div className="flex items-center gap-5">
                               <Skeleton className="size-10 rounded-xl" />
                               <div className="space-y-2">
@@ -385,162 +405,172 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                   ))}
                 </div>
               ) : (
-              <>
-              <AnimatePresence mode="popLayout" initial={false}>
-                {GROUP_ORDER.map(group => {
-                  const items = groupedWorkspaces[group];
-                  if (items.length === 0) return null;
+                <>
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    {GROUP_ORDER.map((group) => {
+                      const items = groupedWorkspaces[group];
+                      if (items.length === 0) return null;
 
-                  return (
-                    <motion.div
-                      key={group}
-                      layout
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.98 }}
-                      className="space-y-4"
-                    >
-                      <div className="flex items-center gap-3 sticky top-[76px] bg-background/95 backdrop-blur-sm py-3 z-5 border-b border-border/40">
-                        <span className="text-[11px] font-semibold text-muted-foreground/80">{t(`groups.${group}`)}</span>
-                        <span className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full text-[10px] font-bold font-mono">
-                          {items.length}
-                        </span>
-                      </div>
-                      <div className="grid gap-2.5">
-                        <AnimatePresence mode="popLayout" initial={false}>
-                          {items.map((ws, index) => {
-                            const status = gitStatuses[ws.id];
-                            const hasGitInfo = status && !status.loading && !status.error;
+                      return (
+                        <motion.div
+                          key={group}
+                          layout
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.98 }}
+                          className="space-y-4"
+                        >
+                          <div className="sticky top-[76px] z-5 flex items-center gap-3 border-b border-border/40 bg-background/95 py-3 backdrop-blur-sm">
+                            <span className="text-[11px] font-semibold text-muted-foreground/80">
+                              {t(`groups.${group}`)}
+                            </span>
+                            <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-bold text-primary">
+                              {items.length}
+                            </span>
+                          </div>
+                          <div className="grid gap-2.5">
+                            <AnimatePresence mode="popLayout" initial={false}>
+                              {items.map((ws, index) => {
+                                const status = gitStatuses[ws.id];
+                                const hasGitInfo = status && !status.loading && !status.error;
 
-                            return (
-                              <motion.button
-                                key={ws.id}
-                                layout
-                                initial={{ opacity: 0, x: -5 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.2) }}
-                                onClick={() => handleSelect(ws)}
-                                className={cn(
-                                  "group relative flex w-full min-w-0 flex-col gap-4 overflow-hidden rounded-xl border p-4 text-left md:flex-row md:items-center md:justify-between",
-                                  ws.isArchivedRemote
-                                    ? "bg-muted/30 border-border/40 opacity-60 cursor-not-allowed"
-                                    : "bg-background border-border hover:border-primary/30 hover:shadow-md cursor-pointer hover:bg-muted/50"
-                                )}
-                              >
-                                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4 overflow-hidden md:flex-nowrap md:gap-5">
-                                  <div className="flex min-w-0 flex-[1_1_240px] items-center gap-4 md:max-w-[260px]">
-                                    <div className={cn(
-                                      "size-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 uppercase border",
+                                return (
+                                  <motion.button
+                                    key={ws.id}
+                                    layout
+                                    initial={{ opacity: 0, x: -5 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    transition={{
+                                      duration: 0.2,
+                                      delay: Math.min(index * 0.02, 0.2),
+                                    }}
+                                    onClick={() => handleSelect(ws)}
+                                    className={cn(
+                                      "group relative flex w-full min-w-0 flex-col gap-4 overflow-hidden rounded-xl border p-4 text-left md:flex-row md:items-center md:justify-between",
                                       ws.isArchivedRemote
-                                        ? "bg-muted text-muted-foreground border-border"
-                                        : "bg-primary/10 text-primary border-primary/20 shadow-sm"
-                                    )}>
-                                      {ws.projectName[0]}
-                                    </div>
-                                    <div className="flex flex-col min-w-0 overflow-hidden">
-                                      <OverflowTooltip
-                                        text={ws.projectName}
-                                        className={cn(
-                                          "text-[14px] font-semibold",
-                                          ws.isArchivedRemote ? "text-muted-foreground" : "text-foreground group-hover:text-primary"
-                                        )}
-                                      />
-                                      <OverflowTooltip
-                                        text={truncatePath(ws.projectMainPath)}
-                                        tooltipText={ws.projectMainPath || t('unknownPath')}
-                                        className="text-[11px] text-muted-foreground/70 text-pretty"
-                                        contentClassName="max-w-[420px]"
-                                      />
-                                    </div>
-                                  </div>
-
-                                  <ArrowRight className="hidden size-4 shrink-0 text-muted-foreground/30 transition-transform group-hover:translate-x-0.5 md:block" />
-
-                                  <div className="flex min-w-0 flex-[1_1_280px] items-center gap-3 overflow-hidden md:gap-4">
-                                    <div className="flex min-w-0 max-w-full shrink items-center gap-2.5 rounded-lg border border-border/50 bg-muted/30 px-2.5 py-1 md:max-w-[220px]">
-                                      <GitBranch className="size-3.5 text-muted-foreground shrink-0" />
-                                      <OverflowTooltip
-                                        text={ws.branch}
-                                        className={cn(
-                                          "min-w-0 flex-1 text-[13px] font-medium",
-                                          ws.isArchivedRemote ? "text-muted-foreground/80" : "text-foreground/90"
-                                        )}
-                                      />
-                                    </div>
-                                    {(ws.displayName || ws.name) !== ws.branch && (
-                                      <OverflowTooltip
-                                        text={ws.displayName || ws.name}
-                                        className="min-w-0 flex-1 text-xs text-muted-foreground/60 italic"
-                                      />
+                                        ? "cursor-not-allowed border-border/40 bg-muted/30 opacity-60"
+                                        : "cursor-pointer border-border bg-background hover:border-primary/30 hover:bg-muted/50 hover:shadow-md",
                                     )}
-                                  </div>
-
-                                  {ws.isArchivedRemote ? (
-                                    <div className="ml-auto shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-3 py-1 text-[10px] font-bold text-muted-foreground shadow-sm">
-                                      <Archive className="size-3" />
-                                      {t('archivedBadge')}
-                                    </div>
-                                  ) : (
-                                    <div className="ml-auto flex items-center gap-2 shrink-0">
-                                      {hasGitInfo ? (
-                                        <>
-                                          {status.uncommitted !== undefined && status.uncommitted > 0 && (
-                                            <div className="inline-flex items-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 shadow-sm font-mono">
-                                              +{status.uncommitted}
-                                            </div>
+                                  >
+                                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4 overflow-hidden md:flex-nowrap md:gap-5">
+                                      <div className="flex min-w-0 flex-[1_1_240px] items-center gap-4 md:max-w-[260px]">
+                                        <div
+                                          className={cn(
+                                            "flex size-10 shrink-0 items-center justify-center rounded-xl border text-sm font-bold uppercase",
+                                            ws.isArchivedRemote
+                                              ? "border-border bg-muted text-muted-foreground"
+                                              : "border-primary/20 bg-primary/10 text-primary shadow-sm",
                                           )}
-                                          {status.unpushed !== undefined && status.unpushed > 0 && (
-                                            <div className="inline-flex items-center rounded-lg border border-rose-500/20 bg-rose-500/10 px-2.5 py-0.5 text-[10px] font-bold text-rose-600 dark:text-rose-400 shadow-sm font-mono">
-                                              -{status.unpushed}
-                                            </div>
-                                          )}
-                                        </>
-                                      ) : null}
-                                    </div>
-                                  )}
-                                </div>
+                                        >
+                                          {ws.projectName[0]}
+                                        </div>
+                                        <div className="flex min-w-0 flex-col overflow-hidden">
+                                          <OverflowTooltip
+                                            text={ws.projectName}
+                                            className={cn(
+                                              "text-[14px] font-semibold",
+                                              ws.isArchivedRemote
+                                                ? "text-muted-foreground"
+                                                : "text-foreground group-hover:text-primary",
+                                            )}
+                                          />
+                                          <OverflowTooltip
+                                            text={truncatePath(ws.projectMainPath)}
+                                            tooltipText={ws.projectMainPath || t("unknownPath")}
+                                            className="text-[11px] text-pretty text-muted-foreground/70"
+                                            contentClassName="max-w-[420px]"
+                                          />
+                                        </div>
+                                      </div>
 
-                                <div className="w-full shrink-0 pl-14 text-left text-[11px] font-medium tabular-nums text-muted-foreground/70 md:w-[110px] md:pl-6 md:text-right">
-                                  {ws.createdAt && !isNaN(parseUTCDate(ws.createdAt).getTime())
-                                    ? format(parseUTCDate(ws.createdAt), 'MMM d, yyyy', { locale: dateLocale })
-                                    : '-'}
-                                </div>
-                              </motion.button>
-                            );
-                          })}
-                        </AnimatePresence>
+                                      <ArrowRight className="hidden size-4 shrink-0 text-muted-foreground/30 transition-transform group-hover:translate-x-0.5 md:block" />
+
+                                      <div className="flex min-w-0 flex-[1_1_280px] items-center gap-3 overflow-hidden md:gap-4">
+                                        <div className="flex max-w-full min-w-0 shrink items-center gap-2.5 rounded-lg border border-border/50 bg-muted/30 px-2.5 py-1 md:max-w-[220px]">
+                                          <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+                                          <OverflowTooltip
+                                            text={ws.branch}
+                                            className={cn(
+                                              "min-w-0 flex-1 text-[13px] font-medium",
+                                              ws.isArchivedRemote
+                                                ? "text-muted-foreground/80"
+                                                : "text-foreground/90",
+                                            )}
+                                          />
+                                        </div>
+                                        {(ws.displayName || ws.name) !== ws.branch && (
+                                          <OverflowTooltip
+                                            text={ws.displayName || ws.name}
+                                            className="min-w-0 flex-1 text-xs text-muted-foreground/60 italic"
+                                          />
+                                        )}
+                                      </div>
+
+                                      {ws.isArchivedRemote ? (
+                                        <div className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-3 py-1 text-[10px] font-bold text-muted-foreground shadow-sm">
+                                          <Archive className="size-3" />
+                                          {t("archivedBadge")}
+                                        </div>
+                                      ) : (
+                                        <div className="ml-auto flex shrink-0 items-center gap-2">
+                                          {hasGitInfo ? (
+                                            <>
+                                              {status.uncommitted !== undefined &&
+                                                status.uncommitted > 0 && (
+                                                  <div className="inline-flex items-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[10px] font-bold text-emerald-600 shadow-sm dark:text-emerald-400">
+                                                    +{status.uncommitted}
+                                                  </div>
+                                                )}
+                                              {status.unpushed !== undefined &&
+                                                status.unpushed > 0 && (
+                                                  <div className="inline-flex items-center rounded-lg border border-rose-500/20 bg-rose-500/10 px-2.5 py-0.5 font-mono text-[10px] font-bold text-rose-600 shadow-sm dark:text-rose-400">
+                                                    -{status.unpushed}
+                                                  </div>
+                                                )}
+                                            </>
+                                          ) : null}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div className="w-full shrink-0 pl-14 text-left text-[11px] font-medium text-muted-foreground/70 tabular-nums md:w-[110px] md:pl-6 md:text-right">
+                                      {ws.createdAt && !isNaN(parseUTCDate(ws.createdAt).getTime())
+                                        ? format(parseUTCDate(ws.createdAt), "MMM d, yyyy", {
+                                            locale: dateLocale,
+                                          })
+                                        : "-"}
+                                    </div>
+                                  </motion.button>
+                                );
+                              })}
+                            </AnimatePresence>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+
+                  {filteredWorkspaces.length === 0 && searchQuery && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="flex flex-col items-center justify-center py-20 text-center"
+                    >
+                      <div className="mb-6 flex size-20 items-center justify-center rounded-3xl bg-muted/20">
+                        <Search className="size-10 text-muted-foreground/30" />
                       </div>
+                      <h3 className="text-lg font-semibold text-foreground">{t("empty.title")}</h3>
+                      <p className="mx-auto mt-2 max-w-xs text-sm text-pretty text-muted-foreground">
+                        {t("empty.description", { query: searchQuery ?? "" })}
+                      </p>
+                      <Button variant="link" onClick={() => setSearchQuery("")} className="mt-4">
+                        {t("empty.clearSearch")}
+                      </Button>
                     </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-
-              {filteredWorkspaces.length === 0 && searchQuery && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex flex-col items-center justify-center py-20 text-center"
-                >
-                  <div className="size-20 rounded-3xl bg-muted/20 flex items-center justify-center mb-6">
-                    <Search className="size-10 text-muted-foreground/30" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground">{t('empty.title')}</h3>
-                  <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto text-pretty">
-                    {t('empty.description', { query: searchQuery ?? '' })}
-                  </p>
-                  <Button
-                    variant="link"
-                    onClick={() => setSearchQuery("")}
-                    className="mt-4"
-                  >
-                    {t('empty.clearSearch')}
-                  </Button>
-                </motion.div>
+                  )}
+                </>
               )}
-              </>
-              )}
-
             </div>
           </div>
         </ScrollArea>

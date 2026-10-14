@@ -47,9 +47,9 @@ packages/api-client/
 
 ### Exports
 
-| Subpath | Role |
-|---------|------|
-| `@atmos/api-client/ws` | Public session API |
+| Subpath                      | Role               |
+| ---------------------------- | ------------------ |
+| `@atmos/api-client/ws`       | Public session API |
 | `@atmos/api-client/platform` | Adapter types only |
 
 ### Dependencies
@@ -95,9 +95,7 @@ type ConnectionState =
   | "closed"
   | "error";
 
-type ExhaustedBehavior =
-  | { type: "stop" }
-  | { type: "slow_retry"; delayMs: number };
+type ExhaustedBehavior = { type: "stop" } | { type: "slow_retry"; delayMs: number };
 
 type ReconnectPolicy = {
   enabled: boolean;
@@ -122,8 +120,8 @@ type WsSessionOptions = {
 
 interface WsSession {
   readonly state: ConnectionState;
-  connect(): Promise<void>;           // single-flight
-  disconnect(): void;                 // intentional; no auto-reconnect
+  connect(): Promise<void>; // single-flight
+  disconnect(): void; // intentional; no auto-reconnect
   waitUntilConnected(timeoutMs?: number): Promise<void>;
   request<T>(action: WsAction, data?: unknown, opts?: { timeoutMs?: number }): Promise<T>;
   requestWhenReady<T>(opts: {
@@ -131,7 +129,7 @@ interface WsSession {
     data?: unknown;
     timeoutMs?: number;
     waitMs?: number;
-    isValid: () => boolean;           // e.g. computer scope equality
+    isValid: () => boolean; // e.g. computer scope equality
   }): Promise<T>;
   onState(cb: (s: ConnectionState) => void): () => void;
   onNotification(event: string, cb: (data: unknown) => void): () => void;
@@ -141,18 +139,18 @@ interface WsSession {
 
 ### 5.1 Non-negotiable semantics
 
-| Rule | Behavior |
-|------|----------|
-| Single-flight connect | Concurrent `connect()` shares one Promise |
-| `request` if not connected | **Reject** immediately — **no queue** |
-| Wait for connect | `waitUntilConnected` / `requestWhenReady` only |
-| Pending timeout | Default from options; mobile default may be `0` (none) |
-| Socket close | Reject all pending; clear map |
-| `disconnect()` | `shouldReconnect=false`, clear timers, close socket, reject pending |
-| Reconnect schedule | Only if policy enabled and internal shouldReconnect |
-| URL factory | Invoked at start of each `openSocket` attempt |
-| Auth | Never set WS headers; URL already contains credentials if any |
-| Logging | Redact `token=` (and similar) in any logged URL |
+| Rule                       | Behavior                                                            |
+| -------------------------- | ------------------------------------------------------------------- |
+| Single-flight connect      | Concurrent `connect()` shares one Promise                           |
+| `request` if not connected | **Reject** immediately — **no queue**                               |
+| Wait for connect           | `waitUntilConnected` / `requestWhenReady` only                      |
+| Pending timeout            | Default from options; mobile default may be `0` (none)              |
+| Socket close               | Reject all pending; clear map                                       |
+| `disconnect()`             | `shouldReconnect=false`, clear timers, close socket, reject pending |
+| Reconnect schedule         | Only if policy enabled and internal shouldReconnect                 |
+| URL factory                | Invoked at start of each `openSocket` attempt                       |
+| Auth                       | Never set WS headers; URL already contains credentials if any       |
+| Logging                    | Redact `token=` (and similar) in any logged URL                     |
 
 ### 5.2 `requestWhenReady` (M8)
 
@@ -180,11 +178,11 @@ Package does **not** import connection stores. Mobile may ignore `requestWhenRea
 
 Canonical kernel states as above. Bindings map:
 
-| Kernel | Web store (today) | Mobile (today) |
-|--------|-------------------|----------------|
-| connected | connected | open |
-| connecting | connecting | connecting |
-| reconnecting | reconnecting | reconnecting |
+| Kernel                        | Web store (today)        | Mobile (today) |
+| ----------------------------- | ------------------------ | -------------- |
+| connected                     | connected                | open           |
+| connecting                    | connecting               | connecting     |
+| reconnecting                  | reconnecting             | reconnecting   |
 | disconnected / closed / error | map explicitly in façade | map explicitly |
 
 Document mapping in web/mobile façade once to avoid Query `enabled` regressions.
@@ -193,17 +191,17 @@ Document mapping in web/mobile façade once to avoid Query `enabled` regressions
 
 ### 6.1 Current product behavior (source of defaults)
 
-| Field | Web today | Mobile today |
-|-------|-----------|--------------|
-| initialDelayMs | 1000 | 500 |
-| maxDelayMs | 30000 | 5000 |
-| maxAttempts | 10 | 5 |
-| delay curve | `min(1000 * 2^attempt, 30000)` | similar mobile caps |
-| exhausted | reset attempts; retry every **60000** ms forever | **stop** → closed |
-| reconnect on unclean close | yes (`!wasClean`) | yes if shouldReconnect |
-| reconnect on clean close | no | treat carefully via disconnect flag |
-| requestTimeoutMs | 30000 | none |
-| connectWaitMs | 15000; **30000** desktop runtime | n/a (provider auto-connect) |
+| Field                      | Web today                                        | Mobile today                        |
+| -------------------------- | ------------------------------------------------ | ----------------------------------- |
+| initialDelayMs             | 1000                                             | 500                                 |
+| maxDelayMs                 | 30000                                            | 5000                                |
+| maxAttempts                | 10                                               | 5                                   |
+| delay curve                | `min(1000 * 2^attempt, 30000)`                   | similar mobile caps                 |
+| exhausted                  | reset attempts; retry every **60000** ms forever | **stop** → closed                   |
+| reconnect on unclean close | yes (`!wasClean`)                                | yes if shouldReconnect              |
+| reconnect on clean close   | no                                               | treat carefully via disconnect flag |
+| requestTimeoutMs           | 30000                                            | none                                |
+| connectWaitMs              | 15000; **30000** desktop runtime                 | n/a (provider auto-connect)         |
 
 ### 6.2 Exported defaults
 
@@ -296,40 +294,40 @@ Request id: generate UUID (or compatible unique string); wire-compatible with se
 
 ## 10. Testing
 
-| Area | Tests |
-|------|-------|
-| Backoff + exhausted stop/slow_retry | package unit (fake timers) |
-| No queue / reject when reconnecting | package unit |
-| Pending flush on close | package unit |
-| Intentional disconnect no reconnect | package unit |
-| Clean close no reconnect when policy false | package unit |
-| requestWhenReady before/after wait | package unit |
-| URL factory called each attempt | package unit |
-| Token redaction in log spy | package unit |
-| Single-flight connect | package unit |
-| Mobile façade | port existing mobile-ws-client tests |
-| Web | store-level tests for disconnect + single-flight; smoke path |
+| Area                                       | Tests                                                        |
+| ------------------------------------------ | ------------------------------------------------------------ |
+| Backoff + exhausted stop/slow_retry        | package unit (fake timers)                                   |
+| No queue / reject when reconnecting        | package unit                                                 |
+| Pending flush on close                     | package unit                                                 |
+| Intentional disconnect no reconnect        | package unit                                                 |
+| Clean close no reconnect when policy false | package unit                                                 |
+| requestWhenReady before/after wait         | package unit                                                 |
+| URL factory called each attempt            | package unit                                                 |
+| Token redaction in log spy                 | package unit                                                 |
+| Single-flight connect                      | package unit                                                 |
+| Mobile façade                              | port existing mobile-ws-client tests                         |
+| Web                                        | store-level tests for disconnect + single-flight; smoke path |
 
 Port valuable cases from `apps/mobile/src/api/mobile-ws-client.test.ts` into the package.
 
 ## 11. Rollout
 
-| PR | Content |
-|----|---------|
-| PR0 | Confirm APP-048 Phase 1 on main |
-| PR1 | Package + full policy options + unit tests |
-| PR2 | Mobile cutover |
+| PR  | Content                                                   |
+| --- | --------------------------------------------------------- |
+| PR0 | Confirm APP-048 Phase 1 on main                           |
+| PR1 | Package + full policy options + unit tests                |
+| PR2 | Mobile cutover                                            |
 | PR3 | Web cutover + requestWhenReady wiring for `ws/request.ts` |
-| PR4 | N* |
+| PR4 | N*                                                        |
 
 ## 12. Risks
 
-| Risk | Mitigation |
-|------|------------|
+| Risk                      | Mitigation                                          |
+| ------------------------- | --------------------------------------------------- |
 | Web bootstrap still large | Explicit split; ROI = pending+reconnect single-home |
-| RN wasClean | Internal disconnect flag |
-| Double reconnect | Kernel-only timers |
-| Async URL | Binding prepares URL; factory re-eval |
+| RN wasClean               | Internal disconnect flag                            |
+| Double reconnect          | Kernel-only timers                                  |
+| Async URL                 | Binding prepares URL; factory re-eval               |
 
 ## 13. Out of scope
 

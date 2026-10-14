@@ -1,15 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import {
-  embedSpecFromGithubInput,
-  embedSpecFromPath,
-  markdownFromEmbedSpec,
-} from "./insert";
+import { embedSpecFromGithubInput, embedSpecFromPath, markdownFromEmbedSpec } from "./insert";
 
 describe("md-live embed insert", () => {
   test("builds github card markdown from a URL", () => {
-    const spec = embedSpecFromGithubInput(
-      "https://github.com/acme/app/issues/128",
-    );
+    const spec = embedSpecFromGithubInput("https://github.com/acme/app/issues/128");
     expect(spec?.kind).toBe("github-issue");
     expect(spec?.layout).toBe("card");
     expect(markdownFromEmbedSpec(spec!)).toContain("::md-live[");

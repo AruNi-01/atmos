@@ -24,17 +24,12 @@ import {
   type TimelineReference,
 } from "@/features/github/lib/timeline-refs";
 
-const timelineIconRailClass =
-  "z-10 flex w-8 shrink-0 items-center justify-center";
+const timelineIconRailClass = "z-10 flex w-8 shrink-0 items-center justify-center";
 const timelineIconShellClass =
   "flex size-5 items-center justify-center rounded-full border border-border/50 bg-muted ring-4 ring-background";
 const timelineIconClass = "size-3 text-muted-foreground";
 
-function lifecycleIcon(
-  kind: TimelineRefKind,
-  lifecycle: TimelineRefLifecycle,
-  className: string,
-) {
+function lifecycleIcon(kind: TimelineRefKind, lifecycle: TimelineRefLifecycle, className: string) {
   if (kind === "pull_request") {
     if (lifecycle === "merged") return <GitMerge className={className} />;
     if (lifecycle === "closed") return <GitPullRequestClosed className={className} />;
@@ -45,16 +40,11 @@ function lifecycleIcon(
   return <CircleDot className={className} />;
 }
 
-function lifecycleBadgeClass(
-  kind: TimelineRefKind,
-  lifecycle: TimelineRefLifecycle,
-): string {
+function lifecycleBadgeClass(kind: TimelineRefKind, lifecycle: TimelineRefLifecycle): string {
   if (lifecycle === "merged") return "bg-purple-600 text-white";
   if (lifecycle === "draft") return "bg-muted text-muted-foreground";
   if (lifecycle === "closed") {
-    return kind === "pull_request"
-      ? "bg-red-600 text-white"
-      : "bg-purple-600 text-white";
+    return kind === "pull_request" ? "bg-red-600 text-white" : "bg-purple-600 text-white";
   }
   return "bg-emerald-600 text-white";
 }
@@ -82,8 +72,7 @@ function TimelineReferenceRow({
 }) {
   const t = useTranslations("github.timeline");
   const title = reference.title.trim() || t("untitled");
-  const sameRepo =
-    reference.owner === currentOwner && reference.repo === currentRepo;
+  const sameRepo = reference.owner === currentOwner && reference.repo === currentRepo;
   const numberLabel = sameRepo
     ? `#${reference.number}`
     : `${reference.owner}/${reference.repo}#${reference.number}`;
@@ -106,11 +95,7 @@ function TimelineReferenceRow({
           lifecycleBadgeClass(reference.kind, reference.lifecycle),
         )}
       >
-        {lifecycleIcon(
-          reference.kind,
-          reference.lifecycle,
-          "size-2.5",
-        )}
+        {lifecycleIcon(reference.kind, reference.lifecycle, "size-2.5")}
         {lifecycleLabel(reference.lifecycle, t)}
       </span>
     </button>
@@ -195,13 +180,9 @@ export function TimelineReferencesEvent<T extends TimelineRefLike>({
             labelClassName="font-semibold text-foreground/90"
           />
         ) : null}
-        <span className="min-w-0 truncate text-xs text-muted-foreground">
-          {header}
-        </span>
+        <span className="min-w-0 truncate text-xs text-muted-foreground">{header}</span>
         {time ? (
-          <span className="ml-auto whitespace-nowrap text-xs text-muted-foreground/60">
-            {time}
-          </span>
+          <span className="ml-auto text-xs whitespace-nowrap text-muted-foreground/60">{time}</span>
         ) : null}
       </div>
       <div className="ml-11 flex flex-col gap-0.5">

@@ -60,10 +60,8 @@ describe("Server data dir + quit ownership", () => {
   });
 
   it("looksLikeAtmosUiHtml accepts real documents and rejects empty/404", () => {
-    expect(looksLikeAtmosUiHtml("<!DOCTYPE html><html><body>ok</body></html>")).toBe(
-      true,
-    );
-    expect(looksLikeAtmosUiHtml("<html lang=\"en\">x</html>")).toBe(true);
+    expect(looksLikeAtmosUiHtml("<!DOCTYPE html><html><body>ok</body></html>")).toBe(true);
+    expect(looksLikeAtmosUiHtml('<html lang="en">x</html>')).toBe(true);
     expect(looksLikeAtmosUiHtml("")).toBe(false);
     expect(looksLikeAtmosUiHtml("Not Found")).toBe(false);
   });
@@ -97,8 +95,6 @@ describe("runtime manifest schema", () => {
 
   it("maps bind-all hosts to loopback like runtime-manager", () => {
     expect(clientLoopbackHost("0.0.0.0")).toBe("127.0.0.1");
-    expect(buildRuntimeManifest("0.0.0.0", 30303, null).api.ws_url).toBe(
-      "ws://127.0.0.1:30303",
-    );
+    expect(buildRuntimeManifest("0.0.0.0", 30303, null).api.ws_url).toBe("ws://127.0.0.1:30303");
   });
 });

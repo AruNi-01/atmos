@@ -12,22 +12,22 @@
 ## Coverage map
 
 | PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1 |
-| M2 | S1, S2 |
-| M3 | S3 |
-| M4 | S4 |
-| M5 | S5 |
+| -------- | ------------ |
+| M1       | S1           |
+| M2       | S1, S2       |
+| M3       | S3           |
+| M4       | S4           |
+| M5       | S5           |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | E2E | Playwright | `just test-e2e-smoke` or spec test under `e2e/tests/specs/` | open workspace route with query params | UI copy changes; pathname/query unchanged | planned |
-| S2 | E2E / agent-browser | Playwright + agent-browser | TBD by test-run | open workspace with visible sidebars | header, sidebars, center, footer remain visible | planned |
-| S3 | Unit / E2E | `bun test` / Playwright | TBD by test-run | selected locale in local storage | reload restores selected language | planned |
-| S4 | Manual/Desktop smoke | `just dev-desktop` | manual Desktop check | Tauri desktop app | no black/blank shell after language switch | planned |
-| S5 | Static review / smoke | build + route smoke | TBD by test-run | Landing/Docs routes | Landing/Docs unaffected | planned |
+| Scenario | Level                 | Expected tool              | Target command / method                                     | Fixture / data                         | Signals                                         | Status  |
+| -------- | --------------------- | -------------------------- | ----------------------------------------------------------- | -------------------------------------- | ----------------------------------------------- | ------- |
+| S1       | E2E                   | Playwright                 | `just test-e2e-smoke` or spec test under `e2e/tests/specs/` | open workspace route with query params | UI copy changes; pathname/query unchanged       | planned |
+| S2       | E2E / agent-browser   | Playwright + agent-browser | TBD by test-run                                             | open workspace with visible sidebars   | header, sidebars, center, footer remain visible | planned |
+| S3       | Unit / E2E            | `bun test` / Playwright    | TBD by test-run                                             | selected locale in local storage       | reload restores selected language               | planned |
+| S4       | Manual/Desktop smoke  | `just dev-desktop`         | manual Desktop check                                        | Tauri desktop app                      | no black/blank shell after language switch      | planned |
+| S5       | Static review / smoke | build + route smoke        | TBD by test-run                                             | Landing/Docs routes                    | Landing/Docs unaffected                         | planned |
 
 ## Scenarios
 

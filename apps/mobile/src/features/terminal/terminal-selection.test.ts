@@ -47,10 +47,12 @@ describe("terminal selection", () => {
     expect(matchingTerminalEntryId([entry("one")], "missing")).toBeNull();
     expect(matchingTerminalEntryId([entry("one")], null)).toBeNull();
     expect(matchingTerminalEntryId([], "one")).toBeNull();
-    expect(matchingTerminalEntryId(
-      [{ ...entry("tmux:session:2"), tmuxWindowName: "claude", workspaceId: "ws" }],
-      "ws:claude",
-    )).toBe("tmux:session:2");
+    expect(
+      matchingTerminalEntryId(
+        [{ ...entry("tmux:session:2"), tmuxWindowName: "claude", workspaceId: "ws" }],
+        "ws:claude",
+      ),
+    ).toBe("tmux:session:2");
   });
 
   test("selects the first terminal when multiple terminals are available", () => {

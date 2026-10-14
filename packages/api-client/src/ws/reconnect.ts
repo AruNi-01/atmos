@@ -19,22 +19,14 @@ export function mergeReconnectPolicy(
     maxDelayMs: partial?.maxDelayMs ?? b.maxDelayMs,
     maxAttempts: partial?.maxAttempts ?? b.maxAttempts,
     exhausted: partial?.exhausted ?? b.exhausted,
-    reconnectOnCleanClose:
-      partial?.reconnectOnCleanClose ?? b.reconnectOnCleanClose,
-    reconnectBeforeOpen:
-      partial?.reconnectBeforeOpen ?? b.reconnectBeforeOpen,
+    reconnectOnCleanClose: partial?.reconnectOnCleanClose ?? b.reconnectOnCleanClose,
+    reconnectBeforeOpen: partial?.reconnectBeforeOpen ?? b.reconnectBeforeOpen,
   };
 }
 
 /** Delay for attempt index 0..maxAttempts-1 before exhausted policy. */
-export function backoffDelayMs(
-  policy: ReconnectPolicy,
-  attemptIndex: number,
-): number {
-  return Math.min(
-    policy.initialDelayMs * 2 ** attemptIndex,
-    policy.maxDelayMs,
-  );
+export function backoffDelayMs(policy: ReconnectPolicy, attemptIndex: number): number {
+  return Math.min(policy.initialDelayMs * 2 ** attemptIndex, policy.maxDelayMs);
 }
 
 export function redactUrl(url: string): string {

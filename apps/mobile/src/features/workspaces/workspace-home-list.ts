@@ -135,8 +135,10 @@ export function visibleWorkspaceEntries({
       if (workspace.is_deleted || workspace.is_archived) continue;
       if (!filters.showAutomation && workspace.create_source === "automation") continue;
       if (filters.projectIds.length > 0 && !filters.projectIds.includes(projectId)) continue;
-      if (filters.statuses.length > 0 && !filters.statuses.includes(workspace.workflow_status)) continue;
-      if (filters.priorities.length > 0 && !filters.priorities.includes(workspace.priority)) continue;
+      if (filters.statuses.length > 0 && !filters.statuses.includes(workspace.workflow_status))
+        continue;
+      if (filters.priorities.length > 0 && !filters.priorities.includes(workspace.priority))
+        continue;
       if (
         filters.labelIds.length > 0 &&
         !workspace.labels.some((label) => filters.labelIds.includes(label.guid))
@@ -199,7 +201,11 @@ export function groupWorkspaceEntries({
       const group = groups.find((item) => item.guid === groupId);
       add(group?.guid ?? UNGROUPED, group?.name ?? "Ungrouped", entry);
     } else if (grouping === "status") {
-      add(workspace.workflow_status || "none", statusLabel(workspace.workflow_status || "No status"), entry);
+      add(
+        workspace.workflow_status || "none",
+        statusLabel(workspace.workflow_status || "No status"),
+        entry,
+      );
     } else if (grouping === "agent") {
       // TODO(APP-078): bucket by live agent status once the list has occupancy.
       // Until then every workspace stays in Idle.
@@ -235,7 +241,9 @@ export function groupWorkspaceEntries({
         continue;
       }
       const listed = workspacesByProject[project.guid] ?? [];
-      const hasWorkspace = listed.some((workspace) => !workspace.is_deleted && !workspace.is_archived);
+      const hasWorkspace = listed.some(
+        (workspace) => !workspace.is_deleted && !workspace.is_archived,
+      );
       if (hasWorkspace) continue;
       buckets.set(project.guid, {
         items: [projectEntry],
@@ -247,7 +255,9 @@ export function groupWorkspaceEntries({
 
   const orderIndex = (key: string) => {
     if (grouping === "project") {
-      return projects.find((project) => project.guid === key)?.sidebar_order ?? Number.MAX_SAFE_INTEGER;
+      return (
+        projects.find((project) => project.guid === key)?.sidebar_order ?? Number.MAX_SAFE_INTEGER
+      );
     }
     if (grouping === "group") {
       if (key === UNGROUPED) return Number.MAX_SAFE_INTEGER;
@@ -347,7 +357,8 @@ export function filterChoices({
     ];
   }
   if (kind === "status") return WORKSPACE_STATUS_FILTER_OPTIONS.map((option) => ({ ...option }));
-  if (kind === "priority") return WORKSPACE_PRIORITY_FILTER_OPTIONS.map((option) => ({ ...option }));
+  if (kind === "priority")
+    return WORKSPACE_PRIORITY_FILTER_OPTIONS.map((option) => ({ ...option }));
   const workspaces = Object.values(workspacesByProject).flat();
   const labels = new Map<string, string>();
   for (const workspace of workspaces) {

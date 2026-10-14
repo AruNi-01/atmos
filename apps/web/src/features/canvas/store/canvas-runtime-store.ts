@@ -58,7 +58,9 @@ export const useCanvasRuntimeStore = create<CanvasRuntimeState>((set) => ({
   setFocusPulseShapeIds: (shapeIds) => set({ focusPulseShapeIds: shapeIds }),
   removeRenderedShapeId: (shapeId) =>
     set((state) => ({
-      renderedShapeIds: state.renderedShapeIds.filter((currentShapeId) => currentShapeId !== shapeId),
+      renderedShapeIds: state.renderedShapeIds.filter(
+        (currentShapeId) => currentShapeId !== shapeId,
+      ),
     })),
   showUnsupportedInteraction: (notice) => set({ unsupportedInteractionNotice: notice }),
   dismissUnsupportedInteraction: () => set({ unsupportedInteractionNotice: null }),

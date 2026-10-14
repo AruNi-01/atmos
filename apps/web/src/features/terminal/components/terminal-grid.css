@@ -519,12 +519,16 @@ body:has([data-center-stage-plus-menu][data-state="open"]) [data-center-panel-ho
 body:has([data-center-stage-plus-menu][data-state="open"]) [data-center-panel-host] *,
 body:has([data-center-stage-plus-menu][data-state="open"]) .terminal-grid-container,
 body:has([data-center-stage-plus-menu][data-state="open"]) .terminal-grid-container *,
-body:has([data-center-stage-plus-menu][data-state="open"]) .terminal-grid-container[data-maximized-id] .terminal-pane.is-maximized,
+body:has([data-center-stage-plus-menu][data-state="open"])
+  .terminal-grid-container[data-maximized-id]
+  .terminal-pane.is-maximized,
 html[data-center-stage-plus-menu-open] [data-center-panel-host],
 html[data-center-stage-plus-menu-open] [data-center-panel-host] *,
 html[data-center-stage-plus-menu-open] .terminal-grid-container,
 html[data-center-stage-plus-menu-open] .terminal-grid-container *,
-html[data-center-stage-plus-menu-open] .terminal-grid-container[data-maximized-id] .terminal-pane.is-maximized,
+html[data-center-stage-plus-menu-open]
+  .terminal-grid-container[data-maximized-id]
+  .terminal-pane.is-maximized,
 html[data-center-stage-plus-menu-open] canvas,
 html[data-center-stage-plus-menu-open] webview,
 html[data-center-stage-plus-menu-open] iframe {
@@ -578,12 +582,11 @@ html[data-center-stage-plus-menu-open] iframe {
   padding: 6px;
   border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
   border-radius: var(--radius-xl);
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--background) 94%, white 6%),
-      color-mix(in srgb, var(--background) 98%, black 2%)
-    );
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--background) 94%, white 6%),
+    color-mix(in srgb, var(--background) 98%, black 2%)
+  );
   box-shadow:
     0 10px 30px rgba(0, 0, 0, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -774,7 +777,11 @@ html[data-center-stage-plus-menu-open] iframe {
 .atmos-terminal.atmos-tui-mouse-active .xterm-scrollable-element > .scrollbar.vertical,
 .atmos-terminal.atmos-tui-mouse-active .xterm-scrollable-element > .visible.scrollbar.vertical,
 .atmos-terminal.atmos-tui-mouse-active .xterm-scrollable-element > .invisible.scrollbar.vertical,
-.atmos-terminal.atmos-tui-mouse-active .xterm .xterm-scroll-area ~ .xterm-decoration-container + div,
+.atmos-terminal.atmos-tui-mouse-active
+  .xterm
+  .xterm-scroll-area
+  ~ .xterm-decoration-container
+  + div,
 .atmos-terminal.atmos-tui-mouse-active .xterm-scrollbar,
 .atmos-terminal.atmos-tui-mouse-active .xterm .scrollbar {
   display: none !important;
@@ -792,7 +799,9 @@ html[data-center-stage-plus-menu-open] iframe {
   right: var(--atmos-terminal-scrollbar-offset, 2px) !important;
   background: transparent !important;
   opacity: 0.6 !important;
-  transition: opacity 0.2s ease, width 0.2s ease !important;
+  transition:
+    opacity 0.2s ease,
+    width 0.2s ease !important;
 }
 
 .atmos-terminal .xterm .xterm-scroll-area ~ .xterm-decoration-container + div:hover,
@@ -908,8 +917,13 @@ html[data-center-stage-plus-menu-open] iframe {
  * Repeat after `.is-maximized { pointer-events: auto }` so the mute still
  * wins when a maximized pane is the stacking context under the plus menu.
  */
-html[data-center-stage-plus-menu-open] .terminal-grid-container[data-maximized-id] .terminal-pane.is-maximized,
-html[data-center-stage-plus-menu-open] .terminal-grid-container[data-maximized-id] .terminal-pane.is-maximized *,
+html[data-center-stage-plus-menu-open]
+  .terminal-grid-container[data-maximized-id]
+  .terminal-pane.is-maximized,
+html[data-center-stage-plus-menu-open]
+  .terminal-grid-container[data-maximized-id]
+  .terminal-pane.is-maximized
+  *,
 html[data-center-stage-plus-menu-open] canvas,
 html[data-center-stage-plus-menu-open] webview,
 html[data-center-stage-plus-menu-open] iframe {

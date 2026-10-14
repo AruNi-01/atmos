@@ -39,10 +39,7 @@ import {
   type UsageDimension,
   type UsageMetric,
 } from "@/features/token-usage/token-usage-dialog-utils";
-import {
-  TokenUsageAgentIcon,
-  TokenUsageModelIcon,
-} from "@/features/token-usage/TokenUsageIcons";
+import { TokenUsageAgentIcon, TokenUsageModelIcon } from "@/features/token-usage/TokenUsageIcons";
 import { TokenUsageOverviewTab } from "@/features/token-usage/TokenUsageOverviewTab";
 import {
   inflateSharePayload,
@@ -80,7 +77,7 @@ function TokenUsageCycleButton({
       type="button"
       aria-label={active.label}
       className={cn(
-        "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium leading-none text-foreground",
+        "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs leading-none font-medium text-foreground",
         "border-0 bg-transparent shadow-none hover:bg-primary/5 active:scale-[0.98]",
         className,
       )}
@@ -96,8 +93,7 @@ function TokenUsageCycleButton({
       <span className="relative inline-grid overflow-hidden leading-none">
         <span className="invisible col-start-1 row-start-1 whitespace-nowrap" aria-hidden>
           {options.reduce(
-            (longest, item) =>
-              item.label.length > longest.length ? item.label : longest,
+            (longest, item) => (item.label.length > longest.length ? item.label : longest),
             "",
           )}
         </span>
@@ -137,8 +133,7 @@ export function TokenUsageOverviewView({
   const [resolution, setResolution] = React.useState<Resolution>("month");
   const [metric, setMetric] = React.useState<UsageMetric>("tokens");
   const [dimension, setDimension] = React.useState<UsageDimension>("agent");
-  const [heatmapTooltip, setHeatmapTooltip] =
-    React.useState<DitherTooltipState | null>(null);
+  const [heatmapTooltip, setHeatmapTooltip] = React.useState<DitherTooltipState | null>(null);
   const t = useTranslations("appShell.tokenUsageDialog");
   const locale = useLocale();
   const { resolvedTheme } = useTheme();
@@ -153,8 +148,7 @@ export function TokenUsageOverviewView({
   const uniqueModelCount = payload
     ? payload.summary.model_count
     : overview?.by_model
-      ? new Set(overview.by_model.map((row) => row.model_id.trim() || "unknown"))
-          .size
+      ? new Set(overview.by_model.map((row) => row.model_id.trim() || "unknown")).size
       : 0;
 
   const metricCycleOptions = React.useMemo(() => {
@@ -207,8 +201,7 @@ export function TokenUsageOverviewView({
     if (latestYear) setSelectedYear(latestYear);
   }, [availableYears, overview, selectedYear]);
 
-  const heatmapYear =
-    selectedYear || availableYears[availableYears.length - 1] || "";
+  const heatmapYear = selectedYear || availableYears[availableYears.length - 1] || "";
 
   React.useEffect(() => {
     setHeatmapTooltip(null);
@@ -253,10 +246,7 @@ export function TokenUsageOverviewView({
     () => timelineSeries.map((p) => (metric === "cost" ? p.cost : p.tokens)),
     [metric, timelineSeries],
   );
-  const timelineLabels = React.useMemo(
-    () => timelineSeries.map((p) => p.label),
-    [timelineSeries],
-  );
+  const timelineLabels = React.useMemo(() => timelineSeries.map((p) => p.label), [timelineSeries]);
   const formatMetric = React.useCallback(
     (value: number) => formatMetricValue(value, metric, locale, "compact"),
     [locale, metric],
@@ -271,8 +261,7 @@ export function TokenUsageOverviewView({
 
   const otherLabel = t("charts.agent.other");
   const breakdownSeries = React.useMemo(
-    () =>
-      buildBreakdownSeries(sortedDays, resolution, locale, metric, dimension),
+    () => buildBreakdownSeries(sortedDays, resolution, locale, metric, dimension),
     [dimension, locale, metric, resolution, sortedDays],
   );
   const stackedBars = React.useMemo(() => {
@@ -290,24 +279,12 @@ export function TokenUsageOverviewView({
     [heatmapYear, sortedDays],
   );
   const yearlyBreakdownShares = React.useMemo(
-    () =>
-      buildYearBreakdownShares(
-        sortedDays,
-        heatmapYear,
-        metric,
-        dimension,
-        otherLabel,
-      ),
+    () => buildYearBreakdownShares(sortedDays, heatmapYear, metric, dimension, otherLabel),
     [dimension, heatmapYear, metric, otherLabel, sortedDays],
   );
 
   const breakdownBars = React.useMemo(() => {
-    const fromOverview = buildOverviewBreakdownShares(
-      overview,
-      metric,
-      dimension,
-      otherLabel,
-    );
+    const fromOverview = buildOverviewBreakdownShares(overview, metric, dimension, otherLabel);
     if (fromOverview.length > 0) return fromOverview;
     return yearlyBreakdownShares;
   }, [dimension, metric, otherLabel, overview, yearlyBreakdownShares]);
@@ -316,10 +293,7 @@ export function TokenUsageOverviewView({
   const mixSlices = React.useMemo(() => tokenMixSlices(tokenMix), [tokenMix]);
 
   const segmentLabels = React.useMemo(
-    () =>
-      breakdownSeries.keys.map((k) =>
-        formatDimensionLabel(k, dimension, otherLabel),
-      ),
+    () => breakdownSeries.keys.map((k) => formatDimensionLabel(k, dimension, otherLabel)),
     [breakdownSeries.keys, dimension, otherLabel],
   );
 
@@ -360,15 +334,7 @@ export function TokenUsageOverviewView({
       const name = segmentLabels[index] ?? k;
       const color = segmentColors[index];
       if (dimension === "agent") {
-        return (
-          <TokenUsageAgentIcon
-            key={k}
-            clientId={k}
-            name={name}
-            size={12}
-            color={color}
-          />
-        );
+        return <TokenUsageAgentIcon key={k} clientId={k} name={name} size={12} color={color} />;
       }
       return (
         <TokenUsageModelIcon
@@ -381,13 +347,7 @@ export function TokenUsageOverviewView({
         />
       );
     });
-  }, [
-    dimension,
-    modelProviderById,
-    segmentColors,
-    segmentKeys,
-    segmentLabels,
-  ]);
+  }, [dimension, modelProviderById, segmentColors, segmentKeys, segmentLabels]);
 
   const rangeLabel =
     overview?.summary.range_start && overview.summary.range_end
@@ -397,14 +357,11 @@ export function TokenUsageOverviewView({
         })
       : t("range.empty");
 
-  const emptyYear =
-    !loading && !!overview && heatmapSummary.activeDays === 0;
+  const emptyYear = !loading && !!overview && heatmapSummary.activeDays === 0;
   const shell = "bg-background text-foreground";
   const muted = isDark ? "text-white/45" : "text-black/45";
   const border = isDark ? "border-white/[0.07]" : "border-black/[0.08]";
-  const panel = isDark
-    ? "border-white/[0.06] bg-[#141414]"
-    : "border-black/[0.06] bg-[#f4f4f5]";
+  const panel = isDark ? "border-white/[0.06] bg-[#141414]" : "border-black/[0.06] bg-[#f4f4f5]";
 
   return (
     <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2 px-4 py-4 sm:px-5 sm:py-5">
@@ -434,7 +391,7 @@ export function TokenUsageOverviewView({
       <div
         ref={captureTargetRef}
         className={cn(
-          "box-border flex w-full flex-col gap-4 px-1 pb-4 pt-0 sm:px-2 sm:pb-5",
+          "box-border flex w-full flex-col gap-4 px-1 pt-0 pb-4 sm:px-2 sm:pb-5",
           shell,
         )}
       >

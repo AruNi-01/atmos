@@ -27,9 +27,7 @@ describe("automation-run-landing", () => {
   });
 
   it("builds tooltip as job · short run id", () => {
-    expect(automationTabTooltip("Daily health", "abcdefghijkl")).toBe(
-      "Daily health · abcdefgh",
-    );
+    expect(automationTabTooltip("Daily health", "abcdefghijkl")).toBe("Daily health · abcdefgh");
   });
 
   it("rejects the group id as a job scope", () => {
@@ -89,9 +87,7 @@ describe("automation-run-landing", () => {
   it("lands standalone chat on the created chat tab", () => {
     expect(automationChatTabValue("chat-9")).toBe("agent-chat:chat-9");
     expect(standaloneJobHref("auto-1")).toBe("/automation?id=auto-1");
-    expect(standaloneDefinitionDir("auto-1")).toBe(
-      "~/.atmos/data/automations/definitions/auto-1",
-    );
+    expect(standaloneDefinitionDir("auto-1")).toBe("~/.atmos/data/automations/definitions/auto-1");
     expect(
       runLandingHref({
         guid: "run-3",
@@ -134,12 +130,10 @@ describe("automation-run-landing", () => {
       "open-terminal",
     );
     expect(runFollowUpKind({ execute_mode: "chat", surface_kind: null })).toBe("open-chat");
-    expect(
-      runFollowUpKind({ execute_mode: "headless", surface_kind: "terminal" }),
-    ).toBe("open-terminal");
-    expect(runSurfaceMode({ execute_mode: "headless", surface_kind: "chat" })).toBe(
-      "chat",
+    expect(runFollowUpKind({ execute_mode: "headless", surface_kind: "terminal" })).toBe(
+      "open-terminal",
     );
+    expect(runSurfaceMode({ execute_mode: "headless", surface_kind: "chat" })).toBe("chat");
   });
 
   it("builds a continue terminal href without the original tmux window", () => {

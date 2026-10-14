@@ -1,12 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@workspace/ui";
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@workspace/ui";
 import { ListFilter } from "lucide-react";
 
 export function PageFilterButton({
@@ -27,11 +22,11 @@ export function PageFilterButton({
           type="button"
           variant="outline"
           size="sm"
-          className="relative h-11 sm:h-11 shrink-0 gap-1.5 rounded-xl px-3"
+          className="relative h-11 shrink-0 gap-1.5 rounded-xl px-3 sm:h-11"
           aria-label={label}
         >
           {activeCount > 0 ? (
-            <span className="absolute -right-1 -top-1 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+            <span className="absolute -top-1 -right-1 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
               {activeCount}
             </span>
           ) : null}

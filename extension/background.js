@@ -1,4 +1,3 @@
 chrome.runtime.onInstalled.addListener(function () {
-  console.log('Atmos Inspector extension installed');
+  console.log("Atmos Inspector extension installed");
 });
-

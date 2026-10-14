@@ -25,7 +25,7 @@ describe("left sidebar workspace list scroll areas", () => {
 
   it("fades the one-column grouped list in the same viewport as sticky titles", () => {
     const source = read("../left-sidebar-controls.tsx");
-    expect(source).toContain("<ScrollArea scrollFade className=\"h-full\">");
+    expect(source).toContain('<ScrollArea scrollFade className="h-full">');
     expect(source).toContain("LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS");
     expect(source).toContain("data-sidebar-sticky-group-header");
     expect(source).not.toContain("data-sidebar-group-body-scroll");
@@ -38,15 +38,17 @@ describe("left sidebar workspace list scroll areas", () => {
     const list = read("../left-sidebar-controls.tsx");
     const projectItem = read("../sidebar/ProjectItem.tsx");
     expect(list).toContain("scrollFade");
-    expect(list).toContain("className=\"h-full\"");
-    expect(list).toContain("viewportClassName={cn(className, showEmptyProjects && \"flex items-center justify-center\")}");
+    expect(list).toContain('className="h-full"');
+    expect(list).toContain(
+      'viewportClassName={cn(className, showEmptyProjects && "flex items-center justify-center")}',
+    );
     expect(projectItem).toContain("LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS");
     expect(projectItem).not.toContain("data-sidebar-group-body-scroll");
   });
 
   it("fades the one-column user-group list in the same viewport as sticky titles", () => {
     const source = read("../sidebar/UserGroupSidebarContent.tsx");
-    expect(source).toContain("<ScrollArea scrollFade className=\"h-full\">");
+    expect(source).toContain('<ScrollArea scrollFade className="h-full">');
     expect(source).toContain("LEFT_SIDEBAR_STICKY_GROUP_HEADER_CLASS");
     expect(source).toContain("data-sidebar-sticky-group-header");
     expect(source).not.toContain("data-sidebar-group-body-scroll");

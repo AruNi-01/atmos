@@ -35,14 +35,9 @@ type GithubMetadataFilterProps = {
   };
 };
 
-function toggle(
-  value: string,
-  setSelected: React.Dispatch<React.SetStateAction<string[]>>,
-) {
+function toggle(value: string, setSelected: React.Dispatch<React.SetStateAction<string[]>>) {
   setSelected((current) =>
-    current.includes(value)
-      ? current.filter((item) => item !== value)
-      : [...current, value],
+    current.includes(value) ? current.filter((item) => item !== value) : [...current, value],
   );
 }
 
@@ -75,9 +70,7 @@ const FilterIconTrigger = React.forwardRef<
     >
       <Icon className="size-3.5 shrink-0" />
       {count > 0 ? (
-        <span className="min-w-3 tabular-nums leading-none text-foreground">
-          {count}
-        </span>
+        <span className="min-w-3 leading-none text-foreground tabular-nums">{count}</span>
       ) : null}
     </button>
   );
@@ -204,9 +197,7 @@ export function GithubAssigneesFilter({
                       {assignee.login.slice(0, 2)}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="min-w-0 flex-1 truncate">
-                    {assignee.login}
-                  </span>
+                  <span className="min-w-0 flex-1 truncate">{assignee.login}</span>
                   {isSelected ? <Check className="size-3.5" /> : null}
                 </CommandItem>
               );

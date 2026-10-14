@@ -32,14 +32,9 @@ export function SubagentOverlayProvider({
     [onSelect, selectedId],
   );
   const close = useCallback(() => onSelect(null), [onSelect]);
-  const value = useMemo(
-    () => ({ selectedId, open, close }),
-    [selectedId, open, close],
-  );
+  const value = useMemo(() => ({ selectedId, open, close }), [selectedId, open, close]);
   return (
-    <SubagentOverlayContext.Provider value={value}>
-      {children}
-    </SubagentOverlayContext.Provider>
+    <SubagentOverlayContext.Provider value={value}>{children}</SubagentOverlayContext.Provider>
   );
 }
 

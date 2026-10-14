@@ -62,11 +62,7 @@ const EMPTY_KEEP_INDEXES: readonly number[] = [];
  * Captures StickToBottom.stopScroll without subscribing the virtualizer to
  * context identity changes on every scroll tick.
  */
-function StickToBottomStop({
-  stopRef,
-}: {
-  stopRef: React.MutableRefObject<(() => void) | null>;
-}) {
+function StickToBottomStop({ stopRef }: { stopRef: React.MutableRefObject<(() => void) | null> }) {
   const { stopScroll } = useStickToBottomContext();
   useLayoutEffect(() => {
     stopRef.current = stopScroll;
@@ -122,8 +118,9 @@ export function AgentChatTranscriptList({
   const stayPinnedToEndRef = useRef(true);
   const keepIndexes = keepMessageIndexes ?? EMPTY_KEEP_INDEXES;
   const ownSendRefs = useAgentChatOwnSendRefs();
-  const pendingFirstSend = isPendingUserEcho(messages.at(-1))
-    && messages.filter((item) => item.role === "user").length === 1;
+  const pendingFirstSend =
+    isPendingUserEcho(messages.at(-1)) &&
+    messages.filter((item) => item.role === "user").length === 1;
   if (pendingFirstSend && ownSendRefs) {
     ownSendRefs.skipEndAnchorRef.current = true;
   }
@@ -131,10 +128,11 @@ export function AgentChatTranscriptList({
   const roles = messages.map((message) => message.role);
   const mermaidFlags = useMemo(() => messages.map(agentMessageHasMermaid), [messages]);
   const inlineSubagentTools = useMemo(
-    () => inlineSubagentTasksByMessageId(messages, {
-      mode: subagentCardMode,
-      excludeIds: excludeSubagentIds,
-    }),
+    () =>
+      inlineSubagentTasksByMessageId(messages, {
+        mode: subagentCardMode,
+        excludeIds: excludeSubagentIds,
+      }),
     [excludeSubagentIds, messages, subagentCardMode],
   );
 
@@ -169,7 +167,10 @@ export function AgentChatTranscriptList({
     count: messages.length,
     getScrollElement,
     estimateSize: (index) =>
-      estimateAgentChatMessageSize(messages[index]?.role ?? "assistant", mermaidFlags[index] === true),
+      estimateAgentChatMessageSize(
+        messages[index]?.role ?? "assistant",
+        mermaidFlags[index] === true,
+      ),
     getItemKey: (index) => {
       if (ownSendRefs?.anchorIndexRef.current === index && ownSendRefs.itemKeyRef.current) {
         return ownSendRefs.itemKeyRef.current;
@@ -221,8 +222,9 @@ export function AgentChatTranscriptList({
   useLayoutEffect(() => {
     if (messages.length === 0) return;
     if (didAnchorToEndRef.current && !pinToEnd) return;
-    const skipEnd = Boolean(ownSendRefs?.skipEndAnchorRef.current)
-      || (initialScrollIndex != null && initialScrollIndex >= 0);
+    const skipEnd =
+      Boolean(ownSendRefs?.skipEndAnchorRef.current) ||
+      (initialScrollIndex != null && initialScrollIndex >= 0);
     const list = listRef.current;
     const scroll = getScrollElement();
     if (list && scroll) {
@@ -301,11 +303,10 @@ export function AgentChatTranscriptList({
       const scroll = getScrollElement();
       if (belowCountStore && scroll) {
         belowCountStore.set(
-          countMessagesBelowViewport(
-            virtualizer.measurementsCache,
-            messages.length,
-            { scrollTop: scroll.scrollTop, height: scroll.clientHeight },
-          ),
+          countMessagesBelowViewport(virtualizer.measurementsCache, messages.length, {
+            scrollTop: scroll.scrollTop,
+            height: scroll.clientHeight,
+          }),
         );
       }
       if (!scroll || userMessageIndices.length === 0) return;
@@ -405,9 +406,7 @@ export function AgentChatTranscriptList({
                   message={message}
                   index={item.index}
                   inlineSubagentTools={inlineSubagentTools.get(message.id)}
-                  subagentMessages={
-                    inlineSubagentTools.get(message.id) ? messages : undefined
-                  }
+                  subagentMessages={inlineSubagentTools.get(message.id) ? messages : undefined}
                 />
                 {showActivityFooter ? (
                   <div

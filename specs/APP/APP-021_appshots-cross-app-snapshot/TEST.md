@@ -12,24 +12,24 @@
 ## Coverage map
 
 | PRD item | Scenario IDs |
-|----------|--------------|
-| M1       | S1, S10 |
-| M2       | S1, S2, S3 |
-| M3       | S2, S3 |
-| M4       | S3, S5 |
-| M5       | S3, S5, S8 |
-| M6       | S3, S4, S8 |
-| M7       | S6 |
-| M8       | S6 |
-| M9       | S7 |
-| M10      | S7 |
-| M11      | S7 |
-| M12      | S7 |
-| M13      | S8 |
-| M14      | S9 |
-| M15      | S10 |
-| M16      | S11 |
-| M17      | S12 |
+| -------- | ------------ |
+| M1       | S1, S10      |
+| M2       | S1, S2, S3   |
+| M3       | S2, S3       |
+| M4       | S3, S5       |
+| M5       | S3, S5, S8   |
+| M6       | S3, S4, S8   |
+| M7       | S6           |
+| M8       | S6           |
+| M9       | S7           |
+| M10      | S7           |
+| M11      | S7           |
+| M12      | S7           |
+| M13      | S8           |
+| M14      | S9           |
+| M15      | S10          |
+| M16      | S11          |
+| M17      | S12          |
 
 ## Scenarios
 
@@ -194,17 +194,17 @@
 
 > Appended 2026-07-28 after Electron dual-shift AppShot production path and history permission-UX polish.
 
-| Scenario | Status | Evidence |
-|----------|--------|----------|
-| S1 Dual-shift capture | partial | Electron `shift-chord` / trigger unit tests; full OS capture is manual dogfood |
+| Scenario                | Status  | Evidence                                                                                                        |
+| ----------------------- | ------- | --------------------------------------------------------------------------------------------------------------- |
+| S1 Dual-shift capture   | partial | Electron `shift-chord` / trigger unit tests; full OS capture is manual dogfood                                  |
 | S2–S5 Pending + records | covered | Electron `pending` / `records` / `protocol` tests; Tauri legacy still has `cargo test -p atmos-desktop appshot` |
-| S4 Protocol parse | covered | `apps/web` appshot protocol tests |
-| S6 Composer paste | covered | Welcome / Automation placeholder expansion web tests |
-| S7–S8 History | covered | `apps/web/src/features/appshot/__tests__/appshots-history-popover.test.tsx` |
-| S9 Redaction | partial | Native normalization tests where present; full secure-field dogfood remains manual |
-| S10 Explicit only | covered | Desktop runtime gate + no background capture |
-| S11 Unsupported | covered | Non-desktop client returns unsupported status |
-| S12 Permission recovery | covered | History popover single Enable CTA + no stacked `last_error`; permissions window flow in product |
+| S4 Protocol parse       | covered | `apps/web` appshot protocol tests                                                                               |
+| S6 Composer paste       | covered | Welcome / Automation placeholder expansion web tests                                                            |
+| S7–S8 History           | covered | `apps/web/src/features/appshot/__tests__/appshots-history-popover.test.tsx`                                     |
+| S9 Redaction            | partial | Native normalization tests where present; full secure-field dogfood remains manual                              |
+| S10 Explicit only       | covered | Desktop runtime gate + no background capture                                                                    |
+| S11 Unsupported         | covered | Non-desktop client returns unsupported status                                                                   |
+| S12 Permission recovery | covered | History popover single Enable CTA + no stacked `last_error`; permissions window flow in product                 |
 
 ### Commands
 

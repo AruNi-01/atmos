@@ -21,28 +21,19 @@ describe("PT Design Atmos host wiring", () => {
   });
 
   test("warm-frame snapshot treats pt-design as a valid light tab", () => {
-    const panels = readFileSync(
-      join(import.meta.dir, "../CenterStagePanels.tsx"),
-      "utf8",
-    );
+    const panels = readFileSync(join(import.meta.dir, "../CenterStagePanels.tsx"), "utf8");
     expect(panels).toMatch(/validForContext[\s\S]*"pt-design"/);
     expect(panels).toContain('tabId === "pt-design"');
   });
 
   test("left sidebar launchpad opens the standalone /pt-design page", () => {
-    const launchpad = readFileSync(
-      join(import.meta.dir, "../LeftSidebarLaunchpad.tsx"),
-      "utf8",
-    );
+    const launchpad = readFileSync(join(import.meta.dir, "../LeftSidebarLaunchpad.tsx"), "utf8");
     expect(launchpad).toContain("pt-design");
     expect(launchpad).toContain("PencilRuler");
     expect(launchpad).toContain('path: "/pt-design"');
     expect(launchpad).not.toContain("onOpenPtDesign");
     expect(launchpad).not.toContain('kind: "pt-design"');
-    const sidebar = readFileSync(
-      join(import.meta.dir, "../LeftSidebar.tsx"),
-      "utf8",
-    );
+    const sidebar = readFileSync(join(import.meta.dir, "../LeftSidebar.tsx"), "utf8");
     expect(sidebar).not.toContain("onOpenPtDesign");
     expect(sidebar).not.toContain("ptDesignLaunchpadHref");
     expect(sidebar).not.toContain('url.searchParams.set("tab", "pt-design")');
@@ -50,18 +41,12 @@ describe("PT Design Atmos host wiring", () => {
     expect(sidebar).not.toMatch(/useQueryState\(\s*["']tab["']/);
     expect(sidebar).toContain("currentView === 'pt-design'");
     expect(launchpad).not.toMatch(/bare ["']Canvas["']\s*\n.*pt-design/i);
-    const page = readFileSync(
-      join(import.meta.dir, "../../app/(app)/pt-design/page.tsx"),
-      "utf8",
-    );
+    const page = readFileSync(join(import.meta.dir, "../../app/(app)/pt-design/page.tsx"), "utf8");
     expect(page).toContain("Prototype Design");
   });
 
   test("center frame mounts the public embed panel", () => {
-    const frame = readFileSync(
-      join(import.meta.dir, "../workspace-center-frame.tsx"),
-      "utf8",
-    );
+    const frame = readFileSync(join(import.meta.dir, "../workspace-center-frame.tsx"), "utf8");
     expect(frame).toContain("PtDesignHostStage");
     expect(frame).toContain("pt-design");
   });
@@ -69,9 +54,9 @@ describe("PT Design Atmos host wiring", () => {
   test("user-facing copy is Prototype Design", () => {
     const en = readFileSync(join(import.meta.dir, "../../../messages/en.json"), "utf8");
     const zh = readFileSync(join(import.meta.dir, "../../../messages/zh.json"), "utf8");
-    expect(en).toContain("\"ptDesign\": \"Prototype Design\"");
-    expect(zh).toContain("\"ptDesign\": \"原型设计\"");
-    expect(zh).not.toContain("\"ptDesign\": \"Prototype Design\"");
+    expect(en).toContain('"ptDesign": "Prototype Design"');
+    expect(zh).toContain('"ptDesign": "原型设计"');
+    expect(zh).not.toContain('"ptDesign": "Prototype Design"');
     expect(en).not.toMatch(/"ptDesign": "PT Design"/);
     expect(zh).not.toMatch(/"ptDesign": "PT Design"/);
   });
@@ -122,17 +107,13 @@ describe("PT Design Atmos host wiring", () => {
   });
 
   test("no-context center stage opens Prototype Design from /pt-design or a legacy tab", () => {
-    const support = readFileSync(
-      join(import.meta.dir, "../center-stage-support.tsx"),
-      "utf8",
-    );
-    const stage = readFileSync(
-      join(import.meta.dir, "../CenterStage.tsx"),
-      "utf8",
-    );
+    const support = readFileSync(join(import.meta.dir, "../center-stage-support.tsx"), "utf8");
+    const stage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
     expect(support).toContain("PtDesignStandaloneStage");
     expect(support).toContain('currentView === "pt-design" || ptDesignOpen');
-    expect(stage).toContain('ptDesignOpen={storedLastTab === "pt-design" || tabFromUrl === "pt-design"}');
+    expect(stage).toContain(
+      'ptDesignOpen={storedLastTab === "pt-design" || tabFromUrl === "pt-design"}',
+    );
   });
 
   test("S23 / S28 standalone page uses the v2 scene key while workspace tabs stay per context", () => {
@@ -148,10 +129,7 @@ describe("PT Design Atmos host wiring", () => {
     expect(standalone).toContain("onBack");
     expect(standalone).not.toContain("pt-design-standalone-canvas");
     expect(standalone).not.toContain("foreignHref");
-    const tabBar = readFileSync(
-      join(import.meta.dir, "../CenterStageTabBar.tsx"),
-      "utf8",
-    );
+    const tabBar = readFileSync(join(import.meta.dir, "../CenterStageTabBar.tsx"), "utf8");
     expect(tabBar).toContain("usePtDesignOpenTitle");
     expect(tabBar).toContain("ptDesignTabTitle");
     expect(tabBar).toContain("PencilRuler");
@@ -195,10 +173,7 @@ describe("PT Design Atmos host wiring", () => {
     expect(overview).not.toContain("Excalidraw");
     expect(overview).not.toContain("<aside");
     expect(overview).not.toMatch(/text-transform:\s*uppercase/);
-    const frame = readFileSync(
-      join(import.meta.dir, "../workspace-center-frame.tsx"),
-      "utf8",
-    );
+    const frame = readFileSync(join(import.meta.dir, "../workspace-center-frame.tsx"), "utf8");
     expect(frame).toContain("<KeptPtDesignHostStage");
     expect(frame).toContain("contextId={contextId}");
     expect(frame).toContain("isProject={isProject}");
@@ -206,10 +181,7 @@ describe("PT Design Atmos host wiring", () => {
   });
 
   test("hosted collab invites skip onboarding and open a fullscreen guest board", () => {
-    const gate = readFileSync(
-      join(import.meta.dir, "../HostedAppShellGate.tsx"),
-      "utf8",
-    );
+    const gate = readFileSync(join(import.meta.dir, "../HostedAppShellGate.tsx"), "utf8");
     const guest = readFileSync(
       join(import.meta.dir, "../../features/pt-design/PtDesignGuestStage.tsx"),
       "utf8",
@@ -221,7 +193,7 @@ describe("PT Design Atmos host wiring", () => {
     expect(gate).toContain("hasPtDesignCollabInvite");
     expect(gate).toContain("PtDesignGuestStage");
     expect(gate).toContain("collabInviteOnLoad");
-    expect(guest).toContain("data-testid=\"pt-design-guest\"");
+    expect(guest).toContain('data-testid="pt-design-guest"');
     expect(guest).toContain("pt-design-guest-logo");
     expect(guest).toContain("https://atmos.land");
     expect(guest).toContain("memoryPersistence");
@@ -234,8 +206,8 @@ describe("PT Design Atmos host wiring", () => {
     expect(panel).not.toContain("https://atmos.land");
     const en = readFileSync(join(import.meta.dir, "../../../messages/en.json"), "utf8");
     const zh = readFileSync(join(import.meta.dir, "../../../messages/zh.json"), "utf8");
-    expect(en).toContain("\"logoLink\": \"Open Atmos\"");
-    expect(zh).toContain("\"logoLink\": \"打开 Atmos 官网\"");
+    expect(en).toContain('"logoLink": "Open Atmos"');
+    expect(zh).toContain('"logoLink": "打开 Atmos 官网"');
   });
 
   test("center stage panel does not trap position:fixed overlays", () => {
@@ -252,7 +224,7 @@ describe("PT Design Atmos host wiring", () => {
       "utf8",
     );
     expect(stack).toContain("!shiftBase || reduce || !presented");
-    expect(stack).toContain("presented && shiftBase && !reduce && \"will-change-transform\"");
+    expect(stack).toContain('presented && shiftBase && !reduce && "will-change-transform"');
   });
 
   test("S23 invoke still uses pt_design_bridge_* on the main /ws", () => {

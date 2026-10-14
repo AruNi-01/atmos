@@ -21,9 +21,7 @@ describe("planUpdateShapePartial", () => {
   };
 
   it("rejects h on note shapes", () => {
-    expect(() =>
-      planUpdateShapePartial(noteShape, { h: 100 }),
-    ).toThrow(CanvasAgentError);
+    expect(() => planUpdateShapePartial(noteShape, { h: 100 })).toThrow(CanvasAgentError);
     try {
       planUpdateShapePartial(noteShape, { h: 100 });
     } catch (e) {

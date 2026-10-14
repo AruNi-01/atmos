@@ -31,7 +31,12 @@ export function AgentChatOptionSheet(props: {
   const extras = extraChoices ?? [];
 
   return (
-    <ExpoDrawer isPresented={visible} matchContents={false} onDismiss={onClose} snapPoints={["half", "full"]}>
+    <ExpoDrawer
+      isPresented={visible}
+      matchContents={false}
+      onDismiss={onClose}
+      snapPoints={["half", "full"]}
+    >
       <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
         <ChoiceGroup
           choices={choices}
@@ -117,10 +122,15 @@ function ChoiceGroup(props: {
                   paddingVertical: 12,
                 })}
               >
-                <Text numberOfLines={2} style={[typography.rowTitle, { color: theme.colors.label, flex: 1 }]}>
+                <Text
+                  numberOfLines={2}
+                  style={[typography.rowTitle, { color: theme.colors.label, flex: 1 }]}
+                >
                   {choice.label}
                 </Text>
-                {selected ? <CheckIcon color={theme.colors.accent} size={18} strokeWidth={2.6} /> : null}
+                {selected ? (
+                  <CheckIcon color={theme.colors.accent} size={18} strokeWidth={2.6} />
+                ) : null}
               </Pressable>
             </View>
           );

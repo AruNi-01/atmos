@@ -18,10 +18,7 @@ import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { BrowserWindow, ipcMain, nativeImage, screen } from "electron";
 import { getResolvedAppIcons } from "../branding.js";
-import {
-  forceMacDockTileRefresh,
-  setOverlayVisibleOnAllWorkspaces,
-} from "../windows/mac-dock.js";
+import { forceMacDockTileRefresh, setOverlayVisibleOnAllWorkspaces } from "../windows/mac-dock.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -120,18 +117,9 @@ const LANDING_RESNAP_MS = 2800;
 const LANDING_RESNAP_EVERY_MS = 280;
 
 function grantPreloadPath(): string {
-  const besideMain = join(
-    dirname(fileURLToPath(import.meta.url)),
-    "grant-preload.cjs",
-  );
+  const besideMain = join(dirname(fileURLToPath(import.meta.url)), "grant-preload.cjs");
   if (existsSync(besideMain)) return besideMain;
-  return join(
-    dirname(fileURLToPath(import.meta.url)),
-    "..",
-    "..",
-    "dist",
-    "grant-preload.cjs",
-  );
+  return join(dirname(fileURLToPath(import.meta.url)), "..", "..", "dist", "grant-preload.cjs");
 }
 
 function isZh(locale: string | undefined): boolean {
@@ -145,21 +133,15 @@ function buildInstruction(
 ): string {
   if (isZh(locale)) {
     // Match macOS System Settings Chinese labels: 无障碍 / 屏幕录制.
-    const goal =
-      purpose === "screen_recording" ? "允许屏幕录制" : "允许无障碍";
+    const goal = purpose === "screen_recording" ? "允许屏幕录制" : "允许无障碍";
     return `将「${hostAppName}」拖到上方列表以${goal}`;
   }
   const goal =
-    purpose === "screen_recording"
-      ? "to allow Screen Recording"
-      : "to allow Accessibility";
+    purpose === "screen_recording" ? "to allow Screen Recording" : "to allow Accessibility";
   return `Drag ${hostAppName} to the list above ${goal}`;
 }
 
-function buildReason(
-  reason: GrantOverlayReason | undefined,
-  locale?: string,
-): string {
+function buildReason(reason: GrantOverlayReason | undefined, locale?: string): string {
   if (reason !== "host_shortcuts") return "";
   if (isZh(locale)) {
     return "仅在 Atmos 位于前台时需要此权限，避免在 Atmos 中触发系统快捷键。";
@@ -169,8 +151,7 @@ function buildReason(
 
 function iconRoots(): string[] {
   const roots: string[] = [];
-  const resourcesPath =
-    typeof process.resourcesPath === "string" ? process.resourcesPath : "";
+  const resourcesPath = typeof process.resourcesPath === "string" ? process.resourcesPath : "";
   const here = dirname(fileURLToPath(import.meta.url));
   if (resourcesPath) {
     roots.push(join(resourcesPath, "icons"));
@@ -197,11 +178,7 @@ function firstExistingIcon(names: string[]): string | null {
  */
 function resolveBrandPngPath(): string | null {
   const icons = getResolvedAppIcons();
-  return (
-    firstExistingIcon(["128x128.png", "32x32.png", "icon.png"]) ??
-    icons.pngPath ??
-    null
-  );
+  return firstExistingIcon(["128x128.png", "32x32.png", "icon.png"]) ?? icons.pngPath ?? null;
 }
 
 function loadNativeIcon(path: string, size: number): Electron.NativeImage | null {
@@ -293,9 +270,7 @@ function panelHtml(state: GrantState, locale?: string): string {
   const reason = escapeHtml(state.reason);
   const chip = escapeHtml(state.chipLabel);
   const closeLabel = isZh(locale) ? "关闭" : "Close";
-  const reasonHtml = reason
-    ? `<div class="reason">${reason}</div>`
-    : "";
+  const reasonHtml = reason ? `<div class="reason">${reason}</div>` : "";
   const iconHtml = state.iconDataUrl
     ? `<img class="icon" src="${state.iconDataUrl}" width="28" height="28" alt="" draggable="false" />`
     : `<div class="icon icon-fallback" aria-hidden="true"></div>`;
@@ -593,9 +568,9 @@ function parseAppleBoundsList(out: string): Rect | null {
  * MUST stay async — sync osascript on the main process freezes Electron
  * (beach-ball cursor) especially when macOS shows an Automation prompt.
  */
-async function getSystemSettingsWindowBounds(
-  opts?: { bypassCache?: boolean },
-): Promise<Rect | null> {
+async function getSystemSettingsWindowBounds(opts?: {
+  bypassCache?: boolean;
+}): Promise<Rect | null> {
   if (process.platform !== "darwin") return null;
 
   const now = Date.now();
@@ -617,8 +592,7 @@ async function getSystemSettingsWindowBounds(
     },
     {
       // bounds → {left, top, right, bottom}
-      script:
-        'tell application "System Settings" to get the bounds of the front window',
+      script: 'tell application "System Settings" to get the bounds of the front window',
       parse: parseAppleBoundsList,
     },
     {
@@ -652,9 +626,7 @@ async function getSystemSettingsWindowBounds(
  * Call this **before** committing the fly target so we do not land on the
  * screen-bottom fallback while Settings is still animating open.
  */
-async function waitForSystemSettingsBounds(
-  budgetMs = BOUNDS_WAIT_MS,
-): Promise<Rect | null> {
+async function waitForSystemSettingsBounds(budgetMs = BOUNDS_WAIT_MS): Promise<Rect | null> {
   const deadline = Date.now() + budgetMs;
   let first = true;
   while (Date.now() < deadline) {
@@ -665,14 +637,17 @@ async function waitForSystemSettingsBounds(
     if (rect) return rect;
     const remaining = deadline - Date.now();
     if (remaining <= 0) break;
-    await new Promise((r) =>
-      setTimeout(r, Math.min(BOUNDS_POLL_MS, remaining)),
-    );
+    await new Promise((r) => setTimeout(r, Math.min(BOUNDS_POLL_MS, remaining)));
   }
   return getSystemSettingsWindowBounds({ bypassCache: true });
 }
 
-function clampToWorkArea(x: number, y: number, ww: number, wh: number): {
+function clampToWorkArea(
+  x: number,
+  y: number,
+  ww: number,
+  wh: number,
+): {
   x: number;
   y: number;
 } {
@@ -699,10 +674,7 @@ function computePanelPosition(
 ): { x: number; y: number } {
   if (settings) {
     // Detail pane ≈ right of the sidebar on Ventura+ System Settings.
-    const sidebar = Math.min(
-      300,
-      Math.max(240, Math.round(settings.width * 0.34)),
-    );
+    const sidebar = Math.min(300, Math.max(240, Math.round(settings.width * 0.34)));
     const padX = 20;
     const padBottom = 36;
     const padTop = 96;
@@ -737,27 +709,12 @@ function computePanelPosition(
   });
   const { width: sw, height: sh, x: sx, y: sy } = display.workArea;
   return {
-    x: Math.round(
-      Math.min(
-        Math.max(anchor.x, sx + 12),
-        sx + sw - ww - 12,
-      ),
-    ),
-    y: Math.round(
-      Math.min(
-        Math.max(anchor.y - 24, sy + 48),
-        sy + sh - wh - 24,
-      ),
-    ),
+    x: Math.round(Math.min(Math.max(anchor.x, sx + 12), sx + sw - ww - 12)),
+    y: Math.round(Math.min(Math.max(anchor.y - 24, sy + 48), sy + sh - wh - 24)),
   };
 }
 
-function applyPanelPosition(
-  win: BrowserWindow,
-  x: number,
-  y: number,
-  force = false,
-): void {
+function applyPanelPosition(win: BrowserWindow, x: number, y: number, force = false): void {
   if (win.isDestroyed()) return;
   if (
     !force &&
@@ -866,9 +823,7 @@ function getFlySourceOrigin(exclude: BrowserWindow): { x: number; y: number } {
   );
   const focused = BrowserWindow.getFocusedWindow();
   const src =
-    focused && focused !== exclude && !focused.isDestroyed()
-      ? focused
-      : others[0] ?? null;
+    focused && focused !== exclude && !focused.isDestroyed() ? focused : (others[0] ?? null);
 
   if (src) {
     try {
@@ -949,9 +904,7 @@ function flyFromAtmosToSettings(win: BrowserWindow): void {
 
   void (async () => {
     const isStale = () =>
-      generation !== flyGeneration ||
-      win.isDestroyed() ||
-      positionFollowSuspended;
+      generation !== flyGeneration || win.isDestroyed() || positionFollowSuspended;
     if (isStale()) return;
 
     const holdMs = pendingHoldAtOriginMs;
@@ -1184,11 +1137,7 @@ function wireIpcOnce(): void {
   });
 }
 
-function loadGrantPanel(
-  win: BrowserWindow,
-  state: GrantState,
-  locale?: string,
-): void {
+function loadGrantPanel(win: BrowserWindow, state: GrantState, locale?: string): void {
   // Re-open after a previous drag may have cleared always-on-top / workspaces.
   positionFollowSuspended = false;
   try {
@@ -1204,9 +1153,7 @@ function loadGrantPanel(
   // close/drag so the Dock tile is not left at Accessibility size 0×N.
   void setOverlayVisibleOnAllWorkspaces(win, true);
   void win
-    .loadURL(
-      `data:text/html;charset=utf-8,${encodeURIComponent(panelHtml(state, locale))}`,
-    )
+    .loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(panelHtml(state, locale))}`)
     .then(() => {
       // Start over Atmos Settings and ease into System Settings.
       // Bounds resolve during the flight — no main-thread freeze.
@@ -1215,9 +1162,10 @@ function loadGrantPanel(
 }
 
 /** Show (or focus) the Accessibility grant panel for the host app. */
-export function showAccessibilityGrantOverlay(
-  opts: GrantOverlayOptions,
-): { ok: boolean; error?: string } {
+export function showAccessibilityGrantOverlay(opts: GrantOverlayOptions): {
+  ok: boolean;
+  error?: string;
+} {
   if (process.platform !== "darwin") {
     return { ok: false, error: "Grant overlay is only supported on macOS" };
   }
@@ -1233,7 +1181,10 @@ export function showAccessibilityGrantOverlay(
   const hostAppPath = resolve(opts.hostAppPath);
   const hostAppName =
     opts.hostAppName?.trim() ||
-    hostAppPath.split("/").pop()?.replace(/\.app$/i, "") ||
+    hostAppPath
+      .split("/")
+      .pop()
+      ?.replace(/\.app$/i, "") ||
     "Atmos Desktop Use";
   const purpose: GrantOverlayPurpose =
     opts.purpose === "screen_recording" ? "screen_recording" : "accessibility";

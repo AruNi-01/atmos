@@ -44,10 +44,7 @@ let cachedTunnelLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedTunnelTranslator: any = null;
 
-function tunnelT(
-  key: string,
-  values?: Record<string, string | number>,
-): string {
+function tunnelT(key: string, values?: Record<string, string | number>): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedTunnelTranslator || cachedTunnelLocale !== locale) {
     cachedTunnelLocale = locale;
@@ -71,11 +68,7 @@ function copyToClipboard(text: string): void {
 
 function StatusDot({ state }: { state: string }) {
   const color =
-    state === "Running"
-      ? "bg-emerald-500"
-      : state === "Error"
-        ? "bg-red-500"
-        : "bg-yellow-500";
+    state === "Running" ? "bg-emerald-500" : state === "Error" ? "bg-red-500" : "bg-yellow-500";
   return <span className={cn("inline-block size-2 rounded-full", color)} />;
 }
 
@@ -148,7 +141,8 @@ export const PROVIDER_INSTALL: Record<string, ProviderInstallInfo | null> = {
   cloudflare: {
     commands: {
       darwin: "brew install cloudflared",
-      linux: "curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared && chmod +x /usr/local/bin/cloudflared",
+      linux:
+        "curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared && chmod +x /usr/local/bin/cloudflared",
     },
     url: "https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/",
     urlLabel: tunnelT("providerInstall.cloudflareDownloads"),
@@ -171,7 +165,10 @@ function getInstallCommand(provider: ProviderKind): string | null {
   return info.commands[platform] ?? info.commands.darwin ?? null;
 }
 
-function getActionCommand(provider: ProviderKind, action: "install" | "start" | "login"): string | null {
+function getActionCommand(
+  provider: ProviderKind,
+  action: "install" | "start" | "login",
+): string | null {
   const info = PROVIDER_INSTALL[provider];
   if (!info) return null;
   if (action === "install") return getInstallCommand(provider);
@@ -308,7 +305,13 @@ export function ProviderActionTerminalPopover({
   );
 }
 
-export function ProviderActions({ p, onRedetect }: { p: ProviderDiagnostics; onRedetect: () => void }) {
+export function ProviderActions({
+  p,
+  onRedetect,
+}: {
+  p: ProviderDiagnostics;
+  onRedetect: () => void;
+}) {
   const info = PROVIDER_INSTALL[p.provider];
   const showDownload = !p.binary_found && info;
   const showAuthHint = p.provider !== "ngrok" && p.binary_found && !p.logged_in && info?.authHint;
@@ -317,7 +320,8 @@ export function ProviderActions({ p, onRedetect }: { p: ProviderDiagnostics; onR
   const showTailscaleLogin =
     p.provider === "tailscale" && p.binary_found && p.daemon_running === true && !p.logged_in;
 
-  const hasStructuredAction = showDownload || showAuthHint || showTailscaleStart || showTailscaleLogin;
+  const hasStructuredAction =
+    showDownload || showAuthHint || showTailscaleStart || showTailscaleLogin;
   const fallbackWarnings = hasStructuredAction ? [] : p.warnings;
 
   if (
@@ -332,7 +336,7 @@ export function ProviderActions({ p, onRedetect }: { p: ProviderDiagnostics; onR
 
   return (
     <div className="mt-2 space-y-1.5">
-      {(showTailscaleStart || showTailscaleLogin) ? (
+      {showTailscaleStart || showTailscaleLogin ? (
         <div className="flex flex-wrap items-center gap-2">
           {showTailscaleStart ? (
             <ProviderActionTerminalPopover
@@ -548,7 +552,11 @@ function TtlPicker({
               <CalendarIcon className="ml-1 size-3.5 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto overflow-hidden p-0" align="end" avoidCollisions={false}>
+          <PopoverContent
+            className="w-auto overflow-hidden p-0"
+            align="end"
+            avoidCollisions={false}
+          >
             <Calendar
               mode="single"
               selected={customDate}
@@ -566,7 +574,12 @@ function TtlPicker({
                 onChange={(e) => setCustomTime(e.target.value)}
                 className="h-8 w-[110px] appearance-none bg-background font-mono text-xs [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
               />
-              <Button size="sm" disabled={!customDate} onClick={applyCustom} className="ml-auto cursor-pointer">
+              <Button
+                size="sm"
+                disabled={!customDate}
+                onClick={applyCustom}
+                className="ml-auto cursor-pointer"
+              >
                 {tunnelT("ttl.apply")}
               </Button>
             </div>
@@ -628,12 +641,19 @@ export function RenewSessionPopover({
     }
   };
 
-  const triggerCls = urgency === "expired"
-    ? "border-red-500/60 bg-red-500/10 text-red-500 hover:bg-red-500/20"
-    : "border-amber-500/60 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20";
+  const triggerCls =
+    urgency === "expired"
+      ? "border-red-500/60 bg-red-500/10 text-red-500 hover:bg-red-500/20"
+      : "border-amber-500/60 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20";
 
   return (
-    <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setError(null); }}>
+    <Popover
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (!v) setError(null);
+      }}
+    >
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className={cn("cursor-pointer", triggerCls)}>
           <RotateCw className="mr-1.5 size-3.5" />
@@ -659,7 +679,9 @@ export function RenewSessionPopover({
                   className="accent-foreground"
                 />
                 {tunnelT("renew.keepExistingToken")}
-                <span className="ml-auto rounded bg-muted px-1 text-[10px] text-muted-foreground">{tunnelT("renew.recommended")}</span>
+                <span className="ml-auto rounded bg-muted px-1 text-[10px] text-muted-foreground">
+                  {tunnelT("renew.recommended")}
+                </span>
               </label>
               <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground">
                 <input
@@ -678,11 +700,18 @@ export function RenewSessionPopover({
               </p>
             ) : null}
           </div>
-          {error ? (
-            <p className="text-xs text-destructive">{error}</p>
-          ) : null}
-          <Button className="w-full cursor-pointer" size="sm" onClick={() => void handleRenew()} disabled={isRenewing}>
-            {isRenewing ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <RotateCw className="mr-1.5 size-3.5" />}
+          {error ? <p className="text-xs text-destructive">{error}</p> : null}
+          <Button
+            className="w-full cursor-pointer"
+            size="sm"
+            onClick={() => void handleRenew()}
+            disabled={isRenewing}
+          >
+            {isRenewing ? (
+              <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
+            ) : (
+              <RotateCw className="mr-1.5 size-3.5" />
+            )}
             {tunnelT("renew.action")}
           </Button>
         </div>
@@ -731,7 +760,13 @@ export function StartTunnelPopover({
   };
 
   return (
-    <Popover open={open} onOpenChange={(next) => { setOpen(next); if (!next) setStartError(null); }}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setStartError(null);
+      }}
+    >
       <PopoverTrigger asChild>
         <Button size="sm" className="cursor-pointer" disabled={isStarting}>
           {isStarting ? (
@@ -768,7 +803,7 @@ export function StartTunnelPopover({
           {startError ? (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               <p className="font-medium">{tunnelT("start.failedTitle")}</p>
-              <p className="mt-1 whitespace-pre-wrap break-words leading-relaxed">{startError}</p>
+              <p className="mt-1 leading-relaxed break-words whitespace-pre-wrap">{startError}</p>
               {isAlreadyRunning ? (
                 <Button
                   variant="destructive"
@@ -777,7 +812,11 @@ export function StartTunnelPopover({
                   onClick={() => void handleForceStop()}
                   disabled={isStopping}
                 >
-                  {isStopping ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <Square className="mr-1.5 size-3.5" />}
+                  {isStopping ? (
+                    <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
+                  ) : (
+                    <Square className="mr-1.5 size-3.5" />
+                  )}
                   {tunnelT("start.stopNow")}
                 </Button>
               ) : null}
@@ -789,7 +828,11 @@ export function StartTunnelPopover({
             onClick={() => void handleStart()}
             disabled={isStarting}
           >
-            {isStarting ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <Play className="mr-1.5 size-3.5" />}
+            {isStarting ? (
+              <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
+            ) : (
+              <Play className="mr-1.5 size-3.5" />
+            )}
             {tunnelT("start.action")}
           </Button>
         </div>
@@ -844,7 +887,9 @@ export function ViewTunnelPopover({
           ) : null}
           {status.share_url ? (
             <div className="border-b border-border py-3 last:border-b-0">
-              <CopyableLabel href={status.share_url}>{tunnelT("view.accessUrlWithToken")}</CopyableLabel>
+              <CopyableLabel href={status.share_url}>
+                {tunnelT("view.accessUrlWithToken")}
+              </CopyableLabel>
               <CopyableText value={status.share_url} />
             </div>
           ) : null}
@@ -887,9 +932,7 @@ export function providerInstallLabel(p: ProviderDiagnostics): { label: string; c
     : { label: tunnelT("providerStatus.uninstalled"), color: "text-red-500" };
 }
 
-export function providerAuthLabel(
-  p: ProviderDiagnostics,
-): { label: string; color: string } | null {
+export function providerAuthLabel(p: ProviderDiagnostics): { label: string; color: string } | null {
   if (p.provider !== "ngrok" && !p.binary_found) return null;
   return p.logged_in
     ? { label: tunnelT("providerStatus.authenticated"), color: "text-emerald-500" }

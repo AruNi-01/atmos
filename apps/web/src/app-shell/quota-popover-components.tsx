@@ -27,8 +27,7 @@ import {
   TabsTrigger as MotionTabsTrigger,
 } from "@workspace/ui/components/motion/tabs";
 
-const QUOTA_MODE_TAB_CLASS =
-  "pointer-events-auto h-7 shrink-0 px-2.5 text-xs";
+const QUOTA_MODE_TAB_CLASS = "pointer-events-auto h-7 shrink-0 px-2.5 text-xs";
 
 const USAGE_BAR_FILL_MOTION =
   "origin-left will-change-transform transition-transform duration-300 ease-out motion-reduce:transition-none";
@@ -139,8 +138,7 @@ export function UsageBarLegend({
             )}
           />
           <span>
-            {segment.label}{" "}
-            <span className="tabular-nums">{Math.round(segment.percent)}%</span>
+            {segment.label} <span className="tabular-nums">{Math.round(segment.percent)}%</span>
           </span>
         </div>
       ))}
@@ -193,11 +191,7 @@ export function QuotaMetricUsage({
   compact?: boolean;
 }) {
   const hasBar = quotaMetricShowsBar(percent);
-  const heading = label
-    ? usedText.trim()
-      ? `${label} · ${usedText}`
-      : label
-    : usedText;
+  const heading = label ? (usedText.trim() ? `${label} · ${usedText}` : label) : usedText;
   const meta = (
     <div
       className={cn(
@@ -205,9 +199,7 @@ export function QuotaMetricUsage({
         compact ? "text-[11px]" : "text-xs",
       )}
     >
-      <div className="min-w-0 text-xs font-medium text-foreground">
-        {heading}
-      </div>
+      <div className="min-w-0 text-xs font-medium text-foreground">{heading}</div>
       {hasBar ? (
         <div className="shrink-0 text-right text-foreground/90">
           {detailText ? (
@@ -309,22 +301,33 @@ export function ProviderApiKeyManager({
   return (
     <div className="mt-3 space-y-2">
       {manualSetup.configured_keys.length > 0 ? (
-        <div className="rounded-[12px] border border-border/60 bg-muted/20 divide-y divide-border/40">
+        <div className="divide-y divide-border/40 rounded-[12px] border border-border/60 bg-muted/20">
           {manualSetup.configured_keys.map((key) => (
             <div key={key.id} className="flex items-center justify-between gap-3 px-3 py-2">
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex min-w-0 items-center gap-2">
                 <KeyRound className="size-3.5 shrink-0 text-foreground/60" />
-                <span className="text-xs text-foreground truncate">
-                  {[regionOptionLabel(key.region, manualSetup.region_options, t("manualSetup.auto")), t("manualSetup.key")].filter(Boolean).join(" ")}
+                <span className="truncate text-xs text-foreground">
+                  {[
+                    regionOptionLabel(
+                      key.region,
+                      manualSetup.region_options,
+                      t("manualSetup.auto"),
+                    ),
+                    t("manualSetup.key"),
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                 </span>
-                <span className="text-[10px] text-foreground/50 font-mono truncate">···{key.id.slice(-4)}</span>
+                <span className="truncate font-mono text-[10px] text-foreground/50">
+                  ···{key.id.slice(-4)}
+                </span>
               </div>
               <button
                 type="button"
                 aria-label={t("manualSetup.deleteKey")}
                 onClick={() => onDeleteKey(providerId, key.id)}
                 disabled={deletingKeyId === key.id}
-                className="shrink-0 rounded-md p-1 text-foreground/50 hover:text-destructive hover:bg-destructive/10 disabled:opacity-40"
+                className="shrink-0 rounded-md p-1 text-foreground/50 hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
               >
                 <Trash2 className="size-3.5" />
               </button>
@@ -349,7 +352,7 @@ export function ProviderApiKeyManager({
           <div className="grid gap-2.5">
             {manualSetup.region_options.length > 0 && (
               <div className="grid gap-1">
-                <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/90">
+                <div className="text-[11px] font-medium tracking-[0.18em] text-foreground/90 uppercase">
                   {t("manualSetup.region")}
                 </div>
                 <Select value={region} onValueChange={setRegion} disabled={isSaving}>
@@ -369,14 +372,16 @@ export function ProviderApiKeyManager({
             )}
 
             <div className="grid gap-1">
-              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/90">
+              <div className="text-[11px] font-medium tracking-[0.18em] text-foreground/90 uppercase">
                 {t("manualSetup.apiKey")}
               </div>
               <Input
                 type="password"
                 value={apiKey}
                 onChange={(event) => setApiKey(event.target.value)}
-                onKeyDown={(event) => { if (event.key === "Enter") handleAdd(); }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") handleAdd();
+                }}
                 placeholder={t("manualSetup.pasteApiKey")}
                 disabled={isSaving}
                 className="h-8 rounded-[10px] bg-background/70 text-xs"
@@ -388,12 +393,17 @@ export function ProviderApiKeyManager({
               {manualSetup.configured_keys.length > 0 ? (
                 <button
                   type="button"
-                  onClick={() => { setShowAddForm(false); setApiKey(""); }}
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setApiKey("");
+                  }}
                   className="text-[11px] text-foreground/50 hover:text-foreground"
                 >
                   {t("manualSetup.cancel")}
                 </button>
-              ) : <div />}
+              ) : (
+                <div />
+              )}
               <Button
                 type="button"
                 size="sm"
@@ -424,7 +434,11 @@ export function UsagePortalLink({
   const t = useTranslations("appShell.usagePopover");
   const href = usagePortalUrl(providerId, region);
   if (!href) return null;
-  const regionLabel = region ? (region === "china" ? t("manualSetup.china") : t("manualSetup.global")) : null;
+  const regionLabel = region
+    ? region === "china"
+      ? t("manualSetup.china")
+      : t("manualSetup.global")
+    : null;
 
   return (
     <div className={cn("flex items-center justify-between gap-3", className)}>
@@ -437,7 +451,7 @@ export function UsagePortalLink({
         <span className="truncate">{href}</span>
       </a>
       {regionLabel ? (
-        <span className="inline-flex shrink-0 items-center rounded-sm border border-border/70 bg-background/75 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/85">
+        <span className="inline-flex shrink-0 items-center rounded-sm border border-border/70 bg-background/75 px-1.5 py-0.5 text-[10px] font-medium tracking-[0.14em] text-foreground/85 uppercase">
           {regionLabel}
         </span>
       ) : null}
@@ -484,7 +498,7 @@ export function ProviderGlyph({
   return (
     <span
       aria-hidden="true"
-      className={cn("shrink-0 select-none bg-current", className)}
+      className={cn("shrink-0 bg-current select-none", className)}
       style={{
         width: size,
         height: size,
@@ -524,7 +538,7 @@ export function UsageSwitch({
         "data-[state=unchecked]:bg-background/70",
         "[&_[data-slot=switch-thumb]]:size-[13px] [&_[data-slot=switch-thumb]]:shadow-none",
         "data-[state=checked]:[&_[data-slot=switch-thumb]]:bg-background",
-        "data-[state=unchecked]:[&_[data-slot=switch-thumb]]:bg-muted-foreground/65"
+        "data-[state=unchecked]:[&_[data-slot=switch-thumb]]:bg-muted-foreground/65",
       )}
     />
   );
@@ -558,7 +572,7 @@ export function ProviderSwitch({
           ? "border-border/75 bg-accent/75 text-foreground shadow-[0_14px_30px_-22px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.06)]"
           : active
             ? "text-foreground/85 hover:bg-muted/55"
-            : "text-muted-foreground/55 hover:bg-muted/45 hover:text-foreground/90"
+            : "text-muted-foreground/55 hover:bg-muted/45 hover:text-foreground/90",
       )}
     >
       <div
@@ -568,15 +582,15 @@ export function ProviderSwitch({
             ? "border-border/80 bg-background/92 text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
             : active
               ? "border-border/70 bg-background/80 text-foreground/90"
-              : "border-border/45 bg-background/55 text-muted-foreground/55"
+              : "border-border/45 bg-background/55 text-muted-foreground/55",
         )}
       >
         <ProviderGlyph providerId={id} />
       </div>
       <div
         className={cn(
-          "max-w-full truncate text-[10px] font-semibold leading-none",
-          selected ? "text-foreground" : active ? "text-foreground/85" : "text-muted-foreground/55"
+          "max-w-full truncate text-[10px] leading-none font-semibold",
+          selected ? "text-foreground" : active ? "text-foreground/85" : "text-muted-foreground/55",
         )}
       >
         {label}
@@ -585,14 +599,10 @@ export function ProviderSwitch({
   );
 }
 
-export function SortableProviderSwitch({
-  id,
-  children,
-}: {
-  id: string;
-  children: ReactNode;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+export function SortableProviderSwitch({ id, children }: { id: string; children: ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  });
 
   return (
     <div

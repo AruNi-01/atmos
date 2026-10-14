@@ -12,29 +12,22 @@ import type {
 import enMessages from "../../../messages/en.json";
 import zhMessages from "../../../messages/zh.json";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
-import {
-  findGroupIdForMember,
-  UNGROUPED_USER_GROUP_KEY,
-} from "@/app-shell/sidebar/user-groups";
+import { findGroupIdForMember, UNGROUPED_USER_GROUP_KEY } from "@/app-shell/sidebar/user-groups";
 import {
   SIDEBAR_TIME_GROUP_KEYS,
   sidebarTimeGroupKey,
   type SidebarTimeGroupKey,
 } from "@/app-shell/sidebar/sidebar-time";
-import { isStandaloneSidebarJob, isStandaloneAutomationProject } from "@/features/automations/lib/standalone-sidebar";
+import {
+  isStandaloneSidebarJob,
+  isStandaloneAutomationProject,
+} from "@/features/automations/lib/standalone-sidebar";
 import {
   WORKSPACE_AGENT_GROUP_ORDER,
   type WorkspaceAgentGroupKey,
 } from "@/features/agent/lib/workspace-agent-status";
 
-type SidebarGroupingMode =
-  | "project"
-  | "group"
-  | "status"
-  | "agent"
-  | "time"
-  | "label"
-  | "priority";
+type SidebarGroupingMode = "project" | "group" | "status" | "agent" | "time" | "label" | "priority";
 
 export { parseSidebarListView, type SidebarListView } from "@/app-shell/sidebar/sidebar-list-view";
 
@@ -64,13 +57,7 @@ const STATUS_LABEL_KEY: Record<string, string> = {
   [NO_STATUS_KEY]: "status.noStatus",
 };
 
-const PRIORITY_ORDER: WorkspacePriority[] = [
-  "urgent",
-  "high",
-  "medium",
-  "low",
-  "no_priority",
-];
+const PRIORITY_ORDER: WorkspacePriority[] = ["urgent", "high", "medium", "low", "no_priority"];
 
 const PRIORITY_LABEL_KEY: Record<WorkspacePriority, string> = {
   no_priority: "priority.noPriority",
@@ -160,10 +147,9 @@ export function terminalSessionTitle(sessionId: string): string {
   return windowName || sessionId;
 }
 
-export function sessionChatId(snapshot: Pick<
-  AgentSessionStatusSnapshot,
-  "session_id" | "surface_id"
->): string | null {
+export function sessionChatId(
+  snapshot: Pick<AgentSessionStatusSnapshot, "session_id" | "surface_id">,
+): string | null {
   const surfaceId = snapshot.surface_id?.trim();
   if (surfaceId) return surfaceId;
   if (!snapshot.session_id.startsWith("chat:")) return null;
@@ -217,8 +203,9 @@ export function sidebarSessionRowIsActive(
   active: { chatId?: string | null; terminalIds?: readonly string[] },
 ): boolean {
   if (row.surface === "chat" && active.chatId) {
-    const chatId = row.surfaceId?.trim()
-      || (row.sessionId.startsWith("chat:") ? row.sessionId.slice("chat:".length) : "");
+    const chatId =
+      row.surfaceId?.trim() ||
+      (row.sessionId.startsWith("chat:") ? row.sessionId.slice("chat:".length) : "");
     return chatId === active.chatId;
   }
   const terminalIds = active.terminalIds;
@@ -414,12 +401,14 @@ function groupsFromBuckets(
   return keys.flatMap((key) => {
     const items = buckets.get(key);
     if (!items?.length) return [];
-    return [{
-      key,
-      label: labelFor(key),
-      color: colorFor?.(key),
-      items,
-    }];
+    return [
+      {
+        key,
+        label: labelFor(key),
+        color: colorFor?.(key),
+        items,
+      },
+    ];
   });
 }
 
@@ -469,30 +458,24 @@ export function groupSidebarSessions(
   if (groupingMode === "agent") {
     const buckets = new Map<string, SidebarSessionRow[]>();
     for (const row of sorted) pushBucket(buckets, row.groupKey, row);
-    return groupsFromBuckets(
-      buckets,
-      WORKSPACE_AGENT_GROUP_ORDER,
-      (key) => groupingT(AGENT_LABEL_KEY[key as WorkspaceAgentGroupKey] ?? "agent_done"),
+    return groupsFromBuckets(buckets, WORKSPACE_AGENT_GROUP_ORDER, (key) =>
+      groupingT(AGENT_LABEL_KEY[key as WorkspaceAgentGroupKey] ?? "agent_done"),
     );
   }
 
   if (groupingMode === "status") {
     const buckets = new Map<string, SidebarSessionRow[]>();
     for (const row of sorted) pushBucket(buckets, statusKey(row.workspace), row);
-    return groupsFromBuckets(
-      buckets,
-      [...WORKFLOW_STATUSES, NO_STATUS_KEY],
-      (key) => taskT(STATUS_LABEL_KEY[key] ?? "status.noStatus"),
+    return groupsFromBuckets(buckets, [...WORKFLOW_STATUSES, NO_STATUS_KEY], (key) =>
+      taskT(STATUS_LABEL_KEY[key] ?? "status.noStatus"),
     );
   }
 
   if (groupingMode === "priority") {
     const buckets = new Map<string, SidebarSessionRow[]>();
     for (const row of sorted) pushBucket(buckets, priorityKey(row.workspace), row);
-    return groupsFromBuckets(
-      buckets,
-      PRIORITY_ORDER,
-      (key) => taskT(PRIORITY_LABEL_KEY[key as WorkspacePriority]),
+    return groupsFromBuckets(buckets, PRIORITY_ORDER, (key) =>
+      taskT(PRIORITY_LABEL_KEY[key as WorkspacePriority]),
     );
   }
 
@@ -504,15 +487,14 @@ export function groupSidebarSessions(
       const key = sidebarTimeGroupKey(Number.isFinite(date.getTime()) ? date : new Date(0), now);
       pushBucket(buckets, key, row);
     }
-    return groupsFromBuckets(buckets, SIDEBAR_TIME_GROUP_KEYS, (key) => timeLabel(key as SidebarTimeGroupKey));
+    return groupsFromBuckets(buckets, SIDEBAR_TIME_GROUP_KEYS, (key) =>
+      timeLabel(key as SidebarTimeGroupKey),
+    );
   }
 
   if (groupingMode === "label") {
     const labels = orderLabels(
-      [
-        ...(options.availableLabels ?? []),
-        ...sorted.flatMap((row) => row.workspace?.labels ?? []),
-      ],
+      [...(options.availableLabels ?? []), ...sorted.flatMap((row) => row.workspace?.labels ?? [])],
       options.labelGroupOrder ?? [],
     );
     const buckets = new Map<string, SidebarSessionRow[]>();
@@ -539,7 +521,7 @@ export function groupSidebarSessions(
     return groupsFromBuckets(
       buckets,
       [...labels.map((label) => label.id), UNTAGGED_KEY],
-      (key) => (key === UNTAGGED_KEY ? groupingT("untagged") : labelsById.get(key)?.name ?? key),
+      (key) => (key === UNTAGGED_KEY ? groupingT("untagged") : (labelsById.get(key)?.name ?? key)),
       (key) => labelsById.get(key)?.color,
     );
   }
@@ -551,10 +533,8 @@ export function groupSidebarSessions(
       .sort((a, b) => a.sidebarOrder - b.sidebarOrder)
       .map((group) => group.id);
     const names = new Map(groups.map((group) => [group.id, group.name]));
-    return groupsFromBuckets(
-      buckets,
-      [...named, UNGROUPED_USER_GROUP_KEY],
-      (key) => (key === UNGROUPED_USER_GROUP_KEY ? ungroupedLabel : names.get(key) ?? key),
+    return groupsFromBuckets(buckets, [...named, UNGROUPED_USER_GROUP_KEY], (key) =>
+      key === UNGROUPED_USER_GROUP_KEY ? ungroupedLabel : (names.get(key) ?? key),
     );
   }
 

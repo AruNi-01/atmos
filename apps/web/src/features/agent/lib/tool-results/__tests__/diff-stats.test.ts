@@ -25,11 +25,7 @@ function tool(
 
 describe("changedLineRanges", () => {
   it("selects added lines in the new file, skipping context", () => {
-    expect(changedLineRangesFromContents(
-      "a\nb\nc\nd\ne\n",
-      "a\nX\nY\nc\nZ\ne\n",
-      "a.ts",
-    )).toEqual([
+    expect(changedLineRangesFromContents("a\nb\nc\nd\ne\n", "a\nX\nY\nc\nZ\ne\n", "a.ts")).toEqual([
       { startLine: 2, endLine: 3 },
       { startLine: 5, endLine: 5 },
     ]);
@@ -62,11 +58,13 @@ describe("changedLineRanges", () => {
   });
 
   it("merges overlapping or adjacent ranges", () => {
-    expect(mergeDiffLineRanges([
-      { startLine: 4, endLine: 5 },
-      { startLine: 1, endLine: 2 },
-      { startLine: 3, endLine: 3 },
-    ])).toEqual([{ startLine: 1, endLine: 5 }]);
+    expect(
+      mergeDiffLineRanges([
+        { startLine: 4, endLine: 5 },
+        { startLine: 1, endLine: 2 },
+        { startLine: 3, endLine: 3 },
+      ]),
+    ).toEqual([{ startLine: 1, endLine: 5 }]);
   });
 });
 
@@ -117,10 +115,12 @@ describe("sumToolGroupDiffStats", () => {
   });
 
   it("returns zeros when the group has no edits", () => {
-    expect(sumToolGroupDiffStats([
-      tool({ tool_call_id: "r1", kind: "read" }),
-      tool({ tool_call_id: "s1", kind: "search" }),
-    ])).toEqual({ additions: 0, deletions: 0 });
+    expect(
+      sumToolGroupDiffStats([
+        tool({ tool_call_id: "r1", kind: "read" }),
+        tool({ tool_call_id: "s1", kind: "search" }),
+      ]),
+    ).toEqual({ additions: 0, deletions: 0 });
   });
 });
 

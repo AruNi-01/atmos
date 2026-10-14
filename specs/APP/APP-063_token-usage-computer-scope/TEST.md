@@ -8,50 +8,50 @@ Deterministic rules live in **Bun tests**: unique-device grouping, overview merg
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 Local-first | S1, S22 |
-| M2 Select left of Share | S2 |
-| M3 Select options / labels | S2, S6, S20, S21 |
-| M4 Page-local scope | S19 |
-| M5 Current Computer, no extra hop | S3, S23 |
-| M6 Other Computer via Relay; no remote cookies | S4, S5, S18 |
-| M7 All computers unique machines + unregistered local | S7, S8, S9 |
-| M8 Physical-machine uniqueness | S6, S8, S11, S14, S24 |
-| M9 Partial All computers | S12, S13 |
-| M10 Other Computer unreachable | S5 |
-| M11 Share follows displayed overview | S17 |
-| M12 Selector visibility | S1, S2, S22 |
-| N1–N3 | Deferred — not in this pass |
+| PRD item                                              | Scenario IDs                |
+| ----------------------------------------------------- | --------------------------- |
+| M1 Local-first                                        | S1, S22                     |
+| M2 Select left of Share                               | S2                          |
+| M3 Select options / labels                            | S2, S6, S20, S21            |
+| M4 Page-local scope                                   | S19                         |
+| M5 Current Computer, no extra hop                     | S3, S23                     |
+| M6 Other Computer via Relay; no remote cookies        | S4, S5, S18                 |
+| M7 All computers unique machines + unregistered local | S7, S8, S9                  |
+| M8 Physical-machine uniqueness                        | S6, S8, S11, S14, S24       |
+| M9 Partial All computers                              | S12, S13                    |
+| M10 Other Computer unreachable                        | S5                          |
+| M11 Share follows displayed overview                  | S17                         |
+| M12 Selector visibility                               | S1, S2, S22                 |
+| N1–N3                                                 | Deferred — not in this pass |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Bun | `bun test` | unique-computers + page source | signed out / 1 device | no select | planned |
-| S2 | Bun | `bun test` | unique-computers + TokenUsagePage source | 2 unique devices, signed in | All computers first; select before Share | planned |
-| S3 | Bun | `bun test` | fetch-remote helper / unique-computers | current `server_id` | no `createClientSession` for current | planned |
-| S4 | Bun | `bun test` | fetch-remote | other `server_id` | `try_cookies: false`; session for that id | planned |
-| S5 | Bun | `bun test` | fetch-remote / page query | side session throws | error; current overview not swapped in | planned |
-| S6 | Bun | `bun test` | unique-computers | two rows, same `app_device_id` | one option | planned |
-| S7 | Bun | `bun test` | unique-computers | local not on list | `local:` device appended, current | planned |
-| S8 | Bun | `bun test` | unique-computers | local id matches list `app_device_id`, different `server_id` | no extra local | planned |
-| S9 | Bun | `bun test` | merge-token-usage-overviews | two overviews, overlapping + unique days | tokens sum; `active_days` = distinct dates | planned |
-| S10 | Bun | `bun test` | merge | one cost null | merged `total_cost_usd` null | planned |
-| S11 | Bun | `bun test` | unique-computers + merge callers | same device two `server_id`s | one fetch target | planned |
-| S12 | Bun | `bun test` | merge + missed labels | one success, one miss | totals from success; miss name present | planned |
-| S13 | Bun | `bun test` | All computers aggregator | all fetches fail | error; no empty-zero overview | planned |
-| S14 | Bun | `bun test` `packages/relay` | GET `/v1/computers` | D1 row with `app_device_id` | JSON field present | planned |
-| S15 | Bun | `bun test` `packages/relay` | POST client_sessions twice | same user+server | no DELETE of live sibling; two rows until cap | planned |
-| S16 | Bun | `bun test` `packages/relay` | 9th session | 8 existing | oldest dropped | planned |
-| S17 | Bun | `bun test` | TokenUsagePage / share props | merged overview on screen | Share gets merged totals | planned |
-| S18 | Bun | `bun test` | TokenUsagePage source | other / all scope | cookie banner gated on current | planned |
-| S19 | Bun | `bun test` | unique-computers / page | change usage select | `selectedServerId` unchanged (no workbench connect call) | planned |
-| S20 | Bun | `bun test` | unique-computers | revoked row | omitted | planned |
-| S21 | Bun | `bun test` | unique-computers | two groups, same display_name | suffix with `server_id` prefix | planned |
-| S22 | Bun | `bun test` | unique-computers | signed in, 1 unique | select hidden | planned |
-| S23 | Bun | `bun test` | query-keys | current filters | existing `computer.tokenUsageOverview` shape | planned |
-| S24 | Rust | `cargo test` | `runtime-manager` device id | machine id fixture | stable 64 hex; runtime-info field documented | planned |
+| Scenario | Level | Expected tool               | Target command / method                  | Fixture / data                                               | Signals                                                  | Status  |
+| -------- | ----- | --------------------------- | ---------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------- | ------- |
+| S1       | Bun   | `bun test`                  | unique-computers + page source           | signed out / 1 device                                        | no select                                                | planned |
+| S2       | Bun   | `bun test`                  | unique-computers + TokenUsagePage source | 2 unique devices, signed in                                  | All computers first; select before Share                 | planned |
+| S3       | Bun   | `bun test`                  | fetch-remote helper / unique-computers   | current `server_id`                                          | no `createClientSession` for current                     | planned |
+| S4       | Bun   | `bun test`                  | fetch-remote                             | other `server_id`                                            | `try_cookies: false`; session for that id                | planned |
+| S5       | Bun   | `bun test`                  | fetch-remote / page query                | side session throws                                          | error; current overview not swapped in                   | planned |
+| S6       | Bun   | `bun test`                  | unique-computers                         | two rows, same `app_device_id`                               | one option                                               | planned |
+| S7       | Bun   | `bun test`                  | unique-computers                         | local not on list                                            | `local:` device appended, current                        | planned |
+| S8       | Bun   | `bun test`                  | unique-computers                         | local id matches list `app_device_id`, different `server_id` | no extra local                                           | planned |
+| S9       | Bun   | `bun test`                  | merge-token-usage-overviews              | two overviews, overlapping + unique days                     | tokens sum; `active_days` = distinct dates               | planned |
+| S10      | Bun   | `bun test`                  | merge                                    | one cost null                                                | merged `total_cost_usd` null                             | planned |
+| S11      | Bun   | `bun test`                  | unique-computers + merge callers         | same device two `server_id`s                                 | one fetch target                                         | planned |
+| S12      | Bun   | `bun test`                  | merge + missed labels                    | one success, one miss                                        | totals from success; miss name present                   | planned |
+| S13      | Bun   | `bun test`                  | All computers aggregator                 | all fetches fail                                             | error; no empty-zero overview                            | planned |
+| S14      | Bun   | `bun test` `packages/relay` | GET `/v1/computers`                      | D1 row with `app_device_id`                                  | JSON field present                                       | planned |
+| S15      | Bun   | `bun test` `packages/relay` | POST client_sessions twice               | same user+server                                             | no DELETE of live sibling; two rows until cap            | planned |
+| S16      | Bun   | `bun test` `packages/relay` | 9th session                              | 8 existing                                                   | oldest dropped                                           | planned |
+| S17      | Bun   | `bun test`                  | TokenUsagePage / share props             | merged overview on screen                                    | Share gets merged totals                                 | planned |
+| S18      | Bun   | `bun test`                  | TokenUsagePage source                    | other / all scope                                            | cookie banner gated on current                           | planned |
+| S19      | Bun   | `bun test`                  | unique-computers / page                  | change usage select                                          | `selectedServerId` unchanged (no workbench connect call) | planned |
+| S20      | Bun   | `bun test`                  | unique-computers                         | revoked row                                                  | omitted                                                  | planned |
+| S21      | Bun   | `bun test`                  | unique-computers                         | two groups, same display_name                                | suffix with `server_id` prefix                           | planned |
+| S22      | Bun   | `bun test`                  | unique-computers                         | signed in, 1 unique                                          | select hidden                                            | planned |
+| S23      | Bun   | `bun test`                  | query-keys                               | current filters                                              | existing `computer.tokenUsageOverview` shape             | planned |
+| S24      | Rust  | `cargo test`                | `runtime-manager` device id              | machine id fixture                                           | stable 64 hex; runtime-info field documented             | planned |
 
 ## Scenarios
 
@@ -301,32 +301,32 @@ Use `agent-browser` (load skill or `agent-browser skills get core --full`) on lo
 
 Updated 2026-08-21 after implementation.
 
-| Scenario | Status | Proof |
-|----------|--------|-------|
-| S1 | pass | `unique-computers.test.ts` hides select when signed out |
-| S2 | pass | `token-usage-computer-scope.test.ts` select appears before Share in `TokenUsagePage.tsx` |
-| S3 | pass | `fetch-token-usage-scope.test.ts` All computers calls `fetchCurrent` for `isCurrent` |
-| S4 | pass | `fetch-token-usage-scope.test.ts` remote payload `try_cookies: false` |
-| S5 | pass | remote fetch disconnects on failure; page maps other-Computer errors to `loadOtherError` |
-| S6 | pass | unique-computers same `app_device_id` → one option |
-| S7 | pass | unregistered local appended |
-| S8 | pass | local `app_device_id` match does not add a second local |
-| S9 | pass | merge sums tokens; `active_days` is distinct dates (3, not 4) |
-| S10 | pass | merge cost null if any contributor lacks cost |
-| S11 | pass | `allComputersFetchTargets` length 1 for duplicate device |
-| S12 | pass | All computers keeps successes and names misses |
-| S13 | pass | All computers throws `none-reached` when every fetch fails |
-| S14 | pass | `packages/relay/test/computer-list-and-sessions.test.ts` GET includes `app_device_id` |
-| S15 | pass | client_sessions POST does not wipe sibling rows |
-| S16 | pass | 9th session deletes oldest (`LIMIT 1`) |
-| S17 | pass | page source Share uses displayed `overview` |
-| S18 | pass | cookie banner gated with `isCurrentScope` |
-| S19 | pass | Token Usage page does not call workbench connect helpers |
-| S20 | pass | revoked rows dropped |
-| S21 | pass | colliding labels get `server_id` suffix |
-| S22 | pass | `shouldShowComputerSelect` false at uniqueCount 1 |
-| S23 | pass | `query-keys.test.ts` workbench key unchanged; scoped key under relay |
-| S24 | pass | `cargo test -p runtime-manager` `app_device_id_is_stable_and_hex_encoded` |
+| Scenario | Status | Proof                                                                                    |
+| -------- | ------ | ---------------------------------------------------------------------------------------- |
+| S1       | pass   | `unique-computers.test.ts` hides select when signed out                                  |
+| S2       | pass   | `token-usage-computer-scope.test.ts` select appears before Share in `TokenUsagePage.tsx` |
+| S3       | pass   | `fetch-token-usage-scope.test.ts` All computers calls `fetchCurrent` for `isCurrent`     |
+| S4       | pass   | `fetch-token-usage-scope.test.ts` remote payload `try_cookies: false`                    |
+| S5       | pass   | remote fetch disconnects on failure; page maps other-Computer errors to `loadOtherError` |
+| S6       | pass   | unique-computers same `app_device_id` → one option                                       |
+| S7       | pass   | unregistered local appended                                                              |
+| S8       | pass   | local `app_device_id` match does not add a second local                                  |
+| S9       | pass   | merge sums tokens; `active_days` is distinct dates (3, not 4)                            |
+| S10      | pass   | merge cost null if any contributor lacks cost                                            |
+| S11      | pass   | `allComputersFetchTargets` length 1 for duplicate device                                 |
+| S12      | pass   | All computers keeps successes and names misses                                           |
+| S13      | pass   | All computers throws `none-reached` when every fetch fails                               |
+| S14      | pass   | `packages/relay/test/computer-list-and-sessions.test.ts` GET includes `app_device_id`    |
+| S15      | pass   | client_sessions POST does not wipe sibling rows                                          |
+| S16      | pass   | 9th session deletes oldest (`LIMIT 1`)                                                   |
+| S17      | pass   | page source Share uses displayed `overview`                                              |
+| S18      | pass   | cookie banner gated with `isCurrentScope`                                                |
+| S19      | pass   | Token Usage page does not call workbench connect helpers                                 |
+| S20      | pass   | revoked rows dropped                                                                     |
+| S21      | pass   | colliding labels get `server_id` suffix                                                  |
+| S22      | pass   | `shouldShowComputerSelect` false at uniqueCount 1                                        |
+| S23      | pass   | `query-keys.test.ts` workbench key unchanged; scoped key under relay                     |
+| S24      | pass   | `cargo test -p runtime-manager` `app_device_id_is_stable_and_hex_encoded`                |
 
 ### Commands run
 

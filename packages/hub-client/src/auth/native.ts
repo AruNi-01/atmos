@@ -3,10 +3,7 @@
  * Apps wire system-browser OAuth (expo-web-browser) and call these URLs/exchanges.
  */
 import { hubBaseUrl, hubConfigured, requireHubBaseUrl } from "../config";
-import {
-  clearStoredDeviceCredential,
-  storeDeviceCredential,
-} from "../device-storage/registry";
+import { clearStoredDeviceCredential, storeDeviceCredential } from "../device-storage/registry";
 
 export type HubSocialProvider = "github" | "google";
 
@@ -56,9 +53,7 @@ export async function hubExchangeMobileAuthCode(
 }
 
 /** Persist exchanged credential into the configured DeviceCredentialStore. */
-export function persistMobileAuthPayload(
-  payload: MobileAuthExchangePayload,
-): void {
+export function persistMobileAuthPayload(payload: MobileAuthExchangePayload): void {
   if (!payload.device_credential || payload.device_credential.length < 32) {
     throw new Error("Invalid device credential from Hub");
   }

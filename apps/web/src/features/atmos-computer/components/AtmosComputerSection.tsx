@@ -1,64 +1,52 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { useTranslations } from 'next-intl';
-import {
-  Badge,
-  Button,
-  Input,
-  toastManager,
-  cn,
-} from '@workspace/ui';
-import {
-  Laptop,
-  LoaderCircle,
-  LogIn,
-  RotateCw,
-  Trash2,
-} from 'lucide-react';
-import { getWebRelayClient } from '@/features/connection/lib/create-web-relay-client';
-import { createHostedRemoteSession } from '@/features/connection/lib/hosted-connection';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
+import { Badge, Button, Input, toastManager, cn } from "@workspace/ui";
+import { Laptop, LoaderCircle, LogIn, RotateCw, Trash2 } from "lucide-react";
+import { getWebRelayClient } from "@/features/connection/lib/create-web-relay-client";
+import { createHostedRemoteSession } from "@/features/connection/lib/hosted-connection";
 import {
   activateCurrentLocalConnection,
   activateHostedRemoteConnection,
-} from '@/features/connection/lib/hosted-connection-actions';
+} from "@/features/connection/lib/hosted-connection-actions";
 import {
   loadLocalComputerStatus,
   registerLocalComputer,
   syncRelayConnection,
   unregisterLocalComputer,
   type LocalComputerStatus,
-} from '@/features/connection/lib/atmos-computer-local';
-import { buildRegistrationMeta } from '@/features/connection/lib/registration-meta';
+} from "@/features/connection/lib/atmos-computer-local";
+import { buildRegistrationMeta } from "@/features/connection/lib/registration-meta";
 import {
   resolveRelayUrl,
   useAtmosComputerStore,
   type ComputerRow,
-} from '@/features/connection/lib/atmos-computer-store';
+} from "@/features/connection/lib/atmos-computer-store";
 import {
   hydrateComputerClientSettingsFromDisk,
   saveComputerClientSettingsToDisk,
-} from '@/features/connection/lib/sync-computer-client-settings';
-import { applyIdentityBearingComputerSettings } from '@/features/connection/lib/query-identity-lifecycle';
-import { ensureLocalHubDevice } from '@/features/connection/lib/ensure-local-hub-device';
+} from "@/features/connection/lib/sync-computer-client-settings";
+import { applyIdentityBearingComputerSettings } from "@/features/connection/lib/query-identity-lifecycle";
+import { ensureLocalHubDevice } from "@/features/connection/lib/ensure-local-hub-device";
 import {
   activeComputerRows,
   isCurrentLocalComputer,
-} from '@/features/connection/lib/computer-list';
-import { ComputerDetailsDialog } from '@/features/atmos-computer/components/ComputerDetailsDialog';
-import { MobilePairQrPanel } from '@/features/atmos-computer/components/MobilePairQrPanel';
-import { RemoteComputerSetupBlock } from '@/features/atmos-computer/components/RemoteComputerSetupBlock';
-import { clearRemoteComputerRegisterTokenCache } from '@/features/connection/lib/remote-computer-register-token-cache';
+} from "@/features/connection/lib/computer-list";
+import { ComputerDetailsDialog } from "@/features/atmos-computer/components/ComputerDetailsDialog";
+import { MobilePairQrPanel } from "@/features/atmos-computer/components/MobilePairQrPanel";
+import { RemoteComputerSetupBlock } from "@/features/atmos-computer/components/RemoteComputerSetupBlock";
+import { clearRemoteComputerRegisterTokenCache } from "@/features/connection/lib/remote-computer-register-token-cache";
 import {
   SettingsExperimentalNotice,
   SettingsGroup,
   SettingsGroupCard,
   SettingsGroupRow,
   SettingsPageStack,
-} from '@/features/settings/components/settings/SettingsGroupCard';
-import { SettingsToggleRow } from '@/features/settings/components/settings/SettingsToggleRow';
-import { HubSignInDialog } from '@/features/settings/components/HubSignInDialog';
-import { hubConfigured } from '@/api/hub-client';
+} from "@/features/settings/components/settings/SettingsGroupCard";
+import { SettingsToggleRow } from "@/features/settings/components/settings/SettingsToggleRow";
+import { HubSignInDialog } from "@/features/settings/components/HubSignInDialog";
+import { hubConfigured } from "@/api/hub-client";
 
 function SettingsBlock({
   title,
@@ -128,11 +116,10 @@ export function AtmosComputerSection() {
   const [signInOpen, setSignInOpen] = useState(false);
   const relayAutoSyncAttemptedRef = useRef(false);
 
-  const hasConfiguredKey =
-    accessToken.trim().length >= 32 || accessTokenConfigured;
+  const hasConfiguredKey = accessToken.trim().length >= 32 || accessTokenConfigured;
   const activeComputers = activeComputerRows(computers);
   const connectedServerId =
-    connectionMode === 'relay' && relayWebSocketUrl ? selectedServerId : null;
+    connectionMode === "relay" && relayWebSocketUrl ? selectedServerId : null;
 
   const refreshLocalStatus = useCallback(async () => {
     const knownId = useAtmosComputerStore.getState().localServerId;
@@ -145,36 +132,35 @@ export function AtmosComputerSection() {
     }
   }, [setLocalServerId]);
 
-  const refreshComputerListFor = useCallback(async (
-    token: string,
-    url: string = relayUrl,
-    secret: string = relaySecretKey,
-  ) => {
-    if (token.trim().length < 32 && !accessTokenConfigured) {
-      return;
-    }
-    setListRefreshing(true);
-    try {
-      const computers = await getWebRelayClient({
-        relayUrl: url,
-        relaySecretKey: secret,
-      })
-        .withDeviceCredential(token)
-        .listComputers();
-      setComputers(computers);
-    } catch {
-      /* keep previous list on transient relay errors */
-    } finally {
-      setListRefreshing(false);
-    }
-  }, [accessTokenConfigured, relayUrl, relaySecretKey, setComputers]);
+  const refreshComputerListFor = useCallback(
+    async (token: string, url: string = relayUrl, secret: string = relaySecretKey) => {
+      if (token.trim().length < 32 && !accessTokenConfigured) {
+        return;
+      }
+      setListRefreshing(true);
+      try {
+        const computers = await getWebRelayClient({
+          relayUrl: url,
+          relaySecretKey: secret,
+        })
+          .withDeviceCredential(token)
+          .listComputers();
+        setComputers(computers);
+      } catch {
+        /* keep previous list on transient relay errors */
+      } finally {
+        setListRefreshing(false);
+      }
+    },
+    [accessTokenConfigured, relayUrl, relaySecretKey, setComputers],
+  );
 
   const refreshComputerList = useCallback(async () => {
     await refreshComputerListFor(accessToken, relayUrl);
   }, [accessToken, relayUrl, refreshComputerListFor]);
 
   const onRelayReconnect = useCallback(async () => {
-    setBusy('relay-sync');
+    setBusy("relay-sync");
     try {
       const sync = await syncRelayConnection();
       const knownId = useAtmosComputerStore.getState().localServerId;
@@ -191,27 +177,24 @@ export function AtmosComputerSection() {
         toastManager.add({
           title: t("toasts.remoteConnectionRestored"),
           description: t("toasts.computerAvailable"),
-          type: 'success',
+          type: "success",
         });
       } else {
         toastManager.add({
           title: t("toasts.couldNotConnectRelay"),
-          description:
-            sync.relay_last_error ??
-            t("toasts.ensureAtmosRunningThenRetry"),
-          type: 'error',
+          description: sync.relay_last_error ?? t("toasts.ensureAtmosRunningThenRetry"),
+          type: "error",
         });
       }
     } catch (err) {
-      const description =
-        err instanceof Error ? err.message : t("toasts.ensureAtmosRunning");
-      setLocalStatus(prev =>
+      const description = err instanceof Error ? err.message : t("toasts.ensureAtmosRunning");
+      setLocalStatus((prev) =>
         prev ? { ...prev, relay_connected: false, relay_last_error: description } : prev,
       );
       toastManager.add({
         title: t("toasts.couldNotConnectRelay"),
         description,
-        type: 'error',
+        type: "error",
       });
     } finally {
       setBusy(null);
@@ -319,24 +302,18 @@ export function AtmosComputerSection() {
   } = {}) {
     const nextUrl = resolveRelayUrl(urlDraft);
     const nextSecret = secretDraft.trim();
-    setBusy('relay-settings');
+    setBusy("relay-settings");
     try {
       await applyIdentityBearingComputerSettings({
         relayUrl: nextUrl,
         relaySecretKey: nextSecret,
       });
       clearRemoteComputerRegisterTokenCache();
-      const persisted = await saveComputerClientSettingsToDisk(
-        accessToken,
-        nextUrl,
-        nextSecret,
-      );
+      const persisted = await saveComputerClientSettingsToDisk(accessToken, nextUrl, nextSecret);
       toastManager.add({
         title: persisted ? successTitle : t("toasts.savedForSession"),
-        description: persisted
-          ? undefined
-          : t("toasts.couldNotSaveLocally"),
-        type: persisted ? 'success' : 'warning',
+        description: persisted ? undefined : t("toasts.couldNotSaveLocally"),
+        type: persisted ? "success" : "warning",
       });
       await refreshComputerListFor(accessToken, nextUrl, nextSecret);
     } finally {
@@ -349,18 +326,16 @@ export function AtmosComputerSection() {
       toastManager.add({
         title: t("toasts.signInRequired"),
         description: t("toasts.signInBeforeRegistering"),
-        type: 'error',
+        type: "error",
       });
       return;
     }
 
-    setBusy('remote');
+    setBusy("remote");
     try {
       if (enabled) {
         const displayName =
-          localStatus?.computer_name ??
-          localStatus?.hostname ??
-          t("fallbacks.myComputer");
+          localStatus?.computer_name ?? localStatus?.hostname ?? t("fallbacks.myComputer");
 
         let registerToken: string;
         try {
@@ -372,7 +347,7 @@ export function AtmosComputerSection() {
           toastManager.add({
             title: t("toasts.couldNotStartRegistration"),
             description: err instanceof Error ? err.message : t("toasts.tryAgain"),
-            type: 'error',
+            type: "error",
           });
           return;
         }
@@ -385,15 +360,14 @@ export function AtmosComputerSection() {
           await buildRegistrationMeta(),
         );
         setLocalServerId(reg.server_id);
-        setLocalStatus(prev => ({
+        setLocalStatus((prev) => ({
           hostname: prev?.hostname ?? localStatus?.hostname ?? null,
           computer_name: displayName,
           registered: true,
           relay_connected: reg.relay_connected ?? false,
           relay_last_error: reg.relay_last_error ?? null,
           server_id: reg.server_id,
-          relay_url:
-            prev?.relay_url ?? localStatus?.relay_url ?? relayUrl,
+          relay_url: prev?.relay_url ?? localStatus?.relay_url ?? relayUrl,
           relay_ws_url: prev?.relay_ws_url ?? localStatus?.relay_ws_url ?? null,
           shell_env: prev?.shell_env ?? localStatus?.shell_env,
         }));
@@ -401,15 +375,13 @@ export function AtmosComputerSection() {
           toastManager.add({
             title: t("toasts.computerRegistrationEnabled"),
             description: t("toasts.computerAvailable"),
-            type: 'success',
+            type: "success",
           });
         } else {
           toastManager.add({
             title: t("toasts.registeredNotYetOnline"),
-            description:
-              reg.relay_last_error ??
-              t("toasts.useReconnectAfterNetworkCheck"),
-            type: 'error',
+            description: reg.relay_last_error ?? t("toasts.useReconnectAfterNetworkCheck"),
+            type: "error",
           });
         }
         await refreshLocalStatus();
@@ -431,7 +403,7 @@ export function AtmosComputerSection() {
       }
       toastManager.add({
         title: t("toasts.computerRegistrationDisabled"),
-        type: 'success',
+        type: "success",
       });
       await refreshLocalStatus();
       await refreshComputerList();
@@ -441,7 +413,7 @@ export function AtmosComputerSection() {
       toastManager.add({
         title: enabled ? t("toasts.couldNotRegisterThisComputer") : t("toasts.couldNotUnregister"),
         description,
-        type: 'error',
+        type: "error",
       });
     } finally {
       setBusy(null);
@@ -452,12 +424,12 @@ export function AtmosComputerSection() {
     setBusy(busyKey);
     try {
       await activateCurrentLocalConnection();
-      toastManager.add({ title: t("toasts.usingThisComputerLocally"), type: 'success' });
+      toastManager.add({ title: t("toasts.usingThisComputerLocally"), type: "success" });
     } catch (err) {
       toastManager.add({
         title: t("toasts.couldNotSwitchToLocalComputer"),
         description: err instanceof Error ? err.message : t("toasts.tryAgain"),
-        type: 'error',
+        type: "error",
       });
     } finally {
       setBusy(null);
@@ -465,7 +437,7 @@ export function AtmosComputerSection() {
   }
 
   async function onConnect(serverId: string) {
-    const computer = activeComputers.find(row => row.server_id === serverId);
+    const computer = activeComputers.find((row) => row.server_id === serverId);
     const isLocalMachine = computer
       ? isCurrentLocalComputer(
           computer,
@@ -481,7 +453,7 @@ export function AtmosComputerSection() {
       toastManager.add({
         title: t("toasts.signInRequired"),
         description: t("toasts.signInBeforeConnecting"),
-        type: 'error',
+        type: "error",
       });
       return;
     }
@@ -489,12 +461,12 @@ export function AtmosComputerSection() {
     try {
       const session = await createHostedRemoteSession(relayUrl, accessToken, serverId);
       await activateHostedRemoteConnection(serverId, session);
-      toastManager.add({ title: t("toasts.connected"), type: 'success' });
+      toastManager.add({ title: t("toasts.connected"), type: "success" });
     } catch (err) {
       toastManager.add({
         title: t("toasts.couldNotConnect"),
         description: err instanceof Error ? err.message : t("toasts.tryAgain"),
-        type: 'error',
+        type: "error",
       });
     } finally {
       setBusy(null);
@@ -506,7 +478,7 @@ export function AtmosComputerSection() {
       toastManager.add({
         title: t("toasts.signInRequired"),
         description: t("toasts.signInBeforeRemoving"),
-        type: 'error',
+        type: "error",
       });
       return;
     }
@@ -517,7 +489,7 @@ export function AtmosComputerSection() {
           .withDeviceCredential(accessToken)
           .revokeComputer(serverId);
       } catch {
-        toastManager.add({ title: t("toasts.couldNotRemove"), type: 'error' });
+        toastManager.add({ title: t("toasts.couldNotRemove"), type: "error" });
         return;
       }
       const isLocal = serverId === (localStatus?.server_id ?? localServerId);
@@ -529,7 +501,7 @@ export function AtmosComputerSection() {
       if (connectedServerId === serverId) {
         void activateCurrentLocalConnection().catch(() => undefined);
       }
-      toastManager.add({ title: t("toasts.computerRemoved"), type: 'success' });
+      toastManager.add({ title: t("toasts.computerRemoved"), type: "success" });
       await refreshComputerList();
     } finally {
       setBusy(null);
@@ -538,11 +510,11 @@ export function AtmosComputerSection() {
 
   const currentServerId = localStatus?.server_id ?? localServerId;
   const currentComputerRow = currentServerId
-    ? activeComputers.find(c => c.server_id === currentServerId)
+    ? activeComputers.find((c) => c.server_id === currentServerId)
     : undefined;
-  const isLocalRegistered = Boolean(
-    localStatus?.registered && currentServerId,
-  ) || Boolean(localServerId && currentServerId === localServerId);
+  const isLocalRegistered =
+    Boolean(localStatus?.registered && currentServerId) ||
+    Boolean(localServerId && currentServerId === localServerId);
   /** Local API is authoritative; relay `online` is a fallback while relay is reconnecting. */
   const isCurrentRelayReachable =
     Boolean(localStatus?.relay_connected) || Boolean(currentComputerRow?.online);
@@ -550,7 +522,7 @@ export function AtmosComputerSection() {
   const showRelayReconnect = isLocalRegistered && !isCurrentRelayReachable;
   const currentDeviceName =
     localStatus?.computer_name?.trim() ||
-    localStatus?.hostname?.replace(/\.local$/i, '') ||
+    localStatus?.hostname?.replace(/\.local$/i, "") ||
     t("fallbacks.thisComputer");
   const relayUrlDraftResolved = resolveRelayUrl(relayUrlDraft);
   const relaySecretDraftTrimmed = relaySecretDraft.trim();
@@ -559,26 +531,21 @@ export function AtmosComputerSection() {
 
   return (
     <SettingsPageStack>
-      <SettingsExperimentalNotice>
-        {t("developmentWarning")}
-      </SettingsExperimentalNotice>
+      <SettingsExperimentalNotice>{t("developmentWarning")}</SettingsExperimentalNotice>
 
       {!hasConfiguredKey ? (
         <SettingsGroup>
           <div className="px-2 py-3">
-            <p className="text-sm font-medium text-foreground">{t("panels.accountRequired.title")}</p>
+            <p className="text-sm font-medium text-foreground">
+              {t("panels.accountRequired.title")}
+            </p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               {accountSyncBusy
                 ? t("panels.accountRequired.syncing")
                 : t("panels.accountRequired.description")}
             </p>
             {hubConfigured() ? (
-              <Button
-                type="button"
-                size="sm"
-                className="mt-3"
-                onClick={() => setSignInOpen(true)}
-              >
+              <Button type="button" size="sm" className="mt-3" onClick={() => setSignInOpen(true)}>
                 <LogIn className="mr-1.5 size-3.5" />
                 {accountT("signIn")}
               </Button>
@@ -633,10 +600,10 @@ export function AtmosComputerSection() {
               : `${currentDeviceName} · ${t("panels.thisComputer.status.notRegistered")}`
           }
           checked={isLocalRegistered}
-          disabled={busy === 'remote' || !hasConfiguredKey}
+          disabled={busy === "remote" || !hasConfiguredKey}
           onCheckedChange={(checked) => void onRemoteToggle(checked)}
         />
-        {connectionMode === 'relay' ? (
+        {connectionMode === "relay" ? (
           <SettingsGroupRow
             wide
             title={t("panels.thisComputer.useLocalTitle")}
@@ -647,9 +614,9 @@ export function AtmosComputerSection() {
               size="sm"
               variant="secondary"
               disabled={busy !== null}
-              onClick={() => void switchToLocalConnection('local-switch')}
+              onClick={() => void switchToLocalConnection("local-switch")}
             >
-              {busy === 'local-switch' ? (
+              {busy === "local-switch" ? (
                 <LoaderCircle className="mr-2 size-4 animate-spin" />
               ) : (
                 <Laptop className="mr-2 size-4" />
@@ -662,9 +629,7 @@ export function AtmosComputerSection() {
           <SettingsGroupRow
             wide
             title={t("panels.thisComputer.reconnectTitle")}
-            description={
-              relayLastError || t("panels.thisComputer.reconnectHelper")
-            }
+            description={relayLastError || t("panels.thisComputer.reconnectHelper")}
           >
             <Button
               type="button"
@@ -673,7 +638,7 @@ export function AtmosComputerSection() {
               disabled={busy !== null}
               onClick={() => void onRelayReconnect()}
             >
-              {busy === 'relay-sync' ? (
+              {busy === "relay-sync" ? (
                 <LoaderCircle className="mr-2 size-4 animate-spin" />
               ) : (
                 <RotateCw className="mr-2 size-4" />
@@ -699,29 +664,27 @@ export function AtmosComputerSection() {
             disabled={!hasConfiguredKey || busy !== null}
             onClick={() => void refreshComputerList()}
           >
-            <RotateCw className={cn('mr-2 size-4', listRefreshing && 'animate-spin')} />
+            <RotateCw className={cn("mr-2 size-4", listRefreshing && "animate-spin")} />
             {t("panels.myComputers.refresh")}
           </Button>
         }
       >
         {!hasConfiguredKey ? (
-          <p className="px-2 py-3 text-sm text-muted-foreground">{t("panels.myComputers.signInPrompt")}</p>
-        ) : activeComputers.length === 0 ? (
           <p className="px-2 py-3 text-sm text-muted-foreground">
-            {t("panels.myComputers.empty")}
+            {t("panels.myComputers.signInPrompt")}
           </p>
+        ) : activeComputers.length === 0 ? (
+          <p className="px-2 py-3 text-sm text-muted-foreground">{t("panels.myComputers.empty")}</p>
         ) : (
-          activeComputers.map(c => {
+          activeComputers.map((c) => {
             const isCurrent = isCurrentLocalComputer(
               c,
               currentServerId,
               localStatus?.app_device_id,
             );
-            const isUsingLocal = isCurrent && connectionMode === 'local';
+            const isUsingLocal = isCurrent && connectionMode === "local";
             const isConnected = !isCurrent && connectedServerId === c.server_id;
-            const relayReachable = isCurrent
-              ? isCurrentRelayReachable
-              : Boolean(c.online);
+            const relayReachable = isCurrent ? isCurrentRelayReachable : Boolean(c.online);
             const name = (c.display_name ?? t("panels.myComputers.fallbackName")).slice(0, 64);
             return (
               <SettingsGroupRow
@@ -742,13 +705,15 @@ export function AtmosComputerSection() {
                     ) : null}
                     <span
                       className={cn(
-                        'text-xs font-normal',
+                        "text-xs font-normal",
                         relayReachable
-                          ? 'text-emerald-600 dark:text-emerald-400'
-                          : 'text-muted-foreground',
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-muted-foreground",
                       )}
                     >
-                      {relayReachable ? t("panels.myComputers.online") : t("panels.myComputers.offline")}
+                      {relayReachable
+                        ? t("panels.myComputers.online")
+                        : t("panels.myComputers.offline")}
                     </span>
                   </span>
                 }
@@ -762,7 +727,7 @@ export function AtmosComputerSection() {
                       disabled={busy !== null}
                       onClick={() => void onRelayReconnect()}
                     >
-                      {busy === 'relay-sync' ? (
+                      {busy === "relay-sync" ? (
                         <LoaderCircle className="size-4 animate-spin" />
                       ) : (
                         <>
@@ -774,12 +739,8 @@ export function AtmosComputerSection() {
                   ) : null}
                   <Button
                     size="sm"
-                    variant={isConnected || isUsingLocal ? 'secondary' : 'default'}
-                    disabled={
-                      busy !== null ||
-                      isConnected ||
-                      isUsingLocal
-                    }
+                    variant={isConnected || isUsingLocal ? "secondary" : "default"}
+                    disabled={busy !== null || isConnected || isUsingLocal}
                     onClick={() => void onConnect(c.server_id)}
                   >
                     {busy === `connect-${c.server_id}` ? (
@@ -830,14 +791,17 @@ export function AtmosComputerSection() {
       >
         <div className="flex flex-col gap-4 px-2 py-3">
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-muted-foreground" htmlFor="private-relay-url">
+            <label
+              className="text-sm font-medium text-muted-foreground"
+              htmlFor="private-relay-url"
+            >
               {t("panels.privateRelay.urlLabel")}
             </label>
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
               <Input
                 id="private-relay-url"
                 value={relayUrlDraft}
-                onChange={e => setRelayUrlDraft(e.target.value)}
+                onChange={(e) => setRelayUrlDraft(e.target.value)}
                 placeholder={t("panels.privateRelay.urlPlaceholder")}
                 autoComplete="off"
               />
@@ -854,7 +818,7 @@ export function AtmosComputerSection() {
                   })
                 }
               >
-                {busy === 'relay-settings' ? (
+                {busy === "relay-settings" ? (
                   <LoaderCircle className="mr-2 size-4 animate-spin" />
                 ) : null}
                 {t("panels.privateRelay.save")}
@@ -862,7 +826,10 @@ export function AtmosComputerSection() {
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-muted-foreground" htmlFor="private-relay-token">
+            <label
+              className="text-sm font-medium text-muted-foreground"
+              htmlFor="private-relay-token"
+            >
               {t("panels.privateRelay.tokenLabel")}
             </label>
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
@@ -870,7 +837,7 @@ export function AtmosComputerSection() {
                 id="private-relay-token"
                 type="password"
                 value={relaySecretDraft}
-                onChange={e => setRelaySecretDraft(e.target.value)}
+                onChange={(e) => setRelaySecretDraft(e.target.value)}
                 placeholder={t("panels.privateRelay.tokenPlaceholder")}
                 autoComplete="off"
               />
@@ -887,7 +854,7 @@ export function AtmosComputerSection() {
                   })
                 }
               >
-                {busy === 'relay-settings' ? (
+                {busy === "relay-settings" ? (
                   <LoaderCircle className="mr-2 size-4 animate-spin" />
                 ) : null}
                 {t("panels.privateRelay.save")}
@@ -895,8 +862,8 @@ export function AtmosComputerSection() {
             </div>
           </div>
           <p className="text-xs leading-5 text-muted-foreground">
-            {t("panels.privateRelay.footerPrefix")}{' '}
-            <code className="rounded bg-muted px-1.5 py-0.5">RELAY_SECRET_KEY</code>{' '}
+            {t("panels.privateRelay.footerPrefix")}{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5">RELAY_SECRET_KEY</code>{" "}
             {t("panels.privateRelay.footerSuffix")}
           </p>
         </div>
@@ -908,11 +875,7 @@ export function AtmosComputerSection() {
         computer={detailsComputer}
         isCurrent={
           detailsComputer
-            ? isCurrentLocalComputer(
-                detailsComputer,
-                currentServerId,
-                localStatus?.app_device_id,
-              )
+            ? isCurrentLocalComputer(detailsComputer, currentServerId, localStatus?.app_device_id)
             : false
         }
       />

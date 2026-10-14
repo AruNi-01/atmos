@@ -1,8 +1,8 @@
 import type { WorkspaceModel } from "@/api/ws-api";
-import { createTranslator } from 'next-intl';
-import { currentAppLocale } from '@/shared/lib/current-app-locale';
-import enMessages from '../../../../messages/en.json';
-import zhMessages from '../../../../messages/zh.json';
+import { createTranslator } from "next-intl";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
 
 export interface WorkspaceSetupProgress {
   workspaceId: string;
@@ -79,27 +79,24 @@ export interface WorkspaceSetupProgressEventPayload {
   setup_context?: WorkspaceSetupContextPayload | null;
 }
 
-let cachedRuntimeLocale: 'en' | 'zh' | null = null;
+let cachedRuntimeLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedRuntimeTranslator: any = null;
 
 function runtimeT(key: string): string {
-  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedRuntimeTranslator || cachedRuntimeLocale !== locale) {
     cachedRuntimeLocale = locale;
     cachedRuntimeTranslator = createTranslator({
       locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'project.runtime',
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "project.runtime",
     });
   }
   return cachedRuntimeTranslator(key as never);
 }
 
-const SETUP_STEP_ORDER: Record<
-  NonNullable<WorkspaceSetupProgress["stepKey"]>,
-  number
-> = {
+const SETUP_STEP_ORDER: Record<NonNullable<WorkspaceSetupProgress["stepKey"]>, number> = {
   create_worktree: 0,
   write_requirement: 1,
   extract_todos: 2,
@@ -161,22 +158,24 @@ export function isWorkspaceSetupProgressEventPayload(
     typeof payload.success === "boolean" &&
     typeof payload.status === "string" &&
     (payload.replace_output == null || typeof payload.replace_output === "boolean") &&
-    (payload.requires_confirmation == null ||
-      typeof payload.requires_confirmation === "boolean") &&
-    (payload.requires_script_trust == null ||
-      typeof payload.requires_script_trust === "boolean") &&
+    (payload.requires_confirmation == null || typeof payload.requires_confirmation === "boolean") &&
+    (payload.requires_script_trust == null || typeof payload.requires_script_trust === "boolean") &&
     (payload.setup_context == null ||
       (typeof payload.setup_context === "object" &&
         typeof (payload.setup_context as Record<string, unknown>).has_github_issue === "boolean" &&
         (typeof (payload.setup_context as Record<string, unknown>).has_github_pr === "boolean" ||
           (payload.setup_context as Record<string, unknown>).has_github_pr === undefined) &&
-        typeof (payload.setup_context as Record<string, unknown>).has_requirement_step === "boolean" &&
-        typeof (payload.setup_context as Record<string, unknown>).auto_extract_todos === "boolean" &&
-        typeof (payload.setup_context as Record<string, unknown>).has_setup_script === "boolean")) &&
+        typeof (payload.setup_context as Record<string, unknown>).has_requirement_step ===
+          "boolean" &&
+        typeof (payload.setup_context as Record<string, unknown>).auto_extract_todos ===
+          "boolean" &&
+        typeof (payload.setup_context as Record<string, unknown>).has_setup_script ===
+          "boolean")) &&
     (payload.step_key == null ||
       (typeof payload.step_key === "string" && validStepKeys.includes(payload.step_key))) &&
     (payload.failed_step_key == null ||
-      (typeof payload.failed_step_key === "string" && validStepKeys.includes(payload.failed_step_key))) &&
+      (typeof payload.failed_step_key === "string" &&
+        validStepKeys.includes(payload.failed_step_key))) &&
     validStatus.includes(payload.status)
   );
 }

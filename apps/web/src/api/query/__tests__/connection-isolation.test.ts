@@ -39,9 +39,7 @@ describe("connection-isolation", () => {
     });
 
     test("different activeInstanceId produces a distinct computer root key", () => {
-      expect(queryKeys.computer.root(scopeA)).not.toEqual(
-        queryKeys.computer.root(scopeRelay),
-      );
+      expect(queryKeys.computer.root(scopeA)).not.toEqual(queryKeys.computer.root(scopeRelay));
     });
 
     test("data set under scope A is not readable under scope B key", () => {

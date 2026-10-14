@@ -1,8 +1,4 @@
-import {
-  serializeIpcError,
-  unsupportedCommandError,
-  type SerializedIpcError,
-} from "../errors.js";
+import { serializeIpcError, unsupportedCommandError, type SerializedIpcError } from "../errors.js";
 import type { DesktopCommandHandler, DesktopInvokeArgs } from "../types.js";
 
 export type DesktopCommandRouter = {
@@ -11,9 +7,7 @@ export type DesktopCommandRouter = {
   invokeSafe: (
     cmd: string,
     args?: DesktopInvokeArgs,
-  ) => Promise<
-    { ok: true; data: unknown } | { ok: false; error: SerializedIpcError }
-  >;
+  ) => Promise<{ ok: true; data: unknown } | { ok: false; error: SerializedIpcError }>;
 };
 
 export function createDesktopCommandRouter(

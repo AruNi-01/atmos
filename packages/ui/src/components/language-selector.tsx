@@ -37,7 +37,7 @@ export function LanguageSelector({
         <Button
           variant="ghost"
           size="sm"
-          className={cn("w-auto px-3 gap-2 font-medium", !showLabel && "px-2.5", className)}
+          className={cn("w-auto gap-2 px-3 font-medium", !showLabel && "px-2.5", className)}
           {...props}
         >
           <Icon className="h-[1.2rem] w-[1.2rem]" />

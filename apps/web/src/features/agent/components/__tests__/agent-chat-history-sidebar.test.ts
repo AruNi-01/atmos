@@ -6,22 +6,13 @@ import {
   chatTimelineFloats,
 } from "../../hooks/use-agent-chat-history-sidebar-layout";
 
-const sidebar = readFileSync(
-  join(import.meta.dir, "../AgentChatHistorySidebar.tsx"),
-  "utf8",
-);
+const sidebar = readFileSync(join(import.meta.dir, "../AgentChatHistorySidebar.tsx"), "utf8");
 const session = readFileSync(
   join(import.meta.dir, "../../hooks/use-agent-chat-session.ts"),
   "utf8",
 );
-const header = readFileSync(
-  join(import.meta.dir, "../AgentChatHeader.tsx"),
-  "utf8",
-);
-const panel = readFileSync(
-  join(import.meta.dir, "../AgentChatPanel.tsx"),
-  "utf8",
-);
+const header = readFileSync(join(import.meta.dir, "../AgentChatHeader.tsx"), "utf8");
+const panel = readFileSync(join(import.meta.dir, "../AgentChatPanel.tsx"), "utf8");
 
 describe("agent chat standalone history sidebar", () => {
   it("keeps the directory on the left edge and the scrollbar on the full-width column", () => {
@@ -66,10 +57,7 @@ describe("agent chat standalone history sidebar", () => {
 
   it("loads thread, project, and workspace sessions on the standalone page", () => {
     expect(session).toContain("agentChatHistoryListRequest");
-    const thread = readFileSync(
-      join(import.meta.dir, "../../lib/agent-chat-thread.ts"),
-      "utf8",
-    );
+    const thread = readFileSync(join(import.meta.dir, "../../lib/agent-chat-thread.ts"), "utf8");
     expect(thread).toContain('if (input.variant === "standalone")');
     expect(thread).toContain("return { all: true };");
   });

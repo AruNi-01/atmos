@@ -18,9 +18,7 @@ export function getVisualActivePaintId(): string | null {
   return visualActivePaintId;
 }
 
-export function isPaintContextVisuallyActive(
-  paintContextId: string | null | undefined,
-): boolean {
+export function isPaintContextVisuallyActive(paintContextId: string | null | undefined): boolean {
   if (!published) return true;
   if (paintContextId == null || paintContextId === "") return true;
   return visualActivePaintId === paintContextId;

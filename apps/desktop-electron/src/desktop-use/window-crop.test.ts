@@ -36,12 +36,7 @@ describe("computeWindowCropPixels", () => {
 
   it("rejects tiny windows", () => {
     expect(
-      computeWindowCropPixels(
-        { x: 10, y: 10, width: 20, height: 20 },
-        3024,
-        1964,
-        display,
-      ),
+      computeWindowCropPixels({ x: 10, y: 10, width: 20, height: 20 }, 3024, 1964, display),
     ).toBeNull();
   });
 

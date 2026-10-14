@@ -105,11 +105,7 @@ type DesignItemLabels = {
   project: string;
 };
 
-export function PtDesignOverview({
-  host = GLOBAL_HOST,
-}: {
-  host?: PtDesignHostContext;
-}) {
+export function PtDesignOverview({ host = GLOBAL_HOST }: { host?: PtDesignHostContext }) {
   const t = useTranslations("ptDesign.overview");
   const locale = useLocale();
   const projects = useProjects();
@@ -143,7 +139,10 @@ export function PtDesignOverview({
   const visible = searchResolvedPtDesigns(scoped, query, t("untitled"));
   const grouped = groupResolvedPtDesigns(visible, projects);
   const hasAny =
-    grouped.pinned.length + grouped.global.length + grouped.projects.reduce((sum, row) => sum + row.items.length, 0) > 0;
+    grouped.pinned.length +
+      grouped.global.length +
+      grouped.projects.reduce((sum, row) => sum + row.items.length, 0) >
+    0;
   const moveTargets = React.useMemo(
     () => [...projects].sort((left, right) => left.sidebarOrder - right.sidebarOrder),
     [projects],
@@ -182,21 +181,30 @@ export function PtDesignOverview({
     [t],
   );
 
-  const onRename = React.useCallback((id: string, name: string) => {
-    renamePtDesign(id, name);
-    setRenamingId(null);
-    refresh();
-  }, [refresh]);
+  const onRename = React.useCallback(
+    (id: string, name: string) => {
+      renamePtDesign(id, name);
+      setRenamingId(null);
+      refresh();
+    },
+    [refresh],
+  );
 
-  const onPin = React.useCallback((item: ResolvedPtDesign) => {
-    setPtDesignPinned(item.id, !item.pinned);
-    refresh();
-  }, [refresh]);
+  const onPin = React.useCallback(
+    (item: ResolvedPtDesign) => {
+      setPtDesignPinned(item.id, !item.pinned);
+      refresh();
+    },
+    [refresh],
+  );
 
-  const onMove = React.useCallback((item: ResolvedPtDesign, target: PtDesignMoveTarget) => {
-    movePtDesign(item.id, target);
-    refresh();
-  }, [refresh]);
+  const onMove = React.useCallback(
+    (item: ResolvedPtDesign, target: PtDesignMoveTarget) => {
+      movePtDesign(item.id, target);
+      refresh();
+    },
+    [refresh],
+  );
 
   const collectionProps = {
     view,
@@ -223,13 +231,13 @@ export function PtDesignOverview({
                 <PencilRuler className="size-6" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-xl font-bold tracking-tight text-foreground text-balance">
+                <h2 className="text-xl font-bold tracking-tight text-balance text-foreground">
                   {t("title")}
                 </h2>
               </div>
             </div>
             <Button
-              className="h-11 sm:h-11 shrink-0 rounded-xl px-4"
+              className="h-11 shrink-0 rounded-xl px-4 sm:h-11"
               onClick={handleNew}
               data-testid="pt-design-new"
             >
@@ -239,13 +247,13 @@ export function PtDesignOverview({
           </div>
           <div className="flex h-11 min-w-0 items-center gap-2">
             <div className="group relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary" />
+              <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary" />
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={t("searchPlaceholder")}
                 data-testid="pt-design-search"
-                className="h-11 sm:h-11 rounded-xl border-border/50 bg-muted/20 pl-10 shadow-sm transition-all focus:bg-background focus-visible:ring-1 focus-visible:ring-primary/20"
+                className="h-11 rounded-xl border-border/50 bg-muted/20 pl-10 shadow-sm transition-all focus:bg-background focus-visible:ring-1 focus-visible:ring-primary/20 sm:h-11"
               />
             </div>
             <OverviewFilterMenu
@@ -267,7 +275,7 @@ export function PtDesignOverview({
       </div>
 
       <ScrollArea className="min-h-0 flex-1" scrollFade>
-        <div className="px-8 pb-8 pt-4">
+        <div className="px-8 pt-4 pb-8">
           <div className="mx-auto w-full max-w-5xl space-y-8">
             {hasAny ? (
               <>
@@ -393,7 +401,7 @@ function OverviewFilterMenu({
           <Layers className="size-4" />
           <span className="min-w-0 flex-1 truncate">{t("filterScope")}</span>
           {activeCount > 0 ? (
-            <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">1</span>
+            <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">1</span>
           ) : null}
         </DropdownMenuSubTrigger>
         <DropdownMenuSubContent className="w-56">
@@ -624,7 +632,11 @@ function DesignItemMenu({
           <MoreHorizontal className="size-4" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48" onClick={(event) => event.stopPropagation()}>
+      <DropdownMenuContent
+        align="end"
+        className="w-48"
+        onClick={(event) => event.stopPropagation()}
+      >
         <DropdownMenuItem className="cursor-pointer" onSelect={() => onRenameStart()}>
           <Pencil className="size-4" />
           {labels.rename}
@@ -734,7 +746,7 @@ const DesignCard = React.memo(function DesignCard({
         alt=""
         className="mb-2 bg-[#fffef7] dark:bg-[#09090b] [&_img]:object-contain"
         actions={
-          <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 has-[[data-state=open]]:opacity-100">
+          <div className="flex items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 has-[[data-state=open]]:opacity-100">
             <PinActionButton pinned={item.pinned} labels={labels} onPin={() => onPin(item)} />
             <DesignItemMenu
               item={item}
@@ -857,7 +869,7 @@ const DesignListRow = React.memo(function DesignListRow({
       >
         {modified}
       </time>
-      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 has-[[data-state=open]]:opacity-100">
+      <div className="flex items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 has-[[data-state=open]]:opacity-100">
         <PinActionButton pinned={item.pinned} labels={labels} onPin={() => onPin(item)} />
         <DesignItemMenu
           item={item}

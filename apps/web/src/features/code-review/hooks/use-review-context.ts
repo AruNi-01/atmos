@@ -69,9 +69,7 @@ export function useReviewContext({
   const queryClient = useQueryClient();
   const onWsEvent = useWebSocketStore((state) => state.onEvent);
   const enqueueAgentChatPrompt = useDialogStore((state) => state.enqueueAgentChatPrompt);
-  const setPendingAgentChatMode = useDialogStore(
-    (state) => state.setPendingAgentChatMode,
-  );
+  const setPendingAgentChatMode = useDialogStore((state) => state.setPendingAgentChatMode);
   const terminalRunner = useReviewTerminalRunnerStore((state) => state.runner);
 
   const sessionsQuery = useReviewSessionsQuery(target);
@@ -97,7 +95,9 @@ export function useReviewContext({
   );
   const [comments, setComments] = useState<ReviewCommentDto[]>([]);
   const terminalAgentId = (storedReviewAgentId ?? "codex") as AgentId;
-  const [terminalAgentRunConfigs, setTerminalAgentRunConfigs] = useState<Record<string, TerminalAgentRunConfigInput | null>>({});
+  const [terminalAgentRunConfigs, setTerminalAgentRunConfigs] = useState<
+    Record<string, TerminalAgentRunConfigInput | null>
+  >({});
   const [artifactLoading, setArtifactLoading] = useState(false);
   const [artifactPreview, setArtifactPreview] = useState<ArtifactPreview | null>(null);
   const terminalAgentRunConfig = terminalAgentRunConfigs[terminalAgentId] ?? null;
@@ -229,8 +229,7 @@ export function useReviewContext({
       return sessions.find((session) => session.guid === selectedSessionGuid) ?? null;
     }
     return (
-      sessions.find((session) => session.status === "active") ??
-      sortReviewSessions(sessions)[0]
+      sessions.find((session) => session.status === "active") ?? sortReviewSessions(sessions)[0]
     );
   }, [fileSnapshotGuid, pinnedRevisionGuid, selectedRevisionGuid, selectedSessionGuid, sessions]);
 
@@ -255,7 +254,9 @@ export function useReviewContext({
       currentSession.revisions.find(
         (revision) =>
           revision.guid === (selectedRevisionGuid ?? currentSession.current_revision_guid),
-      ) ?? currentSession.revisions[0] ?? null
+      ) ??
+      currentSession.revisions[0] ??
+      null
     );
   }, [currentSession, fileSnapshotGuid, pinnedRevisionGuid, selectedRevisionGuid]);
 
@@ -275,13 +276,9 @@ export function useReviewContext({
   const currentFile = useMemo<ReviewFileDto | null>(() => {
     if (!currentRevision) return null;
     if (fileSnapshotGuid) {
-      return (
-        currentRevision.files.find((file) => file.snapshot.guid === fileSnapshotGuid) ?? null
-      );
+      return currentRevision.files.find((file) => file.snapshot.guid === fileSnapshotGuid) ?? null;
     }
-    return (
-      currentRevision.files.find((file) => file.snapshot.file_path === filePath) ?? null
-    );
+    return currentRevision.files.find((file) => file.snapshot.file_path === filePath) ?? null;
   }, [currentRevision, filePath, fileSnapshotGuid]);
 
   const loadComments = useCallback(async () => {
@@ -303,7 +300,7 @@ export function useReviewContext({
               c.anchor_start_line === opt.anchor_start_line &&
               c.anchor_end_line === opt.anchor_end_line &&
               c.anchor_side === opt.anchor_side &&
-              c.messages[0]?.body === opt.messages[0]?.body
+              c.messages[0]?.body === opt.messages[0]?.body,
           );
           return !isSaved;
         });
@@ -335,24 +332,16 @@ export function useReviewContext({
 
   const currentFileComments = useMemo(() => {
     if (!currentFile) return [];
-    return comments.filter(
-      (comment) => comment.file_snapshot_guid === currentFile.snapshot.guid,
-    );
+    return comments.filter((comment) => comment.file_snapshot_guid === currentFile.snapshot.guid);
   }, [currentFile, comments]);
 
   const openCurrentFileComments = useMemo(
-    () =>
-      currentFileComments.filter((comment) =>
-        isOpenReviewCommentStatus(comment.status),
-      ),
+    () => currentFileComments.filter((comment) => isOpenReviewCommentStatus(comment.status)),
     [currentFileComments],
   );
 
   const openRevisionComments = useMemo(
-    () =>
-      comments.filter((comment) =>
-        isOpenReviewCommentStatus(comment.status),
-      ),
+    () => comments.filter((comment) => isOpenReviewCommentStatus(comment.status)),
     [comments],
   );
 
@@ -378,15 +367,14 @@ export function useReviewContext({
       );
   }, [currentSession, filePath]);
 
-  const latestSummaryRun = useMemo(
-    () => {
-      if (!currentSession || !currentRevision) return null;
-      return currentSession.runs.find((run) =>
-        !!run.summary_rel_path && run.result_revision_guid === currentRevision.guid,
-      ) ?? null;
-    },
-    [currentSession, currentRevision],
-  );
+  const latestSummaryRun = useMemo(() => {
+    if (!currentSession || !currentRevision) return null;
+    return (
+      currentSession.runs.find(
+        (run) => !!run.summary_rel_path && run.result_revision_guid === currentRevision.guid,
+      ) ?? null
+    );
+  }, [currentSession, currentRevision]);
 
   const activeAgentRun = useMemo(
     () => currentSession?.runs.find((run) => run.status === "running") ?? null,
@@ -394,18 +382,22 @@ export function useReviewContext({
   );
 
   const activeReviewRun = useMemo(
-    () => currentSession?.runs.find((run) => run.status === "running" && run.run_kind === "review") ?? null,
+    () =>
+      currentSession?.runs.find((run) => run.status === "running" && run.run_kind === "review") ??
+      null,
     [currentSession],
   );
 
   const activeFixRun = useMemo(
-    () => currentSession?.runs.find((run) => run.status === "running" && run.run_kind === "fix") ?? null,
+    () =>
+      currentSession?.runs.find((run) => run.status === "running" && run.run_kind === "fix") ??
+      null,
     [currentSession],
   );
 
   useEffect(() => {
-    const hasUnfinishedRun = currentSession?.runs.some((run) =>
-      run.status === "pending" || run.status === "running",
+    const hasUnfinishedRun = currentSession?.runs.some(
+      (run) => run.status === "pending" || run.status === "running",
     );
     if (!hasUnfinishedRun) return;
     const interval = window.setInterval(() => {
@@ -437,10 +429,7 @@ export function useReviewContext({
       });
       setSelectedSessionGuid(session.guid);
       setSelectedRevisionGuid(session.current_revision_guid);
-      queryClient.setQueryData<ReviewSessionDto[]>(
-        key,
-        (prev) => [session, ...(prev ?? [])],
-      );
+      queryClient.setQueryData<ReviewSessionDto[]>(key, (prev) => [session, ...(prev ?? [])]);
       const targetKind = target.kind === "workspace" ? "workspace" : "project";
       toastManager.add({
         title: t("createSession.successTitle"),
@@ -452,10 +441,7 @@ export function useReviewContext({
     } catch (error) {
       toastManager.add({
         title: t("createSession.errorTitle"),
-        description:
-          error instanceof Error
-            ? error.message
-            : t("errors.unknownReviewSession"),
+        description: error instanceof Error ? error.message : t("errors.unknownReviewSession"),
         type: "error",
       });
     } finally {
@@ -471,8 +457,7 @@ export function useReviewContext({
     } catch (error) {
       toastManager.add({
         title: t("closeSession.errorTitle"),
-        description:
-          error instanceof Error ? error.message : t("errors.unknown"),
+        description: error instanceof Error ? error.message : t("errors.unknown"),
         type: "error",
       });
     }
@@ -486,8 +471,7 @@ export function useReviewContext({
     } catch (error) {
       toastManager.add({
         title: t("archiveSession.errorTitle"),
-        description:
-          error instanceof Error ? error.message : t("errors.unknown"),
+        description: error instanceof Error ? error.message : t("errors.unknown"),
         type: "error",
       });
     }
@@ -507,8 +491,7 @@ export function useReviewContext({
       } catch (error) {
         toastManager.add({
           title: t("renameSession.errorTitle"),
-          description:
-            error instanceof Error ? error.message : t("errors.unknown"),
+          description: error instanceof Error ? error.message : t("errors.unknown"),
           type: "error",
         });
       }
@@ -527,10 +510,7 @@ export function useReviewContext({
       } catch (error) {
         toastManager.add({
           title: t("toggleReviewed.errorTitle"),
-          description:
-            error instanceof Error
-              ? error.message
-              : t("errors.unknownReviewState"),
+          description: error instanceof Error ? error.message : t("errors.unknownReviewState"),
           type: "error",
         });
       }
@@ -547,10 +527,7 @@ export function useReviewContext({
       } catch (error) {
         toastManager.add({
           title: t("updateCommentStatus.errorTitle"),
-          description:
-            error instanceof Error
-              ? error.message
-              : t("errors.unknownReviewComment"),
+          description: error instanceof Error ? error.message : t("errors.unknownReviewComment"),
           type: "error",
         });
       }
@@ -611,9 +588,7 @@ export function useReviewContext({
 
       try {
         const realComment = await reviewWsApi.createComment(data);
-        setComments((prev) =>
-          prev.map((c) => (c.guid === tempGuid ? realComment : c)),
-        );
+        setComments((prev) => prev.map((c) => (c.guid === tempGuid ? realComment : c)));
         void loadSessions();
         return realComment;
       } catch (error) {
@@ -651,10 +626,7 @@ export function useReviewContext({
       } catch (error) {
         toastManager.add({
           title: t("reply.errorTitle"),
-          description:
-            error instanceof Error
-              ? error.message
-              : t("errors.unknownReviewComment"),
+          description: error instanceof Error ? error.message : t("errors.unknownReviewComment"),
           type: "error",
         });
         throw error;
@@ -677,10 +649,7 @@ export function useReviewContext({
       } catch (error) {
         toastManager.add({
           title: t("deleteMessage.errorTitle"),
-          description:
-            error instanceof Error
-              ? error.message
-              : t("errors.unknownReviewComment"),
+          description: error instanceof Error ? error.message : t("errors.unknownReviewComment"),
           type: "error",
         });
         throw error;
@@ -700,10 +669,7 @@ export function useReviewContext({
       } catch (error) {
         toastManager.add({
           title: t("updateMessage.errorTitle"),
-          description:
-            error instanceof Error
-              ? error.message
-              : t("errors.unknownReviewComment"),
+          description: error instanceof Error ? error.message : t("errors.unknownReviewComment"),
           type: "error",
         });
         throw error;
@@ -733,14 +699,8 @@ export function useReviewContext({
   );
 
   const handleMarkAgentRunFailed = useCallback(
-    async (
-      run: ReviewAgentRunModel,
-      message = t("markAgentRunFailed.defaultMessage"),
-    ) => {
-      if (
-        typeof window !== "undefined" &&
-        !window.confirm(t("markAgentRunFailed.confirm"))
-      ) {
+    async (run: ReviewAgentRunModel, message = t("markAgentRunFailed.defaultMessage")) => {
+      if (typeof window !== "undefined" && !window.confirm(t("markAgentRunFailed.confirm"))) {
         return;
       }
       try {
@@ -758,10 +718,7 @@ export function useReviewContext({
       } catch (error) {
         toastManager.add({
           title: t("markAgentRunFailed.errorTitle"),
-          description:
-            error instanceof Error
-              ? error.message
-              : t("errors.unknownReviewFix"),
+          description: error instanceof Error ? error.message : t("errors.unknownReviewFix"),
           type: "error",
         });
       }
@@ -776,9 +733,7 @@ export function useReviewContext({
         const result = await createAgentRun("fix", "copy_prompt", null, selectedCommentGuids);
         if (!result) return;
         setSelectedRevisionGuid(result.revision.guid);
-        await navigator.clipboard.writeText(
-          wrapAiContextClipboard("review-run", result.prompt),
-        );
+        await navigator.clipboard.writeText(wrapAiContextClipboard("review-run", result.prompt));
         toastManager.add({
           title: t("copyAgentPrompt.successTitle"),
           description: t("copyAgentPrompt.successDescription"),
@@ -788,8 +743,7 @@ export function useReviewContext({
       } catch (error) {
         toastManager.add({
           title: t("copyAgentPrompt.errorTitle"),
-          description:
-            error instanceof Error ? error.message : t("errors.unknownFixRun"),
+          description: error instanceof Error ? error.message : t("errors.unknownFixRun"),
           type: "error",
         });
       } finally {
@@ -831,10 +785,7 @@ export function useReviewContext({
       } catch (error) {
         toastManager.add({
           title: t("agentChat.errorTitle"),
-          description:
-            error instanceof Error
-              ? error.message
-              : t("errors.unknownReviewFix"),
+          description: error instanceof Error ? error.message : t("errors.unknownReviewFix"),
           type: "error",
         });
       } finally {
@@ -889,17 +840,23 @@ export function useReviewContext({
       } catch (error) {
         toastManager.add({
           title: t("terminal.errorTitle"),
-          description:
-            error instanceof Error
-              ? error.message
-              : t("errors.unknownReviewFix"),
+          description: error instanceof Error ? error.message : t("errors.unknownReviewFix"),
           type: "error",
         });
       } finally {
         setIsCreatingAgentRun(false);
       }
     },
-    [createAgentRun, filePath, loadSessions, setSelectedRevisionGuid, t, terminalAgentId, terminalAgentRunConfigs, terminalRunner],
+    [
+      createAgentRun,
+      filePath,
+      loadSessions,
+      setSelectedRevisionGuid,
+      t,
+      terminalAgentId,
+      terminalAgentRunConfigs,
+      terminalRunner,
+    ],
   );
 
   const handleRunAgentReview = useCallback(
@@ -912,9 +869,7 @@ export function useReviewContext({
         if (!result) return;
         setSelectedRevisionGuid(result.revision.guid);
         if (executionMode === "copy_prompt") {
-          await navigator.clipboard.writeText(
-            wrapAiContextClipboard("review-run", result.prompt),
-          );
+          await navigator.clipboard.writeText(wrapAiContextClipboard("review-run", result.prompt));
           toastManager.add({
             title: t("runAgentReview.copySuccessTitle"),
             description: t("runAgentReview.copySuccessDescription"),
@@ -941,15 +896,25 @@ export function useReviewContext({
       } catch (error) {
         toastManager.add({
           title: t("runAgentReview.errorTitle"),
-          description:
-            error instanceof Error ? error.message : t("errors.unknownReview"),
+          description: error instanceof Error ? error.message : t("errors.unknownReview"),
           type: "error",
         });
       } finally {
         setIsCreatingAgentRun(false);
       }
     },
-    [createAgentRun, currentRevision, currentSession, enqueueAgentChatPrompt, filePath, loadSessions, setSelectedRevisionGuid, setPendingAgentChatMode, t, target],
+    [
+      createAgentRun,
+      currentRevision,
+      currentSession,
+      enqueueAgentChatPrompt,
+      filePath,
+      loadSessions,
+      setSelectedRevisionGuid,
+      setPendingAgentChatMode,
+      t,
+      target,
+    ],
   );
 
   const handleCopyAgentReviewPrompt = useCallback(
@@ -982,10 +947,7 @@ export function useReviewContext({
       } catch (error) {
         toastManager.add({
           title: t("finalizeRun.errorTitle"),
-          description:
-            error instanceof Error
-              ? error.message
-              : t("errors.unknownFinalize"),
+          description: error instanceof Error ? error.message : t("errors.unknownFinalize"),
           type: "error",
         });
       } finally {
@@ -1008,10 +970,7 @@ export function useReviewContext({
       } catch (error) {
         toastManager.add({
           title: t("previewArtifact.errorTitle"),
-          description:
-            error instanceof Error
-              ? error.message
-              : t("errors.unknownReviewArtifact"),
+          description: error instanceof Error ? error.message : t("errors.unknownReviewArtifact"),
           type: "error",
         });
       } finally {

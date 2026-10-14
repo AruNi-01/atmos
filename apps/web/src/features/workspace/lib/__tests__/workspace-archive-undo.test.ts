@@ -76,10 +76,7 @@ describe("workspace archive undo", () => {
 
   it("prefers display name and falls back to untitled", () => {
     expect(
-      workspaceArchiveDisplayName(
-        { name: "feat/ws", displayName: "Launch pad" },
-        "Untitled",
-      ),
+      workspaceArchiveDisplayName({ name: "feat/ws", displayName: "Launch pad" }, "Untitled"),
     ).toBe("Launch pad");
     expect(workspaceArchiveDisplayName({ name: "  ", displayName: "" }, "Untitled")).toBe(
       "Untitled",
@@ -134,7 +131,9 @@ describe("workspace archive undo", () => {
 
     expect(useWorkspaceArchiveUndoStore.getState().replacePending(first)).toBeNull();
     expect(useWorkspaceArchiveUndoStore.getState().pending?.workspace.id).toBe("ws-1");
-    expect(useWorkspaceArchiveUndoStore.getState().replacePending(second)?.workspace.id).toBe("ws-1");
+    expect(useWorkspaceArchiveUndoStore.getState().replacePending(second)?.workspace.id).toBe(
+      "ws-1",
+    );
     expect(useWorkspaceArchiveUndoStore.getState().takePending()?.workspace.id).toBe("ws-2");
     expect(useWorkspaceArchiveUndoStore.getState().pending).toBeNull();
     expect(useWorkspaceArchiveUndoStore.getState().takePending()).toBeNull();

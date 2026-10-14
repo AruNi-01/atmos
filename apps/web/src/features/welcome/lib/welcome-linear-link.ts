@@ -7,9 +7,7 @@ export const LINEAR_OPEN_STATE_TYPES = ["backlog", "unstarted", "started"] as co
 /** Page size for welcome Advanced select lists (GitHub + Linear). */
 export const WELCOME_LINK_LIST_PAGE = 50;
 
-export function linearIssueToDraft(
-  issue: LinearIssuePayload,
-): TaskWorkspaceLinearDraft {
+export function linearIssueToDraft(issue: LinearIssuePayload): TaskWorkspaceLinearDraft {
   return {
     id: issue.id,
     identifier: issue.identifier,

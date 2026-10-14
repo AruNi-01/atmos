@@ -137,9 +137,9 @@ describe("terminal-layout-tree", () => {
     const layout = splitPaneInLayoutTree("a", "a", "b", "row");
     const next = dockLeafInLayoutTree(layout, "a", "b", "left");
     expect(terminalLayoutTopologyEqual(layout, next)).toBe(true);
-    expect(terminalLayoutTopologyEqual(layout, dockLeafInLayoutTree(layout, "a", "b", "bottom"))).toBe(
-      false,
-    );
+    expect(
+      terminalLayoutTopologyEqual(layout, dockLeafInLayoutTree(layout, "a", "b", "bottom")),
+    ).toBe(false);
   });
 
   it("collects keyed leaf boxes so tiles can stay mounted across docks", () => {

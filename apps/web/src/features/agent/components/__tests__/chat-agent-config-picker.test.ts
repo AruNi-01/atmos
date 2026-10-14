@@ -55,11 +55,8 @@ describe("automation execute-agent panel rows", () => {
     expect(selector).toContain("agentLocked={pickerLocked}");
     expect(selector).toContain("configureAgent");
     expect(selector).not.toContain('props.variant !== "panel" && "bg-background"');
-    expect(selector).not.toContain("selected && \"bg-muted\"");
-    const popover = readFileSync(
-      join(import.meta.dir, "../TerminalAgentModelPopover.tsx"),
-      "utf8",
-    );
+    expect(selector).not.toContain('selected && "bg-muted"');
+    const popover = readFileSync(join(import.meta.dir, "../TerminalAgentModelPopover.tsx"), "utf8");
     expect(popover).toContain("terminalModelCatalogEnabled");
     expect(popover).toContain("onExtraArgsChange={");
     expect(popover).toContain("terminalFastVisible");
@@ -93,11 +90,11 @@ describe("automation execute-agent panel rows", () => {
       selector.indexOf("menuInline"),
     );
     expect(modelChoice).toContain(
-      "if (terminalPickerClosesOnModelChoice() && props.variant !== \"panel\") setOpen(false)",
+      'if (terminalPickerClosesOnModelChoice() && props.variant !== "panel") setOpen(false)',
     );
     expect(selector).toContain("onOpenChange={setOpen}");
     expect(selector).toContain("pointerDownKeepsTerminalPickerOpen");
-    expect(selector).toContain("if (props.variant !== \"panel\") setOpen(false)");
+    expect(selector).toContain('if (props.variant !== "panel") setOpen(false)');
     const overlay = readFileSync(
       join(import.meta.dir, "../../../terminal/components/TerminalAgentInputOverlay.tsx"),
       "utf8",

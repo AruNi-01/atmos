@@ -217,17 +217,17 @@ Use queries in this order (Testing Library best practice):
 
 ## Quick Reference: Common Issues by Symptom
 
-| Symptom | Likely Cause | Check |
-|---------|--------------|-------|
-| Infinite re-renders | Object in dependency array | New object created each render? |
-| Stale state in callback | Missing dependency | Closure over old value? |
-| State doesn't update | Direct mutation | Using `.push()` or direct assignment? |
-| Controlled input warning | `undefined` initial value | Initialize with empty string |
-| Hook error | Conditional hook call | Hook inside `if`/loop? |
-| Memory leak warning | Missing cleanup | Subscription/timer without cleanup? |
-| Type error on array access | Missing undefined check | Enable `noUncheckedIndexedAccess` |
-| Child re-renders unnecessarily | Unstable props | Inline object/function to memo child? |
-| Form status always false | Wrong component | `useFormStatus` in form component? |
+| Symptom                        | Likely Cause               | Check                                 |
+| ------------------------------ | -------------------------- | ------------------------------------- |
+| Infinite re-renders            | Object in dependency array | New object created each render?       |
+| Stale state in callback        | Missing dependency         | Closure over old value?               |
+| State doesn't update           | Direct mutation            | Using `.push()` or direct assignment? |
+| Controlled input warning       | `undefined` initial value  | Initialize with empty string          |
+| Hook error                     | Conditional hook call      | Hook inside `if`/loop?                |
+| Memory leak warning            | Missing cleanup            | Subscription/timer without cleanup?   |
+| Type error on array access     | Missing undefined check    | Enable `noUncheckedIndexedAccess`     |
+| Child re-renders unnecessarily | Unstable props             | Inline object/function to memo child? |
+| Form status always false       | Wrong component            | `useFormStatus` in form component?    |
 
 ---
 
@@ -235,7 +235,7 @@ Use queries in this order (Testing Library best practice):
 
 ### Critical Issue
 
-```
+````
 🚫 **Critical:** [Issue description]
 
 This will cause [bug/leak/crash] because [reason].
@@ -245,18 +245,18 @@ This will cause [bug/leak/crash] because [reason].
 
 **Should be:**
 ```code```
-```
+````
 
 ### Suggestion
 
-```
+````
 💡 **Suggestion:** [Improvement description]
 
 This would improve [maintainability/performance/readability] by [reason].
 
 **Consider:**
 ```code```
-```
+````
 
 ### Question
 

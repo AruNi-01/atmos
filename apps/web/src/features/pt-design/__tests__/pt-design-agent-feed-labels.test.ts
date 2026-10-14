@@ -9,7 +9,9 @@ describe("describePtDesignAgentCommand", () => {
     expect(describePtDesignAgentCommand("pt_catalog_list").kind).toBe("read");
     expect(describePtDesignAgentCommand("pt_tools_list").kind).toBe("read");
     expect(describePtDesignAgentCommand("pt_screenshot").kind).toBe("read");
-    expect(describePtDesignAgentCommand("pt_screenshot").label.toLowerCase()).toContain("screenshot");
+    expect(describePtDesignAgentCommand("pt_screenshot").label.toLowerCase()).toContain(
+      "screenshot",
+    );
     expect(describePtDesignAgentCommand("pt_ptx_get").kind).toBe("read");
     expect(describePtDesignAgentCommand("pt_ptx_apply").kind).toBe("edit");
     expect(describePtDesignAgentCommand("pt_doc_save").kind).toBe("edit");

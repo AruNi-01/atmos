@@ -58,10 +58,7 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-export function emptyPaneListBlockHeightPx(
-  itemCount: number,
-  paddingY: number,
-): number {
+export function emptyPaneListBlockHeightPx(itemCount: number, paddingY: number): number {
   if (itemCount <= 0) return paddingY * 2;
   return (
     paddingY * 2 +
@@ -70,10 +67,7 @@ export function emptyPaneListBlockHeightPx(
   );
 }
 
-export function emptyPaneColumnsFit(
-  availableWidth: number,
-  actionCount: number,
-): number {
+export function emptyPaneColumnsFit(availableWidth: number, actionCount: number): number {
   if (actionCount <= 0) return 1;
   const raw = Math.floor(
     (availableWidth + EMPTY_PANE_GRID_COLUMN_GAP_PX) /
@@ -99,11 +93,7 @@ function gridPaddingY(height: number): number {
 }
 
 function paddingX(width: number): number {
-  return clamp(
-    Math.round(width * 0.04),
-    EMPTY_PANE_MIN_PADDING_PX,
-    EMPTY_PANE_MAX_PADDING_X_PX,
-  );
+  return clamp(Math.round(width * 0.04), EMPTY_PANE_MIN_PADDING_PX, EMPTY_PANE_MAX_PADDING_X_PX);
 }
 
 function gridRows(itemCount: number, columns: number): number {
@@ -112,10 +102,7 @@ function gridRows(itemCount: number, columns: number): number {
 }
 
 /** Close is another grid tile when the empty pane can be dismissed. */
-export function emptyPaneGridItemCount(
-  actionCount: number,
-  hasClose: boolean,
-): number {
+export function emptyPaneGridItemCount(actionCount: number, hasClose: boolean): number {
   return Math.max(0, actionCount) + (hasClose ? 1 : 0);
 }
 
@@ -123,25 +110,15 @@ export function emptyPaneGridItemCount(
  * A leftover last-row cell looks like a hole. Span the last tile across the
  * row when exactly one item would sit alone (odd count in a two-column grid).
  */
-export function emptyPaneLastItemSpansFullRow(
-  itemCount: number,
-  columns: number,
-): boolean {
+export function emptyPaneLastItemSpansFullRow(itemCount: number, columns: number): boolean {
   return columns > 1 && itemCount > 0 && itemCount % columns === 1;
 }
 
 /** At most two columns; one column when the pane is too narrow. */
-export function emptyPaneGridColumns(input: {
-  actionCount: number;
-  columnsFit: number;
-}): number {
+export function emptyPaneGridColumns(input: { actionCount: number; columnsFit: number }): number {
   const actionCount = Math.max(0, input.actionCount);
   if (actionCount <= 0) return 1;
-  return clamp(
-    Math.min(input.columnsFit, EMPTY_PANE_MAX_COLUMNS, actionCount),
-    1,
-    actionCount,
-  );
+  return clamp(Math.min(input.columnsFit, EMPTY_PANE_MAX_COLUMNS, actionCount), 1, actionCount);
 }
 
 function gridBlockHeightPx(input: {
@@ -150,9 +127,7 @@ function gridBlockHeightPx(input: {
   cardHeight: number;
   gap: number;
 }): number {
-  const tiles =
-    input.rows * input.cardHeight +
-    Math.max(0, input.rows - 1) * input.gap;
+  const tiles = input.rows * input.cardHeight + Math.max(0, input.rows - 1) * input.gap;
   return input.paddingY * 2 + tiles;
 }
 
@@ -260,8 +235,7 @@ export function planEmptyPaneLauncher(input: {
   const padX = paddingX(input.width);
   const listPadY = listPaddingY(input.height);
   const listCount = emptyPaneGridItemCount(actionCount, hasClose);
-  const listFits =
-    emptyPaneListBlockHeightPx(listCount, listPadY) <= input.height;
+  const listFits = emptyPaneListBlockHeightPx(listCount, listPadY) <= input.height;
   const availableWidth = Math.max(0, input.width - padX * 2);
   const columnsFit = emptyPaneColumnsFit(availableWidth, listCount);
 
@@ -276,9 +250,7 @@ export function planEmptyPaneLauncher(input: {
     });
 
   if (columnsFit >= 2) {
-    return toGrid(
-      emptyPaneGridColumns({ actionCount: listCount, columnsFit }),
-    );
+    return toGrid(emptyPaneGridColumns({ actionCount: listCount, columnsFit }));
   }
 
   if (listFits) {

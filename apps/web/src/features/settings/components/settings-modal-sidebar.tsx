@@ -52,9 +52,7 @@ function normalizeSettingsSearchValue(value: string) {
 }
 
 function getSettingsSearchTerms(query: string) {
-  return normalizeSettingsSearchValue(query)
-    .split(" ")
-    .filter(Boolean);
+  return normalizeSettingsSearchValue(query).split(" ").filter(Boolean);
 }
 
 function keywordMatchesSearch(keyword: string, normalizedQuery: string, queryTerms: string[]) {
@@ -65,8 +63,10 @@ function keywordMatchesSearch(keyword: string, normalizedQuery: string, queryTer
     return normalizedKeyword === normalizedQuery;
   }
 
-  return normalizedKeyword.includes(normalizedQuery) ||
-    queryTerms.every((term) => normalizedKeyword.includes(term));
+  return (
+    normalizedKeyword.includes(normalizedQuery) ||
+    queryTerms.every((term) => normalizedKeyword.includes(term))
+  );
 }
 
 function entryMatchesSettingsSearch(entry: SettingsSearchEntry, query: string) {
@@ -78,7 +78,9 @@ function entryMatchesSettingsSearch(entry: SettingsSearchEntry, query: string) {
   if (visibleText.includes(normalizedQuery)) return true;
   if (queryTerms.every((term) => visibleText.includes(term))) return true;
 
-  return entry.keywords.some((keyword) => keywordMatchesSearch(keyword, normalizedQuery, queryTerms));
+  return entry.keywords.some((keyword) =>
+    keywordMatchesSearch(keyword, normalizedQuery, queryTerms),
+  );
 }
 
 const toCamelCase = (str: string) => str.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
@@ -101,20 +103,30 @@ function SettingsSectionIcon({
 }) {
   if (sectionId === "general") return <SunMoonIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "account") return <UserIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "interface") return <LayoutDashboardIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "interface")
+    return <LayoutDashboardIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "editor") return <CodeXmlIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "canvas") return <CanvasIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "terminal") return <TerminalIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "workspace") return <FolderKanbanIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "terminal")
+    return <TerminalIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "workspace")
+    return <FolderKanbanIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "agents") return <BotIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "models") return <BrainCircuitIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "notifications") return <BellIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "remote-access") return <ComputerIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "integrations") return <BlocksIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "models")
+    return <BrainCircuitIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "notifications")
+    return <BellIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "remote-access")
+    return <ComputerIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "integrations")
+    return <BlocksIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "browser") return <WorldIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "desktop-use") return <DesktopUseIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "privacy") return <KeyCircleIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "keyboard") return <KeyboardIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "desktop-use")
+    return <DesktopUseIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "privacy")
+    return <KeyCircleIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "keyboard")
+    return <KeyboardIcon ref={iconRef} className="shrink-0" size={16} />;
   return <InfoCircleIcon ref={iconRef} className="shrink-0" size={16} />;
 }
 
@@ -150,7 +162,9 @@ export function SettingsModalSidebar({
         localizedLabel = t(`sections.${camelSectionId}.label`);
         localizedDescription = t(`sections.${camelSectionId}.description`);
       } else {
-        localizedLabel = entry.translationKey ? t(`search.items.${entry.translationKey}.label`) : entry.label;
+        localizedLabel = entry.translationKey
+          ? t(`search.items.${entry.translationKey}.label`)
+          : entry.label;
         const itemDescriptionKey = entry.translationKey
           ? `search.items.${entry.translationKey}.description`
           : null;
@@ -166,7 +180,11 @@ export function SettingsModalSidebar({
         description: localizedDescription,
       };
 
-      if (seen.has(localizedEntry.sectionId) || !entryMatchesSettingsSearch(localizedEntry, trimmedSearchQuery)) return [];
+      if (
+        seen.has(localizedEntry.sectionId) ||
+        !entryMatchesSettingsSearch(localizedEntry, trimmedSearchQuery)
+      )
+        return [];
       seen.add(localizedEntry.sectionId);
       return [localizedEntry.sectionId];
     });
@@ -191,14 +209,20 @@ export function SettingsModalSidebar({
     if (firstMatch) {
       onSelectSection(firstMatch);
     }
-  }, [activeSection, matchingSectionIds, onSelectSection, orderedMatchingSectionIds, trimmedSearchQuery]);
+  }, [
+    activeSection,
+    matchingSectionIds,
+    onSelectSection,
+    orderedMatchingSectionIds,
+    trimmedSearchQuery,
+  ]);
 
   return (
     <Sidebar
       collapsible="none"
       className="h-full min-h-0 border-r border-border bg-background text-sidebar-foreground"
     >
-      <SidebarHeader className={cn("gap-0 px-3 pb-1.5 pt-3", trafficLightsPadding && "pt-10")}>
+      <SidebarHeader className={cn("gap-0 px-3 pt-3 pb-1.5", trafficLightsPadding && "pt-10")}>
         <button
           type="button"
           onClick={onBack}
@@ -208,8 +232,8 @@ export function SettingsModalSidebar({
           <ArrowLeft className="size-4 shrink-0" />
           <span>{t("page.back")}</span>
         </button>
-        <div className="relative desktop-no-drag">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-sidebar-foreground/45" />
+        <div className="desktop-no-drag relative">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-sidebar-foreground/45" />
           <Input
             value={searchQuery}
             onChange={(event) => onSearchQueryChange(event.target.value)}
@@ -222,14 +246,14 @@ export function SettingsModalSidebar({
             }}
             placeholder={t("sidebar.searchPlaceholder")}
             aria-label={t("sidebar.searchAriaLabel")}
-            className="h-9 rounded-lg border-border bg-muted/30 pl-8 pr-8 text-sm shadow-none"
+            className="h-9 rounded-lg border-border bg-muted/30 pr-8 pl-8 text-sm shadow-none"
           />
           <button
             type="button"
             aria-label={t("sidebar.clearSearchAriaLabel")}
             onClick={() => onSearchQueryChange("")}
             className={cn(
-              "absolute right-1.5 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-sidebar-foreground/45 hover:bg-muted hover:text-sidebar-foreground",
+              "absolute top-1/2 right-1.5 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-sidebar-foreground/45 hover:bg-muted hover:text-sidebar-foreground",
               !searchQuery && "pointer-events-none opacity-0",
             )}
           >

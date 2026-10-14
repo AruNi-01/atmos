@@ -73,9 +73,7 @@ describe("composer paste protocol", () => {
     expect(USER_MESSAGE_COLLAPSE_FADE_LINES).toBe(1);
     expect(userMessageNeedsCollapse(lines(3))).toBe(false);
     expect(userMessageNeedsCollapse(body)).toBe(true);
-    expect(collapsedUserMessageText(body).split("\n")).toHaveLength(
-      USER_MESSAGE_COLLAPSE_LINES,
-    );
+    expect(collapsedUserMessageText(body).split("\n")).toHaveLength(USER_MESSAGE_COLLAPSE_LINES);
     const token = registerComposerPaste(lines(20));
     expandPasteTokens(token);
     expect(userMessageNeedsCollapse(lines(20))).toBe(false);

@@ -8,30 +8,11 @@
  * Row virtualization uses @tanstack/react-virtual (fixed 36px rows).
  */
 
-import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslations } from "next-intl";
-import {
-  CaseSensitive,
-  ChevronLeft,
-  ChevronRight,
-  LoaderCircle,
-  RotateCcw,
-} from "lucide-react";
-import {
-  Button,
-  InputGroup,
-  InputGroupButton,
-  InputGroupInput,
-  ScrollArea,
-} from "@workspace/ui";
+import { CaseSensitive, ChevronLeft, ChevronRight, LoaderCircle, RotateCcw } from "lucide-react";
+import { Button, InputGroup, InputGroupButton, InputGroupInput, ScrollArea } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
 import type { GitHistoryCommit } from "@/api/ws-api-types";
 import { useGitHistory } from "@/features/git/hooks/use-git-history";
@@ -86,9 +67,7 @@ export function GitHistoryPanel({
     [history.commits, history.headSha],
   );
   const graphMinWidth = historyGraphWidth(layout.maxLaneCount);
-  const [columnWidths, setColumnWidths] = useState<HistoryColumnWidths>(
-    HISTORY_COLUMN_DEFAULTS,
-  );
+  const [columnWidths, setColumnWidths] = useState<HistoryColumnWidths>(HISTORY_COLUMN_DEFAULTS);
   const [descriptionPinned, setDescriptionPinned] = useState(false);
   const [containerWidth, setContainerWidth] = useState(0);
   const [containerHeight, setContainerHeight] = useState(0);
@@ -221,9 +200,7 @@ export function GitHistoryPanel({
   const resizeColumn = useCallback(
     (id: HistoryColumnId, nextWidth: number) => {
       if (id === "description") setDescriptionPinned(true);
-      setColumnWidths((current) =>
-        applyHistoryColumnResize(current, id, nextWidth, graphMinWidth),
-      );
+      setColumnWidths((current) => applyHistoryColumnResize(current, id, nextWidth, graphMinWidth));
     },
     [graphMinWidth],
   );
@@ -275,7 +252,9 @@ export function GitHistoryPanel({
               if (event.key === "Enter" || event.key === "F3") {
                 event.preventDefault();
                 if (selectedMatchPosition < 0) {
-                  selectMatchAt(event.shiftKey && matchIndexes.length > 0 ? matchIndexes.length - 1 : 0);
+                  selectMatchAt(
+                    event.shiftKey && matchIndexes.length > 0 ? matchIndexes.length - 1 : 0,
+                  );
                 } else {
                   goToMatch(event.shiftKey ? -1 : 1);
                 }
@@ -296,7 +275,7 @@ export function GitHistoryPanel({
             aria-label={t("matchCase")}
             title={t("matchCase")}
             className={cn(
-              "mr-1 size-5 h-5 w-5 shrink-0 rounded-md sm:size-5 sm:h-5 sm:w-5 before:rounded-[calc(var(--radius-md)-1px)]",
+              "mr-1 size-5 h-5 w-5 shrink-0 rounded-md before:rounded-[calc(var(--radius-md)-1px)] sm:size-5 sm:h-5 sm:w-5",
               caseSensitive && "bg-accent text-foreground",
             )}
             onClick={() => setCaseSensitive((current) => !current)}
@@ -329,7 +308,7 @@ export function GitHistoryPanel({
         {activeQuery ? (
           <span
             className={cn(
-              "min-w-12 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground",
+              "min-w-12 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums",
               matchIndexes.length === 0 && "text-destructive",
             )}
           >
@@ -340,7 +319,10 @@ export function GitHistoryPanel({
           </span>
         ) : null}
         {history.isFetchingNextPage ? (
-          <LoaderCircle className="size-3.5 shrink-0 animate-spin text-muted-foreground" aria-label={t("loadingMore")} />
+          <LoaderCircle
+            className="size-3.5 shrink-0 animate-spin text-muted-foreground"
+            aria-label={t("loadingMore")}
+          />
         ) : null}
         <Button
           type="button"
@@ -359,11 +341,7 @@ export function GitHistoryPanel({
         </Button>
       </div>
 
-      <ScrollArea
-        scrollFade
-        className="min-h-0 min-w-0 flex-1"
-        viewportRef={scrollRef}
-      >
+      <ScrollArea scrollFade className="min-h-0 min-w-0 flex-1" viewportRef={scrollRef}>
         <div className="relative" style={{ width: tableWidth, minWidth: tableWidth }}>
           <div className="sticky top-0 z-30 h-0">
             {HISTORY_RESIZE_COLUMNS.map((id) => (
@@ -378,24 +356,15 @@ export function GitHistoryPanel({
               />
             ))}
           </div>
-          <GitHistoryTableHeader
-            columns={resolvedColumns}
-            gridTemplate={gridTemplate}
-          />
-          <div
-            className="relative"
-            style={{ height: virtualizer.getTotalSize() }}
-          >
+          <GitHistoryTableHeader columns={resolvedColumns} gridTemplate={gridTemplate} />
+          <div className="relative" style={{ height: virtualizer.getTotalSize() }}>
             {firstVirtualItem && lastVirtualItem ? (
               <div
                 className="absolute top-0 right-0 left-0"
                 style={{ transform: `translateY(${firstVirtualItem.start}px)` }}
               >
                 <GitHistoryGraphSvg
-                  rows={layout.rows.slice(
-                    firstVirtualItem.index,
-                    lastVirtualItem.index + 2,
-                  )}
+                  rows={layout.rows.slice(firstVirtualItem.index, lastVirtualItem.index + 2)}
                   width={graphMinWidth}
                 />
               </div>

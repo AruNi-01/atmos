@@ -1,10 +1,7 @@
 "use client";
 
 import { getAgentIconCandidates } from "@/features/agent/lib/agent-icon-candidates";
-import {
-  AGENT_TOOL_ICON_IDS,
-  type AgentToolType,
-} from "@/features/agent/store/agent-status-store";
+import { AGENT_TOOL_ICON_IDS, type AgentToolType } from "@/features/agent/store/agent-status-store";
 import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 
 export interface AppNotificationPayload {
@@ -76,9 +73,7 @@ export function shouldShowSystemNotification(whenFocused: boolean): boolean {
   return !isAppFocused();
 }
 
-export function isNotificationClickAction(
-  value: unknown,
-): value is NotificationClickAction {
+export function isNotificationClickAction(value: unknown): value is NotificationClickAction {
   if (!value || typeof value !== "object") return false;
   const kind = (value as { kind?: unknown }).kind;
   if (kind === "agent_status") {
@@ -116,9 +111,7 @@ export function resolveAgentNotificationIconSrc(tool: string | null | undefined)
  * Rasterize a public asset (often SVG) to a PNG data URL for Electron Notification.
  * Falls back through candidates; returns null if nothing loads.
  */
-export async function loadNotificationIconDataUrl(
-  src: string,
-): Promise<string | null> {
+export async function loadNotificationIconDataUrl(src: string): Promise<string | null> {
   if (!src) return null;
   if (src.startsWith("data:image/")) return src;
   if (notificationIconDataUrlCache.has(src)) {
@@ -238,9 +231,7 @@ export type DesktopNotificationSendResult =
       error?: string;
     };
 
-export function parseDesktopNotificationResult(
-  value: unknown,
-): DesktopNotificationSendResult {
+export function parseDesktopNotificationResult(value: unknown): DesktopNotificationSendResult {
   if (value && typeof value === "object" && "ok" in value) {
     const rec = value as {
       ok?: unknown;
@@ -249,9 +240,7 @@ export function parseDesktopNotificationResult(
     };
     if (rec.ok === true) return { ok: true };
     const code =
-      rec.code === "unsupported" ||
-      rec.code === "permission_denied" ||
-      rec.code === "failed"
+      rec.code === "unsupported" || rec.code === "permission_denied" || rec.code === "failed"
         ? rec.code
         : "failed";
     return {

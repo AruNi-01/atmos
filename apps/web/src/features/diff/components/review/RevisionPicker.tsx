@@ -23,9 +23,7 @@ export const RevisionPicker: React.FC<RevisionPickerProps> = ({
   selectedGuid,
   onSelect,
 }) => {
-  const sorted = [...revisions].sort((a, b) =>
-    compareReviewTimestamps(a.created_at, b.created_at),
-  );
+  const sorted = [...revisions].sort((a, b) => compareReviewTimestamps(a.created_at, b.created_at));
   const selectedIndex = sorted.findIndex((rev) => rev.guid === selectedGuid);
   const label = selectedIndex >= 0 ? `v${selectedIndex + 1}` : "v1";
 
@@ -36,7 +34,7 @@ export const RevisionPicker: React.FC<RevisionPickerProps> = ({
           type="button"
           className={cn(
             "flex items-center gap-1 rounded-md border border-sidebar-border px-2 py-1 text-xs",
-            "bg-background text-foreground hover:bg-sidebar-accent cursor-pointer",
+            "cursor-pointer bg-background text-foreground hover:bg-sidebar-accent",
           )}
         >
           <span>{label}</span>

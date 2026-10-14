@@ -47,7 +47,7 @@ export function ConfigOptionDropdown({
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const groupKey = configPickerGroupMessageKey(opt.id);
-  const groupName = groupKey ? t(`chatPanel.pickers.${groupKey}`) : (opt.name || opt.id);
+  const groupName = groupKey ? t(`chatPanel.pickers.${groupKey}`) : opt.name || opt.id;
 
   const optionLabel = (value: string, name?: string) => {
     if (isThinkingConfigId(opt.id, opt.category)) {
@@ -61,7 +61,7 @@ export function ConfigOptionDropdown({
     return name || value;
   };
 
-  const filteredOptions = opt.options.filter(o => {
+  const filteredOptions = opt.options.filter((o) => {
     if (!search) return true;
     const s = search.toLowerCase();
     return (o.name || o.value).toLowerCase().includes(s) || o.value.toLowerCase().includes(s);
@@ -72,7 +72,7 @@ export function ConfigOptionDropdown({
     <div className="flex items-center gap-1">
       <Select
         open={open}
-        value={opt.currentValue || ''}
+        value={opt.currentValue || ""}
         onValueChange={(val) => {
           setConfigOption(opt.id, val);
           setOpen(false);
@@ -83,7 +83,12 @@ export function ConfigOptionDropdown({
           if (!open) setSearch("");
         }}
       >
-        <SelectTrigger className={cn("h-8 w-auto min-w-0 gap-1.5 border-0 bg-transparent px-2 text-xs shadow-none hover:bg-muted/60 dark:bg-transparent dark:hover:bg-muted/60 data-[state=open]:bg-muted/60 dark:data-[state=open]:bg-muted/60", triggerClassName)}>
+        <SelectTrigger
+          className={cn(
+            "h-8 w-auto min-w-0 gap-1.5 border-0 bg-transparent px-2 text-xs shadow-none hover:bg-muted/60 data-[state=open]:bg-muted/60 dark:bg-transparent dark:hover:bg-muted/60 dark:data-[state=open]:bg-muted/60",
+            triggerClassName,
+          )}
+        >
           {icon}
           <SelectValue placeholder={groupName} />
         </SelectTrigger>
@@ -106,9 +111,11 @@ export function ConfigOptionDropdown({
           }
         >
           {filteredOptions.length === 0 ? (
-            <div className="p-2 text-xs text-muted-foreground text-center">{t("configOptionDropdown.noResults")}</div>
+            <div className="p-2 text-center text-xs text-muted-foreground">
+              {t("configOptionDropdown.noResults")}
+            </div>
           ) : (
-            filteredOptions.map(o => {
+            filteredOptions.map((o) => {
               const isDefault = activeAgent?.default_config?.[opt.id] === o.value;
               const item = (
                 <SelectItem
@@ -133,7 +140,7 @@ export function ConfigOptionDropdown({
                           };
                         }
                         return a;
-                      })
+                      }),
                     );
                     setOpen(false);
                     setSearch("");

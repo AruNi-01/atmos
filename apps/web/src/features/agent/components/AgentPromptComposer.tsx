@@ -9,10 +9,7 @@ import {
   usePromptInputAttachments,
   usePromptInputController,
 } from "@workspace/ui";
-import {
-  PromptComposer,
-  type ComposerHandle,
-} from "@/features/welcome/components/PromptComposer";
+import { PromptComposer, type ComposerHandle } from "@/features/welcome/components/PromptComposer";
 import { useDialogStore, type QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
 import { useAgentChatCenterTabsStore } from "@/features/agent/store/use-agent-chat-center-tabs";
 import { ChatAgentConfigInput } from "./ChatAgentConfigInput";
@@ -43,20 +40,14 @@ import { useSubagentOverlay } from "./subagent-overlay-context";
 import type { CurrentTurnSubagentTasks } from "@/features/agent/lib/subagent-tasks";
 import { useAgentComposerPopovers } from "../hooks/use-agent-composer-popovers";
 import type { AgentChatSlashCommand } from "../hooks/use-agent-chat-session";
-import {
-  configKindMatches,
-  isThinkingConfigId,
-} from "../lib/agent-chat-thread";
+import { configKindMatches, isThinkingConfigId } from "../lib/agent-chat-thread";
 import { AgentChatWorkingDirectoryPicker } from "./AgentChatWorkingDirectoryPicker";
 import { AgentComposerAttachments } from "./AgentComposerAttachments";
 import { ContextWindowUsageControl } from "./UsageBadges";
 import { contextWindowStats } from "@/features/agent/lib/context-window-usage";
 import type { AgentChatWorkingDirectory } from "@/features/agent/lib/agent-chat-working-directory";
 import type { Project } from "@/shared/types/domain";
-import {
-  getAgentContextDragItems,
-  hasAgentContextDragData,
-} from "@/shared/lib/agent-context-drag";
+import { getAgentContextDragItems, hasAgentContextDragData } from "@/shared/lib/agent-context-drag";
 import { normalizeComposerImageFile } from "@/shared/lib/composer-image";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
 import {
@@ -82,15 +73,11 @@ function AttachmentFileInput() {
       multiple
       className="hidden"
       onChange={(event) => {
-        const selected = event.currentTarget.files
-          ? Array.from(event.currentTarget.files)
-          : [];
+        const selected = event.currentTarget.files ? Array.from(event.currentTarget.files) : [];
         event.currentTarget.value = "";
         if (selected.length === 0) return;
         void (async () => {
-          const files = await Promise.all(
-            selected.map((file) => normalizeComposerImageFile(file)),
-          );
+          const files = await Promise.all(selected.map((file) => normalizeComposerImageFile(file)));
           controller.attachments.add(files);
         })();
       }}
@@ -108,7 +95,8 @@ async function filesForSubmit(
         const blob = await fetch(item.url).then((response) => response.blob());
         const dataUrl = await new Promise<string | null>((resolve) => {
           const reader = new FileReader();
-          reader.onloadend = () => resolve(typeof reader.result === "string" ? reader.result : null);
+          reader.onloadend = () =>
+            resolve(typeof reader.result === "string" ? reader.result : null);
           reader.onerror = () => resolve(null);
           reader.readAsDataURL(blob);
         });
@@ -191,9 +179,13 @@ function ComposerPromptInput({
   onContextUsageOpenChange,
 }: {
   composerRef: React.RefObject<ComposerHandle | null>;
-  onAtTrigger: (ctx: import("@/features/welcome/components/PromptComposer").AtTriggerContext) => void;
+  onAtTrigger: (
+    ctx: import("@/features/welcome/components/PromptComposer").AtTriggerContext,
+  ) => void;
   onAtCancel: () => void;
-  onSlashTrigger: (ctx: import("@/features/welcome/components/PromptComposer").SlashTriggerContext) => void;
+  onSlashTrigger: (
+    ctx: import("@/features/welcome/components/PromptComposer").SlashTriggerContext,
+  ) => void;
   onSlashCancel: () => void;
   onSkillDisableFilterChange: (filter: string) => void;
   onSkillDisableSessionClosed: () => void;
@@ -265,9 +257,10 @@ function ComposerPromptInput({
   const attachmentsRef = useRef(attachments);
   attachmentsRef.current = attachments;
   const composerLocked = isResumingHistory && !isConnected;
-  const canSubmit = Boolean(
-    expandAgentComposerText(localDraft) || attachments.files.length,
-  ) && !composerLocked && !showStop;
+  const canSubmit =
+    Boolean(expandAgentComposerText(localDraft) || attachments.files.length) &&
+    !composerLocked &&
+    !showStop;
 
   useEffect(() => {
     if (hydratedRef.current) return;
@@ -400,7 +393,8 @@ function ComposerPromptInput({
                 onSelect={workingDirectoryPicker.onSelect}
               />
             ) : null}
-            {(loadingAgents || isConnecting || isResumingHistory) && !isConnected ? null : installedAgents.length === 0 ? (
+            {(loadingAgents || isConnecting || isResumingHistory) &&
+            !isConnected ? null : installedAgents.length === 0 ? (
               <span className="px-2 text-xs text-muted-foreground">{t("composer.noAgent")}</span>
             ) : null}
           </div>
@@ -426,12 +420,7 @@ function ComposerPromptInput({
           setLocalDraft("");
           composerRef.current?.clear();
           persistedDraftRef.current = "";
-          clearAgentChatDraft(
-            sessionWorkspaceId,
-            sessionProjectId,
-            chatMode,
-            instanceKey,
-          );
+          clearAgentChatDraft(sessionWorkspaceId, sessionProjectId, chatMode, instanceKey);
           attachments.clear();
           try {
             await onSubmit({ text: composed, files: converted });
@@ -462,10 +451,7 @@ function ComposerPromptInput({
             onOpenChange={onContextUsageOpenChange}
           />
         }
-        className={cn(
-          "w-full shadow-none",
-          editingItem && "border-dashed border-info",
-        )}
+        className={cn("w-full shadow-none", editingItem && "border-dashed border-info")}
       />
     </>
   );
@@ -586,12 +572,9 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   const setAgentChatDraft = useDialogStore((s) => s.setAgentChatDraft);
   const clearAgentChatDraft = useDialogStore((s) => s.clearAgentChatDraft);
   const [localDraft, setLocalDraft] = useState(() => {
-    const saved = useDialogStore.getState().getAgentChatDraft(
-      sessionWorkspaceId,
-      sessionProjectId,
-      chatMode,
-      instanceKey,
-    );
+    const saved = useDialogStore
+      .getState()
+      .getAgentChatDraft(sessionWorkspaceId, sessionProjectId, chatMode, instanceKey);
     if (saved.trim() || !instanceKey) return saved;
     const tabs = useAgentChatCenterTabsStore.getState().tabsByContext;
     for (const group of Object.values(tabs)) {
@@ -607,7 +590,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   const [contextUsageOpen, setContextUsageOpen] = useState(false);
   const { close: closeSubagentOverlay } = useSubagentOverlay();
   const editingItem = editingQueueId
-    ? queuedPrompts.find((item) => item.id === editingQueueId) ?? null
+    ? (queuedPrompts.find((item) => item.id === editingQueueId) ?? null)
     : null;
   const showStop = Boolean(agentActivity.busy && !localDraft.trim() && !editingItem);
   const contextStats = contextWindowStats(sessionUsage);
@@ -615,9 +598,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   const hasBackgroundTools = backgroundTools.length > 0;
   const hasQueuedPrompts = queuedPrompts.length > 0;
   const hasUpperComposerCards =
-    Boolean(currentPlan && !showGrokGoalCard)
-    || hasBackgroundTools
-    || hasQueuedPrompts;
+    Boolean(currentPlan && !showGrokGoalCard) || hasBackgroundTools || hasQueuedPrompts;
 
   useEffect(() => {
     if (!editingQueueId) return;
@@ -630,18 +611,21 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     setContextUsageOpen(false);
   }, [contextStats, contextUsageOpen]);
 
-  const modeOption = configOptions.find((option) => configKindMatches(option.id, option.category, "mode")) ?? null;
+  const modeOption =
+    configOptions.find((option) => configKindMatches(option.id, option.category, "mode")) ?? null;
   const permissionOption =
     configOptions.find((option) =>
       configKindMatches(option.id, option.category, "permission_mode"),
     ) ?? null;
-  const modelOption = configOptions.find((option) => configKindMatches(option.id, option.category, "model")) ?? null;
+  const modelOption =
+    configOptions.find((option) => configKindMatches(option.id, option.category, "model")) ?? null;
   const thinkingOption =
     configOptions.find((option) => isThinkingConfigId(option.id, option.category)) ?? null;
   const fastOption =
     configOptions.find((option) => configKindMatches(option.id, option.category, "fast")) ?? null;
   const contextOption =
-    configOptions.find((option) => configKindMatches(option.id, option.category, "context")) ?? null;
+    configOptions.find((option) => configKindMatches(option.id, option.category, "context")) ??
+    null;
   const placeholderKind = resolveAgentComposerPlaceholderKind({
     canUseCurrentMode,
     agentName: activeAgent?.name,
@@ -699,13 +683,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
     if (toPersist === persistedDraftRef.current) return;
 
     const timer = window.setTimeout(() => {
-      setAgentChatDraft(
-        sessionWorkspaceId,
-        sessionProjectId,
-        chatMode,
-        toPersist,
-        instanceKey,
-      );
+      setAgentChatDraft(sessionWorkspaceId, sessionProjectId, chatMode, toPersist, instanceKey);
       if (!chatId && instanceKey) {
         useAgentChatCenterTabsStore.getState().setDraftPrompt(instanceKey, toPersist);
       }
@@ -726,7 +704,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
 
   return (
     <div
-      className="shrink-0 px-3 pb-3 pt-px select-none"
+      className="shrink-0 px-3 pt-px pb-3 select-none"
       data-agent-chat-composer=""
       data-agent-chat-mode={chatMode}
       data-agent-chat-instance-key={instanceKey?.trim() || undefined}
@@ -734,12 +712,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
       data-agent-chat-project-id={sessionProjectId ?? undefined}
       data-queue-editing={editingItem ? "true" : undefined}
       onFocusCapture={() => {
-        touchActiveAgentComposer(
-          sessionWorkspaceId,
-          sessionProjectId,
-          chatMode,
-          instanceKey,
-        );
+        touchActiveAgentComposer(sessionWorkspaceId, sessionProjectId, chatMode, instanceKey);
       }}
       onDragOver={(event) => {
         if (!isConnected || !canUseCurrentMode) return;
@@ -758,9 +731,7 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
         composerRef.current?.placeCaretAtClientPoint(event.clientX, event.clientY);
         for (const item of items) {
           const path =
-            item.kind === "directory" && !item.path.endsWith("/")
-              ? `${item.path}/`
-              : item.path;
+            item.kind === "directory" && !item.path.endsWith("/") ? `${item.path}/` : item.path;
           composerRef.current?.insertFileMention(path);
         }
       }}
@@ -802,11 +773,11 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             className="relative z-[1] mx-6 overflow-hidden rounded-t-3xl border border-b-0 border-foreground/10 bg-foreground/[0.04]"
           >
             {currentPlan && !showGrokGoalCard ? (
-              <div className={
-                hasBackgroundTools || hasQueuedPrompts
-                  ? "border-b border-foreground/10"
-                  : ""
-              }>
+              <div
+                className={
+                  hasBackgroundTools || hasQueuedPrompts ? "border-b border-foreground/10" : ""
+                }
+              >
                 <PlanBlockView
                   plan={currentPlan}
                   embedded

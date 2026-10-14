@@ -68,7 +68,7 @@ const measurementAttempts = 3;
 
 export function useProximityHover<T extends HTMLElement>(
   containerRef: RefObject<T | null>,
-  options: UseProximityHoverOptions = {}
+  options: UseProximityHoverOptions = {},
 ): UseProximityHoverReturn {
   const { axis = "y" } = options;
   const itemsRef = useRef(new Map<number, HTMLElement>());
@@ -98,9 +98,7 @@ export function useProximityHover<T extends HTMLElement>(
       // incomplete. A boxless element is the only case: `position: fixed`
       // items also have no offsetParent but do have a size.
       const hasLayoutBox =
-        element.offsetParent !== null ||
-        element.offsetWidth > 0 ||
-        element.offsetHeight > 0;
+        element.offsetParent !== null || element.offsetWidth > 0 || element.offsetHeight > 0;
       if (!hasLayoutBox) {
         everyItemHasLayout = false;
         return;
@@ -165,7 +163,7 @@ export function useProximityHover<T extends HTMLElement>(
         }
       });
     },
-    [runMeasurement]
+    [runMeasurement],
   );
 
   const remeasure = useCallback(() => {
@@ -189,7 +187,7 @@ export function useProximityHover<T extends HTMLElement>(
       // container's children swap.
       remeasure();
     },
-    [remeasure]
+    [remeasure],
   );
 
   const handleMouseMove = useCallback(
@@ -227,13 +225,9 @@ export function useProximityHover<T extends HTMLElement>(
           // cumulative ancestor transform: scale (see the single-axis note
           // below). X and Y scale independently.
           const scaleX =
-            container.offsetWidth > 0
-              ? containerRect.width / container.offsetWidth
-              : 1;
+            container.offsetWidth > 0 ? containerRect.width / container.offsetWidth : 1;
           const scaleY =
-            container.offsetHeight > 0
-              ? containerRect.height / container.offsetHeight
-              : 1;
+            container.offsetHeight > 0 ? containerRect.height / container.offsetHeight : 1;
 
           for (let index = 0; index < rects.length; index++) {
             const r = rects[index];
@@ -311,7 +305,7 @@ export function useProximityHover<T extends HTMLElement>(
         setActiveIndex(containingIndex ?? closestIndex);
       });
     },
-    [axis, containerRef]
+    [axis, containerRef],
   );
 
   const handleMouseEnter = useCallback(() => {
@@ -375,7 +369,7 @@ export function useProximityHover<T extends HTMLElement>(
 export function useRegisterProximityItem(
   registerItem: (index: number, element: HTMLElement | null) => void,
   index: number,
-  ref: RefObject<HTMLElement | null>
+  ref: RefObject<HTMLElement | null>,
 ) {
   useEffect(() => {
     registerItem(index, ref.current);

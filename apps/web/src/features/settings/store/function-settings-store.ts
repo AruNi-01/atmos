@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { create } from 'zustand';
-import { functionSettingsApi, type FunctionSettings } from '@/api/ws/settings-api';
-import { settingsBootstrapCache } from '@/api/ws/settings-bootstrap-cache';
+import { create } from "zustand";
+import { functionSettingsApi, type FunctionSettings } from "@/api/ws/settings-api";
+import { settingsBootstrapCache } from "@/api/ws/settings-bootstrap-cache";
 
 interface FunctionSettingsStoreState {
   settings: FunctionSettings | null;
@@ -21,14 +21,17 @@ export const useFunctionSettingsStore = create<FunctionSettingsStoreState>((set)
   load: async () => {
     if (inflight) return inflight;
 
-    inflight = functionSettingsApi.get().then((result) => {
-      set({ settings: result, loaded: true });
-      inflight = null;
-      return result;
-    }).catch((err) => {
-      inflight = null;
-      throw err;
-    });
+    inflight = functionSettingsApi
+      .get()
+      .then((result) => {
+        set({ settings: result, loaded: true });
+        inflight = null;
+        return result;
+      })
+      .catch((err) => {
+        inflight = null;
+        throw err;
+      });
 
     return inflight;
   },

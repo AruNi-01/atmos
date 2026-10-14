@@ -35,7 +35,9 @@ export const WEBSEARCH_STEP_MS = 120;
 export const WEBSEARCH_EXPAND_EASE = [0.22, 1, 0.36, 1] as const;
 
 export function treeTitleRevealMs(charCount: number): number {
-  return TREE_CONTENT_DELAY_MS + Math.max(charCount, 1) * TREE_TITLE_STAGGER_MS + TREE_TITLE_SEGMENT_MS;
+  return (
+    TREE_CONTENT_DELAY_MS + Math.max(charCount, 1) * TREE_TITLE_STAGGER_MS + TREE_TITLE_SEGMENT_MS
+  );
 }
 
 export function shouldPlayTreeTitleEnter(
@@ -100,11 +102,7 @@ export function treeReachLength(
   return Math.max(0, midY - r - fromY) + (Math.PI * r) / 2 + Math.max(0, endX - trunkX - r);
 }
 
-export function treeTrunkPath(
-  fromY: number,
-  toY: number,
-  trunkX = TREE_BRANCH_TRUNK_X,
-): string {
+export function treeTrunkPath(fromY: number, toY: number, trunkX = TREE_BRANCH_TRUNK_X): string {
   if (toY <= fromY) return `M ${trunkX} ${fromY}`;
   return `M ${trunkX} ${fromY} V ${toY}`;
 }
@@ -116,11 +114,7 @@ export function treeSegmentDelayMs(index: number, stepMs = TREE_STEP_MS): number
 }
 
 /** Same overlap, but a long group tightens the step so the batch stays under the cap. */
-export function treeStaggerDelayMs(
-  index: number,
-  count: number,
-  stepMs = TREE_STEP_MS,
-): number {
+export function treeStaggerDelayMs(index: number, count: number, stepMs = TREE_STEP_MS): number {
   if (index <= 0 || count <= 1) return 0;
   return index * Math.min(stepMs, TREE_STAGGER_CAP_MS / (count - 1));
 }

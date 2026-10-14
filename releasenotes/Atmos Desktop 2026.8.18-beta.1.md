@@ -28,6 +28,7 @@ Atmos Desktop 2026.8.18-beta.1 adds Prototype Design — an Agent-first wirefram
 - Full comparison: https://github.com/AruNi-01/atmos/compare/desktop-electron-2026.8.16...desktop-electron-2026.8.18-beta.1
 
 <!-- atmos-desktop-contributors -->
+
 Thanks to @AruNi-01 and @cursoragent.
 
 <!-- atmos-desktop-download -->

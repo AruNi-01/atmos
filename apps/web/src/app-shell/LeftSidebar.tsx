@@ -1,28 +1,31 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { useAppRouter } from '@/shared/hooks/use-app-router';
-import { useQueryState } from 'nuqs';
-import { useContextParams } from '@/shared/hooks/use-context-params';
-import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
+import { useAppRouter } from "@/shared/hooks/use-app-router";
+import { useQueryState } from "nuqs";
+import { useContextParams } from "@/shared/hooks/use-context-params";
+import { useSidebarLayout } from "@/app-shell/SidebarLayoutContext";
 import {
-    LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
-    LEFT_SIDEBAR_DIVIDER_GUTTER_SCROLLBAR_CLASS,
-} from '@/app-shell/sidebar-layout-constants';
-import { centerStageParams } from '@/shared/lib/nuqs/searchParams';
+  LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+  LEFT_SIDEBAR_DIVIDER_GUTTER_SCROLLBAR_CLASS,
+} from "@/app-shell/sidebar-layout-constants";
+import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
 import { cn } from "@workspace/ui";
 import { useAppStorage } from "@atmos/shared";
-import type { Project } from '@/shared/types/domain';
-import { useProjectStore } from '@/features/project/store/use-project-store';
+import type { Project } from "@/shared/types/domain";
+import { useProjectStore } from "@/features/project/store/use-project-store";
 import {
   useWorkspaceLabels,
   useGroups,
   useProjectBootstrapQuery,
-} from '@/features/project/hooks/use-project-bootstrap-query';
-import { useProjectsWithStandaloneAutomations } from '@/features/automations/hooks/use-projects-with-standalone-automations';
-import { STANDALONE_GROUP_ID } from '@/features/automations/lib/standalone-sidebar';
-import { parseStandaloneScope, standaloneJobHref } from '@/features/automations/lib/automation-run-landing';
+} from "@/features/project/hooks/use-project-bootstrap-query";
+import { useProjectsWithStandaloneAutomations } from "@/features/automations/hooks/use-projects-with-standalone-automations";
+import { STANDALONE_GROUP_ID } from "@/features/automations/lib/standalone-sidebar";
+import {
+  parseStandaloneScope,
+  standaloneJobHref,
+} from "@/features/automations/lib/automation-run-landing";
 import {
   createGroup,
   deleteGroup,
@@ -30,46 +33,44 @@ import {
   reorderGroups,
   setGroupMember,
   removeGroupMember,
-} from '@/features/project/lib/group-actions';
+} from "@/features/project/lib/group-actions";
 import {
   UserGroupOneColumnContent,
   UserGroupTwoColumnLeftContent,
   UserGroupTwoColumnRightContent,
-} from '@/app-shell/sidebar/UserGroupSidebarContent';
+} from "@/app-shell/sidebar/UserGroupSidebarContent";
 import {
   AdoptWorkspacesIntoGroupDialog,
   type AdoptWorkspacesIntoGroupPending,
-} from '@/app-shell/sidebar/AdoptWorkspacesIntoGroupDialog';
+} from "@/app-shell/sidebar/AdoptWorkspacesIntoGroupDialog";
 import {
   FollowProjectInGroupDialog,
   type FollowProjectInGroupPending,
-} from '@/app-shell/sidebar/FollowProjectInGroupDialog';
+} from "@/app-shell/sidebar/FollowProjectInGroupDialog";
 import {
   findGroupIdForMember,
   findGroupedWorkspacesForProject,
-} from '@/app-shell/sidebar/user-groups';
-import { useTranslations } from 'next-intl';
-import { CreateProjectDialog } from '@/features/project/components/CreateProjectDialog';
-import { WorkspaceScriptDialog } from '@/features/workspace/components/WorkspaceScriptDialog';
-import { DeleteProjectDialog } from '@/features/project/components/DeleteProjectDialog';
-import { functionSettingsApi } from '@/api/ws-api';
-import { useComputerQueryScope } from '@/api/query/query-scope';
-import { isComputerQueryScopeCurrent } from '@/api/ws/request';
-import { isCancelledError } from '@/shared/lib/is-cancelled-error';
-import { useShallow } from 'zustand/react/shallow';
-import { useGitInfoStore } from '@/features/git/store/use-git-info-store';
-import { useDialogStore } from '@/app-shell/state/use-dialog-store';
+} from "@/app-shell/sidebar/user-groups";
+import { useTranslations } from "next-intl";
+import { CreateProjectDialog } from "@/features/project/components/CreateProjectDialog";
+import { WorkspaceScriptDialog } from "@/features/workspace/components/WorkspaceScriptDialog";
+import { DeleteProjectDialog } from "@/features/project/components/DeleteProjectDialog";
+import { functionSettingsApi } from "@/api/ws-api";
+import { useComputerQueryScope } from "@/api/query/query-scope";
+import { isComputerQueryScopeCurrent } from "@/api/ws/request";
+import { isCancelledError } from "@/shared/lib/is-cancelled-error";
+import { useShallow } from "zustand/react/shallow";
+import { useGitInfoStore } from "@/features/git/store/use-git-info-store";
+import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 import {
   DEFAULT_KANBAN_CARD_PROPERTIES,
   type KanbanCardProperties,
-} from '@/app-shell/sidebar/WorkspaceKanbanView';
+} from "@/app-shell/sidebar/WorkspaceKanbanView";
 import {
   parseSidebarGroupingMode,
   type SidebarGroupingMode,
-} from '@/app-shell/sidebar/workspace-status';
-import {
-  type WorkspaceKanbanFilters,
-} from '@/app-shell/sidebar/WorkspaceKanbanFilterMenu';
+} from "@/app-shell/sidebar/workspace-status";
+import { type WorkspaceKanbanFilters } from "@/app-shell/sidebar/WorkspaceKanbanFilterMenu";
 import {
   EMPTY_WORKSPACE_KANBAN_FILTERS,
   parseWorkspaceKanbanCardProperties,
@@ -78,1802 +79,1828 @@ import {
   serializeWorkspaceSidebarFilters,
   sidebarListViewToApply,
   type SidebarListView,
-} from '@/app-shell/left-sidebar-settings';
-import { SessionSidebarList } from '@/app-shell/sidebar/SessionSidebarList';
-import { newChatDraftSessionRows } from '@/app-shell/sidebar/new-chat-draft-sessions';
+} from "@/app-shell/left-sidebar-settings";
+import { SessionSidebarList } from "@/app-shell/sidebar/SessionSidebarList";
+import { newChatDraftSessionRows } from "@/app-shell/sidebar/new-chat-draft-sessions";
 import {
   buildSidebarSessionRows,
   filterSidebarSessions,
   groupSidebarSessions,
-} from '@/app-shell/sidebar/session-grouping';
+} from "@/app-shell/sidebar/session-grouping";
 import {
   sessionLiveGroupKey,
   sessionMatchesAttentionFilter,
-} from '@/app-shell/sidebar/session-live-group';
-import { useSidebarAgentSessions } from '@/app-shell/sidebar/use-sidebar-agent-sessions';
-import { useAgentChatCenterTabsStore } from '@/features/agent/store/use-agent-chat-center-tabs';
-import { useAgentStatusStore } from '@/features/agent/store/agent-status-store';
-import { useWorkspaceAgentGroupingHoldStore } from '@/features/agent/store/workspace-agent-grouping-hold';
-import { sessionTerminalTitleMap } from '@/app-shell/sidebar/session-terminal-title';
-import { useTerminalStore } from '@/features/terminal/store/use-terminal-store';
-import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-setup';
+} from "@/app-shell/sidebar/session-live-group";
+import { useSidebarAgentSessions } from "@/app-shell/sidebar/use-sidebar-agent-sessions";
+import { useAgentChatCenterTabsStore } from "@/features/agent/store/use-agent-chat-center-tabs";
+import { useAgentStatusStore } from "@/features/agent/store/agent-status-store";
+import { useWorkspaceAgentGroupingHoldStore } from "@/features/agent/store/workspace-agent-grouping-hold";
+import { sessionTerminalTitleMap } from "@/app-shell/sidebar/session-terminal-title";
+import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
+import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
 import {
   getWorkspaceCreateOriginKey,
   useWorkspaceCreationStore,
-} from '@/features/workspace/store/workspace-creation-store';
-import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
-import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
-import { useInitialProjectsLoading } from '@/features/project/store/use-initial-projects-loading';
-import { ProjectsSidebarLoading } from '@/app-shell/ProjectsSidebarLoading';
-import { LeftSidebarLaunchpadBlock } from '@/app-shell/LeftSidebarLaunchpad';
-import { tasksPathWithStoredSource } from '@/features/task/lib/task-source-preference';
+} from "@/features/workspace/store/workspace-creation-store";
+import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
+import { useExperimentSettingsStore } from "@/features/settings/store/experiment-settings-store";
+import { useInitialProjectsLoading } from "@/features/project/store/use-initial-projects-loading";
+import { ProjectsSidebarLoading } from "@/app-shell/ProjectsSidebarLoading";
+import { LeftSidebarLaunchpadBlock } from "@/app-shell/LeftSidebarLaunchpad";
+import { tasksPathWithStoredSource } from "@/features/task/lib/task-source-preference";
 
-import { LeftSidebarPinnedSection } from '@/app-shell/LeftSidebarPinnedSection';
-import { mergeExpandedProjectIds } from '@/app-shell/left-sidebar-derived';
+import { LeftSidebarPinnedSection } from "@/app-shell/LeftSidebarPinnedSection";
+import { mergeExpandedProjectIds } from "@/app-shell/left-sidebar-derived";
 import {
-    GroupedWorkspaceOneColumnContent,
-    GroupedWorkspaceTwoColumnLeftContent,
-    GroupedWorkspaceTwoColumnRightContent,
-    LeftSidebarFooter,
-    LeftSidebarSortableProjectList,
-    ProjectWorkspaceTwoColumnRightContent,
-    TwoColumnSidebarContent,
-} from '@/app-shell/left-sidebar-controls';
-import { useLeftSidebarFileTreeSync } from '@/app-shell/use-left-sidebar-file-tree-sync';
-import { useLeftSidebarTwoColumnResize } from '@/app-shell/use-left-sidebar-two-column-resize';
-import { useLeftSidebarWorkspaceDerived } from '@/app-shell/use-left-sidebar-workspace-derived';
-import { useLeftSidebarWorkspaceRenderers } from '@/app-shell/use-left-sidebar-workspace-renderers';
+  GroupedWorkspaceOneColumnContent,
+  GroupedWorkspaceTwoColumnLeftContent,
+  GroupedWorkspaceTwoColumnRightContent,
+  LeftSidebarFooter,
+  LeftSidebarSortableProjectList,
+  ProjectWorkspaceTwoColumnRightContent,
+  TwoColumnSidebarContent,
+} from "@/app-shell/left-sidebar-controls";
+import { useLeftSidebarFileTreeSync } from "@/app-shell/use-left-sidebar-file-tree-sync";
+import { useLeftSidebarTwoColumnResize } from "@/app-shell/use-left-sidebar-two-column-resize";
+import { useLeftSidebarWorkspaceDerived } from "@/app-shell/use-left-sidebar-workspace-derived";
+import { useLeftSidebarWorkspaceRenderers } from "@/app-shell/use-left-sidebar-workspace-renderers";
 import {
-    CENTER_REGION_DIGIT_HOTKEY_OPTIONS,
-    collectSidebarShortcutTargets,
-    consumeCenterRegionDigitEvent,
-    dispatchCenterRegionDigitShortcut,
-    isCenterStageHotkeyTarget,
-    registerSidebarStripShortcutHandler,
-    SIDEBAR_STRIP_POSITION_HOTKEYS,
-} from '@/app-shell/shortcut-prefix';
-import { centerStripShortcutDigitFromEvent } from '@/app-shell/center-stage-tab-model';
-import { useLeftSidebarDragHandlers } from '@/app-shell/use-left-sidebar-drag-handlers';
+  CENTER_REGION_DIGIT_HOTKEY_OPTIONS,
+  collectSidebarShortcutTargets,
+  consumeCenterRegionDigitEvent,
+  dispatchCenterRegionDigitShortcut,
+  isCenterStageHotkeyTarget,
+  registerSidebarStripShortcutHandler,
+  SIDEBAR_STRIP_POSITION_HOTKEYS,
+} from "@/app-shell/shortcut-prefix";
+import { centerStripShortcutDigitFromEvent } from "@/app-shell/center-stage-tab-model";
+import { useLeftSidebarDragHandlers } from "@/app-shell/use-left-sidebar-drag-handlers";
 import {
-    filterProjectsByAttention,
-    selectAttentionContextKey,
-    selectAttentionFilterMode,
-    useAgentAttentionStore,
-} from '@/features/agent/store/agent-attention-store';
-import { useWorkspaceAgentGroupKeyMap } from '@/features/agent/hooks/use-workspace-agent-status';
-import { Bell } from 'lucide-react';
-import { WorkspaceInfoHoverHost } from '@/app-shell/sidebar/WorkspaceInfoHoverHost';
+  filterProjectsByAttention,
+  selectAttentionContextKey,
+  selectAttentionFilterMode,
+  useAgentAttentionStore,
+} from "@/features/agent/store/agent-attention-store";
+import { useWorkspaceAgentGroupKeyMap } from "@/features/agent/hooks/use-workspace-agent-status";
+import { Bell } from "lucide-react";
+import { WorkspaceInfoHoverHost } from "@/app-shell/sidebar/WorkspaceInfoHoverHost";
 
 interface LeftSidebarProps {
-    projects?: Project[];
+  projects?: Project[];
 }
 
 const LeftSidebar: React.FC<LeftSidebarProps> = () => {
-    const storage = useAppStorage();
-    const router = useAppRouter();
-    const attentionT = useTranslations('Agent.attention');
-    const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, effectiveContextId, currentView } = useContextParams();
-    // Row isActive follows URL only. Optimistic hop highlight is DOM-only
-    // (applyWorkspaceSidebarSelectionDom) so this tree is not re-rendered on every click.
-    // Full catalog — used for selection/existence/current context. Never replace this with a
-    // filtered list: hiding attention-only rows would make the app think the active workspace
-    // was deleted and route to welcome (`router.replace('/')`).
-    const projects = useProjectsWithStandaloneAutomations();
-    const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
-    const attentionContextKey = useAgentAttentionStore(selectAttentionContextKey);
-    // Display-only subset for the sidebar tree when the header attention filter is on.
-    const listProjects = React.useMemo(() => {
-        if (!attentionFilterMode) return projects;
-        const ids = attentionContextKey ? attentionContextKey.split('\0').filter(Boolean) : [];
-        return filterProjectsByAttention(projects, ids);
-    }, [attentionContextKey, attentionFilterMode, projects]);
-    const workspaceAgentContextIds = React.useMemo(
-        () => listProjects.flatMap((project) => [
-            project.id,
-            ...project.workspaces.map((workspace) => workspace.id),
-        ]),
-        [listProjects],
-    );
-    const agentGroupKeyByWorkspaceId = useWorkspaceAgentGroupKeyMap(workspaceAgentContextIds);
-    const workspaceLabels = useWorkspaceLabels();
-    const groups = useGroups();
-    const groupsT = useTranslations('appShell.groups');
-    const taskT = useTranslations('appShell.task');
-    const bootstrapQuery = useProjectBootstrapQuery();
-    const {
+  const storage = useAppStorage();
+  const router = useAppRouter();
+  const attentionT = useTranslations("Agent.attention");
+  const {
+    workspaceId: currentWorkspaceId,
+    projectId: currentProjectIdFromUrl,
+    effectiveContextId,
+    currentView,
+  } = useContextParams();
+  // Row isActive follows URL only. Optimistic hop highlight is DOM-only
+  // (applyWorkspaceSidebarSelectionDom) so this tree is not re-rendered on every click.
+  // Full catalog — used for selection/existence/current context. Never replace this with a
+  // filtered list: hiding attention-only rows would make the app think the active workspace
+  // was deleted and route to welcome (`router.replace('/')`).
+  const projects = useProjectsWithStandaloneAutomations();
+  const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
+  const attentionContextKey = useAgentAttentionStore(selectAttentionContextKey);
+  // Display-only subset for the sidebar tree when the header attention filter is on.
+  const listProjects = React.useMemo(() => {
+    if (!attentionFilterMode) return projects;
+    const ids = attentionContextKey ? attentionContextKey.split("\0").filter(Boolean) : [];
+    return filterProjectsByAttention(projects, ids);
+  }, [attentionContextKey, attentionFilterMode, projects]);
+  const workspaceAgentContextIds = React.useMemo(
+    () =>
+      listProjects.flatMap((project) => [
+        project.id,
+        ...project.workspaces.map((workspace) => workspace.id),
+      ]),
+    [listProjects],
+  );
+  const agentGroupKeyByWorkspaceId = useWorkspaceAgentGroupKeyMap(workspaceAgentContextIds);
+  const workspaceLabels = useWorkspaceLabels();
+  const groups = useGroups();
+  const groupsT = useTranslations("appShell.groups");
+  const taskT = useTranslations("appShell.task");
+  const bootstrapQuery = useProjectBootstrapQuery();
+  const { activeInstanceId, connectionEpoch, relaySessionRevision } = useComputerQueryScope();
+  const workspaceSidebarSettingsScopeKey = JSON.stringify([
+    activeInstanceId,
+    connectionEpoch,
+    relaySessionRevision,
+  ]);
+  const isLoading = bootstrapQuery.isPending || bootstrapQuery.isFetching;
+  const hasLoadedProjects = !!bootstrapQuery.data;
+
+  const {
+    deleteProject,
+    updateProject,
+    deleteWorkspace,
+    quickAddWorkspace,
+    pinWorkspace,
+    unpinWorkspace,
+    archiveWorkspace,
+    updateWorkspacePinOrder,
+    updateWorkspaceName,
+    updateWorkspaceWorkflowStatus,
+    updateWorkspacePriority,
+    createWorkspaceLabel,
+    updateWorkspaceLabel,
+    updateWorkspaceLabels,
+    markWorkspaceVisited,
+    markProjectVisited,
+    reorderProjects,
+    reorderWorkspaces,
+  } = useProjectStore(
+    useShallow((s) => ({
+      deleteProject: s.deleteProject,
+      updateProject: s.updateProject,
+      deleteWorkspace: s.deleteWorkspace,
+      quickAddWorkspace: s.quickAddWorkspace,
+      pinWorkspace: s.pinWorkspace,
+      unpinWorkspace: s.unpinWorkspace,
+      archiveWorkspace: s.archiveWorkspace,
+      updateWorkspacePinOrder: s.updateWorkspacePinOrder,
+      updateWorkspaceName: s.updateWorkspaceName,
+      updateWorkspaceWorkflowStatus: s.updateWorkspaceWorkflowStatus,
+      updateWorkspacePriority: s.updateWorkspacePriority,
+      createWorkspaceLabel: s.createWorkspaceLabel,
+      updateWorkspaceLabel: s.updateWorkspaceLabel,
+      updateWorkspaceLabels: s.updateWorkspaceLabels,
+      markWorkspaceVisited: s.markWorkspaceVisited,
+      markProjectVisited: s.markProjectVisited,
+      reorderProjects: s.reorderProjects,
+      reorderWorkspaces: s.reorderWorkspaces,
+    })),
+  );
+
+  const { setCurrentContext } = useGitInfoStore();
+  const { isLeftCollapsed, leftSidebarSize, resizeLeftSidebar } = useSidebarLayout();
+  const workspaceSidebarTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarTwoColumn);
+  const workspaceSidebarTwoColumnShowPinned = useLayoutSettingsStore(
+    (s) => s.workspaceSidebarTwoColumnShowPinned,
+  );
+  const workspaceSidebarSecondColumnKanban = useLayoutSettingsStore(
+    (s) => s.workspaceSidebarSecondColumnKanban,
+  );
+  const workspaceSidebarTimeTwoColumn = useLayoutSettingsStore(
+    (s) => s.workspaceSidebarTimeTwoColumn,
+  );
+  const workspaceSidebarStatusTwoColumn = useLayoutSettingsStore(
+    (s) => s.workspaceSidebarStatusTwoColumn,
+  );
+  const workspaceSidebarPriorityTwoColumn = useLayoutSettingsStore(
+    (s) => s.workspaceSidebarPriorityTwoColumn,
+  );
+  const workspaceSidebarLabelTwoColumn = useLayoutSettingsStore(
+    (s) => s.workspaceSidebarLabelTwoColumn,
+  );
+  const workspaceSidebarGroupTwoColumn = useLayoutSettingsStore(
+    (s) => s.workspaceSidebarGroupTwoColumn,
+  );
+  const workspaceSidebarAgentTwoColumn = useLayoutSettingsStore(
+    (s) => s.workspaceSidebarAgentTwoColumn,
+  );
+  const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
+  useEffect(() => {
+    loadLayoutSettings();
+  }, [loadLayoutSettings]);
+
+  const [newWorkspace, setNewWorkspace] = useQueryState(
+    "newWorkspace",
+    centerStageParams.newWorkspace,
+  );
+  const [canvasOpen, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
+  const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
+  // Attention list: expand only projects that still have a latched workspace.
+  // Project-only attention stays collapsed so the empty "No workspaces" row
+  // does not replace the workspace that actually needs you. Do not mutate
+  // `expandedProjects` — turning the filter off should restore the user's tree.
+  const listExpandedProjectIds = React.useMemo(() => {
+    if (!attentionFilterMode) return expandedProjects;
+    return listProjects
+      .filter((project) => project.workspaces.length > 0)
+      .map((project) => project.id);
+  }, [attentionFilterMode, expandedProjects, listProjects]);
+  const seenProjectIdsRef = useRef<Set<string>>(new Set());
+  const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>("project");
+  const [sidebarListView, setSidebarListView] = useState<SidebarListView>("workspace");
+  const {
+    hasMore: agentSessionsHasMore,
+    loadMore: loadMoreAgentSessions,
+    snapshots: agentSessionSnapshots,
+    chatTitles: agentSessionChatTitles,
+    loaded: agentSessionsLoaded,
+    archiveSession: archiveAgentSession,
+  } = useSidebarAgentSessions(sidebarListView === "session");
+  const [labelGroupOrder, setLabelGroupOrder] = useState<string[]>([]);
+  const [loadedGroupingSettingsScopeKey, setLoadedGroupingSettingsScopeKey] = useState<
+    string | null
+  >(null);
+  const isGroupingSettingsReady =
+    loadedGroupingSettingsScopeKey === workspaceSidebarSettingsScopeKey;
+  const effectiveLabelGroupOrder = isGroupingSettingsReady ? labelGroupOrder : [];
+  /** Sidebar list filters only — not shared with full-page kanban board. */
+  const [sidebarWorkspaceFilters, setSidebarWorkspaceFilters] = useState<WorkspaceKanbanFilters>(
+    EMPTY_WORKSPACE_KANBAN_FILTERS,
+  );
+  const persistedSidebarFiltersRef = useRef<string>(
+    JSON.stringify(serializeWorkspaceSidebarFilters(EMPTY_WORKSPACE_KANBAN_FILTERS)),
+  );
+  const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
+    currentView === "workspaces" ||
+      currentView === "skills" ||
+      currentView === "terminals" ||
+      currentView === "agents" ||
+      currentView === "automations" ||
+      currentView === "disk-analyzer" ||
+      currentView === "token-usage" ||
+      currentView === "agent-observer" ||
+      currentView === "tasks" ||
+      currentView === "pt-design" ||
+      currentView === "agent-sessions",
+  );
+  const [isPinnedSectionCollapsed, setIsPinnedSectionCollapsed] = useState(false);
+  const [isPinnedDividerHovered, setIsPinnedDividerHovered] = useState(false);
+  const [selectedProjectSidebarId, setSelectedProjectSidebarId] = useState<string | null>(null);
+  const [projectSidebarSelectionRouteKey, setProjectSidebarSelectionRouteKey] = useState<
+    string | null
+  >(null);
+  const [selectedWorkspaceGroupKey, setSelectedWorkspaceGroupKey] = useState<string | null>(null);
+  const [workspaceGroupSelectionRouteKey, setWorkspaceGroupSelectionRouteKey] = useState<
+    string | null
+  >(null);
+  const [isSecondColumnPinnedExpanded, setIsSecondColumnPinnedExpanded] = useState(true);
+  const [isSecondColumnWorkspacesExpanded, setIsSecondColumnWorkspacesExpanded] = useState(true);
+  const [secondColumnKanbanCardProperties, setSecondColumnKanbanCardProperties] =
+    useState<KanbanCardProperties>(DEFAULT_KANBAN_CARD_PROPERTIES);
+
+  const persistedGroupingModeRef = useRef<SidebarGroupingMode>("project");
+  const persistedSidebarViewRef = useRef<SidebarListView>("workspace");
+  // Set when the user picks a view before this scope's settings load applies.
+  const sidebarListViewOverrideRef = useRef<SidebarListView | null>(null);
+  const persistedPinnedSectionCollapsedRef = useRef(false);
+  const persistedLabelGroupOrderRef = useRef<string[]>([]);
+  const labelGroupOrderWriteRef = useRef<Promise<void>>(Promise.resolve());
+  const labelGroupOrderWriteVersionRef = useRef(0);
+  const settingsScopeVersionRef = useRef(0);
+  const persistWorkspaceSidebarSetting = useCallback(
+    (key: string, value: unknown) => {
+      const expectedScope = {
         activeInstanceId,
         connectionEpoch,
         relaySessionRevision,
-    } = useComputerQueryScope();
-    const workspaceSidebarSettingsScopeKey = JSON.stringify([
-        activeInstanceId,
-        connectionEpoch,
-        relaySessionRevision,
-    ]);
-    const isLoading = bootstrapQuery.isPending || bootstrapQuery.isFetching;
-    const hasLoadedProjects = !!bootstrapQuery.data;
-
-    const {
-        deleteProject,
-        updateProject,
-        deleteWorkspace,
-        quickAddWorkspace,
-        pinWorkspace,
-        unpinWorkspace,
-        archiveWorkspace,
-        updateWorkspacePinOrder,
-        updateWorkspaceName,
-        updateWorkspaceWorkflowStatus,
-        updateWorkspacePriority,
-        createWorkspaceLabel,
-        updateWorkspaceLabel,
-        updateWorkspaceLabels,
-        markWorkspaceVisited,
-        markProjectVisited,
-        reorderProjects,
-        reorderWorkspaces,
-    } = useProjectStore(
-        useShallow(s => ({
-            deleteProject: s.deleteProject,
-            updateProject: s.updateProject,
-            deleteWorkspace: s.deleteWorkspace,
-            quickAddWorkspace: s.quickAddWorkspace,
-            pinWorkspace: s.pinWorkspace,
-            unpinWorkspace: s.unpinWorkspace,
-            archiveWorkspace: s.archiveWorkspace,
-            updateWorkspacePinOrder: s.updateWorkspacePinOrder,
-            updateWorkspaceName: s.updateWorkspaceName,
-            updateWorkspaceWorkflowStatus: s.updateWorkspaceWorkflowStatus,
-            updateWorkspacePriority: s.updateWorkspacePriority,
-            createWorkspaceLabel: s.createWorkspaceLabel,
-            updateWorkspaceLabel: s.updateWorkspaceLabel,
-            updateWorkspaceLabels: s.updateWorkspaceLabels,
-            markWorkspaceVisited: s.markWorkspaceVisited,
-            markProjectVisited: s.markProjectVisited,
-            reorderProjects: s.reorderProjects,
-            reorderWorkspaces: s.reorderWorkspaces,
-        }))
-    );
-
-    const { setCurrentContext } = useGitInfoStore();
-    const { isLeftCollapsed, leftSidebarSize, resizeLeftSidebar } = useSidebarLayout();
-    const workspaceSidebarTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarTwoColumn);
-    const workspaceSidebarTwoColumnShowPinned = useLayoutSettingsStore((s) => s.workspaceSidebarTwoColumnShowPinned);
-    const workspaceSidebarSecondColumnKanban = useLayoutSettingsStore((s) => s.workspaceSidebarSecondColumnKanban);
-    const workspaceSidebarTimeTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarTimeTwoColumn);
-    const workspaceSidebarStatusTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarStatusTwoColumn);
-    const workspaceSidebarPriorityTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarPriorityTwoColumn);
-    const workspaceSidebarLabelTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarLabelTwoColumn);
-    const workspaceSidebarGroupTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarGroupTwoColumn);
-    const workspaceSidebarAgentTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarAgentTwoColumn);
-    const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
-    useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
-
-    const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
-    const [canvasOpen, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
-    const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
-    // Attention list: expand only projects that still have a latched workspace.
-    // Project-only attention stays collapsed so the empty "No workspaces" row
-    // does not replace the workspace that actually needs you. Do not mutate
-    // `expandedProjects` — turning the filter off should restore the user's tree.
-    const listExpandedProjectIds = React.useMemo(() => {
-        if (!attentionFilterMode) return expandedProjects;
-        return listProjects
-            .filter((project) => project.workspaces.length > 0)
-            .map((project) => project.id);
-    }, [attentionFilterMode, expandedProjects, listProjects]);
-    const seenProjectIdsRef = useRef<Set<string>>(new Set());
-    const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
-    const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>('project');
-    const [sidebarListView, setSidebarListView] = useState<SidebarListView>('workspace');
-    const {
-        hasMore: agentSessionsHasMore,
-        loadMore: loadMoreAgentSessions,
-        snapshots: agentSessionSnapshots,
-        chatTitles: agentSessionChatTitles,
-        loaded: agentSessionsLoaded,
-        archiveSession: archiveAgentSession,
-    } = useSidebarAgentSessions(sidebarListView === 'session');
-    const [labelGroupOrder, setLabelGroupOrder] = useState<string[]>([]);
-    const [loadedGroupingSettingsScopeKey, setLoadedGroupingSettingsScopeKey] = useState<string | null>(null);
-    const isGroupingSettingsReady =
-        loadedGroupingSettingsScopeKey === workspaceSidebarSettingsScopeKey;
-    const effectiveLabelGroupOrder = isGroupingSettingsReady
-        ? labelGroupOrder
-        : [];
-    /** Sidebar list filters only — not shared with full-page kanban board. */
-    const [sidebarWorkspaceFilters, setSidebarWorkspaceFilters] = useState<WorkspaceKanbanFilters>(
-        EMPTY_WORKSPACE_KANBAN_FILTERS,
-    );
-    const persistedSidebarFiltersRef = useRef<string>(
-        JSON.stringify(serializeWorkspaceSidebarFilters(EMPTY_WORKSPACE_KANBAN_FILTERS)),
-    );
-    const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
-        currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents' || currentView === 'automations' || currentView === 'disk-analyzer' || currentView === 'token-usage' || currentView === 'agent-observer' || currentView === 'tasks' || currentView === 'pt-design' || currentView === 'agent-sessions'
-    );
-    const [isPinnedSectionCollapsed, setIsPinnedSectionCollapsed] = useState(false);
-    const [isPinnedDividerHovered, setIsPinnedDividerHovered] = useState(false);
-    const [selectedProjectSidebarId, setSelectedProjectSidebarId] = useState<string | null>(null);
-    const [projectSidebarSelectionRouteKey, setProjectSidebarSelectionRouteKey] = useState<string | null>(null);
-    const [selectedWorkspaceGroupKey, setSelectedWorkspaceGroupKey] = useState<string | null>(null);
-    const [workspaceGroupSelectionRouteKey, setWorkspaceGroupSelectionRouteKey] = useState<string | null>(null);
-    const [isSecondColumnPinnedExpanded, setIsSecondColumnPinnedExpanded] = useState(true);
-    const [isSecondColumnWorkspacesExpanded, setIsSecondColumnWorkspacesExpanded] = useState(true);
-    const [secondColumnKanbanCardProperties, setSecondColumnKanbanCardProperties] = useState<KanbanCardProperties>(DEFAULT_KANBAN_CARD_PROPERTIES);
-
-    const persistedGroupingModeRef = useRef<SidebarGroupingMode>('project');
-    const persistedSidebarViewRef = useRef<SidebarListView>('workspace');
-    // Set when the user picks a view before this scope's settings load applies.
-    const sidebarListViewOverrideRef = useRef<SidebarListView | null>(null);
-    const persistedPinnedSectionCollapsedRef = useRef(false);
-    const persistedLabelGroupOrderRef = useRef<string[]>([]);
-    const labelGroupOrderWriteRef = useRef<Promise<void>>(Promise.resolve());
-    const labelGroupOrderWriteVersionRef = useRef(0);
-    const settingsScopeVersionRef = useRef(0);
-    const persistWorkspaceSidebarSetting = useCallback((
-        key: string,
-        value: unknown,
-    ) => {
-        const expectedScope = {
-            activeInstanceId,
-            connectionEpoch,
-            relaySessionRevision,
-        };
-        void functionSettingsApi.update(
-            'workspace_sidebar',
-            key,
-            value,
-            expectedScope,
-        ).catch((error) => {
-            if (!isComputerQueryScopeCurrent(expectedScope)) return;
-            console.error(`Failed to persist workspace sidebar setting "${key}":`, error);
+      };
+      void functionSettingsApi
+        .update("workspace_sidebar", key, value, expectedScope)
+        .catch((error) => {
+          if (!isComputerQueryScopeCurrent(expectedScope)) return;
+          console.error(`Failed to persist workspace sidebar setting "${key}":`, error);
         });
-    }, [activeInstanceId, connectionEpoch, relaySessionRevision]);
+    },
+    [activeInstanceId, connectionEpoch, relaySessionRevision],
+  );
 
-    const handleSidebarListViewChange = useCallback((next: SidebarListView) => {
-        sidebarListViewOverrideRef.current = next;
-        persistedSidebarViewRef.current = next;
-        setSidebarListView(next);
-        // Write immediately. The ready gate below drops the choice when the
-        // settings read was cancelled and never marks this scope ready.
-        persistWorkspaceSidebarSetting('view', next);
-    }, [persistWorkspaceSidebarSetting]);
+  const handleSidebarListViewChange = useCallback(
+    (next: SidebarListView) => {
+      sidebarListViewOverrideRef.current = next;
+      persistedSidebarViewRef.current = next;
+      setSidebarListView(next);
+      // Write immediately. The ready gate below drops the choice when the
+      // settings read was cancelled and never marks this scope ready.
+      persistWorkspaceSidebarSetting("view", next);
+    },
+    [persistWorkspaceSidebarSetting],
+  );
 
-    const isInitialProjectsLoading = useInitialProjectsLoading();
+  const isInitialProjectsLoading = useInitialProjectsLoading();
 
-    const launchpadItems = useExperimentSettingsStore((s) => s.launchpadItems);
-    const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
-    // Settled is keyed by connectionEpoch so a computer switch does not keep the previous
-    // connection's settled=true while the store is back on defaults (avoids default-item flash).
-    // Still unblocks nav after the first load attempt (success or failure) so we can retry.
-    const [settledForEpoch, setSettledForEpoch] = useState<number | null>(null);
-    const launchpadSettled = settledForEpoch === connectionEpoch;
+  const launchpadItems = useExperimentSettingsStore((s) => s.launchpadItems);
+  const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
+  // Settled is keyed by connectionEpoch so a computer switch does not keep the previous
+  // connection's settled=true while the store is back on defaults (avoids default-item flash).
+  // Still unblocks nav after the first load attempt (success or failure) so we can retry.
+  const [settledForEpoch, setSettledForEpoch] = useState<number | null>(null);
+  const launchpadSettled = settledForEpoch === connectionEpoch;
 
-    useEffect(() => {
-        let cancelled = false;
-        let retryTimer: number | null = null;
-        let retryAttempt = 0;
-        const epoch = connectionEpoch;
+  useEffect(() => {
+    let cancelled = false;
+    let retryTimer: number | null = null;
+    let retryAttempt = 0;
+    const epoch = connectionEpoch;
 
-        const tryLoad = async () => {
-            await loadExperimentSettings();
-            if (cancelled) return;
-            setSettledForEpoch(epoch);
-            if (useExperimentSettingsStore.getState().loaded) return;
-            // loadSettings leaves loaded=false on failure so callers can retry.
-            const delay = Math.min(1_000 * 2 ** retryAttempt, 15_000);
-            retryAttempt += 1;
-            retryTimer = window.setTimeout(() => {
-                void tryLoad();
-            }, delay);
-        };
-
+    const tryLoad = async () => {
+      await loadExperimentSettings();
+      if (cancelled) return;
+      setSettledForEpoch(epoch);
+      if (useExperimentSettingsStore.getState().loaded) return;
+      // loadSettings leaves loaded=false on failure so callers can retry.
+      const delay = Math.min(1_000 * 2 ** retryAttempt, 15_000);
+      retryAttempt += 1;
+      retryTimer = window.setTimeout(() => {
         void tryLoad();
-
-        return () => {
-            cancelled = true;
-            if (retryTimer !== null) {
-                window.clearTimeout(retryTimer);
-            }
-        };
-    }, [loadExperimentSettings, connectionEpoch]);
-
-    const {
-        isCreateProjectOpen,
-        setCreateProjectOpen,
-        setSelectedProjectId,
-        pendingSidebarProjectId,
-        setPendingSidebarProjectId,
-    } = useDialogStore();
-
-    // Projects are now loaded by the TanStack Query bootstrap — no manual fetch needed.
-
-    useEffect(() => {
-        const scopeVersion = settingsScopeVersionRef.current + 1;
-        settingsScopeVersionRef.current = scopeVersion;
-        labelGroupOrderWriteVersionRef.current += 1;
-        labelGroupOrderWriteRef.current = Promise.resolve();
-        persistedGroupingModeRef.current = 'project';
-        persistedSidebarViewRef.current = 'workspace';
-        sidebarListViewOverrideRef.current = null;
-        persistedPinnedSectionCollapsedRef.current = false;
-        persistedLabelGroupOrderRef.current = [];
-        let retryTimer: number | null = null;
-        let retryAttempt = 0;
-
-        const loadSettings = () => {
-            void functionSettingsApi.get()
-                .then((settings) => {
-                    if (settingsScopeVersionRef.current !== scopeVersion) return;
-
-                    // Sidebar grouping only — Tasks board uses `workspace_kanban_view.grouping_mode`.
-                    const groupingModeSetting = settings.workspace_sidebar?.grouping_mode;
-                    const nextGroupingMode = parseSidebarGroupingMode(groupingModeSetting);
-                    persistedGroupingModeRef.current = nextGroupingMode;
-                    setGroupingMode(nextGroupingMode);
-                    const nextSidebarView = sidebarListViewToApply(
-                        parseWorkspaceSidebarView(settings),
-                        sidebarListViewOverrideRef.current,
-                    );
-                    persistedSidebarViewRef.current = nextSidebarView;
-                    setSidebarListView(nextSidebarView);
-
-                    const savedLabelGroupOrder = settings.workspace_sidebar?.label_group_order;
-                    const nextLabelGroupOrder = Array.isArray(savedLabelGroupOrder)
-                        ? savedLabelGroupOrder.filter((item): item is string => typeof item === 'string')
-                        : [];
-                    persistedLabelGroupOrderRef.current = nextLabelGroupOrder;
-                    setLabelGroupOrder(nextLabelGroupOrder);
-
-                    const pinnedSectionCollapsed = settings.workspace_sidebar?.pinned_section_collapsed;
-                    const nextPinnedSectionCollapsed =
-                        typeof pinnedSectionCollapsed === 'boolean'
-                            ? pinnedSectionCollapsed
-                            : false;
-                    persistedPinnedSectionCollapsedRef.current = nextPinnedSectionCollapsed;
-                    setIsPinnedSectionCollapsed(nextPinnedSectionCollapsed);
-                    const nextSidebarFilters = parseWorkspaceSidebarFilters(settings);
-                    persistedSidebarFiltersRef.current = JSON.stringify(
-                        serializeWorkspaceSidebarFilters(nextSidebarFilters),
-                    );
-                    setSidebarWorkspaceFilters(nextSidebarFilters);
-                    setSecondColumnKanbanCardProperties(
-                        parseWorkspaceKanbanCardProperties(settings),
-                    );
-                    setLoadedGroupingSettingsScopeKey(
-                        workspaceSidebarSettingsScopeKey,
-                    );
-                })
-                .catch((error) => {
-                    if (settingsScopeVersionRef.current !== scopeVersion) return;
-                    // Reconnect invalidation cancels this read without changing
-                    // the scope. Leaving it cancelled kept the default workspace
-                    // view and dropped later view writes.
-                    const cancelled = isCancelledError(error);
-                    if (!cancelled) {
-                        console.error('Failed to load workspace sidebar settings:', error);
-                    }
-                    const delay = Math.min((cancelled ? 50 : 1_000) * 2 ** retryAttempt, 15_000);
-                    retryAttempt += 1;
-                    retryTimer = window.setTimeout(loadSettings, delay);
-                });
-        };
-
-        queueMicrotask(() => {
-            if (settingsScopeVersionRef.current !== scopeVersion) return;
-            setGroupingMode('project');
-            setSidebarListView(sidebarListViewToApply(
-                'workspace',
-                sidebarListViewOverrideRef.current,
-            ));
-            setLabelGroupOrder([]);
-            setIsPinnedSectionCollapsed(false);
-            persistedSidebarFiltersRef.current = JSON.stringify(
-                serializeWorkspaceSidebarFilters(EMPTY_WORKSPACE_KANBAN_FILTERS),
-            );
-            setSidebarWorkspaceFilters(EMPTY_WORKSPACE_KANBAN_FILTERS);
-            setSecondColumnKanbanCardProperties(DEFAULT_KANBAN_CARD_PROPERTIES);
-            loadSettings();
-        });
-
-        return () => {
-            if (retryTimer !== null) {
-                window.clearTimeout(retryTimer);
-            }
-            if (settingsScopeVersionRef.current === scopeVersion) {
-                settingsScopeVersionRef.current += 1;
-            }
-        };
-    }, [workspaceSidebarSettingsScopeKey]);
-
-    useEffect(() => {
-        if (!isGroupingSettingsReady) return;
-        if (persistedGroupingModeRef.current === groupingMode) return;
-        persistedGroupingModeRef.current = groupingMode;
-        persistWorkspaceSidebarSetting('grouping_mode', groupingMode);
-    }, [groupingMode, isGroupingSettingsReady, persistWorkspaceSidebarSetting]);
-
-    useEffect(() => {
-        if (!isGroupingSettingsReady) return;
-        if (persistedSidebarViewRef.current === sidebarListView) return;
-        persistedSidebarViewRef.current = sidebarListView;
-        persistWorkspaceSidebarSetting('view', sidebarListView);
-    }, [isGroupingSettingsReady, persistWorkspaceSidebarSetting, sidebarListView]);
-
-    useEffect(() => {
-        if (!isGroupingSettingsReady) return;
-        if (persistedPinnedSectionCollapsedRef.current === isPinnedSectionCollapsed) return;
-        persistedPinnedSectionCollapsedRef.current = isPinnedSectionCollapsed;
-        persistWorkspaceSidebarSetting(
-            'pinned_section_collapsed',
-            isPinnedSectionCollapsed,
-        );
-    }, [
-        isPinnedSectionCollapsed,
-        isGroupingSettingsReady,
-        persistWorkspaceSidebarSetting,
-    ]);
-
-    useEffect(() => {
-        if (!isGroupingSettingsReady) return;
-        const serialized = JSON.stringify(
-            serializeWorkspaceSidebarFilters(sidebarWorkspaceFilters),
-        );
-        if (persistedSidebarFiltersRef.current === serialized) return;
-        persistedSidebarFiltersRef.current = serialized;
-        persistWorkspaceSidebarSetting(
-            'filters',
-            serializeWorkspaceSidebarFilters(sidebarWorkspaceFilters),
-        );
-    }, [
-        isGroupingSettingsReady,
-        persistWorkspaceSidebarSetting,
-        sidebarWorkspaceFilters,
-    ]);
-
-    useEffect(() => {
-        const projectIds = projects.map((project) => project.id);
-        const seen = seenProjectIdsRef.current;
-        if (seen.size === 0) {
-            const { expandedIds, nextSeenIds } = mergeExpandedProjectIds(
-                [],
-                projectIds,
-                seen,
-            );
-            seenProjectIdsRef.current = nextSeenIds;
-            setExpandedProjects(expandedIds);
-            return;
-        }
-
-        const added = projectIds.filter((id) => !seen.has(id));
-        if (added.length === 0) {
-            return;
-        }
-
-        seenProjectIdsRef.current = mergeExpandedProjectIds([], projectIds, seen).nextSeenIds;
-        setExpandedProjects((prev) => [...prev, ...added]);
-    }, [projects]);
-
-    const [scriptDialogProjectId, setScriptDialogProjectId] = useState<string | null>(null);
-    const [deleteProjectDialog, setDeleteProjectDialog] = useState<{
-        isOpen: boolean;
-        projectId: string;
-        projectName: string;
-        canDelete: boolean;
-    } | null>(null);
-
-    const currentProject = projects.find(p =>
-        (currentWorkspaceId && p.workspaces.some(w => w.id === currentWorkspaceId)) ||
-        (!currentWorkspaceId && currentProjectIdFromUrl === p.id)
-    );
-    const currentProjectId = currentProject?.id ?? null;
-    const currentSidebarRouteKey = `${currentView}:${currentProjectId ?? ''}:${currentWorkspaceId ?? ''}`;
-    const currentWorkspace = currentProject?.workspaces.find(w => w.id === currentWorkspaceId);
-    const currentEffectivePath = currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null;
-    const currentSetupProgress = useProjectStore((s) =>
-        currentWorkspaceId ? s.setupProgress[currentWorkspaceId] ?? null : null,
-    );
-    const isSettingUp = isWorkspaceSetupBlocking(currentSetupProgress);
-    const startCreating = useWorkspaceCreationStore((s) => s.startCreating);
-    const bindWorkspace = useWorkspaceCreationStore((s) => s.bindWorkspace);
-    const failCreating = useWorkspaceCreationStore((s) => s.failCreating);
-    // useShallow: mapping jobs to ids returns a new array each call. React 19
-    // useSyncExternalStore treats that as a changed snapshot and loops (error #185).
-    const openingWorkspaceIds = useWorkspaceCreationStore(
-      useShallow((s) =>
-        s.jobs.map((job) => job.workspaceId).filter((id): id is string => Boolean(id)),
-      ),
-    );
-
-    // One-shot: onboarding/import asks the sidebar to highlight a project without
-    // colliding with Add Workspace / ⌘N / GlobalSearch reuse of selectedProjectId.
-    useEffect(() => {
-        if (!pendingSidebarProjectId) return;
-        if (!projects.some((project) => project.id === pendingSidebarProjectId)) {
-            return;
-        }
-        setSelectedProjectSidebarId(pendingSidebarProjectId);
-        setProjectSidebarSelectionRouteKey(currentSidebarRouteKey);
-        setPendingSidebarProjectId(null);
-    }, [
-        currentSidebarRouteKey,
-        pendingSidebarProjectId,
-        projects,
-        setPendingSidebarProjectId,
-    ]);
-
-    // Git context rebind after paint — keep sidebar hover free during rapid switches.
-    useEffect(() => {
-        if (!currentProjectId || !currentEffectivePath) return;
-        let cancelled = false;
-        const outer = requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                if (cancelled) return;
-                if (currentWorkspaceId) {
-                    if (isSettingUp) {
-                        setCurrentContext(null, null, null);
-                    } else {
-                        setCurrentContext(currentProjectId, currentWorkspaceId, currentEffectivePath);
-                    }
-                } else {
-                    setCurrentContext(currentProjectId, null, currentEffectivePath);
-                }
-            });
-        });
-        return () => {
-            cancelled = true;
-            cancelAnimationFrame(outer);
-        };
-    }, [currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, setCurrentContext]);
-
-    useEffect(() => {
-        if (currentView !== 'workspace' || !currentWorkspaceId || isLoading || !hasLoadedProjects) {
-            return;
-        }
-
-        const workspaceStillExists = projects.some((project) =>
-            project.workspaces.some((workspace) => workspace.id === currentWorkspaceId)
-        );
-
-        if (!workspaceStillExists) {
-            if (openingWorkspaceIds.includes(currentWorkspaceId)) return;
-            router.replace('/');
-        }
-    }, [
-        currentView,
-        currentWorkspaceId,
-        hasLoadedProjects,
-        isLoading,
-        openingWorkspaceIds,
-        projects,
-        router,
-    ]);
-
-    // Debounce visited marks so rapid workspace switching does not thrash the
-    // project bootstrap snapshot (and re-render every sidebar row) on each hop.
-    // lastVisitedWorkspaceRef prevents re-scheduling after markWorkspaceVisited
-    // patches the bootstrap snapshot (which updates `projects` and re-runs this effect).
-    const pendingVisitedWorkspaceRef = useRef<string | null>(null);
-    const lastVisitedWorkspaceRef = useRef<string | null>(null);
-    const visitedMarkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    useEffect(() => {
-        if (currentView !== 'workspace' || !currentWorkspaceId) {
-            pendingVisitedWorkspaceRef.current = null;
-            lastVisitedWorkspaceRef.current = null;
-            if (visitedMarkTimerRef.current) {
-                clearTimeout(visitedMarkTimerRef.current);
-                visitedMarkTimerRef.current = null;
-            }
-            return;
-        }
-
-        if (isLoading) {
-            return;
-        }
-
-        if (lastVisitedWorkspaceRef.current === currentWorkspaceId) {
-            return;
-        }
-
-        const workspaceExists = projects.some((project) =>
-            project.workspaces.some((workspace) => workspace.id === currentWorkspaceId)
-        );
-        if (!workspaceExists) {
-            return;
-        }
-
-        pendingVisitedWorkspaceRef.current = currentWorkspaceId;
-        if (visitedMarkTimerRef.current) {
-            clearTimeout(visitedMarkTimerRef.current);
-        }
-        visitedMarkTimerRef.current = setTimeout(() => {
-            visitedMarkTimerRef.current = null;
-            const id = pendingVisitedWorkspaceRef.current;
-            if (!id) return;
-            pendingVisitedWorkspaceRef.current = null;
-            lastVisitedWorkspaceRef.current = id;
-            void markWorkspaceVisited(id);
-        }, 750);
-
-        return () => {
-            if (visitedMarkTimerRef.current) {
-                clearTimeout(visitedMarkTimerRef.current);
-                visitedMarkTimerRef.current = null;
-            }
-        };
-    }, [currentView, currentWorkspaceId, isLoading, markWorkspaceVisited, projects]);
-
-    const pendingVisitedProjectRef = useRef<string | null>(null);
-    const lastVisitedProjectRef = useRef<string | null>(null);
-    const visitedProjectMarkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    useEffect(() => {
-        if (currentView !== 'project' || !currentProjectId) {
-            pendingVisitedProjectRef.current = null;
-            lastVisitedProjectRef.current = null;
-            if (visitedProjectMarkTimerRef.current) {
-                clearTimeout(visitedProjectMarkTimerRef.current);
-                visitedProjectMarkTimerRef.current = null;
-            }
-            return;
-        }
-
-        if (isLoading) {
-            return;
-        }
-
-        if (lastVisitedProjectRef.current === currentProjectId) {
-            return;
-        }
-
-        const projectExists = projects.some((project) => project.id === currentProjectId);
-        if (!projectExists) {
-            return;
-        }
-
-        pendingVisitedProjectRef.current = currentProjectId;
-        if (visitedProjectMarkTimerRef.current) {
-            clearTimeout(visitedProjectMarkTimerRef.current);
-        }
-        visitedProjectMarkTimerRef.current = setTimeout(() => {
-            visitedProjectMarkTimerRef.current = null;
-            const id = pendingVisitedProjectRef.current;
-            if (!id) return;
-            pendingVisitedProjectRef.current = null;
-            lastVisitedProjectRef.current = id;
-            void markProjectVisited(id);
-        }, 750);
-
-        return () => {
-            if (visitedProjectMarkTimerRef.current) {
-                clearTimeout(visitedProjectMarkTimerRef.current);
-                visitedProjectMarkTimerRef.current = null;
-            }
-        };
-    }, [currentView, currentProjectId, isLoading, markProjectVisited, projects]);
-
-    useLeftSidebarFileTreeSync({
-        currentEffectivePath,
-        currentProjectId,
-        currentWorkspaceId,
-        effectiveContextId,
-        isSettingUp,
-    });
-
-    const toggleProject = (id: string) => {
-        setExpandedProjects(prev =>
-            prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
-        );
+      }, delay);
     };
 
-    const handleSelectProjectSidebar = useCallback((projectId: string) => {
-        setSelectedProjectSidebarId(projectId);
-        setProjectSidebarSelectionRouteKey(currentSidebarRouteKey);
-    }, [currentSidebarRouteKey]);
+    void tryLoad();
 
-    const toggleWorkspaceGroup = useCallback((groupKey: string) => {
-        setCollapsedWorkspaceGroups((prev) => ({
-            ...prev,
-            [groupKey]: !prev[groupKey],
-        }));
-    }, []);
+    return () => {
+      cancelled = true;
+      if (retryTimer !== null) {
+        window.clearTimeout(retryTimer);
+      }
+    };
+  }, [loadExperimentSettings, connectionEpoch]);
 
-    const handleSelectWorkspaceGroup = useCallback((groupKey: string) => {
-        setSelectedWorkspaceGroupKey(groupKey);
-        setWorkspaceGroupSelectionRouteKey(currentSidebarRouteKey);
-    }, [currentSidebarRouteKey]);
+  const {
+    isCreateProjectOpen,
+    setCreateProjectOpen,
+    setSelectedProjectId,
+    pendingSidebarProjectId,
+    setPendingSidebarProjectId,
+  } = useDialogStore();
 
-    const handleCreateGroupNamed = useCallback(async (name: string) => {
-        try {
-            return await createGroup(name);
-        } catch (error) {
-            console.error('Failed to create group:', error);
-            throw error;
-        }
-    }, []);
+  // Projects are now loaded by the TanStack Query bootstrap — no manual fetch needed.
 
-    const handleRenameGroupNamed = useCallback(async (groupId: string, name: string) => {
-        try {
-            await renameGroup(groupId, name);
-        } catch (error) {
-            console.error('Failed to rename group:', error);
-            throw error;
-        }
-    }, []);
+  useEffect(() => {
+    const scopeVersion = settingsScopeVersionRef.current + 1;
+    settingsScopeVersionRef.current = scopeVersion;
+    labelGroupOrderWriteVersionRef.current += 1;
+    labelGroupOrderWriteRef.current = Promise.resolve();
+    persistedGroupingModeRef.current = "project";
+    persistedSidebarViewRef.current = "workspace";
+    sidebarListViewOverrideRef.current = null;
+    persistedPinnedSectionCollapsedRef.current = false;
+    persistedLabelGroupOrderRef.current = [];
+    let retryTimer: number | null = null;
+    let retryAttempt = 0;
 
-    const handleDeleteGroup = useCallback(async (groupId: string) => {
-        try {
-            await deleteGroup(groupId);
-        } catch (error) {
-            console.error('Failed to delete group:', error);
-            throw error;
-        }
-    }, []);
+    const loadSettings = () => {
+      void functionSettingsApi
+        .get()
+        .then((settings) => {
+          if (settingsScopeVersionRef.current !== scopeVersion) return;
 
-    const handleGroupOrderChange = useCallback(async (orderedGroupIds: string[]) => {
-        try {
-            await reorderGroups(orderedGroupIds);
-        } catch (error) {
-            console.error('Failed to reorder groups:', error);
-        }
-    }, []);
+          // Sidebar grouping only — Tasks board uses `workspace_kanban_view.grouping_mode`.
+          const groupingModeSetting = settings.workspace_sidebar?.grouping_mode;
+          const nextGroupingMode = parseSidebarGroupingMode(groupingModeSetting);
+          persistedGroupingModeRef.current = nextGroupingMode;
+          setGroupingMode(nextGroupingMode);
+          const nextSidebarView = sidebarListViewToApply(
+            parseWorkspaceSidebarView(settings),
+            sidebarListViewOverrideRef.current,
+          );
+          persistedSidebarViewRef.current = nextSidebarView;
+          setSidebarListView(nextSidebarView);
 
-    const [adoptWorkspacesPending, setAdoptWorkspacesPending] =
-        useState<AdoptWorkspacesIntoGroupPending | null>(null);
-    const [adoptWorkspacesBusy, setAdoptWorkspacesBusy] = useState(false);
+          const savedLabelGroupOrder = settings.workspace_sidebar?.label_group_order;
+          const nextLabelGroupOrder = Array.isArray(savedLabelGroupOrder)
+            ? savedLabelGroupOrder.filter((item): item is string => typeof item === "string")
+            : [];
+          persistedLabelGroupOrderRef.current = nextLabelGroupOrder;
+          setLabelGroupOrder(nextLabelGroupOrder);
 
-    const applyProjectToGroup = useCallback(async (projectId: string, groupId: string) => {
-        await setGroupMember({
-            groupId,
-            memberType: 'project',
-            memberId: projectId,
+          const pinnedSectionCollapsed = settings.workspace_sidebar?.pinned_section_collapsed;
+          const nextPinnedSectionCollapsed =
+            typeof pinnedSectionCollapsed === "boolean" ? pinnedSectionCollapsed : false;
+          persistedPinnedSectionCollapsedRef.current = nextPinnedSectionCollapsed;
+          setIsPinnedSectionCollapsed(nextPinnedSectionCollapsed);
+          const nextSidebarFilters = parseWorkspaceSidebarFilters(settings);
+          persistedSidebarFiltersRef.current = JSON.stringify(
+            serializeWorkspaceSidebarFilters(nextSidebarFilters),
+          );
+          setSidebarWorkspaceFilters(nextSidebarFilters);
+          setSecondColumnKanbanCardProperties(parseWorkspaceKanbanCardProperties(settings));
+          setLoadedGroupingSettingsScopeKey(workspaceSidebarSettingsScopeKey);
+        })
+        .catch((error) => {
+          if (settingsScopeVersionRef.current !== scopeVersion) return;
+          // Reconnect invalidation cancels this read without changing
+          // the scope. Leaving it cancelled kept the default workspace
+          // view and dropped later view writes.
+          const cancelled = isCancelledError(error);
+          if (!cancelled) {
+            console.error("Failed to load workspace sidebar settings:", error);
+          }
+          const delay = Math.min((cancelled ? 50 : 1_000) * 2 ** retryAttempt, 15_000);
+          retryAttempt += 1;
+          retryTimer = window.setTimeout(loadSettings, delay);
         });
-    }, []);
+    };
 
-    const handleAddProjectToGroup = useCallback(async (projectId: string, groupId: string) => {
-        if (projectId === STANDALONE_GROUP_ID) return;
-        try {
-            const project = projects.find((item) => item.id === projectId);
-            if (!project) {
-                await applyProjectToGroup(projectId, groupId);
-                return;
-            }
-            const groupedWorkspaces = findGroupedWorkspacesForProject(groups, project);
-            if (groupedWorkspaces.length === 0) {
-                await applyProjectToGroup(projectId, groupId);
-                return;
-            }
-            const groupName =
-                groups.find((group) => group.id === groupId)?.name ?? groupsT('trigger');
-            setAdoptWorkspacesPending({
-                projectId,
-                projectName: project.name,
-                groupId,
-                groupName,
-                workspaces: groupedWorkspaces,
-            });
-        } catch (error) {
-            console.error('Failed to add project to group:', error);
+    queueMicrotask(() => {
+      if (settingsScopeVersionRef.current !== scopeVersion) return;
+      setGroupingMode("project");
+      setSidebarListView(sidebarListViewToApply("workspace", sidebarListViewOverrideRef.current));
+      setLabelGroupOrder([]);
+      setIsPinnedSectionCollapsed(false);
+      persistedSidebarFiltersRef.current = JSON.stringify(
+        serializeWorkspaceSidebarFilters(EMPTY_WORKSPACE_KANBAN_FILTERS),
+      );
+      setSidebarWorkspaceFilters(EMPTY_WORKSPACE_KANBAN_FILTERS);
+      setSecondColumnKanbanCardProperties(DEFAULT_KANBAN_CARD_PROPERTIES);
+      loadSettings();
+    });
+
+    return () => {
+      if (retryTimer !== null) {
+        window.clearTimeout(retryTimer);
+      }
+      if (settingsScopeVersionRef.current === scopeVersion) {
+        settingsScopeVersionRef.current += 1;
+      }
+    };
+  }, [workspaceSidebarSettingsScopeKey]);
+
+  useEffect(() => {
+    if (!isGroupingSettingsReady) return;
+    if (persistedGroupingModeRef.current === groupingMode) return;
+    persistedGroupingModeRef.current = groupingMode;
+    persistWorkspaceSidebarSetting("grouping_mode", groupingMode);
+  }, [groupingMode, isGroupingSettingsReady, persistWorkspaceSidebarSetting]);
+
+  useEffect(() => {
+    if (!isGroupingSettingsReady) return;
+    if (persistedSidebarViewRef.current === sidebarListView) return;
+    persistedSidebarViewRef.current = sidebarListView;
+    persistWorkspaceSidebarSetting("view", sidebarListView);
+  }, [isGroupingSettingsReady, persistWorkspaceSidebarSetting, sidebarListView]);
+
+  useEffect(() => {
+    if (!isGroupingSettingsReady) return;
+    if (persistedPinnedSectionCollapsedRef.current === isPinnedSectionCollapsed) return;
+    persistedPinnedSectionCollapsedRef.current = isPinnedSectionCollapsed;
+    persistWorkspaceSidebarSetting("pinned_section_collapsed", isPinnedSectionCollapsed);
+  }, [isPinnedSectionCollapsed, isGroupingSettingsReady, persistWorkspaceSidebarSetting]);
+
+  useEffect(() => {
+    if (!isGroupingSettingsReady) return;
+    const serialized = JSON.stringify(serializeWorkspaceSidebarFilters(sidebarWorkspaceFilters));
+    if (persistedSidebarFiltersRef.current === serialized) return;
+    persistedSidebarFiltersRef.current = serialized;
+    persistWorkspaceSidebarSetting(
+      "filters",
+      serializeWorkspaceSidebarFilters(sidebarWorkspaceFilters),
+    );
+  }, [isGroupingSettingsReady, persistWorkspaceSidebarSetting, sidebarWorkspaceFilters]);
+
+  useEffect(() => {
+    const projectIds = projects.map((project) => project.id);
+    const seen = seenProjectIdsRef.current;
+    if (seen.size === 0) {
+      const { expandedIds, nextSeenIds } = mergeExpandedProjectIds([], projectIds, seen);
+      seenProjectIdsRef.current = nextSeenIds;
+      setExpandedProjects(expandedIds);
+      return;
+    }
+
+    const added = projectIds.filter((id) => !seen.has(id));
+    if (added.length === 0) {
+      return;
+    }
+
+    seenProjectIdsRef.current = mergeExpandedProjectIds([], projectIds, seen).nextSeenIds;
+    setExpandedProjects((prev) => [...prev, ...added]);
+  }, [projects]);
+
+  const [scriptDialogProjectId, setScriptDialogProjectId] = useState<string | null>(null);
+  const [deleteProjectDialog, setDeleteProjectDialog] = useState<{
+    isOpen: boolean;
+    projectId: string;
+    projectName: string;
+    canDelete: boolean;
+  } | null>(null);
+
+  const currentProject = projects.find(
+    (p) =>
+      (currentWorkspaceId && p.workspaces.some((w) => w.id === currentWorkspaceId)) ||
+      (!currentWorkspaceId && currentProjectIdFromUrl === p.id),
+  );
+  const currentProjectId = currentProject?.id ?? null;
+  const currentSidebarRouteKey = `${currentView}:${currentProjectId ?? ""}:${currentWorkspaceId ?? ""}`;
+  const currentWorkspace = currentProject?.workspaces.find((w) => w.id === currentWorkspaceId);
+  const currentEffectivePath = currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null;
+  const currentSetupProgress = useProjectStore((s) =>
+    currentWorkspaceId ? (s.setupProgress[currentWorkspaceId] ?? null) : null,
+  );
+  const isSettingUp = isWorkspaceSetupBlocking(currentSetupProgress);
+  const startCreating = useWorkspaceCreationStore((s) => s.startCreating);
+  const bindWorkspace = useWorkspaceCreationStore((s) => s.bindWorkspace);
+  const failCreating = useWorkspaceCreationStore((s) => s.failCreating);
+  // useShallow: mapping jobs to ids returns a new array each call. React 19
+  // useSyncExternalStore treats that as a changed snapshot and loops (error #185).
+  const openingWorkspaceIds = useWorkspaceCreationStore(
+    useShallow((s) =>
+      s.jobs.map((job) => job.workspaceId).filter((id): id is string => Boolean(id)),
+    ),
+  );
+
+  // One-shot: onboarding/import asks the sidebar to highlight a project without
+  // colliding with Add Workspace / ⌘N / GlobalSearch reuse of selectedProjectId.
+  useEffect(() => {
+    if (!pendingSidebarProjectId) return;
+    if (!projects.some((project) => project.id === pendingSidebarProjectId)) {
+      return;
+    }
+    setSelectedProjectSidebarId(pendingSidebarProjectId);
+    setProjectSidebarSelectionRouteKey(currentSidebarRouteKey);
+    setPendingSidebarProjectId(null);
+  }, [currentSidebarRouteKey, pendingSidebarProjectId, projects, setPendingSidebarProjectId]);
+
+  // Git context rebind after paint — keep sidebar hover free during rapid switches.
+  useEffect(() => {
+    if (!currentProjectId || !currentEffectivePath) return;
+    let cancelled = false;
+    const outer = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        if (currentWorkspaceId) {
+          if (isSettingUp) {
+            setCurrentContext(null, null, null);
+          } else {
+            setCurrentContext(currentProjectId, currentWorkspaceId, currentEffectivePath);
+          }
+        } else {
+          setCurrentContext(currentProjectId, null, currentEffectivePath);
         }
-    }, [applyProjectToGroup, groups, groupsT, projects]);
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(outer);
+    };
+  }, [currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, setCurrentContext]);
 
-    const handleAdoptWorkspacesClose = useCallback(() => {
-        if (adoptWorkspacesBusy) return;
-        setAdoptWorkspacesPending(null);
-    }, [adoptWorkspacesBusy]);
+  useEffect(() => {
+    if (currentView !== "workspace" || !currentWorkspaceId || isLoading || !hasLoadedProjects) {
+      return;
+    }
 
-    const handleAdoptWorkspacesProjectOnly = useCallback(async () => {
-        if (!adoptWorkspacesPending) return;
-        setAdoptWorkspacesBusy(true);
-        try {
-            await applyProjectToGroup(
-                adoptWorkspacesPending.projectId,
-                adoptWorkspacesPending.groupId,
-            );
-            setAdoptWorkspacesPending(null);
-        } catch (error) {
-            console.error('Failed to add project to group:', error);
-        } finally {
-            setAdoptWorkspacesBusy(false);
+    const workspaceStillExists = projects.some((project) =>
+      project.workspaces.some((workspace) => workspace.id === currentWorkspaceId),
+    );
+
+    if (!workspaceStillExists) {
+      if (openingWorkspaceIds.includes(currentWorkspaceId)) return;
+      router.replace("/");
+    }
+  }, [
+    currentView,
+    currentWorkspaceId,
+    hasLoadedProjects,
+    isLoading,
+    openingWorkspaceIds,
+    projects,
+    router,
+  ]);
+
+  // Debounce visited marks so rapid workspace switching does not thrash the
+  // project bootstrap snapshot (and re-render every sidebar row) on each hop.
+  // lastVisitedWorkspaceRef prevents re-scheduling after markWorkspaceVisited
+  // patches the bootstrap snapshot (which updates `projects` and re-runs this effect).
+  const pendingVisitedWorkspaceRef = useRef<string | null>(null);
+  const lastVisitedWorkspaceRef = useRef<string | null>(null);
+  const visitedMarkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (currentView !== "workspace" || !currentWorkspaceId) {
+      pendingVisitedWorkspaceRef.current = null;
+      lastVisitedWorkspaceRef.current = null;
+      if (visitedMarkTimerRef.current) {
+        clearTimeout(visitedMarkTimerRef.current);
+        visitedMarkTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (isLoading) {
+      return;
+    }
+
+    if (lastVisitedWorkspaceRef.current === currentWorkspaceId) {
+      return;
+    }
+
+    const workspaceExists = projects.some((project) =>
+      project.workspaces.some((workspace) => workspace.id === currentWorkspaceId),
+    );
+    if (!workspaceExists) {
+      return;
+    }
+
+    pendingVisitedWorkspaceRef.current = currentWorkspaceId;
+    if (visitedMarkTimerRef.current) {
+      clearTimeout(visitedMarkTimerRef.current);
+    }
+    visitedMarkTimerRef.current = setTimeout(() => {
+      visitedMarkTimerRef.current = null;
+      const id = pendingVisitedWorkspaceRef.current;
+      if (!id) return;
+      pendingVisitedWorkspaceRef.current = null;
+      lastVisitedWorkspaceRef.current = id;
+      void markWorkspaceVisited(id);
+    }, 750);
+
+    return () => {
+      if (visitedMarkTimerRef.current) {
+        clearTimeout(visitedMarkTimerRef.current);
+        visitedMarkTimerRef.current = null;
+      }
+    };
+  }, [currentView, currentWorkspaceId, isLoading, markWorkspaceVisited, projects]);
+
+  const pendingVisitedProjectRef = useRef<string | null>(null);
+  const lastVisitedProjectRef = useRef<string | null>(null);
+  const visitedProjectMarkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (currentView !== "project" || !currentProjectId) {
+      pendingVisitedProjectRef.current = null;
+      lastVisitedProjectRef.current = null;
+      if (visitedProjectMarkTimerRef.current) {
+        clearTimeout(visitedProjectMarkTimerRef.current);
+        visitedProjectMarkTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (isLoading) {
+      return;
+    }
+
+    if (lastVisitedProjectRef.current === currentProjectId) {
+      return;
+    }
+
+    const projectExists = projects.some((project) => project.id === currentProjectId);
+    if (!projectExists) {
+      return;
+    }
+
+    pendingVisitedProjectRef.current = currentProjectId;
+    if (visitedProjectMarkTimerRef.current) {
+      clearTimeout(visitedProjectMarkTimerRef.current);
+    }
+    visitedProjectMarkTimerRef.current = setTimeout(() => {
+      visitedProjectMarkTimerRef.current = null;
+      const id = pendingVisitedProjectRef.current;
+      if (!id) return;
+      pendingVisitedProjectRef.current = null;
+      lastVisitedProjectRef.current = id;
+      void markProjectVisited(id);
+    }, 750);
+
+    return () => {
+      if (visitedProjectMarkTimerRef.current) {
+        clearTimeout(visitedProjectMarkTimerRef.current);
+        visitedProjectMarkTimerRef.current = null;
+      }
+    };
+  }, [currentView, currentProjectId, isLoading, markProjectVisited, projects]);
+
+  useLeftSidebarFileTreeSync({
+    currentEffectivePath,
+    currentProjectId,
+    currentWorkspaceId,
+    effectiveContextId,
+    isSettingUp,
+  });
+
+  const toggleProject = (id: string) => {
+    setExpandedProjects((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
+    );
+  };
+
+  const handleSelectProjectSidebar = useCallback(
+    (projectId: string) => {
+      setSelectedProjectSidebarId(projectId);
+      setProjectSidebarSelectionRouteKey(currentSidebarRouteKey);
+    },
+    [currentSidebarRouteKey],
+  );
+
+  const toggleWorkspaceGroup = useCallback((groupKey: string) => {
+    setCollapsedWorkspaceGroups((prev) => ({
+      ...prev,
+      [groupKey]: !prev[groupKey],
+    }));
+  }, []);
+
+  const handleSelectWorkspaceGroup = useCallback(
+    (groupKey: string) => {
+      setSelectedWorkspaceGroupKey(groupKey);
+      setWorkspaceGroupSelectionRouteKey(currentSidebarRouteKey);
+    },
+    [currentSidebarRouteKey],
+  );
+
+  const handleCreateGroupNamed = useCallback(async (name: string) => {
+    try {
+      return await createGroup(name);
+    } catch (error) {
+      console.error("Failed to create group:", error);
+      throw error;
+    }
+  }, []);
+
+  const handleRenameGroupNamed = useCallback(async (groupId: string, name: string) => {
+    try {
+      await renameGroup(groupId, name);
+    } catch (error) {
+      console.error("Failed to rename group:", error);
+      throw error;
+    }
+  }, []);
+
+  const handleDeleteGroup = useCallback(async (groupId: string) => {
+    try {
+      await deleteGroup(groupId);
+    } catch (error) {
+      console.error("Failed to delete group:", error);
+      throw error;
+    }
+  }, []);
+
+  const handleGroupOrderChange = useCallback(async (orderedGroupIds: string[]) => {
+    try {
+      await reorderGroups(orderedGroupIds);
+    } catch (error) {
+      console.error("Failed to reorder groups:", error);
+    }
+  }, []);
+
+  const [adoptWorkspacesPending, setAdoptWorkspacesPending] =
+    useState<AdoptWorkspacesIntoGroupPending | null>(null);
+  const [adoptWorkspacesBusy, setAdoptWorkspacesBusy] = useState(false);
+
+  const applyProjectToGroup = useCallback(async (projectId: string, groupId: string) => {
+    await setGroupMember({
+      groupId,
+      memberType: "project",
+      memberId: projectId,
+    });
+  }, []);
+
+  const handleAddProjectToGroup = useCallback(
+    async (projectId: string, groupId: string) => {
+      if (projectId === STANDALONE_GROUP_ID) return;
+      try {
+        const project = projects.find((item) => item.id === projectId);
+        if (!project) {
+          await applyProjectToGroup(projectId, groupId);
+          return;
         }
-    }, [adoptWorkspacesPending, applyProjectToGroup]);
-
-    const handleAdoptWorkspacesConfirm = useCallback(async () => {
-        if (!adoptWorkspacesPending) return;
-        setAdoptWorkspacesBusy(true);
-        try {
-            for (const workspace of adoptWorkspacesPending.workspaces) {
-                await removeGroupMember({
-                    memberType: 'workspace',
-                    memberId: workspace.workspaceId,
-                });
-            }
-            await applyProjectToGroup(
-                adoptWorkspacesPending.projectId,
-                adoptWorkspacesPending.groupId,
-            );
-            setAdoptWorkspacesPending(null);
-        } catch (error) {
-            console.error('Failed to adopt workspaces into project group:', error);
-        } finally {
-            setAdoptWorkspacesBusy(false);
+        const groupedWorkspaces = findGroupedWorkspacesForProject(groups, project);
+        if (groupedWorkspaces.length === 0) {
+          await applyProjectToGroup(projectId, groupId);
+          return;
         }
-    }, [adoptWorkspacesPending, applyProjectToGroup]);
-
-    const handleRemoveProjectFromGroup = useCallback(async (projectId: string) => {
-        try {
-            await removeGroupMember({ memberType: 'project', memberId: projectId });
-        } catch (error) {
-            console.error('Failed to remove project from group:', error);
-        }
-    }, []);
-
-    const [followProjectPending, setFollowProjectPending] =
-        useState<FollowProjectInGroupPending | null>(null);
-    const [followProjectBusy, setFollowProjectBusy] = useState(false);
-
-    const applyWorkspaceToGroup = useCallback(async (workspaceId: string, groupId: string) => {
-        await setGroupMember({
-            groupId,
-            memberType: 'workspace',
-            memberId: workspaceId,
+        const groupName = groups.find((group) => group.id === groupId)?.name ?? groupsT("trigger");
+        setAdoptWorkspacesPending({
+          projectId,
+          projectName: project.name,
+          groupId,
+          groupName,
+          workspaces: groupedWorkspaces,
         });
-    }, []);
+      } catch (error) {
+        console.error("Failed to add project to group:", error);
+      }
+    },
+    [applyProjectToGroup, groups, groupsT, projects],
+  );
 
-    /**
-     * If the workspace's parent project is already in the target group, ask whether
-     * to drop workspace-level membership so it only appears under the project.
-     */
-    const requestWorkspaceGroupAssignment = useCallback((workspaceId: string, groupId: string) => {
-        const project = projects.find((item) =>
-            item.workspaces.some((workspace) => workspace.id === workspaceId),
-        );
-        const workspace = project?.workspaces.find((item) => item.id === workspaceId);
-        if (!project || !workspace) {
-            void applyWorkspaceToGroup(workspaceId, groupId).catch((error) => {
-                console.error('Failed to add workspace to group:', error);
-            });
-            return;
-        }
+  const handleAdoptWorkspacesClose = useCallback(() => {
+    if (adoptWorkspacesBusy) return;
+    setAdoptWorkspacesPending(null);
+  }, [adoptWorkspacesBusy]);
 
-        const projectGroupId = findGroupIdForMember(groups, 'project', project.id);
-        if (projectGroupId !== groupId) {
-            void applyWorkspaceToGroup(workspaceId, groupId).catch((error) => {
-                console.error('Failed to add workspace to group:', error);
-            });
-            return;
-        }
+  const handleAdoptWorkspacesProjectOnly = useCallback(async () => {
+    if (!adoptWorkspacesPending) return;
+    setAdoptWorkspacesBusy(true);
+    try {
+      await applyProjectToGroup(adoptWorkspacesPending.projectId, adoptWorkspacesPending.groupId);
+      setAdoptWorkspacesPending(null);
+    } catch (error) {
+      console.error("Failed to add project to group:", error);
+    } finally {
+      setAdoptWorkspacesBusy(false);
+    }
+  }, [adoptWorkspacesPending, applyProjectToGroup]);
 
-        const groupName =
-            groups.find((group) => group.id === groupId)?.name ?? groupsT('trigger');
-        setFollowProjectPending({
-            workspaceId,
-            workspaceName: workspace.displayName?.trim() || workspace.name,
-            projectId: project.id,
-            projectName: project.name,
-            groupId,
-            groupName,
+  const handleAdoptWorkspacesConfirm = useCallback(async () => {
+    if (!adoptWorkspacesPending) return;
+    setAdoptWorkspacesBusy(true);
+    try {
+      for (const workspace of adoptWorkspacesPending.workspaces) {
+        await removeGroupMember({
+          memberType: "workspace",
+          memberId: workspace.workspaceId,
         });
-    }, [applyWorkspaceToGroup, groups, groupsT, projects]);
+      }
+      await applyProjectToGroup(adoptWorkspacesPending.projectId, adoptWorkspacesPending.groupId);
+      setAdoptWorkspacesPending(null);
+    } catch (error) {
+      console.error("Failed to adopt workspaces into project group:", error);
+    } finally {
+      setAdoptWorkspacesBusy(false);
+    }
+  }, [adoptWorkspacesPending, applyProjectToGroup]);
 
-    const handleAddWorkspaceToGroup = useCallback(async (workspaceId: string, groupId: string) => {
+  const handleRemoveProjectFromGroup = useCallback(async (projectId: string) => {
+    try {
+      await removeGroupMember({ memberType: "project", memberId: projectId });
+    } catch (error) {
+      console.error("Failed to remove project from group:", error);
+    }
+  }, []);
+
+  const [followProjectPending, setFollowProjectPending] =
+    useState<FollowProjectInGroupPending | null>(null);
+  const [followProjectBusy, setFollowProjectBusy] = useState(false);
+
+  const applyWorkspaceToGroup = useCallback(async (workspaceId: string, groupId: string) => {
+    await setGroupMember({
+      groupId,
+      memberType: "workspace",
+      memberId: workspaceId,
+    });
+  }, []);
+
+  /**
+   * If the workspace's parent project is already in the target group, ask whether
+   * to drop workspace-level membership so it only appears under the project.
+   */
+  const requestWorkspaceGroupAssignment = useCallback(
+    (workspaceId: string, groupId: string) => {
+      const project = projects.find((item) =>
+        item.workspaces.some((workspace) => workspace.id === workspaceId),
+      );
+      const workspace = project?.workspaces.find((item) => item.id === workspaceId);
+      if (!project || !workspace) {
+        void applyWorkspaceToGroup(workspaceId, groupId).catch((error) => {
+          console.error("Failed to add workspace to group:", error);
+        });
+        return;
+      }
+
+      const projectGroupId = findGroupIdForMember(groups, "project", project.id);
+      if (projectGroupId !== groupId) {
+        void applyWorkspaceToGroup(workspaceId, groupId).catch((error) => {
+          console.error("Failed to add workspace to group:", error);
+        });
+        return;
+      }
+
+      const groupName = groups.find((group) => group.id === groupId)?.name ?? groupsT("trigger");
+      setFollowProjectPending({
+        workspaceId,
+        workspaceName: workspace.displayName?.trim() || workspace.name,
+        projectId: project.id,
+        projectName: project.name,
+        groupId,
+        groupName,
+      });
+    },
+    [applyWorkspaceToGroup, groups, groupsT, projects],
+  );
+
+  const handleAddWorkspaceToGroup = useCallback(
+    async (workspaceId: string, groupId: string) => {
+      requestWorkspaceGroupAssignment(workspaceId, groupId);
+    },
+    [requestWorkspaceGroupAssignment],
+  );
+
+  const handleRemoveWorkspaceFromGroup = useCallback(async (workspaceId: string) => {
+    try {
+      await removeGroupMember({ memberType: "workspace", memberId: workspaceId });
+    } catch (error) {
+      console.error("Failed to remove workspace from group:", error);
+    }
+  }, []);
+
+  const handleSetWorkspaceGroup = useCallback(
+    async (workspaceId: string, groupId: string | null) => {
+      try {
+        if (!groupId) {
+          await removeGroupMember({ memberType: "workspace", memberId: workspaceId });
+          return;
+        }
         requestWorkspaceGroupAssignment(workspaceId, groupId);
-    }, [requestWorkspaceGroupAssignment]);
+      } catch (error) {
+        console.error("Failed to set workspace group:", error);
+      }
+    },
+    [requestWorkspaceGroupAssignment],
+  );
 
-    const handleRemoveWorkspaceFromGroup = useCallback(async (workspaceId: string) => {
-        try {
-            await removeGroupMember({ memberType: 'workspace', memberId: workspaceId });
-        } catch (error) {
-            console.error('Failed to remove workspace from group:', error);
-        }
-    }, []);
+  const handleFollowProjectClose = useCallback(() => {
+    if (followProjectBusy) return;
+    setFollowProjectPending(null);
+  }, [followProjectBusy]);
 
-    const handleSetWorkspaceGroup = useCallback(async (workspaceId: string, groupId: string | null) => {
-        try {
-            if (!groupId) {
-                await removeGroupMember({ memberType: 'workspace', memberId: workspaceId });
-                return;
-            }
-            requestWorkspaceGroupAssignment(workspaceId, groupId);
-        } catch (error) {
-            console.error('Failed to set workspace group:', error);
-        }
-    }, [requestWorkspaceGroupAssignment]);
-
-    const handleFollowProjectClose = useCallback(() => {
-        if (followProjectBusy) return;
-        setFollowProjectPending(null);
-    }, [followProjectBusy]);
-
-    const handleFollowProjectConfirm = useCallback(async () => {
-        if (!followProjectPending) return;
-        setFollowProjectBusy(true);
-        try {
-            // Drop workspace-level membership so it only appears under the project in the group.
-            const existing = findGroupIdForMember(
-                groups,
-                'workspace',
-                followProjectPending.workspaceId,
-            );
-            if (existing) {
-                await removeGroupMember({
-                    memberType: 'workspace',
-                    memberId: followProjectPending.workspaceId,
-                });
-            }
-            setFollowProjectPending(null);
-        } catch (error) {
-            console.error('Failed to unlink workspace to follow project:', error);
-        } finally {
-            setFollowProjectBusy(false);
-        }
-    }, [followProjectPending, groups]);
-
-    const handleFollowProjectAssignWorkspace = useCallback(async () => {
-        if (!followProjectPending) return;
-        setFollowProjectBusy(true);
-        try {
-            await applyWorkspaceToGroup(
-                followProjectPending.workspaceId,
-                followProjectPending.groupId,
-            );
-            setFollowProjectPending(null);
-        } catch (error) {
-            console.error('Failed to assign workspace to group:', error);
-        } finally {
-            setFollowProjectBusy(false);
-        }
-    }, [applyWorkspaceToGroup, followProjectPending]);
-
-    const handleLabelGroupOrderChange = useCallback((labelIds: string[]) => {
-        setLabelGroupOrder(labelIds);
-
-        const expectedScope = {
-            activeInstanceId,
-            connectionEpoch,
-            relaySessionRevision,
-        };
-        const settingsScopeVersion = settingsScopeVersionRef.current;
-        const writeVersion = labelGroupOrderWriteVersionRef.current + 1;
-        labelGroupOrderWriteVersionRef.current = writeVersion;
-        const write = labelGroupOrderWriteRef.current
-            .catch(() => undefined)
-            .then(async () => {
-                if (!isComputerQueryScopeCurrent(expectedScope)) return;
-                if (settingsScopeVersionRef.current !== settingsScopeVersion) return;
-                const result = await functionSettingsApi.update(
-                    'workspace_sidebar',
-                    'label_group_order',
-                    labelIds,
-                    expectedScope,
-                );
-                if (!isComputerQueryScopeCurrent(expectedScope)) return;
-                if (settingsScopeVersionRef.current !== settingsScopeVersion) return;
-                if (!result.ok) {
-                    throw new Error('Failed to persist workspace label group order');
-                }
-                persistedLabelGroupOrderRef.current = labelIds;
-            });
-        labelGroupOrderWriteRef.current = write;
-
-        void write.catch((error) => {
-            if (!isComputerQueryScopeCurrent(expectedScope)) return;
-            console.error('Failed to persist workspace label group order:', error);
-            if (settingsScopeVersionRef.current !== settingsScopeVersion) return;
-            if (labelGroupOrderWriteVersionRef.current !== writeVersion) return;
-
-            const persistedOrder = persistedLabelGroupOrderRef.current;
-            setLabelGroupOrder([...persistedOrder]);
+  const handleFollowProjectConfirm = useCallback(async () => {
+    if (!followProjectPending) return;
+    setFollowProjectBusy(true);
+    try {
+      // Drop workspace-level membership so it only appears under the project in the group.
+      const existing = findGroupIdForMember(groups, "workspace", followProjectPending.workspaceId);
+      if (existing) {
+        await removeGroupMember({
+          memberType: "workspace",
+          memberId: followProjectPending.workspaceId,
         });
-    }, [activeInstanceId, connectionEpoch, relaySessionRevision]);
+      }
+      setFollowProjectPending(null);
+    } catch (error) {
+      console.error("Failed to unlink workspace to follow project:", error);
+    } finally {
+      setFollowProjectBusy(false);
+    }
+  }, [followProjectPending, groups]);
 
-    const handleAddProject = () => {
-        setCreateProjectOpen(true);
-    };
+  const handleFollowProjectAssignWorkspace = useCallback(async () => {
+    if (!followProjectPending) return;
+    setFollowProjectBusy(true);
+    try {
+      await applyWorkspaceToGroup(followProjectPending.workspaceId, followProjectPending.groupId);
+      setFollowProjectPending(null);
+    } catch (error) {
+      console.error("Failed to assign workspace to group:", error);
+    } finally {
+      setFollowProjectBusy(false);
+    }
+  }, [applyWorkspaceToGroup, followProjectPending]);
 
-    const handleAddWorkspace = useCallback((projectId: string) => {
-        if (currentView === "welcome") {
-            return;
-        }
-        setSelectedProjectId(projectId);
-        void setNewWorkspace(true);
-    }, [currentView, setSelectedProjectId, setNewWorkspace]);
+  const handleLabelGroupOrderChange = useCallback(
+    (labelIds: string[]) => {
+      setLabelGroupOrder(labelIds);
 
-    /**
-     * Open the New Workspace dialog scoped to the currently active project (or
-     * empty selection when there is no active project). Used by sidebar card click.
-     * Does nothing if on the welcome page (which already has a composer).
-     */
-    const handleOpenNewWorkspace = useCallback(() => {
-        if (currentView === "welcome") {
-            return;
-        }
-        setSelectedProjectId(currentProjectId ?? "");
-        void setNewWorkspace(true);
-    }, [currentProjectId, setNewWorkspace, setSelectedProjectId, currentView]);
-
-    /**
-     * Toggle the New Workspace dialog. Used by the global ⌘N hotkey.
-     * If already open, close it; if closed, open it.
-     * Does nothing if on the welcome page (which already has a composer).
-     */
-    const handleToggleNewWorkspace = useCallback(() => {
-        if (currentView === "welcome") {
-            return;
-        }
-        setSelectedProjectId(currentProjectId ?? "");
-        void setNewWorkspace(!newWorkspace);
-    }, [currentProjectId, setNewWorkspace, setSelectedProjectId, newWorkspace, currentView]);
-
-    /**
-     * Toggle the Canvas/Presentation overlay. Used by the global ⌘⇧H hotkey.
-     * If already open, close it; if closed, open it.
-     */
-    const handleToggleCanvas = useCallback(() => {
-        void setCanvasOpen(!canvasOpen);
-    }, [canvasOpen, setCanvasOpen]);
-
-    // ⌘N → toggle the New Workspace overlay from anywhere in the app.
-    useHotkeys(
-        "mod+n",
-        handleToggleNewWorkspace,
-        { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
-        [handleToggleNewWorkspace],
-    );
-
-    // ⌘⇧H → toggle the Canvas/Presentation overlay from anywhere in the app.
-    useHotkeys(
-        "mod+shift+h",
-        handleToggleCanvas,
-        { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
-        [handleToggleCanvas],
-    );
-
-    // ⌘⇧K → open the Kanban board in center stage (restore last Atmos/GitHub/Linear tab).
-    useHotkeys(
-        "mod+shift+k",
-        () => {
-            router.push(tasksPathWithStoredSource());
-        },
-        { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
-        [router],
-    );
-
-    useEffect(() => {
-        registerSidebarStripShortcutHandler((digit) => {
-            const target = collectSidebarShortcutTargets(document)[digit - 1];
-            if (!target) return false;
-            if (target.kind === "workspace") {
-                const jobGuid = parseStandaloneScope(target.id);
-                if (jobGuid) {
-                    router.push(standaloneJobHref(jobGuid));
-                    return true;
-                }
-                router.push(`/workspace?id=${target.id}`);
-                return true;
-            }
-            if (target.id === STANDALONE_GROUP_ID) {
-                return true;
-            }
-            router.push(`/project?id=${target.id}`);
-            return true;
+      const expectedScope = {
+        activeInstanceId,
+        connectionEpoch,
+        relaySessionRevision,
+      };
+      const settingsScopeVersion = settingsScopeVersionRef.current;
+      const writeVersion = labelGroupOrderWriteVersionRef.current + 1;
+      labelGroupOrderWriteVersionRef.current = writeVersion;
+      const write = labelGroupOrderWriteRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          if (!isComputerQueryScopeCurrent(expectedScope)) return;
+          if (settingsScopeVersionRef.current !== settingsScopeVersion) return;
+          const result = await functionSettingsApi.update(
+            "workspace_sidebar",
+            "label_group_order",
+            labelIds,
+            expectedScope,
+          );
+          if (!isComputerQueryScopeCurrent(expectedScope)) return;
+          if (settingsScopeVersionRef.current !== settingsScopeVersion) return;
+          if (!result.ok) {
+            throw new Error("Failed to persist workspace label group order");
+          }
+          persistedLabelGroupOrderRef.current = labelIds;
         });
-        return () => registerSidebarStripShortcutHandler(null);
-    }, [router]);
+      labelGroupOrderWriteRef.current = write;
 
-    useHotkeys(
-        SIDEBAR_STRIP_POSITION_HOTKEYS,
-        (event) => {
-            if (!isCenterStageHotkeyTarget(event.target)) return;
-            const digit = centerStripShortcutDigitFromEvent(event);
-            if (digit == null) return;
-            if (!dispatchCenterRegionDigitShortcut({ digit, shift: true })) return;
-            consumeCenterRegionDigitEvent(event);
-        },
-        CENTER_REGION_DIGIT_HOTKEY_OPTIONS,
-        [router],
-    );
+      void write.catch((error) => {
+        if (!isComputerQueryScopeCurrent(expectedScope)) return;
+        console.error("Failed to persist workspace label group order:", error);
+        if (settingsScopeVersionRef.current !== settingsScopeVersion) return;
+        if (labelGroupOrderWriteVersionRef.current !== writeVersion) return;
 
-    const handleQuickAddWorkspace = async (projectId: string) => {
-        if (projectId === STANDALONE_GROUP_ID) return;
-        const jobId = startCreating({
-            originKey: getWorkspaceCreateOriginKey({
-                currentView,
-                workspaceId: currentWorkspaceId,
-                projectId: currentProjectIdFromUrl,
-            }),
-        });
-        const workspaceId = await quickAddWorkspace(projectId);
-        if (workspaceId) {
-            bindWorkspace(jobId, workspaceId);
-            return;
+        const persistedOrder = persistedLabelGroupOrderRef.current;
+        setLabelGroupOrder([...persistedOrder]);
+      });
+    },
+    [activeInstanceId, connectionEpoch, relaySessionRevision],
+  );
+
+  const handleAddProject = () => {
+    setCreateProjectOpen(true);
+  };
+
+  const handleAddWorkspace = useCallback(
+    (projectId: string) => {
+      if (currentView === "welcome") {
+        return;
+      }
+      setSelectedProjectId(projectId);
+      void setNewWorkspace(true);
+    },
+    [currentView, setSelectedProjectId, setNewWorkspace],
+  );
+
+  /**
+   * Open the New Workspace dialog scoped to the currently active project (or
+   * empty selection when there is no active project). Used by sidebar card click.
+   * Does nothing if on the welcome page (which already has a composer).
+   */
+  const handleOpenNewWorkspace = useCallback(() => {
+    if (currentView === "welcome") {
+      return;
+    }
+    setSelectedProjectId(currentProjectId ?? "");
+    void setNewWorkspace(true);
+  }, [currentProjectId, setNewWorkspace, setSelectedProjectId, currentView]);
+
+  /**
+   * Toggle the New Workspace dialog. Used by the global ⌘N hotkey.
+   * If already open, close it; if closed, open it.
+   * Does nothing if on the welcome page (which already has a composer).
+   */
+  const handleToggleNewWorkspace = useCallback(() => {
+    if (currentView === "welcome") {
+      return;
+    }
+    setSelectedProjectId(currentProjectId ?? "");
+    void setNewWorkspace(!newWorkspace);
+  }, [currentProjectId, setNewWorkspace, setSelectedProjectId, newWorkspace, currentView]);
+
+  /**
+   * Toggle the Canvas/Presentation overlay. Used by the global ⌘⇧H hotkey.
+   * If already open, close it; if closed, open it.
+   */
+  const handleToggleCanvas = useCallback(() => {
+    void setCanvasOpen(!canvasOpen);
+  }, [canvasOpen, setCanvasOpen]);
+
+  // ⌘N → toggle the New Workspace overlay from anywhere in the app.
+  useHotkeys(
+    "mod+n",
+    handleToggleNewWorkspace,
+    { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
+    [handleToggleNewWorkspace],
+  );
+
+  // ⌘⇧H → toggle the Canvas/Presentation overlay from anywhere in the app.
+  useHotkeys(
+    "mod+shift+h",
+    handleToggleCanvas,
+    { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
+    [handleToggleCanvas],
+  );
+
+  // ⌘⇧K → open the Kanban board in center stage (restore last Atmos/GitHub/Linear tab).
+  useHotkeys(
+    "mod+shift+k",
+    () => {
+      router.push(tasksPathWithStoredSource());
+    },
+    { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
+    [router],
+  );
+
+  useEffect(() => {
+    registerSidebarStripShortcutHandler((digit) => {
+      const target = collectSidebarShortcutTargets(document)[digit - 1];
+      if (!target) return false;
+      if (target.kind === "workspace") {
+        const jobGuid = parseStandaloneScope(target.id);
+        if (jobGuid) {
+          router.push(standaloneJobHref(jobGuid));
+          return true;
         }
-        failCreating(jobId);
-    };
-
-    const handleSetColor = async (projectId: string, color?: string) => {
-        await updateProject(projectId, { borderColor: color ?? null });
-    };
-
-    const handleSetLogo = async (projectId: string, logoPath: string | null) => {
-        await updateProject(projectId, { logoPath });
-    };
-
-    const {
-        activeKanbanFilterCount,
-        effectiveSelectedProjectSidebarId,
-        effectiveSelectedWorkspaceGroupKey,
-        filteredFlattenedWorkspaces,
-        flattenedWorkspaces,
-        groupedWorkspaces,
-        isGroupTwoColumn,
-        isPinnedSortingDisabled,
-        isProjectTwoColumn,
-        isTwoColumnSidebar,
-        pinnedWorkspaces,
-        projectModeProjects,
-        selectedGroupForSidebar,
-        selectedProjectForSidebar,
-        selectedProjectPinnedEntries,
-        selectedProjectUnpinnedWorkspaces,
-        selectedUserGroupForSidebar,
-        shouldApplyWorkspaceFilter,
-        shouldShowGlobalPinnedSection,
-        userGroupViews,
-    } = useLeftSidebarWorkspaceDerived({
-        currentProjectId,
-        currentSidebarRouteKey,
-        currentWorkspace,
-        groupingMode,
-        groups,
-        kanbanFilters: sidebarWorkspaceFilters,
-        labelGroupOrder: effectiveLabelGroupOrder,
-        agentGroupKeyByWorkspaceId,
-        projectSidebarSelectionRouteKey,
-        projects: listProjects,
-        selectedProjectSidebarId,
-        selectedWorkspaceGroupKey,
-        ungroupedLabel: groupsT('ungrouped'),
-        workspaceGroupSelectionRouteKey,
-        workspaceSidebarStatusTwoColumn,
-        workspaceSidebarTimeTwoColumn,
-        workspaceSidebarPriorityTwoColumn,
-        workspaceSidebarLabelTwoColumn,
-        workspaceSidebarGroupTwoColumn,
-        workspaceSidebarAgentTwoColumn,
-        workspaceSidebarTwoColumn,
-        workspaceLabels,
+        router.push(`/workspace?id=${target.id}`);
+        return true;
+      }
+      if (target.id === STANDALONE_GROUP_ID) {
+        return true;
+      }
+      router.push(`/project?id=${target.id}`);
+      return true;
     });
-    const {
-        activeId,
-        handleDragEnd,
-        handleDragStart,
-        isAnyProjectDragging,
-        sensors,
-    } = useLeftSidebarDragHandlers({
-        activeKanbanFilterCount,
-        filteredFlattenedWorkspaces,
-        projects,
-        reorderProjects,
-        reorderWorkspaces,
-        shouldApplyWorkspaceFilter,
-    });
-    const {
-        currentTwoColumnPrimarySize,
-        handleTwoColumnDividerDragging,
-        handleTwoColumnPrimaryResize,
-        isTwoColumnPrimaryCollapsed,
-        setIsTwoColumnPrimaryCollapsed,
-        toggleTwoColumnPrimaryPanel,
-        twoColumnPrimaryPanelRef,
-    } = useLeftSidebarTwoColumnResize({
-        groupingMode,
-        isLeftCollapsed,
-        isProjectTwoColumn,
-        isTwoColumnSidebar,
-        leftSidebarSize,
-        resizeLeftSidebar,
-    });
+    return () => registerSidebarStripShortcutHandler(null);
+  }, [router]);
 
-    const handleDeleteProject = (projectId: string) => {
-        const project = projects.find(p => p.id === projectId);
-        if (!project) return;
+  useHotkeys(
+    SIDEBAR_STRIP_POSITION_HOTKEYS,
+    (event) => {
+      if (!isCenterStageHotkeyTarget(event.target)) return;
+      const digit = centerStripShortcutDigitFromEvent(event);
+      if (digit == null) return;
+      if (!dispatchCenterRegionDigitShortcut({ digit, shift: true })) return;
+      consumeCenterRegionDigitEvent(event);
+    },
+    CENTER_REGION_DIGIT_HOTKEY_OPTIONS,
+    [router],
+  );
 
-        const hasActiveWorkspaces = project.workspaces.some(w => !w.isArchived);
-        setDeleteProjectDialog({
-            isOpen: true,
-            projectId,
-            projectName: project.name,
-            canDelete: !hasActiveWorkspaces,
-        });
-    };
-
-    const handleConfigureScripts = (projectId: string) => {
-        setScriptDialogProjectId(projectId);
-    };
-
-    const handleSelectProjectMain = useCallback((id: string) => {
-        if (id === STANDALONE_GROUP_ID) return;
-        router.push(`/project?id=${id}`);
-    }, [router]);
-
-    const sharedProjectItemProps = {
-        activeWorkspaceId: currentWorkspaceId,
-        activeProjectId: currentProjectId,
-        availableLabels: workspaceLabels,
-        onAddWorkspace: handleAddWorkspace,
-        onArchiveWorkspace: archiveWorkspace,
-        onConfigureScripts: handleConfigureScripts,
-        onCreateWorkspaceLabel: createWorkspaceLabel,
-        onDelete: handleDeleteProject,
-        onDeleteWorkspace: deleteWorkspace,
-        onPinWorkspace: pinWorkspace,
-        onQuickAddWorkspace: handleQuickAddWorkspace,
-        onSelectMain: handleSelectProjectMain,
-        onSetColor: handleSetColor,
-        onSetLogo: handleSetLogo,
-        onUnpinWorkspace: unpinWorkspace,
-        onUpdateWorkspaceLabel: updateWorkspaceLabel,
-        onUpdateWorkspaceLabels: updateWorkspaceLabels,
-        onUpdateWorkspaceName: updateWorkspaceName,
-        onUpdateWorkspacePriority: updateWorkspacePriority,
-        onUpdateWorkspaceWorkflowStatus: updateWorkspaceWorkflowStatus,
-        groups,
-        onAddProjectToGroup: handleAddProjectToGroup,
-        onRemoveProjectFromGroup: handleRemoveProjectFromGroup,
-        onAddWorkspaceToGroup: handleAddWorkspaceToGroup,
-        onRemoveWorkspaceFromGroup: handleRemoveWorkspaceFromGroup,
-        onSetWorkspaceGroup: handleSetWorkspaceGroup,
-        onCreateGroup: handleCreateGroupNamed,
-    };
-
-    const handleEnterWorkspaceFromSidebarKanban = useCallback((projectId: string, workspaceId: string) => {
-        const jobGuid = parseStandaloneScope(workspaceId);
-        if (jobGuid || projectId === STANDALONE_GROUP_ID) {
-            router.push(standaloneJobHref(jobGuid ?? workspaceId));
-            return;
-        }
-        router.push(`/workspace?id=${workspaceId}`);
-    }, [router]);
-
-    const {
-        renderWorkspaceContentRow,
-        renderWorkspaceItemRow,
-        renderWorkspaceKanbanCard,
-    } = useLeftSidebarWorkspaceRenderers({
-        activeProjectId: currentProjectId,
-        activeWorkspaceId: currentWorkspaceId,
-        archiveWorkspace,
-        createWorkspaceLabel,
-        deleteWorkspace,
-        groups,
-        onEnterWorkspaceFromKanban: handleEnterWorkspaceFromSidebarKanban,
-        onSetWorkspaceGroup: handleSetWorkspaceGroup,
-        onCreateGroup: handleCreateGroupNamed,
-        pinWorkspace,
-        secondColumnKanbanCardProperties,
-        unpinWorkspace,
-        updateWorkspaceLabel,
-        updateWorkspaceLabels,
-        updateWorkspaceName,
-        updateWorkspacePriority,
-        updateWorkspaceWorkflowStatus,
-        workspaceLabels,
-    });
-
-    const workspacePanes = useTerminalStore((state) => state.workspacePanes);
-    const projectWikiPanes = useTerminalStore((state) => state.projectWikiPanes);
-    const codeReviewPanes = useTerminalStore((state) => state.codeReviewPanes);
-    const sessionTerminalTitles = React.useMemo(
-        () => sessionTerminalTitleMap(
-            agentSessionSnapshots
-                .filter((snapshot) => snapshot.surface === "terminal")
-                .map((snapshot) => snapshot.session_id),
-            { workspacePanes, projectWikiPanes, codeReviewPanes },
-        ),
-        [agentSessionSnapshots, codeReviewPanes, projectWikiPanes, workspacePanes],
-    );
-
-    const agentChatTabsByContext = useAgentChatCenterTabsStore((state) => state.tabsByContext);
-    const liveAgentSessions = useAgentStatusStore((state) => state.sessions);
-    const agentStatusHydrated = useAgentStatusStore((state) => state.statusHydrated);
-    const attentionRevision = useAgentAttentionStore((state) => state.revision);
-    const groupingHoldRevision = useWorkspaceAgentGroupingHoldStore((state) => state.revision);
-
-    const sessionCatalog = React.useMemo(() => {
-        if (sidebarListView !== 'session') {
-            return { groups: [], total: 0 };
-        }
-        const attentionPanes = useAgentAttentionStore.getState().panes;
-        const groupingHold = useWorkspaceAgentGroupingHoldStore.getState();
-        const snapshots = agentSessionSnapshots
-            .map((snapshot) => ({
-            ...snapshot,
-            group_key: sessionLiveGroupKey(
-                snapshot.session_id,
-                snapshot.group_key,
-                liveAgentSessions,
-                attentionPanes,
-                agentStatusHydrated,
-                snapshot.context_id
-                    ? groupingHold.isHoldActive(snapshot.context_id)
-                    : false,
-            ),
-        }));
-        const built = [
-            ...buildSidebarSessionRows({
-                snapshots,
-                projects,
-                chatTitles: agentSessionChatTitles,
-                terminalTitles: sessionTerminalTitles,
-            }),
-            ...newChatDraftSessionRows({
-                tabsByContext: agentChatTabsByContext,
-                projects,
-            }),
-        ];
-        const filtered = filterSidebarSessions(built, sidebarWorkspaceFilters, groups);
-        const visible = attentionFilterMode
-            ? filtered.filter((row) =>
-                sessionMatchesAttentionFilter(
-                    row.sessionId,
-                    row.groupKey,
-                    liveAgentSessions,
-                    attentionPanes,
-                    agentStatusHydrated,
-                ),
-            )
-            : filtered;
-        return {
-            total: built.length,
-            groups: groupSidebarSessions(visible, groupingMode, {
-                groups,
-                availableLabels: workspaceLabels,
-                labelGroupOrder: effectiveLabelGroupOrder,
-                ungroupedLabel: groupsT('ungrouped'),
-                unknownProjectLabel: taskT('view.unknownProject'),
-            }),
-        };
-    }, [
-        agentChatTabsByContext,
-        agentSessionChatTitles,
-        attentionFilterMode,
-        agentSessionSnapshots,
-        agentStatusHydrated,
-        attentionRevision,
-        effectiveLabelGroupOrder,
-        groupingHoldRevision,
-        liveAgentSessions,
-        groupingMode,
-        groups,
-        groupsT,
-        projects,
-        sessionTerminalTitles,
-        sidebarListView,
-        sidebarWorkspaceFilters,
-        taskT,
-        workspaceLabels,
-    ]);
-
-    const pinnedWorkspaceSection = shouldShowGlobalPinnedSection ? (
-        <LeftSidebarPinnedSection
-            availableLabels={workspaceLabels}
-            groupingMode={groupingMode}
-            labelGroupOrder={effectiveLabelGroupOrder}
-            agentGroupKeyByWorkspaceId={agentGroupKeyByWorkspaceId}
-            isCollapsed={isPinnedSectionCollapsed}
-            isDividerHovered={isPinnedDividerHovered}
-            isSortingDisabled={isPinnedSortingDisabled}
-            pinnedWorkspaces={pinnedWorkspaces}
-            renderWorkspaceItemRow={renderWorkspaceItemRow}
-            sensors={sensors}
-            onCollapsedChange={setIsPinnedSectionCollapsed}
-            onDividerHoverChange={setIsPinnedDividerHovered}
-            onUpdatePinOrder={updateWorkspacePinOrder}
-        />
-    ) : null;
-
-    const projectModeOneColumnContent = (
-        <LeftSidebarSortableProjectList
-            activeId={activeId}
-            activeProjectId={currentProjectId}
-            activeWorkspaceId={currentWorkspaceId}
-            availableLabels={workspaceLabels}
-            expandedProjectIds={listExpandedProjectIds}
-            flattenedWorkspaces={flattenedWorkspaces}
-            isAnyProjectDragging={isAnyProjectDragging}
-            projects={projectModeProjects}
-            sensors={sensors}
-            showDragOverlay
-            onAddProject={handleAddProject}
-            onAddWorkspace={handleAddWorkspace}
-            onArchiveWorkspace={archiveWorkspace}
-            onConfigureScripts={handleConfigureScripts}
-            onCreateWorkspaceLabel={createWorkspaceLabel}
-            onDeleteProject={handleDeleteProject}
-            onDeleteWorkspace={deleteWorkspace}
-            onDragEnd={handleDragEnd}
-            onDragStart={handleDragStart}
-            onPinWorkspace={pinWorkspace}
-            onQuickAddWorkspace={handleQuickAddWorkspace}
-            onSelectMain={handleSelectProjectMain}
-            onSetColor={handleSetColor}
-            onSetLogo={handleSetLogo}
-            onToggleProject={toggleProject}
-            onUnpinWorkspace={unpinWorkspace}
-            onUpdateWorkspaceLabel={updateWorkspaceLabel}
-            onUpdateWorkspaceLabels={updateWorkspaceLabels}
-            onUpdateWorkspaceName={updateWorkspaceName}
-            onUpdateWorkspacePriority={updateWorkspacePriority}
-            onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
-            groups={groups}
-            onAddProjectToGroup={handleAddProjectToGroup}
-            onRemoveProjectFromGroup={handleRemoveProjectFromGroup}
-            onAddWorkspaceToGroup={handleAddWorkspaceToGroup}
-            onRemoveWorkspaceFromGroup={handleRemoveWorkspaceFromGroup}
-            onSetWorkspaceGroup={handleSetWorkspaceGroup}
-            onCreateGroup={handleCreateGroupNamed}
-        />
-    );
-
-    const groupedOneColumnContent = (
-        <GroupedWorkspaceOneColumnContent
-            collapsedWorkspaceGroups={collapsedWorkspaceGroups}
-            groupingMode={groupingMode}
-            groups={groupedWorkspaces}
-            onLabelGroupOrderChange={
-                isGroupingSettingsReady ? handleLabelGroupOrderChange : undefined
-            }
-            renderWorkspaceContentRow={renderWorkspaceContentRow}
-            sensors={sensors}
-            toggleWorkspaceGroup={toggleWorkspaceGroup}
-        />
-    );
-
-    const projectTwoColumnLeftContent = (
-        <LeftSidebarSortableProjectList
-            activeProjectId={currentProjectId}
-            activeWorkspaceId={currentWorkspaceId}
-            availableLabels={workspaceLabels}
-            className="overflow-x-hidden py-1.5 pr-2"
-            expandedProjectIds={listExpandedProjectIds}
-            hideWorkspaceList
-            isAnyProjectDragging={isAnyProjectDragging}
-            projects={projectModeProjects}
-            selectedProjectId={effectiveSelectedProjectSidebarId}
-            sensors={sensors}
-            onAddProject={handleAddProject}
-            onAddWorkspace={handleAddWorkspace}
-            onArchiveWorkspace={archiveWorkspace}
-            onConfigureScripts={handleConfigureScripts}
-            onCreateWorkspaceLabel={createWorkspaceLabel}
-            onDeleteProject={handleDeleteProject}
-            onDeleteWorkspace={deleteWorkspace}
-            onDragEnd={handleDragEnd}
-            onDragStart={handleDragStart}
-            onPinWorkspace={pinWorkspace}
-            onProjectRowClick={handleSelectProjectSidebar}
-            onQuickAddWorkspace={handleQuickAddWorkspace}
-            onSelectMain={handleSelectProjectMain}
-            onSetColor={handleSetColor}
-            onSetLogo={handleSetLogo}
-            onToggleProject={toggleProject}
-            onUnpinWorkspace={unpinWorkspace}
-            onUpdateWorkspaceLabel={updateWorkspaceLabel}
-            onUpdateWorkspaceLabels={updateWorkspaceLabels}
-            onUpdateWorkspaceName={updateWorkspaceName}
-            onUpdateWorkspacePriority={updateWorkspacePriority}
-            onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
-            groups={groups}
-            onAddProjectToGroup={handleAddProjectToGroup}
-            onRemoveProjectFromGroup={handleRemoveProjectFromGroup}
-            onAddWorkspaceToGroup={handleAddWorkspaceToGroup}
-            onRemoveWorkspaceFromGroup={handleRemoveWorkspaceFromGroup}
-            onSetWorkspaceGroup={handleSetWorkspaceGroup}
-            onCreateGroup={handleCreateGroupNamed}
-        />
-    );
-
-    const projectTwoColumnRightContent = (
-        <ProjectWorkspaceTwoColumnRightContent
-            activeProjectId={currentProjectId}
-            activeWorkspaceId={currentWorkspaceId}
-            availableLabels={workspaceLabels}
-            isPinnedSortingDisabled={isPinnedSortingDisabled}
-            isPrimaryCollapsed={isTwoColumnPrimaryCollapsed}
-            isPinnedExpanded={isSecondColumnPinnedExpanded}
-            isWorkspacesExpanded={isSecondColumnWorkspacesExpanded}
-            secondColumnKanban={workspaceSidebarSecondColumnKanban}
-            selectedProject={selectedProjectForSidebar}
-            hasNoProjects={listProjects.length === 0}
-            onAddProject={handleAddProject}
-            selectedProjectPinnedEntries={selectedProjectPinnedEntries}
-            selectedProjectUnpinnedWorkspaces={selectedProjectUnpinnedWorkspaces}
-            sensors={sensors}
-            showPinnedSection={workspaceSidebarTwoColumnShowPinned}
-            renderWorkspaceItemRow={renderWorkspaceItemRow}
-            renderWorkspaceKanbanCard={renderWorkspaceKanbanCard}
-            onAddWorkspace={handleAddWorkspace}
-            onArchiveWorkspace={archiveWorkspace}
-            onConfigureScripts={handleConfigureScripts}
-            onCreateWorkspaceLabel={createWorkspaceLabel}
-            onDeleteProject={handleDeleteProject}
-            onDeleteWorkspace={deleteWorkspace}
-            onDragEnd={handleDragEnd}
-            onDragStart={handleDragStart}
-            onPinnedExpandedChange={setIsSecondColumnPinnedExpanded}
-            onPinWorkspace={pinWorkspace}
-            onQuickAddWorkspace={handleQuickAddWorkspace}
-            onSelectMain={handleSelectProjectMain}
-            onSetColor={handleSetColor}
-            onSetLogo={handleSetLogo}
-            onTogglePrimaryPanel={toggleTwoColumnPrimaryPanel}
-            onUnpinWorkspace={unpinWorkspace}
-            onUpdateWorkspaceLabel={updateWorkspaceLabel}
-            onUpdateWorkspaceLabels={updateWorkspaceLabels}
-            onUpdateWorkspaceName={updateWorkspaceName}
-            onUpdateWorkspacePinOrder={updateWorkspacePinOrder}
-            onUpdateWorkspacePriority={updateWorkspacePriority}
-            onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
-            onWorkspacesExpandedChange={setIsSecondColumnWorkspacesExpanded}
-        />
-    );
-
-    const groupedTwoColumnLeftContent = (
-        <GroupedWorkspaceTwoColumnLeftContent
-            effectiveSelectedWorkspaceGroupKey={effectiveSelectedWorkspaceGroupKey}
-            groupingMode={groupingMode}
-            groups={groupedWorkspaces}
-            onSelectGroup={handleSelectWorkspaceGroup}
-        />
-    );
-
-    const groupedTwoColumnRightContent = (
-        <GroupedWorkspaceTwoColumnRightContent
-            groupingMode={groupingMode}
-            isPrimaryCollapsed={isTwoColumnPrimaryCollapsed}
-            selectedGroup={selectedGroupForSidebar}
-            secondColumnKanban={workspaceSidebarSecondColumnKanban}
-            renderWorkspaceContentRow={renderWorkspaceContentRow}
-            renderWorkspaceKanbanCard={renderWorkspaceKanbanCard}
-            onTogglePrimaryPanel={toggleTwoColumnPrimaryPanel}
-        />
-    );
-
-    const userGroupOneColumnContent = (
-        <UserGroupOneColumnContent
-            views={userGroupViews}
-            collapsedKeys={collapsedWorkspaceGroups}
-            onToggleCollapsed={toggleWorkspaceGroup}
-            onCreateGroup={handleCreateGroupNamed}
-            onRenameGroup={handleRenameGroupNamed}
-            onDeleteGroup={handleDeleteGroup}
-            projectItemProps={sharedProjectItemProps}
-            expandedProjectIds={listExpandedProjectIds}
-            onToggleProject={toggleProject}
-            renderWorkspaceContentRow={renderWorkspaceContentRow}
-            sensors={sensors}
-            onGroupOrderChange={handleGroupOrderChange}
-        />
-    );
-
-    const userGroupTwoColumnLeftContent = (
-        <UserGroupTwoColumnLeftContent
-            views={userGroupViews}
-            selectedKey={effectiveSelectedWorkspaceGroupKey}
-            onSelect={handleSelectWorkspaceGroup}
-            onCreateGroup={handleCreateGroupNamed}
-            onRenameGroup={handleRenameGroupNamed}
-            onDeleteGroup={handleDeleteGroup}
-            sensors={sensors}
-            onGroupOrderChange={handleGroupOrderChange}
-        />
-    );
-
-    const userGroupTwoColumnRightContent = (
-        <UserGroupTwoColumnRightContent
-            selectedView={selectedUserGroupForSidebar}
-            isPrimaryCollapsed={isTwoColumnPrimaryCollapsed}
-            onTogglePrimaryPanel={toggleTwoColumnPrimaryPanel}
-            projectItemProps={sharedProjectItemProps}
-            expandedProjectIds={listExpandedProjectIds}
-            onToggleProject={toggleProject}
-            renderWorkspaceContentRow={renderWorkspaceContentRow}
-        />
-    );
-
-    const twoColumnLeftContent = isProjectTwoColumn
-        ? projectTwoColumnLeftContent
-        : isGroupTwoColumn
-            ? userGroupTwoColumnLeftContent
-            : groupedTwoColumnLeftContent;
-    const twoColumnRightContent = isProjectTwoColumn
-        ? projectTwoColumnRightContent
-        : isGroupTwoColumn
-            ? userGroupTwoColumnRightContent
-            : groupedTwoColumnRightContent;
-
-    const twoColumnSidebarContent = isTwoColumnSidebar ? (
-        <TwoColumnSidebarContent
-            autoSaveId={isProjectTwoColumn ? "left-sidebar-project-two-column" : `left-sidebar-group-two-column-${groupingMode}`}
-            primaryPanelId={isProjectTwoColumn ? "left-sidebar-two-column-primary-project" : `left-sidebar-two-column-primary-${groupingMode}`}
-            secondaryPanelId={isProjectTwoColumn ? "left-sidebar-two-column-secondary-project" : `left-sidebar-two-column-secondary-${groupingMode}`}
-            storage={storage}
-            primaryPanelRef={twoColumnPrimaryPanelRef}
-            isPrimaryCollapsed={isTwoColumnPrimaryCollapsed}
-            primarySize={currentTwoColumnPrimarySize}
-            pinnedSection={pinnedWorkspaceSection}
-            leftContent={twoColumnLeftContent}
-            rightContent={twoColumnRightContent}
-            onPrimaryCollapse={() => setIsTwoColumnPrimaryCollapsed(true)}
-            onPrimaryExpand={() => setIsTwoColumnPrimaryCollapsed(false)}
-            onPrimaryResize={handleTwoColumnPrimaryResize}
-            onDividerDragging={handleTwoColumnDividerDragging}
-        />
-    ) : null;
-
-    const sessionSidebar = sidebarListView === 'session';
-    const sidebarTwoColumnLayout = isTwoColumnSidebar && !sessionSidebar;
-
-    const projectTabContent = isInitialProjectsLoading ? (
-        <ProjectsSidebarLoading />
-    ) : sessionSidebar ? (
-        <SessionSidebarList
-            catalogCount={sessionCatalog.total}
-            collapsedWorkspaceGroups={collapsedWorkspaceGroups}
-            groupingMode={groupingMode}
-            groups={sessionCatalog.groups}
-            hasMore={agentSessionsHasMore}
-            onShowMore={() => {
-              void loadMoreAgentSessions();
-            }}
-            projects={projects}
-            onArchiveSession={archiveAgentSession}
-            sessionsLoaded={agentSessionsLoaded}
-            toggleWorkspaceGroup={toggleWorkspaceGroup}
-        />
-    ) : isTwoColumnSidebar
-        ? twoColumnSidebarContent
-        : groupingMode === 'project'
-            ? projectModeOneColumnContent
-            : groupingMode === 'group'
-                ? userGroupOneColumnContent
-                : groupedOneColumnContent;
-
-    const launchpadSharedProps = {
+  const handleQuickAddWorkspace = async (projectId: string) => {
+    if (projectId === STANDALONE_GROUP_ID) return;
+    const jobId = startCreating({
+      originKey: getWorkspaceCreateOriginKey({
         currentView,
-        canvasOpen: Boolean(canvasOpen),
-        newWorkspaceOpen: Boolean(newWorkspace),
-        launchpadItems,
-        onNavigate: (path: string) => {
-            // Restore last Task source tab when opening plain /tasks from Launchpad.
-            if (path === "/tasks" || path.startsWith("/tasks?")) {
-                router.push(tasksPathWithStoredSource());
-                return;
-            }
-            router.push(path);
-        },
-        onOpenCanvas: () => void setCanvasOpen(true),
-        onOpenNewWorkspace: handleOpenNewWorkspace,
+        workspaceId: currentWorkspaceId,
+        projectId: currentProjectIdFromUrl,
+      }),
+    });
+    const workspaceId = await quickAddWorkspace(projectId);
+    if (workspaceId) {
+      bindWorkspace(jobId, workspaceId);
+      return;
+    }
+    failCreating(jobId);
+  };
+
+  const handleSetColor = async (projectId: string, color?: string) => {
+    await updateProject(projectId, { borderColor: color ?? null });
+  };
+
+  const handleSetLogo = async (projectId: string, logoPath: string | null) => {
+    await updateProject(projectId, { logoPath });
+  };
+
+  const {
+    activeKanbanFilterCount,
+    effectiveSelectedProjectSidebarId,
+    effectiveSelectedWorkspaceGroupKey,
+    filteredFlattenedWorkspaces,
+    flattenedWorkspaces,
+    groupedWorkspaces,
+    isGroupTwoColumn,
+    isPinnedSortingDisabled,
+    isProjectTwoColumn,
+    isTwoColumnSidebar,
+    pinnedWorkspaces,
+    projectModeProjects,
+    selectedGroupForSidebar,
+    selectedProjectForSidebar,
+    selectedProjectPinnedEntries,
+    selectedProjectUnpinnedWorkspaces,
+    selectedUserGroupForSidebar,
+    shouldApplyWorkspaceFilter,
+    shouldShowGlobalPinnedSection,
+    userGroupViews,
+  } = useLeftSidebarWorkspaceDerived({
+    currentProjectId,
+    currentSidebarRouteKey,
+    currentWorkspace,
+    groupingMode,
+    groups,
+    kanbanFilters: sidebarWorkspaceFilters,
+    labelGroupOrder: effectiveLabelGroupOrder,
+    agentGroupKeyByWorkspaceId,
+    projectSidebarSelectionRouteKey,
+    projects: listProjects,
+    selectedProjectSidebarId,
+    selectedWorkspaceGroupKey,
+    ungroupedLabel: groupsT("ungrouped"),
+    workspaceGroupSelectionRouteKey,
+    workspaceSidebarStatusTwoColumn,
+    workspaceSidebarTimeTwoColumn,
+    workspaceSidebarPriorityTwoColumn,
+    workspaceSidebarLabelTwoColumn,
+    workspaceSidebarGroupTwoColumn,
+    workspaceSidebarAgentTwoColumn,
+    workspaceSidebarTwoColumn,
+    workspaceLabels,
+  });
+  const { activeId, handleDragEnd, handleDragStart, isAnyProjectDragging, sensors } =
+    useLeftSidebarDragHandlers({
+      activeKanbanFilterCount,
+      filteredFlattenedWorkspaces,
+      projects,
+      reorderProjects,
+      reorderWorkspaces,
+      shouldApplyWorkspaceFilter,
+    });
+  const {
+    currentTwoColumnPrimarySize,
+    handleTwoColumnDividerDragging,
+    handleTwoColumnPrimaryResize,
+    isTwoColumnPrimaryCollapsed,
+    setIsTwoColumnPrimaryCollapsed,
+    toggleTwoColumnPrimaryPanel,
+    twoColumnPrimaryPanelRef,
+  } = useLeftSidebarTwoColumnResize({
+    groupingMode,
+    isLeftCollapsed,
+    isProjectTwoColumn,
+    isTwoColumnSidebar,
+    leftSidebarSize,
+    resizeLeftSidebar,
+  });
+
+  const handleDeleteProject = (projectId: string) => {
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return;
+
+    const hasActiveWorkspaces = project.workspaces.some((w) => !w.isArchived);
+    setDeleteProjectDialog({
+      isOpen: true,
+      projectId,
+      projectName: project.name,
+      canDelete: !hasActiveWorkspaces,
+    });
+  };
+
+  const handleConfigureScripts = (projectId: string) => {
+    setScriptDialogProjectId(projectId);
+  };
+
+  const handleSelectProjectMain = useCallback(
+    (id: string) => {
+      if (id === STANDALONE_GROUP_ID) return;
+      router.push(`/project?id=${id}`);
+    },
+    [router],
+  );
+
+  const sharedProjectItemProps = {
+    activeWorkspaceId: currentWorkspaceId,
+    activeProjectId: currentProjectId,
+    availableLabels: workspaceLabels,
+    onAddWorkspace: handleAddWorkspace,
+    onArchiveWorkspace: archiveWorkspace,
+    onConfigureScripts: handleConfigureScripts,
+    onCreateWorkspaceLabel: createWorkspaceLabel,
+    onDelete: handleDeleteProject,
+    onDeleteWorkspace: deleteWorkspace,
+    onPinWorkspace: pinWorkspace,
+    onQuickAddWorkspace: handleQuickAddWorkspace,
+    onSelectMain: handleSelectProjectMain,
+    onSetColor: handleSetColor,
+    onSetLogo: handleSetLogo,
+    onUnpinWorkspace: unpinWorkspace,
+    onUpdateWorkspaceLabel: updateWorkspaceLabel,
+    onUpdateWorkspaceLabels: updateWorkspaceLabels,
+    onUpdateWorkspaceName: updateWorkspaceName,
+    onUpdateWorkspacePriority: updateWorkspacePriority,
+    onUpdateWorkspaceWorkflowStatus: updateWorkspaceWorkflowStatus,
+    groups,
+    onAddProjectToGroup: handleAddProjectToGroup,
+    onRemoveProjectFromGroup: handleRemoveProjectFromGroup,
+    onAddWorkspaceToGroup: handleAddWorkspaceToGroup,
+    onRemoveWorkspaceFromGroup: handleRemoveWorkspaceFromGroup,
+    onSetWorkspaceGroup: handleSetWorkspaceGroup,
+    onCreateGroup: handleCreateGroupNamed,
+  };
+
+  const handleEnterWorkspaceFromSidebarKanban = useCallback(
+    (projectId: string, workspaceId: string) => {
+      const jobGuid = parseStandaloneScope(workspaceId);
+      if (jobGuid || projectId === STANDALONE_GROUP_ID) {
+        router.push(standaloneJobHref(jobGuid ?? workspaceId));
+        return;
+      }
+      router.push(`/workspace?id=${workspaceId}`);
+    },
+    [router],
+  );
+
+  const { renderWorkspaceContentRow, renderWorkspaceItemRow, renderWorkspaceKanbanCard } =
+    useLeftSidebarWorkspaceRenderers({
+      activeProjectId: currentProjectId,
+      activeWorkspaceId: currentWorkspaceId,
+      archiveWorkspace,
+      createWorkspaceLabel,
+      deleteWorkspace,
+      groups,
+      onEnterWorkspaceFromKanban: handleEnterWorkspaceFromSidebarKanban,
+      onSetWorkspaceGroup: handleSetWorkspaceGroup,
+      onCreateGroup: handleCreateGroupNamed,
+      pinWorkspace,
+      secondColumnKanbanCardProperties,
+      unpinWorkspace,
+      updateWorkspaceLabel,
+      updateWorkspaceLabels,
+      updateWorkspaceName,
+      updateWorkspacePriority,
+      updateWorkspaceWorkflowStatus,
+      workspaceLabels,
+    });
+
+  const workspacePanes = useTerminalStore((state) => state.workspacePanes);
+  const projectWikiPanes = useTerminalStore((state) => state.projectWikiPanes);
+  const codeReviewPanes = useTerminalStore((state) => state.codeReviewPanes);
+  const sessionTerminalTitles = React.useMemo(
+    () =>
+      sessionTerminalTitleMap(
+        agentSessionSnapshots
+          .filter((snapshot) => snapshot.surface === "terminal")
+          .map((snapshot) => snapshot.session_id),
+        { workspacePanes, projectWikiPanes, codeReviewPanes },
+      ),
+    [agentSessionSnapshots, codeReviewPanes, projectWikiPanes, workspacePanes],
+  );
+
+  const agentChatTabsByContext = useAgentChatCenterTabsStore((state) => state.tabsByContext);
+  const liveAgentSessions = useAgentStatusStore((state) => state.sessions);
+  const agentStatusHydrated = useAgentStatusStore((state) => state.statusHydrated);
+  const attentionRevision = useAgentAttentionStore((state) => state.revision);
+  const groupingHoldRevision = useWorkspaceAgentGroupingHoldStore((state) => state.revision);
+
+  const sessionCatalog = React.useMemo(() => {
+    if (sidebarListView !== "session") {
+      return { groups: [], total: 0 };
+    }
+    const attentionPanes = useAgentAttentionStore.getState().panes;
+    const groupingHold = useWorkspaceAgentGroupingHoldStore.getState();
+    const snapshots = agentSessionSnapshots.map((snapshot) => ({
+      ...snapshot,
+      group_key: sessionLiveGroupKey(
+        snapshot.session_id,
+        snapshot.group_key,
+        liveAgentSessions,
+        attentionPanes,
+        agentStatusHydrated,
+        snapshot.context_id ? groupingHold.isHoldActive(snapshot.context_id) : false,
+      ),
+    }));
+    const built = [
+      ...buildSidebarSessionRows({
+        snapshots,
+        projects,
+        chatTitles: agentSessionChatTitles,
+        terminalTitles: sessionTerminalTitles,
+      }),
+      ...newChatDraftSessionRows({
+        tabsByContext: agentChatTabsByContext,
+        projects,
+      }),
+    ];
+    const filtered = filterSidebarSessions(built, sidebarWorkspaceFilters, groups);
+    const visible = attentionFilterMode
+      ? filtered.filter((row) =>
+          sessionMatchesAttentionFilter(
+            row.sessionId,
+            row.groupKey,
+            liveAgentSessions,
+            attentionPanes,
+            agentStatusHydrated,
+          ),
+        )
+      : filtered;
+    return {
+      total: built.length,
+      groups: groupSidebarSessions(visible, groupingMode, {
+        groups,
+        availableLabels: workspaceLabels,
+        labelGroupOrder: effectiveLabelGroupOrder,
+        ungroupedLabel: groupsT("ungrouped"),
+        unknownProjectLabel: taskT("view.unknownProject"),
+      }),
     };
+  }, [
+    agentChatTabsByContext,
+    agentSessionChatTitles,
+    attentionFilterMode,
+    agentSessionSnapshots,
+    agentStatusHydrated,
+    attentionRevision,
+    effectiveLabelGroupOrder,
+    groupingHoldRevision,
+    liveAgentSessions,
+    groupingMode,
+    groups,
+    groupsT,
+    projects,
+    sessionTerminalTitles,
+    sidebarListView,
+    sidebarWorkspaceFilters,
+    taskT,
+    workspaceLabels,
+  ]);
 
-    return (
-        <>
-            <aside
-                className={cn(
-                    "@container flex h-full w-full flex-col select-none bg-sidebar text-sidebar-foreground",
-                    LEFT_SIDEBAR_DIVIDER_GUTTER_SCROLLBAR_CLASS,
-                )}
+  const pinnedWorkspaceSection = shouldShowGlobalPinnedSection ? (
+    <LeftSidebarPinnedSection
+      availableLabels={workspaceLabels}
+      groupingMode={groupingMode}
+      labelGroupOrder={effectiveLabelGroupOrder}
+      agentGroupKeyByWorkspaceId={agentGroupKeyByWorkspaceId}
+      isCollapsed={isPinnedSectionCollapsed}
+      isDividerHovered={isPinnedDividerHovered}
+      isSortingDisabled={isPinnedSortingDisabled}
+      pinnedWorkspaces={pinnedWorkspaces}
+      renderWorkspaceItemRow={renderWorkspaceItemRow}
+      sensors={sensors}
+      onCollapsedChange={setIsPinnedSectionCollapsed}
+      onDividerHoverChange={setIsPinnedDividerHovered}
+      onUpdatePinOrder={updateWorkspacePinOrder}
+    />
+  ) : null;
+
+  const projectModeOneColumnContent = (
+    <LeftSidebarSortableProjectList
+      activeId={activeId}
+      activeProjectId={currentProjectId}
+      activeWorkspaceId={currentWorkspaceId}
+      availableLabels={workspaceLabels}
+      expandedProjectIds={listExpandedProjectIds}
+      flattenedWorkspaces={flattenedWorkspaces}
+      isAnyProjectDragging={isAnyProjectDragging}
+      projects={projectModeProjects}
+      sensors={sensors}
+      showDragOverlay
+      onAddProject={handleAddProject}
+      onAddWorkspace={handleAddWorkspace}
+      onArchiveWorkspace={archiveWorkspace}
+      onConfigureScripts={handleConfigureScripts}
+      onCreateWorkspaceLabel={createWorkspaceLabel}
+      onDeleteProject={handleDeleteProject}
+      onDeleteWorkspace={deleteWorkspace}
+      onDragEnd={handleDragEnd}
+      onDragStart={handleDragStart}
+      onPinWorkspace={pinWorkspace}
+      onQuickAddWorkspace={handleQuickAddWorkspace}
+      onSelectMain={handleSelectProjectMain}
+      onSetColor={handleSetColor}
+      onSetLogo={handleSetLogo}
+      onToggleProject={toggleProject}
+      onUnpinWorkspace={unpinWorkspace}
+      onUpdateWorkspaceLabel={updateWorkspaceLabel}
+      onUpdateWorkspaceLabels={updateWorkspaceLabels}
+      onUpdateWorkspaceName={updateWorkspaceName}
+      onUpdateWorkspacePriority={updateWorkspacePriority}
+      onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
+      groups={groups}
+      onAddProjectToGroup={handleAddProjectToGroup}
+      onRemoveProjectFromGroup={handleRemoveProjectFromGroup}
+      onAddWorkspaceToGroup={handleAddWorkspaceToGroup}
+      onRemoveWorkspaceFromGroup={handleRemoveWorkspaceFromGroup}
+      onSetWorkspaceGroup={handleSetWorkspaceGroup}
+      onCreateGroup={handleCreateGroupNamed}
+    />
+  );
+
+  const groupedOneColumnContent = (
+    <GroupedWorkspaceOneColumnContent
+      collapsedWorkspaceGroups={collapsedWorkspaceGroups}
+      groupingMode={groupingMode}
+      groups={groupedWorkspaces}
+      onLabelGroupOrderChange={isGroupingSettingsReady ? handleLabelGroupOrderChange : undefined}
+      renderWorkspaceContentRow={renderWorkspaceContentRow}
+      sensors={sensors}
+      toggleWorkspaceGroup={toggleWorkspaceGroup}
+    />
+  );
+
+  const projectTwoColumnLeftContent = (
+    <LeftSidebarSortableProjectList
+      activeProjectId={currentProjectId}
+      activeWorkspaceId={currentWorkspaceId}
+      availableLabels={workspaceLabels}
+      className="overflow-x-hidden py-1.5 pr-2"
+      expandedProjectIds={listExpandedProjectIds}
+      hideWorkspaceList
+      isAnyProjectDragging={isAnyProjectDragging}
+      projects={projectModeProjects}
+      selectedProjectId={effectiveSelectedProjectSidebarId}
+      sensors={sensors}
+      onAddProject={handleAddProject}
+      onAddWorkspace={handleAddWorkspace}
+      onArchiveWorkspace={archiveWorkspace}
+      onConfigureScripts={handleConfigureScripts}
+      onCreateWorkspaceLabel={createWorkspaceLabel}
+      onDeleteProject={handleDeleteProject}
+      onDeleteWorkspace={deleteWorkspace}
+      onDragEnd={handleDragEnd}
+      onDragStart={handleDragStart}
+      onPinWorkspace={pinWorkspace}
+      onProjectRowClick={handleSelectProjectSidebar}
+      onQuickAddWorkspace={handleQuickAddWorkspace}
+      onSelectMain={handleSelectProjectMain}
+      onSetColor={handleSetColor}
+      onSetLogo={handleSetLogo}
+      onToggleProject={toggleProject}
+      onUnpinWorkspace={unpinWorkspace}
+      onUpdateWorkspaceLabel={updateWorkspaceLabel}
+      onUpdateWorkspaceLabels={updateWorkspaceLabels}
+      onUpdateWorkspaceName={updateWorkspaceName}
+      onUpdateWorkspacePriority={updateWorkspacePriority}
+      onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
+      groups={groups}
+      onAddProjectToGroup={handleAddProjectToGroup}
+      onRemoveProjectFromGroup={handleRemoveProjectFromGroup}
+      onAddWorkspaceToGroup={handleAddWorkspaceToGroup}
+      onRemoveWorkspaceFromGroup={handleRemoveWorkspaceFromGroup}
+      onSetWorkspaceGroup={handleSetWorkspaceGroup}
+      onCreateGroup={handleCreateGroupNamed}
+    />
+  );
+
+  const projectTwoColumnRightContent = (
+    <ProjectWorkspaceTwoColumnRightContent
+      activeProjectId={currentProjectId}
+      activeWorkspaceId={currentWorkspaceId}
+      availableLabels={workspaceLabels}
+      isPinnedSortingDisabled={isPinnedSortingDisabled}
+      isPrimaryCollapsed={isTwoColumnPrimaryCollapsed}
+      isPinnedExpanded={isSecondColumnPinnedExpanded}
+      isWorkspacesExpanded={isSecondColumnWorkspacesExpanded}
+      secondColumnKanban={workspaceSidebarSecondColumnKanban}
+      selectedProject={selectedProjectForSidebar}
+      hasNoProjects={listProjects.length === 0}
+      onAddProject={handleAddProject}
+      selectedProjectPinnedEntries={selectedProjectPinnedEntries}
+      selectedProjectUnpinnedWorkspaces={selectedProjectUnpinnedWorkspaces}
+      sensors={sensors}
+      showPinnedSection={workspaceSidebarTwoColumnShowPinned}
+      renderWorkspaceItemRow={renderWorkspaceItemRow}
+      renderWorkspaceKanbanCard={renderWorkspaceKanbanCard}
+      onAddWorkspace={handleAddWorkspace}
+      onArchiveWorkspace={archiveWorkspace}
+      onConfigureScripts={handleConfigureScripts}
+      onCreateWorkspaceLabel={createWorkspaceLabel}
+      onDeleteProject={handleDeleteProject}
+      onDeleteWorkspace={deleteWorkspace}
+      onDragEnd={handleDragEnd}
+      onDragStart={handleDragStart}
+      onPinnedExpandedChange={setIsSecondColumnPinnedExpanded}
+      onPinWorkspace={pinWorkspace}
+      onQuickAddWorkspace={handleQuickAddWorkspace}
+      onSelectMain={handleSelectProjectMain}
+      onSetColor={handleSetColor}
+      onSetLogo={handleSetLogo}
+      onTogglePrimaryPanel={toggleTwoColumnPrimaryPanel}
+      onUnpinWorkspace={unpinWorkspace}
+      onUpdateWorkspaceLabel={updateWorkspaceLabel}
+      onUpdateWorkspaceLabels={updateWorkspaceLabels}
+      onUpdateWorkspaceName={updateWorkspaceName}
+      onUpdateWorkspacePinOrder={updateWorkspacePinOrder}
+      onUpdateWorkspacePriority={updateWorkspacePriority}
+      onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
+      onWorkspacesExpandedChange={setIsSecondColumnWorkspacesExpanded}
+    />
+  );
+
+  const groupedTwoColumnLeftContent = (
+    <GroupedWorkspaceTwoColumnLeftContent
+      effectiveSelectedWorkspaceGroupKey={effectiveSelectedWorkspaceGroupKey}
+      groupingMode={groupingMode}
+      groups={groupedWorkspaces}
+      onSelectGroup={handleSelectWorkspaceGroup}
+    />
+  );
+
+  const groupedTwoColumnRightContent = (
+    <GroupedWorkspaceTwoColumnRightContent
+      groupingMode={groupingMode}
+      isPrimaryCollapsed={isTwoColumnPrimaryCollapsed}
+      selectedGroup={selectedGroupForSidebar}
+      secondColumnKanban={workspaceSidebarSecondColumnKanban}
+      renderWorkspaceContentRow={renderWorkspaceContentRow}
+      renderWorkspaceKanbanCard={renderWorkspaceKanbanCard}
+      onTogglePrimaryPanel={toggleTwoColumnPrimaryPanel}
+    />
+  );
+
+  const userGroupOneColumnContent = (
+    <UserGroupOneColumnContent
+      views={userGroupViews}
+      collapsedKeys={collapsedWorkspaceGroups}
+      onToggleCollapsed={toggleWorkspaceGroup}
+      onCreateGroup={handleCreateGroupNamed}
+      onRenameGroup={handleRenameGroupNamed}
+      onDeleteGroup={handleDeleteGroup}
+      projectItemProps={sharedProjectItemProps}
+      expandedProjectIds={listExpandedProjectIds}
+      onToggleProject={toggleProject}
+      renderWorkspaceContentRow={renderWorkspaceContentRow}
+      sensors={sensors}
+      onGroupOrderChange={handleGroupOrderChange}
+    />
+  );
+
+  const userGroupTwoColumnLeftContent = (
+    <UserGroupTwoColumnLeftContent
+      views={userGroupViews}
+      selectedKey={effectiveSelectedWorkspaceGroupKey}
+      onSelect={handleSelectWorkspaceGroup}
+      onCreateGroup={handleCreateGroupNamed}
+      onRenameGroup={handleRenameGroupNamed}
+      onDeleteGroup={handleDeleteGroup}
+      sensors={sensors}
+      onGroupOrderChange={handleGroupOrderChange}
+    />
+  );
+
+  const userGroupTwoColumnRightContent = (
+    <UserGroupTwoColumnRightContent
+      selectedView={selectedUserGroupForSidebar}
+      isPrimaryCollapsed={isTwoColumnPrimaryCollapsed}
+      onTogglePrimaryPanel={toggleTwoColumnPrimaryPanel}
+      projectItemProps={sharedProjectItemProps}
+      expandedProjectIds={listExpandedProjectIds}
+      onToggleProject={toggleProject}
+      renderWorkspaceContentRow={renderWorkspaceContentRow}
+    />
+  );
+
+  const twoColumnLeftContent = isProjectTwoColumn
+    ? projectTwoColumnLeftContent
+    : isGroupTwoColumn
+      ? userGroupTwoColumnLeftContent
+      : groupedTwoColumnLeftContent;
+  const twoColumnRightContent = isProjectTwoColumn
+    ? projectTwoColumnRightContent
+    : isGroupTwoColumn
+      ? userGroupTwoColumnRightContent
+      : groupedTwoColumnRightContent;
+
+  const twoColumnSidebarContent = isTwoColumnSidebar ? (
+    <TwoColumnSidebarContent
+      autoSaveId={
+        isProjectTwoColumn
+          ? "left-sidebar-project-two-column"
+          : `left-sidebar-group-two-column-${groupingMode}`
+      }
+      primaryPanelId={
+        isProjectTwoColumn
+          ? "left-sidebar-two-column-primary-project"
+          : `left-sidebar-two-column-primary-${groupingMode}`
+      }
+      secondaryPanelId={
+        isProjectTwoColumn
+          ? "left-sidebar-two-column-secondary-project"
+          : `left-sidebar-two-column-secondary-${groupingMode}`
+      }
+      storage={storage}
+      primaryPanelRef={twoColumnPrimaryPanelRef}
+      isPrimaryCollapsed={isTwoColumnPrimaryCollapsed}
+      primarySize={currentTwoColumnPrimarySize}
+      pinnedSection={pinnedWorkspaceSection}
+      leftContent={twoColumnLeftContent}
+      rightContent={twoColumnRightContent}
+      onPrimaryCollapse={() => setIsTwoColumnPrimaryCollapsed(true)}
+      onPrimaryExpand={() => setIsTwoColumnPrimaryCollapsed(false)}
+      onPrimaryResize={handleTwoColumnPrimaryResize}
+      onDividerDragging={handleTwoColumnDividerDragging}
+    />
+  ) : null;
+
+  const sessionSidebar = sidebarListView === "session";
+  const sidebarTwoColumnLayout = isTwoColumnSidebar && !sessionSidebar;
+
+  const projectTabContent = isInitialProjectsLoading ? (
+    <ProjectsSidebarLoading />
+  ) : sessionSidebar ? (
+    <SessionSidebarList
+      catalogCount={sessionCatalog.total}
+      collapsedWorkspaceGroups={collapsedWorkspaceGroups}
+      groupingMode={groupingMode}
+      groups={sessionCatalog.groups}
+      hasMore={agentSessionsHasMore}
+      onShowMore={() => {
+        void loadMoreAgentSessions();
+      }}
+      projects={projects}
+      onArchiveSession={archiveAgentSession}
+      sessionsLoaded={agentSessionsLoaded}
+      toggleWorkspaceGroup={toggleWorkspaceGroup}
+    />
+  ) : isTwoColumnSidebar ? (
+    twoColumnSidebarContent
+  ) : groupingMode === "project" ? (
+    projectModeOneColumnContent
+  ) : groupingMode === "group" ? (
+    userGroupOneColumnContent
+  ) : (
+    groupedOneColumnContent
+  );
+
+  const launchpadSharedProps = {
+    currentView,
+    canvasOpen: Boolean(canvasOpen),
+    newWorkspaceOpen: Boolean(newWorkspace),
+    launchpadItems,
+    onNavigate: (path: string) => {
+      // Restore last Task source tab when opening plain /tasks from Launchpad.
+      if (path === "/tasks" || path.startsWith("/tasks?")) {
+        router.push(tasksPathWithStoredSource());
+        return;
+      }
+      router.push(path);
+    },
+    onOpenCanvas: () => void setCanvasOpen(true),
+    onOpenNewWorkspace: handleOpenNewWorkspace,
+  };
+
+  return (
+    <>
+      <aside
+        className={cn(
+          "@container flex h-full w-full flex-col bg-sidebar text-sidebar-foreground select-none",
+          LEFT_SIDEBAR_DIVIDER_GUTTER_SCROLLBAR_CLASS,
+        )}
+      >
+        {/* Launchpad — wait for first load attempt to avoid default-config flash */}
+        {launchpadSettled ? (
+          <LeftSidebarLaunchpadBlock
+            isExpanded={isWorkspacesExpanded}
+            onExpandedChange={setIsWorkspacesExpanded}
+            {...launchpadSharedProps}
+          />
+        ) : null}
+
+        <div className="flex min-h-0 flex-1 flex-col">
+          {attentionFilterMode ? (
+            <div
+              className={cn(
+                "flex shrink-0 items-center justify-between gap-2 py-2 pl-3",
+                LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+              )}
             >
-                {/* Launchpad — wait for first load attempt to avoid default-config flash */}
-                {launchpadSettled ? (
-                    <LeftSidebarLaunchpadBlock
-                        isExpanded={isWorkspacesExpanded}
-                        onExpandedChange={setIsWorkspacesExpanded}
-                        {...launchpadSharedProps}
-                    />
-                ) : null}
+              <div className="flex min-w-0 items-center gap-1.5">
+                <Bell className="size-3.5 shrink-0 text-muted-foreground" />
+                <p className="truncate text-[12px] font-medium text-foreground">
+                  {attentionT("filterTitle")}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="shrink-0 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+                onClick={() => useAgentAttentionStore.getState().setFilterMode(false)}
+              >
+                {attentionT("clearFilter")}
+              </button>
+            </div>
+          ) : null}
 
-
-
-                <div className="flex-1 flex flex-col min-h-0">
-                    {attentionFilterMode ? (
-                        <div className={cn("flex shrink-0 items-center justify-between gap-2 py-2 pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
-                            <div className="flex min-w-0 items-center gap-1.5">
-                                <Bell className="size-3.5 shrink-0 text-muted-foreground" />
-                                <p className="truncate text-[12px] font-medium text-foreground">
-                                    {attentionT('filterTitle')}
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                className="shrink-0 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-                                onClick={() => useAgentAttentionStore.getState().setFilterMode(false)}
-                            >
-                                {attentionT('clearFilter')}
-                            </button>
-                        </div>
-                    ) : null}
-
-                    <div
-                        className={cn(
-                            "flex min-h-0 flex-1 flex-col overflow-hidden",
-                            sidebarTwoColumnLayout ? "pt-0 pb-0" : "pt-1.5 pb-3",
-                        )}
-                        {...(sidebarTwoColumnLayout
-                            ? {}
-                            : { "data-sidebar-shortcut-scope": "list" })}
-                    >
-                        {!sidebarTwoColumnLayout && !sessionSidebar ? pinnedWorkspaceSection : null}
-                        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                            {projectTabContent}
-                        </div>
-                    </div>
-                </div>
-                <LeftSidebarFooter
-                    availableLabels={workspaceLabels}
-                    filters={sidebarWorkspaceFilters}
-                    groupingMode={groupingMode}
-                    groups={groups}
-                    projects={projects}
-                    onAddProject={handleAddProject}
-                    onFiltersChange={setSidebarWorkspaceFilters}
-                    onGroupingModeChange={setGroupingMode}
-                    listView={sidebarListView}
-                    onListViewChange={handleSidebarListViewChange}
-                />
-            </aside >
-            <WorkspaceInfoHoverHost />
-            <CreateProjectDialog
-                isOpen={isCreateProjectOpen}
-                onClose={() => setCreateProjectOpen(false)}
-            />
-
-            <AdoptWorkspacesIntoGroupDialog
-                pending={adoptWorkspacesPending}
-                busy={adoptWorkspacesBusy}
-                onClose={handleAdoptWorkspacesClose}
-                onProjectOnly={() => {
-                    void handleAdoptWorkspacesProjectOnly();
-                }}
-                onAdopt={() => {
-                    void handleAdoptWorkspacesConfirm();
-                }}
-            />
-
-            <FollowProjectInGroupDialog
-                pending={followProjectPending}
-                busy={followProjectBusy}
-                onClose={handleFollowProjectClose}
-                onFollowProject={() => {
-                    void handleFollowProjectConfirm();
-                }}
-                onAssignWorkspace={() => {
-                    void handleFollowProjectAssignWorkspace();
-                }}
-            />
-
-            <WorkspaceScriptDialog
-                projectId={scriptDialogProjectId}
-                isOpen={!!scriptDialogProjectId}
-                onClose={() => setScriptDialogProjectId(null)}
-            />
-
-            {deleteProjectDialog && (
-                <DeleteProjectDialog
-                    isOpen={deleteProjectDialog.isOpen}
-                    onClose={() => setDeleteProjectDialog(null)}
-                    projectId={deleteProjectDialog.projectId}
-                    projectName={deleteProjectDialog.projectName}
-                    canDelete={deleteProjectDialog.canDelete}
-                    onConfirm={async () => {
-                        await deleteProject(deleteProjectDialog.projectId);
-                        setDeleteProjectDialog(null);
-                    }}
-                />
+          <div
+            className={cn(
+              "flex min-h-0 flex-1 flex-col overflow-hidden",
+              sidebarTwoColumnLayout ? "pt-0 pb-0" : "pt-1.5 pb-3",
             )}
+            {...(sidebarTwoColumnLayout ? {} : { "data-sidebar-shortcut-scope": "list" })}
+          >
+            {!sidebarTwoColumnLayout && !sessionSidebar ? pinnedWorkspaceSection : null}
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{projectTabContent}</div>
+          </div>
+        </div>
+        <LeftSidebarFooter
+          availableLabels={workspaceLabels}
+          filters={sidebarWorkspaceFilters}
+          groupingMode={groupingMode}
+          groups={groups}
+          projects={projects}
+          onAddProject={handleAddProject}
+          onFiltersChange={setSidebarWorkspaceFilters}
+          onGroupingModeChange={setGroupingMode}
+          listView={sidebarListView}
+          onListViewChange={handleSidebarListViewChange}
+        />
+      </aside>
+      <WorkspaceInfoHoverHost />
+      <CreateProjectDialog
+        isOpen={isCreateProjectOpen}
+        onClose={() => setCreateProjectOpen(false)}
+      />
 
-        </>
-    );
+      <AdoptWorkspacesIntoGroupDialog
+        pending={adoptWorkspacesPending}
+        busy={adoptWorkspacesBusy}
+        onClose={handleAdoptWorkspacesClose}
+        onProjectOnly={() => {
+          void handleAdoptWorkspacesProjectOnly();
+        }}
+        onAdopt={() => {
+          void handleAdoptWorkspacesConfirm();
+        }}
+      />
+
+      <FollowProjectInGroupDialog
+        pending={followProjectPending}
+        busy={followProjectBusy}
+        onClose={handleFollowProjectClose}
+        onFollowProject={() => {
+          void handleFollowProjectConfirm();
+        }}
+        onAssignWorkspace={() => {
+          void handleFollowProjectAssignWorkspace();
+        }}
+      />
+
+      <WorkspaceScriptDialog
+        projectId={scriptDialogProjectId}
+        isOpen={!!scriptDialogProjectId}
+        onClose={() => setScriptDialogProjectId(null)}
+      />
+
+      {deleteProjectDialog && (
+        <DeleteProjectDialog
+          isOpen={deleteProjectDialog.isOpen}
+          onClose={() => setDeleteProjectDialog(null)}
+          projectId={deleteProjectDialog.projectId}
+          projectName={deleteProjectDialog.projectName}
+          canDelete={deleteProjectDialog.canDelete}
+          onConfirm={async () => {
+            await deleteProject(deleteProjectDialog.projectId);
+            setDeleteProjectDialog(null);
+          }}
+        />
+      )}
+    </>
+  );
 };
 
 export default LeftSidebar;

@@ -37,10 +37,7 @@ export type AuthEnv = {
 
 /** Prefer app error UI over Hub's built-in /error (wrong "Go Home"). */
 function authErrorURL(env: AuthEnv): string {
-  const fromEnv =
-    env.AUTH_ERROR_URL?.trim() ||
-    process.env.AUTH_ERROR_URL?.trim() ||
-    "";
+  const fromEnv = env.AUTH_ERROR_URL?.trim() || process.env.AUTH_ERROR_URL?.trim() || "";
   if (fromEnv) return fromEnv;
   // Production app; local OAuth always passes errorCallbackURL per request.
   return "https://app.atmos.land/hub-auth/error";
@@ -75,11 +72,9 @@ export function createAuth(db: HubDb, env: AuthEnv = {}) {
   applyAuthEnv(env);
 
   const githubId = env.GITHUB_CLIENT_ID ?? process.env.GITHUB_CLIENT_ID ?? "";
-  const githubSecret =
-    env.GITHUB_CLIENT_SECRET ?? process.env.GITHUB_CLIENT_SECRET ?? "";
+  const githubSecret = env.GITHUB_CLIENT_SECRET ?? process.env.GITHUB_CLIENT_SECRET ?? "";
   const googleId = env.GOOGLE_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID ?? "";
-  const googleSecret =
-    env.GOOGLE_CLIENT_SECRET ?? process.env.GOOGLE_CLIENT_SECRET ?? "";
+  const googleSecret = env.GOOGLE_CLIENT_SECRET ?? process.env.GOOGLE_CLIENT_SECRET ?? "";
 
   return betterAuth({
     appName: "Atmos",

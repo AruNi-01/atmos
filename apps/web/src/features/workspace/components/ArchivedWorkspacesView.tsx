@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useLocale, useTranslations } from 'next-intl';
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Input,
   ScrollArea,
@@ -23,17 +23,17 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui";
-import { ArchivedWorkspace, wsWorkspaceApi } from '@/api/ws-api';
+import { ArchivedWorkspace, wsWorkspaceApi } from "@/api/ws-api";
 import { useQueryState } from "nuqs";
 import { workspacesParams } from "@/shared/lib/nuqs/searchParams";
-import { useProjectStore } from '@/features/project/store/use-project-store';
+import { useProjectStore } from "@/features/project/store/use-project-store";
 import {
   useProjects,
   invalidateProjectBootstrap,
-} from '@/features/project/hooks/use-project-bootstrap-query';
-import { formatRelativeTime } from '@atmos/shared';
-import { DeleteProjectDialog } from '@/features/project/components/DeleteProjectDialog';
-import { DeleteWorkspaceDialog } from '@/features/workspace/components/DeleteWorkspaceDialog';
+} from "@/features/project/hooks/use-project-bootstrap-query";
+import { formatRelativeTime } from "@atmos/shared";
+import { DeleteProjectDialog } from "@/features/project/components/DeleteProjectDialog";
+import { DeleteWorkspaceDialog } from "@/features/workspace/components/DeleteWorkspaceDialog";
 import { motion, AnimatePresence } from "motion/react";
 import { useWorkspaceSettingsStore } from "@/features/settings/store/workspace-settings-store";
 import { PageEmptyState } from "@/shared/components/PageEmptyState";
@@ -68,7 +68,7 @@ interface ArchivedWorkspacesViewProps {
 }
 
 export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ viewSwitcher }) => {
-  const t = useTranslations('Workspace.components.archivedView');
+  const t = useTranslations("Workspace.components.archivedView");
   const locale = useLocale();
   const [searchQuery, setSearchQuery] = useQueryState("q", workspacesParams.q);
   const [, setView] = useQueryState("view", workspacesParams.view);
@@ -77,7 +77,7 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
   const [restoringIds, setRestoringIds] = useState<Set<string>>(new Set());
 
   const projects = useProjects();
-  const deleteProject = useProjectStore(s => s.deleteProject);
+  const deleteProject = useProjectStore((s) => s.deleteProject);
   const confirmBeforeDelete = useWorkspaceSettingsStore((s) => s.confirmBeforeDelete);
   const [deleteProjectDialog, setDeleteProjectDialog] = useState<{
     isOpen: boolean;
@@ -100,11 +100,11 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
       const result = await wsWorkspaceApi.listArchived();
       setArchivedWorkspaces(result.workspaces || []);
     } catch (error) {
-      console.error('Failed to load archived workspaces:', error);
+      console.error("Failed to load archived workspaces:", error);
       toastManager.add({
-        title: t('toasts.loadErrorTitle'),
-        description: t('toasts.loadErrorDescription'),
-        type: "error"
+        title: t("toasts.loadErrorTitle"),
+        description: t("toasts.loadErrorDescription"),
+        type: "error",
       });
     } finally {
       setIsLoading(false);
@@ -116,20 +116,20 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
   }, [loadArchivedWorkspaces]);
 
   const handleRestore = async (workspace: ArchivedWorkspace) => {
-    setRestoringIds(prev => new Set(prev).add(workspace.guid));
+    setRestoringIds((prev) => new Set(prev).add(workspace.guid));
     try {
       await wsWorkspaceApi.unarchive(workspace.guid);
-      setArchivedWorkspaces(prev => prev.filter(w => w.guid !== workspace.guid));
+      setArchivedWorkspaces((prev) => prev.filter((w) => w.guid !== workspace.guid));
       await invalidateProjectBootstrap();
     } catch (error) {
-      console.error('Failed to restore workspace:', error);
+      console.error("Failed to restore workspace:", error);
       toastManager.add({
-        title: t('toasts.restoreFailedTitle'),
-        description: t('toasts.restoreFailedDescription'),
-        type: "error"
+        title: t("toasts.restoreFailedTitle"),
+        description: t("toasts.restoreFailedDescription"),
+        type: "error",
       });
     } finally {
-      setRestoringIds(prev => {
+      setRestoringIds((prev) => {
         const next = new Set(prev);
         next.delete(workspace.guid);
         return next;
@@ -139,7 +139,7 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
 
   const handleDelete = async (workspace: ArchivedWorkspace) => {
     const onDeleted = () => {
-      setArchivedWorkspaces(prev => prev.filter(w => w.guid !== workspace.guid));
+      setArchivedWorkspaces((prev) => prev.filter((w) => w.guid !== workspace.guid));
     };
 
     if (!confirmBeforeDelete) {
@@ -149,9 +149,9 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
       } catch (error) {
         console.error("Failed to delete workspace", error);
         toastManager.add({
-          title: t('toasts.deleteFailedTitle'),
-          description: t('toasts.deleteFailedDescription'),
-          type: "error"
+          title: t("toasts.deleteFailedTitle"),
+          description: t("toasts.deleteFailedDescription"),
+          type: "error",
         });
       }
       return;
@@ -166,8 +166,8 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
   };
 
   const handleDeleteProject = (projectId: string, projectName: string) => {
-    // If project is not found in store (maybe we only have it in archived list), 
-    // it probably shouldn't happen unless sync issue. 
+    // If project is not found in store (maybe we only have it in archived list),
+    // it probably shouldn't happen unless sync issue.
     // If it is found, check for active workspaces.
     // However, if the project is deleted from sidebar (from projects store) but still has archived workspaces,
     // we might need to handle it. But standard flow is: project exists -> can be deleted.
@@ -179,8 +179,8 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
     // const project = projects.find(p => p.id === projectId);
     // const hasActiveWorkspaces = project?.workspaces.some(w => !w.isArchived) ?? false;
 
-    const projectInStore = projects.find(p => p.id === projectId);
-    const hasActiveWorkspaces = projectInStore?.workspaces.some(w => !w.isArchived) ?? false;
+    const projectInStore = projects.find((p) => p.id === projectId);
+    const hasActiveWorkspaces = projectInStore?.workspaces.some((w) => !w.isArchived) ?? false;
 
     setDeleteProjectDialog({
       isOpen: true,
@@ -189,58 +189,63 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
       canDelete: !hasActiveWorkspaces,
       onDeleted: () => {
         // After project delete, remove all workspaces locally for UI update
-        setArchivedWorkspaces(prev => prev.filter(w => w.project_guid !== projectId));
-      }
+        setArchivedWorkspaces((prev) => prev.filter((w) => w.project_guid !== projectId));
+      },
     });
   };
-
 
   // Filter by search
   const filteredWorkspaces = useMemo(() => {
     if (!searchQuery) return archivedWorkspaces;
     const lowQuery = searchQuery.toLowerCase();
-    return archivedWorkspaces.filter(w =>
-      w.name.toLowerCase().includes(lowQuery) ||
-      (w.display_name?.toLowerCase().includes(lowQuery) ?? false) ||
-      w.project_name.toLowerCase().includes(lowQuery) ||
-      w.branch.toLowerCase().includes(lowQuery)
+    return archivedWorkspaces.filter(
+      (w) =>
+        w.name.toLowerCase().includes(lowQuery) ||
+        (w.display_name?.toLowerCase().includes(lowQuery) ?? false) ||
+        w.project_name.toLowerCase().includes(lowQuery) ||
+        w.branch.toLowerCase().includes(lowQuery),
     );
   }, [archivedWorkspaces, searchQuery]);
 
   // Group by Project
   const groupedByProject = useMemo(() => {
-    return filteredWorkspaces.reduce((acc, ws) => {
-      if (!acc[ws.project_guid]) {
-        acc[ws.project_guid] = {
-          projectName: ws.project_name,
-          projectId: ws.project_guid,
-          workspaces: [],
-        };
-      }
-      acc[ws.project_guid].workspaces.push(ws);
-      return acc;
-    }, {} as Record<string, { projectName: string; projectId: string; workspaces: ArchivedWorkspace[] }>);
+    return filteredWorkspaces.reduce(
+      (acc, ws) => {
+        if (!acc[ws.project_guid]) {
+          acc[ws.project_guid] = {
+            projectName: ws.project_name,
+            projectId: ws.project_guid,
+            workspaces: [],
+          };
+        }
+        acc[ws.project_guid].workspaces.push(ws);
+        return acc;
+      },
+      {} as Record<
+        string,
+        { projectName: string; projectId: string; workspaces: ArchivedWorkspace[] }
+      >,
+    );
   }, [filteredWorkspaces]);
 
-
   return (
-    <div className="flex flex-col h-full bg-background/50">
+    <div className="flex h-full flex-col bg-background/50">
       {/* Content with ScrollArea */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-hidden">
         <ScrollArea className="h-full" scrollFade>
-          <div className="max-w-5xl mx-auto w-full px-8">
+          <div className="mx-auto w-full max-w-5xl px-8">
             {/* Header / Title - Scrolls away */}
             <div className="pt-12 pb-8">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 space-y-2">
-                  <h2 className="text-2xl font-bold tracking-tight flex items-center gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground border border-border">
+                  <h2 className="flex items-center gap-3 text-2xl font-bold tracking-tight">
+                    <div className="flex size-10 items-center justify-center rounded-xl border border-border bg-muted text-muted-foreground">
                       <Archive className="size-5" />
                     </div>
-                    {t('header.title')}
+                    {t("header.title")}
                   </h2>
-                  <p className="text-sm text-muted-foreground text-pretty max-w-sm">
-                    {t('header.description')}
+                  <p className="max-w-sm text-sm text-pretty text-muted-foreground">
+                    {t("header.description")}
                   </p>
                 </div>
                 {viewSwitcher ? <div className="shrink-0">{viewSwitcher}</div> : null}
@@ -248,14 +253,14 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
             </div>
 
             {/* Sticky Search Bar */}
-            <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md pt-2 pb-6 -mx-4 px-4 sm:-mx-8 sm:px-8">
-              <div className="relative group max-w-5xl mx-auto">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/60 group-focus-within:text-primary" />
+            <div className="sticky top-0 z-30 -mx-4 bg-background/80 px-4 pt-2 pb-6 backdrop-blur-md sm:-mx-8 sm:px-8">
+              <div className="group relative mx-auto max-w-5xl">
+                <Search className="absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t('searchPlaceholder')}
-                  className="pl-10 h-12 bg-muted/20 border-border/50 focus:bg-background transition-all rounded-xl shadow-sm focus-visible:ring-1 focus-visible:ring-primary/20"
+                  placeholder={t("searchPlaceholder")}
+                  className="h-12 rounded-xl border-border/50 bg-muted/20 pl-10 shadow-sm transition-all focus:bg-background focus-visible:ring-1 focus-visible:ring-primary/20"
                   autoFocus
                 />
               </div>
@@ -266,13 +271,16 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
                 <div className="space-y-8">
                   {[...Array(3)].map((_, i) => (
                     <div key={i} className="space-y-3">
-                      <div className="flex items-center justify-between pb-2 border-b border-border/40">
+                      <div className="flex items-center justify-between border-b border-border/40 pb-2">
                         <Skeleton className="h-4 w-32" />
                         <Skeleton className="size-6 rounded-md" />
                       </div>
                       <div className="grid gap-2">
                         {[...Array(2)].map((_, j) => (
-                          <div key={j} className="h-16 rounded-xl border border-border/50 bg-muted/20" />
+                          <div
+                            key={j}
+                            className="h-16 rounded-xl border border-border/50 bg-muted/20"
+                          />
                         ))}
                       </div>
                     </div>
@@ -310,109 +318,113 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
               ) : (
                 <div className="space-y-10 pt-2">
                   <AnimatePresence mode="popLayout" initial={false}>
-                    {Object.values(groupedByProject).map(({ projectName, projectId, workspaces }) => (
-                      <motion.div
-                        key={projectId}
-                        layout
-                        initial={false}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.98 }}
-                        className="space-y-4"
-                      >
-                        <div className="flex items-center justify-between sticky top-[76px] bg-background/95 backdrop-blur-sm py-3 z-20 border-b border-border/40">
-                          <span className="text-[11px] font-semibold text-muted-foreground/80 flex items-center gap-3">
-                            <OverflowTooltip
-                              text={projectName}
-                              className="max-w-[400px]"
-                              contentClassName="max-w-[420px]"
-                            />
-                            <span className="bg-muted px-2 py-0.5 rounded-full text-[10px] font-bold font-mono">
-                              {workspaces.length}
+                    {Object.values(groupedByProject).map(
+                      ({ projectName, projectId, workspaces }) => (
+                        <motion.div
+                          key={projectId}
+                          layout
+                          initial={false}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.98 }}
+                          className="space-y-4"
+                        >
+                          <div className="sticky top-[76px] z-20 flex items-center justify-between border-b border-border/40 bg-background/95 py-3 backdrop-blur-sm">
+                            <span className="flex items-center gap-3 text-[11px] font-semibold text-muted-foreground/80">
+                              <OverflowTooltip
+                                text={projectName}
+                                className="max-w-[400px]"
+                                contentClassName="max-w-[420px]"
+                              />
+                              <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] font-bold">
+                                {workspaces.length}
+                              </span>
                             </span>
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer rounded-lg border border-transparent hover:border-destructive/20"
-                            onClick={() => handleDeleteProject(projectId, projectName)}
-                            title={t('actions.deleteProject')}
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
-                        </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 cursor-pointer rounded-lg border border-transparent p-0 text-muted-foreground hover:border-destructive/20 hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => handleDeleteProject(projectId, projectName)}
+                              title={t("actions.deleteProject")}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
 
-                        <div className="grid gap-2.5">
-                          <AnimatePresence mode="popLayout" initial={false}>
-                            {workspaces.map((ws, index) => (
-                              <motion.div
-                                key={ws.guid}
-                                layout
-                                initial={false}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.2) }}
-                                className="group flex items-center justify-between p-4 rounded-xl border border-border bg-background hover:bg-muted/50 text-left w-full shadow-sm"
-                              >
-                                <div className="flex items-center gap-4 min-w-0 flex-1">
-                                  <div className="flex items-center gap-3 min-w-0 shrink-0 w-[520px] max-w-full">
-                                    <OverflowTooltip
-                                      text={ws.display_name || ws.name}
-                                      className="w-[260px] shrink-0 text-[14px] font-semibold text-foreground"
-                                    />
-                                    {ws.branch && (
-                                      <span className="flex items-center gap-1.5 min-w-0 max-w-[220px] shrink text-[11px] font-medium text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-lg border border-border/50">
-                                        <GitBranch className="size-3 shrink-0" />
-                                        <OverflowTooltip
-                                          text={ws.branch}
-                                          className="min-w-0 flex-1"
-                                        />
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <span className="text-[11px] text-muted-foreground/70 font-medium truncate block">
-                                      {t('archivedAt', { time: formatRelativeTime(ws.archived_at, locale) })}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity translate-x-1 group-hover:translate-x-0">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 px-3 text-muted-foreground hover:text-foreground hover:bg-background cursor-pointer rounded-lg shadow-sm font-medium text-xs"
-                                    onClick={() => handleRestore(ws)}
-                                    disabled={restoringIds.has(ws.guid)}
-                                    title={t('actions.restore')}
-                                  >
-                                    {restoringIds.has(ws.guid) ? (
-                                      <Loader2 className="size-3.5 animate-spin" />
-                                    ) : (
-                                      <div className="flex items-center gap-1.5">
-                                        <RotateCw className="size-3.5" />
-                                        {t('actions.restore')}
-                                      </div>
-                                    )}
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 px-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/20 cursor-pointer rounded-lg shadow-sm font-medium text-xs"
-                                    onClick={() => handleDelete(ws)}
-                                    title={t('actions.deletePermanently')}
-                                  >
-                                    <div className="flex items-center gap-1.5">
-                                      <Trash2 className="size-3.5" />
-                                      {t('actions.delete')}
+                          <div className="grid gap-2.5">
+                            <AnimatePresence mode="popLayout" initial={false}>
+                              {workspaces.map((ws, index) => (
+                                <motion.div
+                                  key={ws.guid}
+                                  layout
+                                  initial={false}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  exit={{ opacity: 0, scale: 0.95 }}
+                                  transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.2) }}
+                                  className="group flex w-full items-center justify-between rounded-xl border border-border bg-background p-4 text-left shadow-sm hover:bg-muted/50"
+                                >
+                                  <div className="flex min-w-0 flex-1 items-center gap-4">
+                                    <div className="flex w-[520px] max-w-full min-w-0 shrink-0 items-center gap-3">
+                                      <OverflowTooltip
+                                        text={ws.display_name || ws.name}
+                                        className="w-[260px] shrink-0 text-[14px] font-semibold text-foreground"
+                                      />
+                                      {ws.branch && (
+                                        <span className="flex max-w-[220px] min-w-0 shrink items-center gap-1.5 rounded-lg border border-border/50 bg-muted/80 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                                          <GitBranch className="size-3 shrink-0" />
+                                          <OverflowTooltip
+                                            text={ws.branch}
+                                            className="min-w-0 flex-1"
+                                          />
+                                        </span>
+                                      )}
                                     </div>
-                                  </Button>
-                                </div>
-                              </motion.div>
-                            ))}
-                          </AnimatePresence>
-                        </div>
-                      </motion.div>
-                    ))}
+                                    <div className="min-w-0 flex-1">
+                                      <span className="block truncate text-[11px] font-medium text-muted-foreground/70">
+                                        {t("archivedAt", {
+                                          time: formatRelativeTime(ws.archived_at, locale),
+                                        })}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex translate-x-1 items-center gap-2 opacity-0 transition-opacity group-hover:translate-x-0 group-hover:opacity-100">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 cursor-pointer rounded-lg px-3 text-xs font-medium text-muted-foreground shadow-sm hover:bg-background hover:text-foreground"
+                                      onClick={() => handleRestore(ws)}
+                                      disabled={restoringIds.has(ws.guid)}
+                                      title={t("actions.restore")}
+                                    >
+                                      {restoringIds.has(ws.guid) ? (
+                                        <Loader2 className="size-3.5 animate-spin" />
+                                      ) : (
+                                        <div className="flex items-center gap-1.5">
+                                          <RotateCw className="size-3.5" />
+                                          {t("actions.restore")}
+                                        </div>
+                                      )}
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 cursor-pointer rounded-lg px-3 text-xs font-medium text-muted-foreground shadow-sm hover:border-destructive/20 hover:bg-destructive/10 hover:text-destructive"
+                                      onClick={() => handleDelete(ws)}
+                                      title={t("actions.deletePermanently")}
+                                    >
+                                      <div className="flex items-center gap-1.5">
+                                        <Trash2 className="size-3.5" />
+                                        {t("actions.delete")}
+                                      </div>
+                                    </Button>
+                                  </div>
+                                </motion.div>
+                              ))}
+                            </AnimatePresence>
+                          </div>
+                        </motion.div>
+                      ),
+                    )}
                   </AnimatePresence>
                 </div>
               )}
@@ -450,9 +462,9 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
             } catch (error) {
               console.error("Failed to delete workspace", error);
               toastManager.add({
-                title: t('toasts.deleteFailedTitle'),
-                description: t('toasts.deleteFailedDescription'),
-                type: "error"
+                title: t("toasts.deleteFailedTitle"),
+                description: t("toasts.deleteFailedDescription"),
+                type: "error",
               });
             }
             setDeleteWorkspaceDialog(null);

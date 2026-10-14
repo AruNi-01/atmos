@@ -10,10 +10,7 @@ import type {
 } from "@/features/task/components/TaskGithubFilterMenu";
 import type { TaskGithubSortParam } from "@/shared/lib/nuqs/searchParams";
 
-export type ManagedGithubFilters = Pick<
-  TaskGithubFilters,
-  "state" | "assignees" | "labels"
->;
+export type ManagedGithubFilters = Pick<TaskGithubFilters, "state" | "assignees" | "labels">;
 
 /** Tokens we own in the search box (everything else is freeform). */
 const MANAGED_TOKEN_RE =
@@ -39,10 +36,7 @@ function unquote(raw: string): string {
 
 /** Drop managed tokens; keep freeform (sort:, author:, text, …). */
 export function stripManagedTokens(query: string): string {
-  return query
-    .replace(MANAGED_TOKEN_RE, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return query.replace(MANAGED_TOKEN_RE, " ").replace(/\s+/g, " ").trim();
 }
 
 export type ParsedManagedGithubFilters = ManagedGithubFilters & {
@@ -57,8 +51,7 @@ export function parseManagedFromQuery(query: string): ParsedManagedGithubFilters
   let state: TaskGithubStateFilter = "all";
   let stateExplicit = false;
 
-  const re =
-    /(?:^|\s)(is|assignee|label):(?:"([^"]*)"|([^\s]+))/gi;
+  const re = /(?:^|\s)(is|assignee|label):(?:"([^"]*)"|([^\s]+))/gi;
   let match: RegExpExecArray | null;
   while ((match = re.exec(query)) !== null) {
     const key = match[1].toLowerCase();
@@ -93,10 +86,7 @@ export function parseManagedFromQuery(query: string): ParsedManagedGithubFilters
  * Does not touch `repo:` (repos stay outside the search box).
  * State `all` omits `is:open` / `is:closed` so every status is returned.
  */
-export function applyManagedToQuery(
-  query: string,
-  managed: ManagedGithubFilters,
-): string {
+export function applyManagedToQuery(query: string, managed: ManagedGithubFilters): string {
   const rest = stripManagedTokens(query);
   const parts: string[] = [];
   if (rest) parts.push(rest);
@@ -117,10 +107,7 @@ export function applyManagedToQuery(
   return parts.join(" ").trim();
 }
 
-export function managedFiltersEqual(
-  a: ManagedGithubFilters,
-  b: ManagedGithubFilters,
-): boolean {
+export function managedFiltersEqual(a: ManagedGithubFilters, b: ManagedGithubFilters): boolean {
   if (a.state !== b.state) return false;
   if (a.assignees.length !== b.assignees.length) return false;
   if (a.labels.length !== b.labels.length) return false;

@@ -45,10 +45,7 @@ describe("macOS DMG backdrop layout", () => {
   });
 
   it("keeps overlay constants aligned with electron-builder.yml", () => {
-    const py = readFileSync(
-      join(appRoot, "scripts/generate-dmg-background.py"),
-      "utf8",
-    );
+    const py = readFileSync(join(appRoot, "scripts/generate-dmg-background.py"), "utf8");
     expect(py).toContain("W, H = 642, 406");
     expect(py).toContain("ICON_APP = (95, 72)");
     expect(py).toContain("ICON_APPLICATIONS = (367, 213)");

@@ -53,16 +53,12 @@ export function SettingsAccountScreen() {
           Icon={LogOutIcon}
           destructive
           title={settings.signOutPhone.isPending ? "Signing out..." : "Sign out"}
-          onPress={
-            settings.signOutPhone.isPending ? undefined : settings.confirmSignOutPhone
-          }
+          onPress={settings.signOutPhone.isPending ? undefined : settings.confirmSignOutPhone}
         />
       </Section>
 
       <InlineError
-        message={
-          profile.error instanceof Error ? profile.error.message : settings.error
-        }
+        message={profile.error instanceof Error ? profile.error.message : settings.error}
       />
     </AppScreen>
   );

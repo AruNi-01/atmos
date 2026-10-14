@@ -2,14 +2,11 @@
  * Loopback-only helpers for the machine running this browser's Atmos Server.
  */
 
-import { systemApi } from '@/api/rest-api';
-import { desktopInvoke, isDesktopRuntime } from '@/shared/lib/desktop-bridge';
-import {
-  getLoopbackHttpBase,
-  isHostedAtmosOrigin,
-} from '@/shared/lib/desktop-runtime';
-import type { ShellEnvInfo } from '@/api/rest-api';
-import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
+import { systemApi } from "@/api/rest-api";
+import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
+import { getLoopbackHttpBase, isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
+import type { ShellEnvInfo } from "@/api/rest-api";
+import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 
 export interface LocalComputerStatus {
   hostname: string | null;
@@ -27,7 +24,7 @@ export interface LocalComputerStatus {
   shell_env?: ShellEnvInfo;
 }
 
-const DEFAULT_RELAY = 'https://relay.atmos.land';
+const DEFAULT_RELAY = "https://relay.atmos.land";
 const LOCAL_COMPUTER_STATUS_CACHE_MS = 1_500;
 
 interface ApiEnvelope {
@@ -44,26 +41,25 @@ type LocalComputerStatusCache = {
 };
 
 let localComputerStatusCache: LocalComputerStatusCache | null = null;
-let localComputerStatusInFlight:
-  | { key: string; request: Promise<LocalComputerStatus> }
-  | null = null;
+let localComputerStatusInFlight: { key: string; request: Promise<LocalComputerStatus> } | null =
+  null;
 let localComputerStatusCacheEpoch = 0;
 
 function getLocalComputerStatusCacheKey(): string {
   const computer = useAtmosComputerStore.getState();
   if (
     isHostedAtmosOrigin() &&
-    computer.connectionMode === 'relay' &&
+    computer.connectionMode === "relay" &&
     computer.relayGatewayHttpBase &&
     computer.relayClientToken
   ) {
     return [
-      'relay',
-      computer.relayGatewayHttpBase.replace(/\/$/, ''),
+      "relay",
+      computer.relayGatewayHttpBase.replace(/\/$/, ""),
       computer.relayClientToken,
-    ].join(':');
+    ].join(":");
   }
-  return 'loopback';
+  return "loopback";
 }
 
 export function invalidateLocalComputerStatusCache(): void {
@@ -77,7 +73,7 @@ function stripLocalSuffix(hostname: string | null | undefined): string | null {
     return null;
   }
   const trimmed = hostname.trim();
-  const stripped = trimmed.replace(/\.local$/i, '');
+  const stripped = trimmed.replace(/\.local$/i, "");
   return stripped || trimmed;
 }
 
@@ -86,9 +82,7 @@ async function desktopComputerDisplayName(): Promise<string | null> {
     return null;
   }
   try {
-    const name = await desktopInvoke<string | null>(
-      'get_local_computer_display_name',
-    );
+    const name = await desktopInvoke<string | null>("get_local_computer_display_name");
     const trimmed = name?.trim();
     return trimmed || null;
   } catch {
@@ -100,15 +94,14 @@ async function localFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const computer = useAtmosComputerStore.getState();
   const usingRelayGateway =
     isHostedAtmosOrigin() &&
-    computer.connectionMode === 'relay' &&
+    computer.connectionMode === "relay" &&
     Boolean(computer.relayGatewayHttpBase && computer.relayClientToken);
   const base = usingRelayGateway
-    ? computer.relayGatewayHttpBase!.replace(/\/$/, '')
-    : (await getLoopbackHttpBase()).replace(/\/$/, '');
-  const token =
-    typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_API_TOKEN : undefined;
+    ? computer.relayGatewayHttpBase!.replace(/\/$/, "")
+    : (await getLoopbackHttpBase()).replace(/\/$/, "");
+  const token = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_API_TOKEN : undefined;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
     ...(init?.headers as Record<string, string> | undefined),
   };
   if (usingRelayGateway && computer.relayClientToken) {
@@ -121,7 +114,7 @@ async function localFetch<T>(path: string, init?: RequestInit): Promise<T> {
     res = await fetch(`${base}${path}`, { ...init, headers });
   } catch (err) {
     const hint =
-      ' Make sure Atmos Server is running. After updating the app, restart it (e.g. just dev-api).';
+      " Make sure Atmos Server is running. After updating the app, restart it (e.g. just dev-api).";
     throw new Error(`Cannot reach Atmos Server at ${base}.${hint}`, { cause: err });
   }
 
@@ -130,16 +123,16 @@ async function localFetch<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     json = JSON.parse(raw) as ApiEnvelope;
   } catch {
-    if (raw.trimStart().startsWith('<!') || res.status === 405) {
+    if (raw.trimStart().startsWith("<!") || res.status === 405) {
       throw new Error(
-        'Computer API is not available on this Atmos Server — restart Atmos Server to load the latest API.',
+        "Computer API is not available on this Atmos Server — restart Atmos Server to load the latest API.",
       );
     }
   }
   if (!res.ok || !json?.success) {
     if (res.status === 405) {
       throw new Error(
-        'Computer API is not available on this Atmos Server — restart Atmos Server to load the latest API.',
+        "Computer API is not available on this Atmos Server — restart Atmos Server to load the latest API.",
       );
     }
     throw new Error(json?.error ?? json?.message ?? `HTTP ${res.status}`);
@@ -163,8 +156,7 @@ export async function loadLocalComputerStatus(
   ]);
 
   const hostname = overview?.shell_env?.hostname ?? null;
-  const computer_name =
-    tauriName ?? stripLocalSuffix(hostname) ?? hostname?.trim() ?? null;
+  const computer_name = tauriName ?? stripLocalSuffix(hostname) ?? hostname?.trim() ?? null;
 
   if (!computer_name && !knownServerId) {
     return null;
@@ -199,7 +191,7 @@ export async function fetchLocalComputerStatus(): Promise<LocalComputerStatus> {
   }
 
   const cacheEpoch = localComputerStatusCacheEpoch;
-  const request = localFetch<LocalComputerStatus>('/api/system/computer')
+  const request = localFetch<LocalComputerStatus>("/api/system/computer")
     .then((status) => {
       if (cacheEpoch === localComputerStatusCacheEpoch) {
         localComputerStatusCache = {
@@ -236,8 +228,8 @@ export async function registerLocalComputer(
     display_name: string;
     relay_connected?: boolean;
     relay_last_error?: string | null;
-  }>('/api/system/computer/register', {
-    method: 'POST',
+  }>("/api/system/computer/register", {
+    method: "POST",
     body: JSON.stringify({
       register_token: registerToken,
       display_name: displayName,
@@ -252,8 +244,8 @@ export async function registerLocalComputer(
 
 export async function unregisterLocalComputer(): Promise<{ removed: boolean; hint?: string }> {
   const result = await localFetch<{ removed: boolean; hint?: string }>(
-    '/api/system/computer/unregister',
-    { method: 'POST', body: '{}' },
+    "/api/system/computer/unregister",
+    { method: "POST", body: "{}" },
   );
   invalidateLocalComputerStatusCache();
   return result;
@@ -266,9 +258,9 @@ export interface RelaySyncResult {
 
 /** Ask the local API to (re)open the outbound relay WebSocket from disk identity. */
 export async function syncRelayConnection(): Promise<RelaySyncResult> {
-  const result = await localFetch<RelaySyncResult>('/api/system/computer/relay-sync', {
-    method: 'POST',
-    body: '{}',
+  const result = await localFetch<RelaySyncResult>("/api/system/computer/relay-sync", {
+    method: "POST",
+    body: "{}",
   });
   invalidateLocalComputerStatusCache();
   return result;
@@ -296,13 +288,12 @@ export async function proxyRelayRequest(
   },
 ): Promise<RelayProxyResult | null> {
   try {
-    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-    const deviceCredential =
-      opts?.deviceCredential?.trim() || opts?.accessToken?.trim() || null;
-    return await localFetch<RelayProxyResult>('/api/system/computer/relay', {
-      method: 'POST',
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    const deviceCredential = opts?.deviceCredential?.trim() || opts?.accessToken?.trim() || null;
+    return await localFetch<RelayProxyResult>("/api/system/computer/relay", {
+      method: "POST",
       body: JSON.stringify({
-        relay_url: relayUrl.replace(/\/+$/, ''),
+        relay_url: relayUrl.replace(/\/+$/, ""),
         method: method.toUpperCase(),
         path: normalizedPath,
         device_credential: deviceCredential,

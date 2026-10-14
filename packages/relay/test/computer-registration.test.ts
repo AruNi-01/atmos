@@ -134,17 +134,12 @@ describe("computer registration device limits", () => {
     await expect(response.json()).resolves.toEqual({
       error: "computer_device_registration_limit_exceeded",
     });
-    expect(
-      harness.calls.some((call) => call.sql.includes("UPDATE register_tokens")),
-    ).toBe(false);
-    expect(
-      harness.calls.some((call) => call.sql.includes("INSERT INTO computers")),
-    ).toBe(false);
+    expect(harness.calls.some((call) => call.sql.includes("UPDATE register_tokens"))).toBe(false);
+    expect(harness.calls.some((call) => call.sql.includes("INSERT INTO computers"))).toBe(false);
     expect(
       harness.calls.some(
         (call) =>
-          call.sql.includes("COUNT(*) AS count FROM computers") &&
-          call.args[0] === appDeviceId,
+          call.sql.includes("COUNT(*) AS count FROM computers") && call.args[0] === appDeviceId,
       ),
     ).toBe(true);
   });
@@ -169,9 +164,7 @@ describe("computer registration device limits", () => {
     );
 
     expect(response.status).toBe(200);
-    const insertCall = harness.calls.find((call) =>
-      call.sql.includes("INSERT INTO computers"),
-    );
+    const insertCall = harness.calls.find((call) => call.sql.includes("INSERT INTO computers"));
     expect(insertCall?.sql).toContain("app_device_id");
     expect(insertCall?.args.at(-1)).toBe(appDeviceId);
   });
@@ -204,9 +197,7 @@ describe("computer registration device limits", () => {
       server_id: "server-original",
       display_name: "MacBook Pro",
     });
-    expect(harness.calls.some((call) => call.sql.includes("INSERT INTO computers"))).toBe(
-      false,
-    );
+    expect(harness.calls.some((call) => call.sql.includes("INSERT INTO computers"))).toBe(false);
     expect(
       harness.calls.some((call) => call.sql.includes("COUNT(*) AS count FROM computers")),
     ).toBe(false);

@@ -41,12 +41,7 @@ type Point = { x: number; y: number };
 
 type RectBox = Pick<DOMRect, "left" | "right" | "top" | "bottom">;
 
-export function isPointInRect(
-  x: number,
-  y: number,
-  rect: RectBox,
-  slop = 0,
-): boolean {
+export function isPointInRect(x: number, y: number, rect: RectBox, slop = 0): boolean {
   return (
     x >= rect.left - slop &&
     x <= rect.right + slop &&
@@ -166,9 +161,7 @@ type SavedPointerEvents = {
   priority: string;
 };
 
-export function muteCenterOverlayHits(
-  root: ParentNode = document,
-): () => void {
+export function muteCenterOverlayHits(root: ParentNode = document): () => void {
   const saved: SavedPointerEvents[] = [];
   const nodes = root.querySelectorAll(PLUS_MENU_OVERLAY_MUTE_SELECTOR);
   for (const node of nodes) {
@@ -222,10 +215,7 @@ export type PlusMenuOutsideDismissEvent = {
 export function clientPointFromOutsideEvent(
   event: Pick<PlusMenuOutsideDismissEvent, "clientX" | "clientY" | "detail">,
 ): Point | null {
-  return (
-    clientPointFromUnknown(event.detail?.originalEvent) ??
-    clientPointFromUnknown(event)
-  );
+  return clientPointFromUnknown(event.detail?.originalEvent) ?? clientPointFromUnknown(event);
 }
 
 export function shouldRetainPlusMenuForOutsidePointer(

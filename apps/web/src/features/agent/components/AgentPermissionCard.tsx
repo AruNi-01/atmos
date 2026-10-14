@@ -2,15 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  ApprovalCard,
-  type ApprovalAction,
-  type ApprovalQuestion,
-} from "@workspace/ui";
-import type {
-  AgentChatPermissionOption,
-  AgentPlan,
-} from "@/features/agent/lib/agent-chat-types";
+import { ApprovalCard, type ApprovalAction, type ApprovalQuestion } from "@workspace/ui";
+import type { AgentChatPermissionOption, AgentPlan } from "@/features/agent/lib/agent-chat-types";
 import type { PendingPermission } from "@/features/agent/lib/chat-helpers";
 import {
   permissionDescriptionToRender,
@@ -39,9 +32,7 @@ function planStepsFromIntent(planIntent: AgentPlan | null | undefined) {
   }));
 }
 
-function planStepsFromPermissionTodos(
-  todos: PendingPermission["plan_todos"],
-) {
+function planStepsFromPermissionTodos(todos: PendingPermission["plan_todos"]) {
   if (!todos?.length) return null;
   const steps = todos
     .map((todo, index) => {
@@ -108,9 +99,9 @@ export function AgentPermissionCard({
         if (!response.ok) return;
         const text = await response.text();
         if (cancelled) return;
-        setPlanFileMarkdown(text.length > PLAN_FILE_FETCH_MAX
-          ? `${text.slice(0, PLAN_FILE_FETCH_MAX)}\n\n…`
-          : text);
+        setPlanFileMarkdown(
+          text.length > PLAN_FILE_FETCH_MAX ? `${text.slice(0, PLAN_FILE_FETCH_MAX)}\n\n…` : text,
+        );
       } catch {
         if (!cancelled) setPlanFileMarkdown(null);
       }
@@ -127,9 +118,7 @@ export function AgentPermissionCard({
   }, [markdown, planFileMarkdown]);
 
   const structuredPlanSteps = useMemo(
-    () =>
-      planStepsFromIntent(planIntent)
-      ?? planStepsFromPermissionTodos(permission.plan_todos),
+    () => planStepsFromIntent(planIntent) ?? planStepsFromPermissionTodos(permission.plan_todos),
     [permission.plan_todos, planIntent],
   );
 
@@ -156,12 +145,9 @@ export function AgentPermissionCard({
   // View plan expands the permission slot; collapsed todos stay at the shared 50cqh budget.
   const permissionSlotMaxH = isPlanExit && showPlanPreview ? "max-h-[70cqh]" : "max-h-[50cqh]";
   const approvalCardMaxH = isPlanExit && showPlanPreview ? "70cqh" : "50cqh";
-  const planTitle = overview?.title || (description || undefined);
+  const planTitle = overview?.title || description || undefined;
   const planSummary = overview?.summary;
-  const commandActions = useMemo(
-    () => permissionCommandActions(permission),
-    [permission],
-  );
+  const commandActions = useMemo(() => permissionCommandActions(permission), [permission]);
   const planActions = useMemo((): ApprovalAction[] => {
     const rejectId = defaultRejectOptionId(permission);
     const allowId = defaultAllowOptionId(permission);
@@ -181,7 +167,7 @@ export function AgentPermissionCard({
 
   if (isAskUser) {
     return (
-      <div data-agent-chat-permission="" className="min-h-0 max-h-[50cqh] min-w-0">
+      <div data-agent-chat-permission="" className="max-h-[50cqh] min-h-0 min-w-0">
         <ApprovalCard
           variant="questions"
           title={t("askUserTitle")}
@@ -232,9 +218,7 @@ export function AgentPermissionCard({
                     {overviewMarkdown}
                   </MarkdownRenderer>
                 ) : readOnly ? null : (
-                  <p className="px-1 py-2 text-sm text-muted-foreground">
-                    {t("planViewerEmpty")}
-                  </p>
+                  <p className="px-1 py-2 text-sm text-muted-foreground">{t("planViewerEmpty")}</p>
                 )}
               </div>
             ) : undefined
@@ -257,7 +241,7 @@ export function AgentPermissionCard({
   }
 
   return (
-    <div data-agent-chat-permission="" className="min-h-0 max-h-[50cqh] min-w-0">
+    <div data-agent-chat-permission="" className="max-h-[50cqh] min-h-0 min-w-0">
       <ApprovalCard
         variant="command"
         title={t("permissionRequested")}
@@ -347,10 +331,7 @@ function permissionCommandActions(permission: PendingPermission): ApprovalAction
   return permission.options.map((option) => ({
     id: option.option_id,
     label: option.name,
-    variant:
-      option.option_id === primaryId && !isRejectOption(option)
-        ? "primary"
-        : "ghost",
+    variant: option.option_id === primaryId && !isRejectOption(option) ? "primary" : "ghost",
   }));
 }
 
@@ -359,16 +340,16 @@ function isAllowOnceOption(option: AgentChatPermissionOption): boolean {
   const kind = option.kind;
   const name = option.name;
   return (
-    /allow[_-]?once|^allow$|^accept$|^once$|^yes$/i.test(id)
-    || /allow[_-]?once|^allow$|^accept$|^once$/i.test(kind)
-    || /^allow once$|^yes$|^accept$/i.test(name.trim())
+    /allow[_-]?once|^allow$|^accept$|^once$|^yes$/i.test(id) ||
+    /allow[_-]?once|^allow$|^accept$|^once$/i.test(kind) ||
+    /^allow once$|^yes$|^accept$/i.test(name.trim())
   );
 }
 
 function isRejectOption(option: AgentChatPermissionOption): boolean {
   return (
-    /reject|deny|skip|cancel|decline/i.test(option.option_id)
-    || /reject|deny|skip|cancel|decline/i.test(option.kind)
-    || /reject|deny|skip|cancel|decline|^no\b/i.test(option.name)
+    /reject|deny|skip|cancel|decline/i.test(option.option_id) ||
+    /reject|deny|skip|cancel|decline/i.test(option.kind) ||
+    /reject|deny|skip|cancel|decline|^no\b/i.test(option.name)
   );
 }

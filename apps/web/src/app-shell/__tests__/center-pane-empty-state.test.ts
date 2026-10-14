@@ -12,10 +12,7 @@ const emptyState = readFileSync(
   join(import.meta.dir, "../center-pane/CenterPaneEmptyState.tsx"),
   "utf8",
 );
-const centerStage = readFileSync(
-  join(import.meta.dir, "../CenterStage.tsx"),
-  "utf8",
-);
+const centerStage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
 
 describe("empty pane launcher layout", () => {
   it("uses a two-column grid when the pane is wide enough for a pair", () => {
@@ -75,29 +72,21 @@ describe("empty pane launcher layout", () => {
   });
 
   it("does not compact an unmeasured or empty launcher", () => {
-    expect(
-      planEmptyPaneLauncher({ width: 0, height: 400, actionCount: 7 }).mode,
-    ).toBe("list");
-    expect(
-      planEmptyPaneLauncher({ width: 400, height: 0, actionCount: 7 }).mode,
-    ).toBe("list");
-    expect(
-      planEmptyPaneLauncher({ width: 400, height: 400, actionCount: 0 }).mode,
-    ).toBe("list");
+    expect(planEmptyPaneLauncher({ width: 0, height: 400, actionCount: 7 }).mode).toBe("list");
+    expect(planEmptyPaneLauncher({ width: 400, height: 0, actionCount: 7 }).mode).toBe("list");
+    expect(planEmptyPaneLauncher({ width: 400, height: 400, actionCount: 0 }).mode).toBe("list");
   });
 
   it("fills leftover space below the tab bar and scrolls instead of clipping", () => {
     expect(emptyState).toContain("flex-1");
     expect(emptyState).toContain("overflow-y-auto");
-    expect(emptyState).toContain("plan.scroll ? \"items-start\"");
+    expect(emptyState).toContain('plan.scroll ? "items-start"');
     expect(emptyState).toContain("min-h-full items-center");
   });
 
   it("sizes the card grid from the measured pane, not a hardcoded two-column class", () => {
     expect(emptyState).toContain("planEmptyPaneLauncher");
-    expect(emptyState).toContain(
-      "gridTemplateColumns: `repeat(${plan.columns}, minmax(0, 1fr))`",
-    );
+    expect(emptyState).toContain("gridTemplateColumns: `repeat(${plan.columns}, minmax(0, 1fr))`");
     expect(emptyState).not.toContain('"grid grid-cols-2 gap-2"');
     expect(emptyState).toContain("data-center-pane-empty-columns={plan.columns}");
   });
@@ -111,15 +100,9 @@ describe("empty pane launcher layout", () => {
     expect(emptyPaneLastItemSpansFullRow(9, 1)).toBe(false);
     expect(emptyPaneLastItemSpansFullRow(0, 2)).toBe(false);
     expect(emptyPaneGridItemCount(9, false)).toBe(9);
-    expect(emptyPaneLastItemSpansFullRow(emptyPaneGridItemCount(9, false), 2)).toBe(
-      true,
-    );
-    expect(emptyPaneLastItemSpansFullRow(emptyPaneGridItemCount(9, true), 2)).toBe(
-      false,
-    );
-    expect(emptyPaneLastItemSpansFullRow(emptyPaneGridItemCount(6, true), 2)).toBe(
-      true,
-    );
+    expect(emptyPaneLastItemSpansFullRow(emptyPaneGridItemCount(9, false), 2)).toBe(true);
+    expect(emptyPaneLastItemSpansFullRow(emptyPaneGridItemCount(9, true), 2)).toBe(false);
+    expect(emptyPaneLastItemSpansFullRow(emptyPaneGridItemCount(6, true), 2)).toBe(true);
     expect(emptyState).toContain("emptyPaneLastItemSpansFullRow");
     expect(emptyState).toContain("[&>*:last-child]:col-span-full");
   });
@@ -143,9 +126,7 @@ describe("empty pane launcher layout", () => {
 
   it("puts overview first in the empty-pane launcher", () => {
     expect(emptyState).toContain('id: "overview"');
-    expect(emptyState.indexOf('id: "overview"')).toBeLessThan(
-      emptyState.indexOf('id: "terminal"'),
-    );
+    expect(emptyState.indexOf('id: "overview"')).toBeLessThan(emptyState.indexOf('id: "terminal"'));
   });
 
   it("mirrors plus-menu tab surfaces in the empty-pane launcher", () => {

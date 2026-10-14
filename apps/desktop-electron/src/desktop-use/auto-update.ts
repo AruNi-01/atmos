@@ -46,28 +46,21 @@ async function runAutoUpdate(): Promise<void> {
     }
 
     if (status?.cli?.installed === false) {
-      mainLog(
-        "[desktop-use] auto-update: skip (Atmos CLI not installed)",
-      );
+      mainLog("[desktop-use] auto-update: skip (Atmos CLI not installed)");
       return;
     }
     if (status?.cli?.update_required === true) {
-      mainLog(
-        "[desktop-use] auto-update: skip (Atmos CLI below package min_cli_version)",
-      );
+      mainLog("[desktop-use] auto-update: skip (Atmos CLI below package min_cli_version)");
       return;
     }
 
     const installed = Boolean(status?.driver?.installed);
     const updateAvailable = Boolean(status?.update_available);
-    const installedV =
-      status?.installed_version ?? status?.driver?.engine_version ?? null;
+    const installedV = status?.installed_version ?? status?.driver?.engine_version ?? null;
     const pinnedV = status?.pinned_version ?? null;
 
     if (!installed) {
-      mainLog(
-        "[desktop-use] auto-update: skip (not installed — user must Install)",
-      );
+      mainLog("[desktop-use] auto-update: skip (not installed — user must Install)");
       return;
     }
     if (!updateAvailable) {
@@ -86,9 +79,7 @@ async function runAutoUpdate(): Promise<void> {
       error?: string;
     };
     if (result && result.ok === false) {
-      mainLog(
-        `[desktop-use] auto-update: ensure failed: ${result.error ?? "unknown"}`,
-      );
+      mainLog(`[desktop-use] auto-update: ensure failed: ${result.error ?? "unknown"}`);
       return;
     }
     mainLog(

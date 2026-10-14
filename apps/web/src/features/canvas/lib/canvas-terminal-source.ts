@@ -47,8 +47,7 @@ export function resolveCanvasTerminalSourceTarget(
   const fromTmux = spaceIdFromTmuxWindowName(props.tmuxWindowName);
   const spaceId = fromPaint !== DEFAULT_CENTER_SPACE_ID ? fromPaint : fromTmux;
   const contextScope = props.contextScope === "project" ? "project" : "workspace";
-  const sourceTerminalTabId =
-    props.sourceTerminalTabId?.trim() || FIXED_TERMINAL_TAB_VALUE;
+  const sourceTerminalTabId = props.sourceTerminalTabId?.trim() || FIXED_TERMINAL_TAB_VALUE;
   return {
     hostId,
     spaceId,
@@ -132,16 +131,13 @@ export async function navigateToCanvasTerminalSource(
   }
 
   const path = buildCanvasTerminalSourcePath(target, { terminalTabId: tabId });
-  const { useCenterSpaceStore } = await import(
-    "@/app-shell/center-space/center-space-store"
-  );
+  const { useCenterSpaceStore } = await import("@/app-shell/center-space/center-space-store");
   const store = useCenterSpaceStore.getState();
   if (!store.hydrated) store.hydrate();
   store.ensureHost(target.hostId);
 
   const sameHost = currentHostIdFromLocation() === target.hostId;
-  const alreadyOnDestSpace =
-    sameHost && store.getActiveSpaceId(target.hostId) === target.spaceId;
+  const alreadyOnDestSpace = sameHost && store.getActiveSpaceId(target.hostId) === target.spaceId;
 
   if (!sameHost) {
     store.setActiveSpace(target.hostId, target.spaceId);
@@ -160,9 +156,7 @@ export async function navigateToCanvasTerminalSource(
   });
   if (!committed) return false;
 
-  const { switchCenterSpace } = await import(
-    "@/app-shell/center-space/center-space-switch"
-  );
+  const { switchCenterSpace } = await import("@/app-shell/center-space/center-space-switch");
   await switchCenterSpace(target.hostId, target.spaceId, {
     preserveDeepLink: true,
   });

@@ -13,7 +13,10 @@ export function useAppStorage(): AppStorage {
  * A generic hook for persistent state.
  * Handles JSON serialization/deserialization and provides a React-friendly API.
  */
-export function useStorage<T>(key: string, defaultValue: T): [T, (value: T | ((val: T) => T)) => void] {
+export function useStorage<T>(
+  key: string,
+  defaultValue: T,
+): [T, (value: T | ((val: T) => T)) => void] {
   const storage = useAppStorage();
 
   const [storedValue, setStoredValue] = useState<T>(() => {
@@ -36,7 +39,7 @@ export function useStorage<T>(key: string, defaultValue: T): [T, (value: T | ((v
         console.warn(`Error setting storage key "${key}":`, error);
       }
     },
-    [key, storage, storedValue]
+    [key, storage, storedValue],
   );
 
   return [storedValue, setValue];

@@ -9,10 +9,7 @@ import { createAtmosQueryClient } from "@/providers/query-client";
 import { MobileWsProvider } from "@/providers/MobileWsProvider";
 import { acceptDeviceCredential, hasDeviceCredential } from "@/lib/device-credential";
 import { renewHubSession } from "@/lib/renew-hub-session";
-import {
-  isDevDeviceImportEnabled,
-  loadDevDeviceImport,
-} from "@/lib/dev-device-import";
+import { isDevDeviceImportEnabled, loadDevDeviceImport } from "@/lib/dev-device-import";
 import { ensureMobileHubConfigured } from "@/lib/hub-config";
 import {
   clearRelaySecretKey,
@@ -26,9 +23,7 @@ import { useMobileTheme } from "@/theme/theme-store";
 export function AppProviders({ children }: PropsWithChildren) {
   const theme = useMobileTheme();
   const queryClient = useMemo(() => createAtmosQueryClient(), []);
-  const setDeviceCredentialLoaded = useSessionStore(
-    (state) => state.setDeviceCredentialLoaded,
-  );
+  const setDeviceCredentialLoaded = useSessionStore((state) => state.setDeviceCredentialLoaded);
   const setRelayUrl = useSessionStore((state) => state.setRelayUrl);
   const setRelaySecretKey = useSessionStore((state) => state.setRelaySecretKey);
 
@@ -83,9 +78,7 @@ export function AppProviders({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (Platform.OS === "web") return;
-    Appearance.setColorScheme(
-      theme.preference === "system" ? "unspecified" : theme.preference,
-    );
+    Appearance.setColorScheme(theme.preference === "system" ? "unspecified" : theme.preference);
     void SystemUI.setBackgroundColorAsync(theme.colors.background);
   }, [theme.colors.background, theme.preference]);
 

@@ -108,9 +108,7 @@ describe("launchpad item placement helpers", () => {
 
     const toOutsideTray = applyLaunchpadReorder(items, "workspaces", LAUNCHPAD_DROP_OUTSIDE);
     expect(toOutsideTray?.workspaces.placement).toBe("outside");
-    expect(selectLaunchpadItemsByPlacement(toOutsideTray!, "outside").at(-1)).toBe(
-      "workspaces",
-    );
+    expect(selectLaunchpadItemsByPlacement(toOutsideTray!, "outside").at(-1)).toBe("workspaces");
 
     expect(applyLaunchpadReorder(items, "skills", LAUNCHPAD_DROP_OUTSIDE)).toBeNull();
 

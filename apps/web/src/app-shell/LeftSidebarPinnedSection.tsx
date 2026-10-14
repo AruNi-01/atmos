@@ -94,22 +94,32 @@ export function LeftSidebarPinnedSection({
           const { active, over } = event;
           if (!over || active.id === over.id) return;
 
-          const oldIndex = pinnedWorkspaces.findIndex(e => e.workspace.id === active.id);
-          const newIndex = pinnedWorkspaces.findIndex(e => e.workspace.id === over.id);
+          const oldIndex = pinnedWorkspaces.findIndex((e) => e.workspace.id === active.id);
+          const newIndex = pinnedWorkspaces.findIndex((e) => e.workspace.id === over.id);
           if (oldIndex === -1 || newIndex === -1) return;
 
           const reordered = arrayMove(pinnedWorkspaces, oldIndex, newIndex);
-          void onUpdatePinOrder(reordered.map(e => e.workspace.id));
+          void onUpdatePinOrder(reordered.map((e) => e.workspace.id));
         }}
         modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
       >
-        <SortableContext items={pinnedWorkspaces.map(e => e.workspace.id)} strategy={verticalListSortingStrategy}>
-          <div className={cn(
-            "grid min-w-0 transition-[grid-template-rows] duration-300 ease-in-out",
-            isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
-          )}>
+        <SortableContext
+          items={pinnedWorkspaces.map((e) => e.workspace.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div
+            className={cn(
+              "grid min-w-0 transition-[grid-template-rows] duration-300 ease-in-out",
+              isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
+            )}
+          >
             <div className="min-w-0 overflow-hidden">
-              <div className={cn("min-w-0 space-y-0.5 pb-1 pl-2", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
+              <div
+                className={cn(
+                  "min-w-0 space-y-0.5 pb-1 pl-2",
+                  LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+                )}
+              >
                 {pinnedWorkspaces.map((entry) => {
                   const statusMeta = getWorkspaceWorkflowStatusMeta(entry.workspace.workflowStatus);
                   const StatusIcon = statusMeta.icon;
@@ -121,9 +131,7 @@ export function LeftSidebarPinnedSection({
                     availableLabels,
                   );
                   const agentMeta = getWorkspaceAgentGroupMeta(
-                    parseWorkspaceAgentGroupKey(
-                      agentGroupKeyByWorkspaceId?.[entry.workspace.id],
-                    ),
+                    parseWorkspaceAgentGroupKey(agentGroupKeyByWorkspaceId?.[entry.workspace.id]),
                   );
                   const AgentIcon = agentMeta.icon;
                   const statusGroupKey = getWorkspaceStatusGroupKey(entry.workspace.workflowStatus);
@@ -133,7 +141,9 @@ export function LeftSidebarPinnedSection({
                     statusGroupKey !== NO_STATUS_WORKSPACE_GROUP_KEY ? (
                       <StatusIcon className={cn("size-3.5 shrink-0", statusMeta.className)} />
                     ) : groupingMode === "time" ? (
-                      <span className="truncate">{getWorkspaceTimeGroupLabel(entry.workspace)}</span>
+                      <span className="truncate">
+                        {getWorkspaceTimeGroupLabel(entry.workspace)}
+                      </span>
                     ) : groupingMode === "priority" &&
                       parseWorkspacePriority(entry.workspace.priority) !== "no_priority" ? (
                       <PriorityIcon className={cn("size-3.5 shrink-0", priorityMeta.className)} />
@@ -159,13 +169,13 @@ export function LeftSidebarPinnedSection({
       </DndContext>
       <div
         onClick={() => onCollapsedChange(!isCollapsed)}
-        className="group/divider relative mx-4 my-1.5 flex items-center justify-center cursor-pointer"
+        className="group/divider relative mx-4 my-1.5 flex cursor-pointer items-center justify-center"
       >
         <div
           onMouseEnter={() => onDividerHoverChange(true)}
           onMouseLeave={() => onDividerHoverChange(false)}
           className={cn(
-            "relative flex items-center gap-1 cursor-pointer",
+            "relative flex cursor-pointer items-center gap-1",
             isDividerHovered ? "text-sidebar-foreground" : "text-muted-foreground",
           )}
         >
@@ -175,12 +185,26 @@ export function LeftSidebarPinnedSection({
             <ChevronUp className="size-3.5 shrink-0" />
           )}
           {isCollapsed ? (
-            <span className="text-[11px] relative pr-1">
-              <span className={cn("transition-opacity duration-200", isDividerHovered ? "opacity-0" : "opacity-100")}>{t("leftPinnedSection.pinned")}</span>
-              <span className={cn("absolute left-0 top-0 transition-opacity duration-200", isDividerHovered ? "opacity-100" : "opacity-0")}>{t("leftPinnedSection.expand")}</span>
+            <span className="relative pr-1 text-[11px]">
+              <span
+                className={cn(
+                  "transition-opacity duration-200",
+                  isDividerHovered ? "opacity-0" : "opacity-100",
+                )}
+              >
+                {t("leftPinnedSection.pinned")}
+              </span>
+              <span
+                className={cn(
+                  "absolute top-0 left-0 transition-opacity duration-200",
+                  isDividerHovered ? "opacity-100" : "opacity-0",
+                )}
+              >
+                {t("leftPinnedSection.expand")}
+              </span>
             </span>
           ) : (
-            <span className="text-[11px] overflow-hidden max-w-0 opacity-0 group-hover/divider:max-w-[60px] group-hover/divider:opacity-100 group-hover/divider:pr-1 transition-all duration-300 whitespace-nowrap">
+            <span className="max-w-0 overflow-hidden text-[11px] whitespace-nowrap opacity-0 transition-all duration-300 group-hover/divider:max-w-[60px] group-hover/divider:pr-1 group-hover/divider:opacity-100">
               {t("leftPinnedSection.collapse")}
             </span>
           )}

@@ -16,8 +16,7 @@ mock.module("geist/font/pixel", () => ({
 }));
 
 mock.module("@workspace/ui", () => ({
-  cn: (...values: Array<string | false | null | undefined>) =>
-    values.filter(Boolean).join(" "),
+  cn: (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" "),
   Button: ({
     children,
     className,
@@ -32,11 +31,7 @@ mock.module("@workspace/ui", () => ({
     [key: string]: unknown;
   }) => {
     const variantClass =
-      variant === "default"
-        ? "bg-primary"
-        : variant === "ghost"
-          ? "hover:bg-accent"
-          : "";
+      variant === "default" ? "bg-primary" : variant === "ghost" ? "hover:bg-accent" : "";
     const mergedClass = [variantClass, className].filter(Boolean).join(" ");
     if (React.isValidElement(render)) {
       return React.cloneElement(
@@ -53,13 +48,8 @@ mock.module("@workspace/ui", () => ({
   },
 }));
 
-const {
-  ATMOS_BRICK_COLS,
-  ATMOS_BRICK_PATTERN,
-  ATMOS_BRICK_ROWS,
-  BALL_SPEED,
-  BreakoutErrorPage,
-} = await import("@/shared/components/breakout-error-page");
+const { ATMOS_BRICK_COLS, ATMOS_BRICK_PATTERN, ATMOS_BRICK_ROWS, BALL_SPEED, BreakoutErrorPage } =
+  await import("@/shared/components/breakout-error-page");
 
 function renderErrorPage(node: React.ReactElement): HTMLElement {
   const html = renderToStaticMarkup(
@@ -172,9 +162,7 @@ describe("BreakoutErrorPage", () => {
   it("wires playing-state fade classes for button hover restore", async () => {
     // Static markup cannot drive the canvas loop; assert the dimming contract
     // is present so hover-on-action can restore opacity while playing.
-    const source = await Bun.file(
-      new URL("../breakout-error-page.tsx", import.meta.url),
-    ).text();
+    const source = await Bun.file(new URL("../breakout-error-page.tsx", import.meta.url)).text();
 
     expect(source).toContain('status === "playing"');
     expect(source).toContain("opacity-[0.18]");
@@ -183,30 +171,22 @@ describe("BreakoutErrorPage", () => {
   });
 
   it("keeps a home escape on server errors alongside retry", () => {
-    const container = renderErrorPage(
-      <BreakoutErrorPage kind="server" onRetry={() => {}} />,
-    );
+    const container = renderErrorPage(<BreakoutErrorPage kind="server" onRetry={() => {}} />);
 
     expect(actionKinds(container)).toEqual(["retry", "home"]);
     expect(container.textContent).toContain("Try again");
     expect(container.textContent).toContain("Go back home");
-    expect(container.querySelector("[data-error-action='home']")?.tagName).toBe(
-      "A",
-    );
-    expect(
-      container.querySelector("[data-error-action='home']")?.getAttribute("href"),
-    ).toBe("/");
+    expect(container.querySelector("[data-error-action='home']")?.tagName).toBe("A");
+    expect(container.querySelector("[data-error-action='home']")?.getAttribute("href")).toBe("/");
 
-    const retryClass =
-      container.querySelector("[data-error-action='retry']")?.className ?? "";
-    const homeClass =
-      container.querySelector("[data-error-action='home']")?.className ?? "";
+    const retryClass = container.querySelector("[data-error-action='retry']")?.className ?? "";
+    const homeClass = container.querySelector("[data-error-action='home']")?.className ?? "";
     expect(retryClass).toContain("bg-primary");
     expect(homeClass).toContain("hover:bg-accent");
     expect(homeClass).not.toContain("bg-primary");
 
-    const code = [...container.querySelectorAll("div")].find((node) =>
-      (node.textContent ?? "").trim() === "500",
+    const code = [...container.querySelectorAll("div")].find(
+      (node) => (node.textContent ?? "").trim() === "500",
     );
     expect(code?.className).toContain("geist-pixel");
     expect(retryClass).not.toContain("geist-pixel");
@@ -232,10 +212,8 @@ describe("BreakoutErrorPage", () => {
     expect(container.textContent).toContain("重试");
     expect(container.textContent).toContain("返回首页");
 
-    const retryClass =
-      container.querySelector("[data-error-action='retry']")?.className ?? "";
-    const homeClass =
-      container.querySelector("[data-error-action='home']")?.className ?? "";
+    const retryClass = container.querySelector("[data-error-action='retry']")?.className ?? "";
+    const homeClass = container.querySelector("[data-error-action='home']")?.className ?? "";
     expect(retryClass).not.toContain("geist-pixel");
     expect(homeClass).not.toContain("geist-pixel");
     expect(container.querySelector("main")?.className).not.toContain("geist-pixel");

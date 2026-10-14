@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { catalogIdToXmlTag, xmlTagToCatalogId } from "../protocol";
 import { getComponentModule, listComponentTypes } from "../components/registry";
-import { catalogIconTypes, catalogVariantIconName, catalogVariantIconTypes } from "../embed/catalog-icons";
+import {
+  catalogIconTypes,
+  catalogVariantIconName,
+  catalogVariantIconTypes,
+} from "../embed/catalog-icons";
 import { CHART_GROUPS, CHART_IDS, CHART_META, chartVariantLabel } from "./chart-list";
 import { COMPONENT_PALETTE_IDS, REQUIRED_BLOCKS, SHADCN_BASIC_IDS } from "./shadcn-list";
 import { CATALOG_VARIANT_MAP } from "./variants";
@@ -48,7 +52,14 @@ describe("S5 catalog completeness", () => {
 
   test("official extras stay registered", () => {
     const types = new Set(listComponentTypes());
-    for (const id of ["attachment", "bubble", "marker", "message", "message-scroller", "questionnaire"]) {
+    for (const id of [
+      "attachment",
+      "bubble",
+      "marker",
+      "message",
+      "message-scroller",
+      "questionnaire",
+    ]) {
       expect(types.has(id)).toBe(true);
     }
   });

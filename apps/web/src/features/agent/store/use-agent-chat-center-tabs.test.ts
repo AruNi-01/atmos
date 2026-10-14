@@ -8,7 +8,11 @@ import {
 
 describe("agent chat center tabs", () => {
   beforeEach(() => {
-    useAgentChatCenterTabsStore.setState({ tabsByContext: {}, pendingActivate: null, pendingNewChat: 0 });
+    useAgentChatCenterTabsStore.setState({
+      tabsByContext: {},
+      pendingActivate: null,
+      pendingNewChat: 0,
+    });
   });
 
   it("treats persisted tabs with a chat id as having messages", () => {
@@ -43,10 +47,9 @@ describe("agent chat center tabs", () => {
       contextId: "ws-1",
       title: "Chat",
     });
-    useAgentChatCenterTabsStore.getState().setDraftPrompt(
-      tab.value,
-      "  explain\nthe auth flow and then keep going",
-    );
+    useAgentChatCenterTabsStore
+      .getState()
+      .setDraftPrompt(tab.value, "  explain\nthe auth flow and then keep going");
     const drafted = useAgentChatCenterTabsStore.getState().tabsByContext["ws-1"]?.[0];
     expect(drafted?.draftPrompt).toBe("explain the auth flow and then keep going");
     expect(drafted?.title.startsWith("explain the auth flow")).toBe(true);
@@ -67,10 +70,9 @@ describe("agent chat center tabs", () => {
       contextId: "ws-1",
       title: "Chat",
     });
-    useAgentChatCenterTabsStore.getState().setDraftPrompt(
-      tab.value,
-      "  explain\nthe auth flow and then keep going",
-    );
+    useAgentChatCenterTabsStore
+      .getState()
+      .setDraftPrompt(tab.value, "  explain\nthe auth flow and then keep going");
     const drafted = useAgentChatCenterTabsStore.getState().tabsByContext["ws-1"]?.[0];
     expect(drafted?.draftPrompt).toBe("explain the auth flow and then keep going");
     expect(drafted?.title.startsWith("explain the auth flow")).toBe(true);

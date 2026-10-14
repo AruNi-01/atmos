@@ -49,11 +49,7 @@ export class DebugLogger {
    * @param msg       Human-readable description
    * @param data      Optional structured key/value data
    */
-  log(
-    category: string,
-    msg: string,
-    data?: Record<string, unknown>
-  ): void {
+  log(category: string, msg: string, data?: Record<string, unknown>): void {
     const entry: DebugLogEntry = {
       ts: new Date().toISOString(),
       cat: category,

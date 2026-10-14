@@ -1,9 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { GitBlameRange } from "@/api/ws-api-types";
-import {
-  lookupBlameRange,
-  remapBlameRangesForDoc,
-} from "@/shared/lib/codemirror-git-blame-map";
+import { lookupBlameRange, remapBlameRangesForDoc } from "@/shared/lib/codemirror-git-blame-map";
 
 const ranges: GitBlameRange[] = [
   { start_line: 1, end_line: 1, commit_hash: "aaa" },

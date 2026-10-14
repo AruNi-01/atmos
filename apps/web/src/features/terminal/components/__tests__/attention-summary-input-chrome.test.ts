@@ -34,9 +34,7 @@ describe("attention summary input chrome", () => {
     const shell = readSibling("TerminalAgentInputShell.tsx");
     expect(overlay).toContain("header={");
     expect(overlay).toContain("AttentionSummaryPanel");
-    expect(overlay).not.toMatch(
-      /\{hasAttentionSummary && attentionSummary \? \(/,
-    );
+    expect(overlay).not.toMatch(/\{hasAttentionSummary && attentionSummary \? \(/);
     expect(shell).toContain("terminal-agent-input-header");
     expect(shell).toContain("header?: React.ReactNode");
   });
@@ -72,7 +70,7 @@ describe("attention summary input chrome", () => {
     expect(sideChat).toContain('shouldShowIndicator ? "h-3 w-8 opacity-100"');
     expect(chrome).toContain("const padBottom = 12 * normalizedTerminalScale;");
     expect(readSibling("TerminalAgentInputShell.tsx")).toContain(
-      "(isOverlayVisible || isSendAnimating || isSendExiting) && \"mb-1\"",
+      '(isOverlayVisible || isSendAnimating || isSendExiting) && "mb-1"',
     );
     expect(overlay).not.toContain("-translate-y-1");
   });
@@ -81,11 +79,9 @@ describe("attention summary input chrome", () => {
     const overlay = readSibling("TerminalAgentInputOverlay.tsx");
     const css = readSibling("TerminalAgentInputOverlay.css");
     expect(overlay).toContain(
-      "isSummaryActive && !isOverlayVisible && \"terminal-agent-input-trigger--pulse\"",
+      'isSummaryActive && !isOverlayVisible && "terminal-agent-input-trigger--pulse"',
     );
-    expect(overlay).not.toContain(
-      "isSummarySummarizing && \"terminal-agent-input-trigger--pulse\"",
-    );
+    expect(overlay).not.toContain('isSummarySummarizing && "terminal-agent-input-trigger--pulse"');
     expect(overlay).not.toContain("bg-sky-500");
     expect(css).toContain("background: #8aa9b8 !important;");
     expect(css).not.toContain("background: #3e5460 !important;");

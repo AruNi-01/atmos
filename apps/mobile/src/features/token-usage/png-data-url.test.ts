@@ -8,6 +8,8 @@ describe("pngBase64FromDataUrl", () => {
   });
 
   test("rejects a non-image payload", () => {
-    expect(() => pngBase64FromDataUrl("https://example.test/card.png")).toThrow("Share card is not a PNG.");
+    expect(() => pngBase64FromDataUrl("https://example.test/card.png")).toThrow(
+      "Share card is not a PNG.",
+    );
   });
 });

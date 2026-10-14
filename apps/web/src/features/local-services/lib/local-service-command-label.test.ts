@@ -61,9 +61,7 @@ describe("localServiceCommandTooltip", () => {
         "/Users/aarynlu/OpenSource/atmos/apps/web",
         "node /Users/aarynlu/OpenSource/atmos/apps/web/node_modules/.bin/next dev --port 3030",
       ),
-    ).toBe(
-      "node /Users/aarynlu/OpenSource/atmos/apps/web/node_modules/.bin/next dev --port 3030",
-    );
+    ).toBe("node /Users/aarynlu/OpenSource/atmos/apps/web/node_modules/.bin/next dev --port 3030");
   });
 
   test("falls back to the launch directory when the command has no path", () => {

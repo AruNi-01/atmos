@@ -27,9 +27,7 @@ export function useObserverWireMotion(
 
   useLayoutEffect(() => {
     const now = performance.now();
-    const reduced = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const current = motionRef.current
       ? sampleObserverWireMotion(motionRef.current, now).baseline
       : null;
@@ -49,8 +47,7 @@ export function useObserverWireMotion(
       if (!motion || motion !== next) return;
       const sampled = sampleObserverWireMotion(motion, time);
       setFrame(sampled.frame);
-      if (time - motion.start < motion.duration)
-        raf = requestAnimationFrame(tick);
+      if (time - motion.start < motion.duration) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);

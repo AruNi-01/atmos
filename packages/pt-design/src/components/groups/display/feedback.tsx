@@ -127,7 +127,8 @@ function ProgressRenderer({ node, mode }: PtRendererProps): ReactElement {
 export const progressModule: PtComponentModule = {
   type: "progress",
   defaultBBox: progressBBox,
-  defaultNode: (id) => ptNode(id, "progress", progressBBox, { props: { label: "Progress" }, value: "45" }),
+  defaultNode: (id) =>
+    ptNode(id, "progress", progressBBox, { props: { label: "Progress" }, value: "45" }),
   Renderer: ProgressRenderer,
   agentDescription: "Progress bar. value is 0–100.",
   xmlExample: `<progress id="load" label="Progress" value="45" x="0" y="0" width="220" height="16"/>`,

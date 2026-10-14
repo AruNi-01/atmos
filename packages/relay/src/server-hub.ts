@@ -15,11 +15,7 @@
  */
 
 import { DurableObject } from "cloudflare:workers";
-import {
-  ackDelivery,
-  providerFromRelayAddress,
-  type DeliveryAckStatus,
-} from "./delivery-state";
+import { ackDelivery, providerFromRelayAddress, type DeliveryAckStatus } from "./delivery-state";
 
 export interface ServerHubEnv {
   SERVER_HUB: DurableObjectNamespace<ServerHub>;
@@ -88,9 +84,7 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
     // bundles may persist), the edge auto-replies "pong" without ever
     // waking this DO. Zero billing impact.
     try {
-      ctx.setWebSocketAutoResponse(
-        new WebSocketRequestResponsePair("ping", "pong"),
-      );
+      ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
     } catch {
       // Older runtimes / tests without setWebSocketAutoResponse — non-fatal.
     }
@@ -135,9 +129,7 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
 
   private async clearServerPresence(serverId: string): Promise<void> {
     try {
-      await this.env.DB.prepare(
-        "UPDATE computers SET last_seen_at = NULL WHERE server_id = ?",
-      )
+      await this.env.DB.prepare("UPDATE computers SET last_seen_at = NULL WHERE server_id = ?")
         .bind(serverId)
         .run();
     } catch {
@@ -168,7 +160,8 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
           role: "client",
           sid: (raw as { sid: string }).sid,
           stream: stream === "terminal" ? "terminal" : "app",
-          client_type: typeof clientType === "string" && clientType.trim() ? clientType.trim() : undefined,
+          client_type:
+            typeof clientType === "string" && clientType.trim() ? clientType.trim() : undefined,
         };
       }
       return null;
@@ -259,7 +252,12 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
         }
       }
 
-      workerSide.serializeAttachment({ role: "client", sid, stream, client_type: clientType } satisfies PeerMeta);
+      workerSide.serializeAttachment({
+        role: "client",
+        sid,
+        stream,
+        client_type: clientType,
+      } satisfies PeerMeta);
       this.ctx.acceptWebSocket(workerSide, [TAG_CLIENT_ALL, tagForClient(sid)]);
 
       return new Response(null, { status: 101, webSocket: clientSide });
@@ -476,8 +474,7 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
       return;
     }
 
-    const payload =
-      typeof message === "string" ? message : new TextDecoder().decode(message);
+    const payload = typeof message === "string" ? message : new TextDecoder().decode(message);
 
     if (meta.role === "client") {
       const up = this.getServerSocket();

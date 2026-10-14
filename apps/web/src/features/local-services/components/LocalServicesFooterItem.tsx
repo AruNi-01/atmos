@@ -4,12 +4,7 @@ import React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { Loader2, Server } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  ScrollArea,
-} from "@workspace/ui";
+import { Popover, PopoverContent, PopoverTrigger, ScrollArea } from "@workspace/ui";
 
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
@@ -45,7 +40,9 @@ export function LocalServicesFooterItem() {
   const services = query.data?.services ?? [];
   const loading = query.isFetching;
   const error = query.error
-    ? (query.error instanceof Error ? query.error.message : t("errorFallback"))
+    ? query.error instanceof Error
+      ? query.error.message
+      : t("errorFallback")
     : (query.data?.unavailable?.message ?? null);
 
   const forceRefresh = React.useCallback(async () => {
@@ -59,30 +56,31 @@ export function LocalServicesFooterItem() {
   }, [connectionState, queryClient, scope]);
 
   const label = React.useCallback(
-    (key: string, values?: Record<string, string | number>) =>
-      t(key, values),
-    [t]
+    (key: string, values?: Record<string, string | number>) => t(key, values),
+    [t],
   );
 
-  const handleOpen = React.useCallback((service: LocalService) => {
-    const openUrl = localServiceOpenUrl(service);
-    if (!openUrl) return;
-    const ownerId = service.owner.workspace_id || service.owner.project_id;
-    if (!ownerId) {
-      window.open(openUrl, "_blank", "noopener,noreferrer");
+  const handleOpen = React.useCallback(
+    (service: LocalService) => {
+      const openUrl = localServiceOpenUrl(service);
+      if (!openUrl) return;
+      const ownerId = service.owner.workspace_id || service.owner.project_id;
+      if (!ownerId) {
+        window.open(openUrl, "_blank", "noopener,noreferrer");
+        setOpen(false);
+        return;
+      }
+      if (service.owner.workspace_id) {
+        router.push(`/workspace?id=${encodeURIComponent(service.owner.workspace_id)}`);
+      } else {
+        router.push(`/project?id=${encodeURIComponent(ownerId)}`);
+      }
+      const paintId = resolveCenterOpenContextId(ownerId, hostContextId, paintContextId) || ownerId;
+      void ensureSurface({ contextId: paintId, url: openUrl });
       setOpen(false);
-      return;
-    }
-    if (service.owner.workspace_id) {
-      router.push(`/workspace?id=${encodeURIComponent(service.owner.workspace_id)}`);
-    } else {
-      router.push(`/project?id=${encodeURIComponent(ownerId)}`);
-    }
-    const paintId =
-      resolveCenterOpenContextId(ownerId, hostContextId, paintContextId) || ownerId;
-    void ensureSurface({ contextId: paintId, url: openUrl });
-    setOpen(false);
-  }, [hostContextId, paintContextId, router]);
+    },
+    [hostContextId, paintContextId, router],
+  );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -92,14 +90,8 @@ export function LocalServicesFooterItem() {
           className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
           title={label("title")}
         >
-          {loading ? (
-            <Loader2 className="size-3 animate-spin" />
-          ) : (
-            <Server className="size-3" />
-          )}
-          <span className="font-medium">
-            {label("triggerLabel", { count: services.length })}
-          </span>
+          {loading ? <Loader2 className="size-3 animate-spin" /> : <Server className="size-3" />}
+          <span className="font-medium">{label("triggerLabel", { count: services.length })}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -108,7 +100,7 @@ export function LocalServicesFooterItem() {
         className="w-[420px] overflow-x-hidden overflow-y-hidden p-0"
       >
         <ScrollArea
-          className="h-auto w-full max-h-[min(420px,var(--radix-popover-content-available-height))]"
+          className="h-auto max-h-[min(420px,var(--radix-popover-content-available-height))] w-full"
           scrollFade
           viewportClassName="h-auto max-h-[min(420px,var(--radix-popover-content-available-height))] p-3"
         >

@@ -1,4 +1,8 @@
-import { terminalShortcuts, type TerminalShortcut, wrapBracketedPaste } from "@atmos/shared/terminal";
+import {
+  terminalShortcuts,
+  type TerminalShortcut,
+  wrapBracketedPaste,
+} from "@atmos/shared/terminal";
 
 export { terminalShortcuts, type TerminalShortcut, wrapBracketedPaste };
 

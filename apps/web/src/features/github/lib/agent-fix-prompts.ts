@@ -1,6 +1,4 @@
-import type {
-  ReviewCommentThread,
-} from "@/features/github/lib/pr-detail-parts";
+import type { ReviewCommentThread } from "@/features/github/lib/pr-detail-parts";
 
 export interface PullRequestFixPromptContext {
   owner: string;
@@ -101,12 +99,7 @@ export function buildPrReviewThreadFixPrompt(
     `- Location: ${lineLabel}`,
     "",
     thread.diffHunk
-      ? compactLines([
-          "Relevant diff hunk:",
-          "```diff",
-          thread.diffHunk,
-          "```",
-        ])
+      ? compactLines(["Relevant diff hunk:", "```diff", thread.diffHunk, "```"])
       : "Relevant diff hunk: unavailable",
     "",
     "Reviewer comments:",
@@ -124,39 +117,32 @@ export function buildPrReviewFixPrompt(
   review: PullRequestReviewFixPromptInfo,
 ): string {
   const reviewSummary = review.body?.trim()
-    ? compactLines([
-        `Review summary by ${review.author || "unknown reviewer"}:`,
-        review.body,
-      ])
+    ? compactLines([`Review summary by ${review.author || "unknown reviewer"}:`, review.body])
     : `Review summary by ${review.author || "unknown reviewer"}: (none)`;
-  const threadSections = review.threads.length > 0
-    ? review.threads
-        .map((thread, threadIndex) => {
-          const lineLabel = thread.line != null ? `line ${thread.line}` : "the referenced line";
-          const comments = thread.comments
-            .map((comment, commentIndex) =>
-              compactLines([
-                `Comment ${commentIndex + 1} by ${commentAuthor(comment)}:`,
-                comment.body || "(empty comment)",
-              ]),
-            )
-            .join("\n\n");
-          return compactLines([
-            `Thread ${threadIndex + 1}: ${thread.path} (${lineLabel})`,
-            thread.diffHunk
-              ? compactLines([
-                  "Relevant diff hunk:",
-                  "```diff",
-                  thread.diffHunk,
-                  "```",
-                ])
-              : "Relevant diff hunk: unavailable",
-            "Reviewer comments:",
-            comments,
-          ]);
-        })
-        .join("\n\n")
-    : "No inline review comments were available for this review.";
+  const threadSections =
+    review.threads.length > 0
+      ? review.threads
+          .map((thread, threadIndex) => {
+            const lineLabel = thread.line != null ? `line ${thread.line}` : "the referenced line";
+            const comments = thread.comments
+              .map((comment, commentIndex) =>
+                compactLines([
+                  `Comment ${commentIndex + 1} by ${commentAuthor(comment)}:`,
+                  comment.body || "(empty comment)",
+                ]),
+              )
+              .join("\n\n");
+            return compactLines([
+              `Thread ${threadIndex + 1}: ${thread.path} (${lineLabel})`,
+              thread.diffHunk
+                ? compactLines(["Relevant diff hunk:", "```diff", thread.diffHunk, "```"])
+                : "Relevant diff hunk: unavailable",
+              "Reviewer comments:",
+              comments,
+            ]);
+          })
+          .join("\n\n")
+      : "No inline review comments were available for this review.";
 
   return compactLines([
     "Fix the pull request review feedback below. Treat the review summary and all inline comments as one combined review.",
@@ -200,7 +186,9 @@ export function buildPrMergeConflictsFixPrompt(args: {
   const fileLines =
     args.conflictFiles.length > 0
       ? args.conflictFiles.map((path, index) => `${index + 1}. ${path}`)
-      : ["- Conflict file list was not available in Atmos. Inspect the merge against the base branch."];
+      : [
+          "- Conflict file list was not available in Atmos. Inspect the merge against the base branch.",
+        ];
 
   return compactLines([
     "Resolve the merge conflicts for this pull request. Make the smallest relevant changes so the PR can merge cleanly into the base branch.",
@@ -276,11 +264,15 @@ export function buildGithubActionsJobFixPrompt(args: {
   const failedSteps = (args.job.steps ?? []).filter(
     (step) => step.conclusion === "failure" || step.status === "failure",
   );
-  const stepLines = failedSteps.length > 0
-    ? failedSteps.map((step, index) =>
-        `- ${step.name || `Step ${step.number ?? index + 1}`}${step.number ? ` (#${step.number})` : ""}: ${step.conclusion || step.status || "failed"}`,
-      )
-    : ["- No failed step metadata was available in Atmos. Use the job name and workflow context."];
+  const stepLines =
+    failedSteps.length > 0
+      ? failedSteps.map(
+          (step, index) =>
+            `- ${step.name || `Step ${step.number ?? index + 1}`}${step.number ? ` (#${step.number})` : ""}: ${step.conclusion || step.status || "failed"}`,
+        )
+      : [
+          "- No failed step metadata was available in Atmos. Use the job name and workflow context.",
+        ];
   const jobUrl =
     args.job.html_url ||
     (args.job.url && !args.job.url.includes("api.github.com") ? args.job.url : null);
@@ -333,9 +325,7 @@ export function buildGithubActionsAnnotationsFixPrompt(args: {
       `${index + 1}. [${level}] ${annotation.title || annotation.message || "Untitled annotation"}`,
       jobName ? `   Job: ${jobName}` : null,
       location ? `   Location: ${location}` : null,
-      annotation.message && annotation.title
-        ? `   Message: ${annotation.message}`
-        : null,
+      annotation.message && annotation.title ? `   Message: ${annotation.message}` : null,
     ]);
   });
 

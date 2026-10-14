@@ -74,7 +74,7 @@ export interface EditorStore {
       reviewCommentGuid?: string;
       reviewMessageGuid?: string;
       diffFilePath?: string;
-    }
+    },
   ) => Promise<void>;
   openUntitledMarkdown: (workspaceId?: string) => string | null;
   reloadFileContent: (

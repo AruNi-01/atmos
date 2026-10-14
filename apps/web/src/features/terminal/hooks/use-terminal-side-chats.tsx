@@ -9,7 +9,10 @@ import {
   buildInteractiveAgentRunPlan,
   type TerminalAgentRunConfigInput,
 } from "@/features/agent/lib/terminal-agent-run-config";
-import { toPendingTerminalRun, deliverPendingTerminalRun } from "@/features/terminal/lib/terminal-agent-run-delivery";
+import {
+  toPendingTerminalRun,
+  deliverPendingTerminalRun,
+} from "@/features/terminal/lib/terminal-agent-run-delivery";
 import { useTerminalSideChatSettingsStore } from "@/features/settings/store/terminal-side-chat-settings-store";
 import { TerminalSideChatDots } from "@/features/terminal/components/TerminalSideChatDots";
 import { TerminalSideChatLayer } from "@/features/terminal/components/TerminalSideChatLayer";
@@ -91,10 +94,8 @@ export function useTerminalSideChats({
   const terminalRefs = React.useRef<Map<string, TerminalRef>>(new Map());
   const sideChatFlyTargetRef = React.useRef<HTMLDivElement | null>(null);
   const [isStarting, setIsStarting] = React.useState(false);
-  const {
-    sideContextPromptBudgetBytes,
-    loadSettings: loadTerminalSideChatSettings,
-  } = useTerminalSideChatSettingsStore();
+  const { sideContextPromptBudgetBytes, loadSettings: loadTerminalSideChatSettings } =
+    useTerminalSideChatSettingsStore();
 
   React.useEffect(() => {
     void loadTerminalSideChatSettings();

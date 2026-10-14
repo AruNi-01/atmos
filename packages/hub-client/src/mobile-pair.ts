@@ -52,9 +52,7 @@ export async function hubClaimMobilePair(
   return (await res.json()) as MobilePairClaimResponse;
 }
 
-export function parseMobilePairScan(
-  raw: string,
-): { code: string; hub?: string } | null {
+export function parseMobilePairScan(raw: string): { code: string; hub?: string } | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
 

@@ -46,7 +46,9 @@ describe("chrome popover scroll areas", () => {
     expect(source).toContain("scrollFade");
     expect(source).toContain("overflow-y-hidden");
     expect(source).toContain("max-h-[min(420px,var(--radix-popover-content-available-height))]");
-    expect(source).toContain('viewportClassName="h-auto max-h-[min(420px,var(--radix-popover-content-available-height))] p-3"');
+    expect(source).toContain(
+      'viewportClassName="h-auto max-h-[min(420px,var(--radix-popover-content-available-height))] p-3"',
+    );
     expect(source).not.toContain("overflow-y-auto");
   });
 

@@ -173,11 +173,13 @@ describe("groupWorkspaces", () => {
       "canceled",
       NO_STATUS_WORKSPACE_GROUP_KEY,
     ]);
-    expect(groups.find((group) => group.key === "in_progress")?.items.map((item) => item.workspace.id)).toEqual([
-      "has-status",
-    ]);
     expect(
-      groups.find((group) => group.key === NO_STATUS_WORKSPACE_GROUP_KEY)?.items.map((item) => item.workspace.id),
+      groups.find((group) => group.key === "in_progress")?.items.map((item) => item.workspace.id),
+    ).toEqual(["has-status"]);
+    expect(
+      groups
+        .find((group) => group.key === NO_STATUS_WORKSPACE_GROUP_KEY)
+        ?.items.map((item) => item.workspace.id),
     ).toEqual(["missing-status", "unknown-status"]);
     expect(getWorkspaceStatusGroupKey(undefined)).toBe(NO_STATUS_WORKSPACE_GROUP_KEY);
     expect(getWorkspaceStatusGroupKey("todo")).toBe("todo");
@@ -205,19 +207,16 @@ describe("groupWorkspaces", () => {
       workspaces: [older, latest],
     });
 
-    const groups = groupWorkspaces(
-      [entry(latest), entry(older), projectEntry(owner)],
-      "status",
-    );
+    const groups = groupWorkspaces([entry(latest), entry(older), projectEntry(owner)], "status");
     const blockedIds = groups
       .find((group) => group.key === "blocked")
       ?.items.map((item) => getSidebarEntryKey(item));
 
     expect(blockedIds).toHaveLength(2);
     expect(blockedIds).toEqual(expect.arrayContaining(["ws-latest", "project:proj-1"]));
-    expect(groups.find((group) => group.key === "todo")?.items.map((item) => getSidebarEntryKey(item))).toEqual([
-      "ws-older",
-    ]);
+    expect(
+      groups.find((group) => group.key === "todo")?.items.map((item) => getSidebarEntryKey(item)),
+    ).toEqual(["ws-older"]);
     expect(flattenProjects([owner]).every(isFlattenedProjectEntry)).toBe(true);
   });
 
@@ -231,7 +230,8 @@ describe("groupWorkspaces", () => {
       groupWorkspaces([empty], "priority").find((group) => group.key === "no_priority")?.items,
     ).toHaveLength(1);
     expect(
-      groupWorkspaces([empty], "label").find((group) => group.key === UNTAGGED_WORKSPACE_GROUP_KEY)?.items,
+      groupWorkspaces([empty], "label").find((group) => group.key === UNTAGGED_WORKSPACE_GROUP_KEY)
+        ?.items,
     ).toHaveLength(1);
     expect(
       groupWorkspaces([empty], "agent").find((group) => group.key === "done")?.items,
@@ -249,7 +249,11 @@ describe("groupWorkspaces", () => {
     expect(getProjectRecencySource(empty)).toBe("2026-04-02T12:00:00.000Z");
     expect(
       groupWorkspaces(
-        [projectEntry(project({ id: "created-only", name: "Created", createdAt: new Date().toISOString() }))],
+        [
+          projectEntry(
+            project({ id: "created-only", name: "Created", createdAt: new Date().toISOString() }),
+          ),
+        ],
         "time",
       )[0]?.key,
     ).toBe("today");
@@ -289,9 +293,9 @@ describe("groupWorkspaces", () => {
       "priority",
     );
 
-    expect(groups.find((group) => group.key === "no_priority")?.items.map((item) => item.workspace.id)).toEqual([
-      "unknown-priority",
-    ]);
+    expect(
+      groups.find((group) => group.key === "no_priority")?.items.map((item) => item.workspace.id),
+    ).toEqual(["unknown-priority"]);
   });
 
   it("still shows workspaces whose labels are not in the saved catalog", () => {
@@ -307,9 +311,9 @@ describe("groupWorkspaces", () => {
       { availableLabels: [labelA], labelGroupOrder: [] },
     );
 
-    expect(groups.find((group) => group.key === "orphan")?.items.map((item) => item.workspace.id)).toEqual([
-      "orphan-labeled",
-    ]);
+    expect(
+      groups.find((group) => group.key === "orphan")?.items.map((item) => item.workspace.id),
+    ).toEqual(["orphan-labeled"]);
   });
 
   it("uses the available label order when a workspace's labels have no saved order", () => {
@@ -317,20 +321,10 @@ describe("groupWorkspaces", () => {
       labels: [labelB, labelA],
     });
 
-    expect(
-      getWorkspaceLabelGroupKey(
-        multiLabelWorkspace,
-        [],
-        [labelA, labelB],
-      ),
-    ).toBe(labelA.id);
-    expect(
-      getWorkspaceLabelGroupKey(
-        multiLabelWorkspace,
-        [labelB.id],
-        [labelA, labelB],
-      ),
-    ).toBe(labelB.id);
+    expect(getWorkspaceLabelGroupKey(multiLabelWorkspace, [], [labelA, labelB])).toBe(labelA.id);
+    expect(getWorkspaceLabelGroupKey(multiLabelWorkspace, [labelB.id], [labelA, labelB])).toBe(
+      labelB.id,
+    );
   });
 
   it("keeps a project in done when only a child workspace needs attention", () => {
@@ -350,7 +344,9 @@ describe("groupWorkspaces", () => {
     );
 
     expect(
-      groups.find((group) => group.key === "attention")?.items.map((item) => getSidebarEntryKey(item)),
+      groups
+        .find((group) => group.key === "attention")
+        ?.items.map((item) => getSidebarEntryKey(item)),
     ).toEqual(["ws-attention"]);
     expect(
       groups.find((group) => group.key === "done")?.items.map((item) => getSidebarEntryKey(item)),
@@ -375,7 +371,9 @@ describe("groupWorkspaces", () => {
     );
 
     expect(
-      groups.find((group) => group.key === "running")?.items.map((item) => getSidebarEntryKey(item)),
+      groups
+        .find((group) => group.key === "running")
+        ?.items.map((item) => getSidebarEntryKey(item)),
     ).toEqual(["ws-run"]);
     expect(
       groups.find((group) => group.key === "done")?.items.map((item) => getSidebarEntryKey(item)),
@@ -384,10 +382,7 @@ describe("groupWorkspaces", () => {
 
   it("always emits four agent buckets in action-first order", () => {
     const groups = groupWorkspaces(
-      [
-        entry(workspace({ id: "needs-permission" })),
-        entry(workspace({ id: "done-one" })),
-      ],
+      [entry(workspace({ id: "needs-permission" })), entry(workspace({ id: "done-one" }))],
       "agent",
       {
         agentGroupKeyByWorkspaceId: {
@@ -411,10 +406,7 @@ describe("groupWorkspaces", () => {
 
   it("puts unmapped and legacy idle workspaces in done", () => {
     const groups = groupWorkspaces(
-      [
-        entry(workspace({ id: "never-ran" })),
-        entry(workspace({ id: "acked" })),
-      ],
+      [entry(workspace({ id: "never-ran" })), entry(workspace({ id: "acked" }))],
       "agent",
       {
         agentGroupKeyByWorkspaceId: {
@@ -423,10 +415,9 @@ describe("groupWorkspaces", () => {
       },
     );
 
-    expect(groups.find((group) => group.key === "done")?.items.map((item) => item.workspace.id)).toEqual([
-      "never-ran",
-      "acked",
-    ]);
+    expect(
+      groups.find((group) => group.key === "done")?.items.map((item) => item.workspace.id),
+    ).toEqual(["never-ran", "acked"]);
   });
 
   it("rebuckets a workspace when the agent map changes", () => {
@@ -440,9 +431,9 @@ describe("groupWorkspaces", () => {
 
     expect(first.find((group) => group.key === "running")?.items).toHaveLength(1);
     expect(second.find((group) => group.key === "running")?.items).toHaveLength(0);
-    expect(second.find((group) => group.key === "done")?.items.map((item) => item.workspace.id)).toEqual([
-      "ws-run",
-    ]);
+    expect(
+      second.find((group) => group.key === "done")?.items.map((item) => item.workspace.id),
+    ).toEqual(["ws-run"]);
   });
 });
 

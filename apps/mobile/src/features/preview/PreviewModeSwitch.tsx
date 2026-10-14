@@ -6,11 +6,7 @@ import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 
-export function PreviewModeSwitch({
-  variant = "row",
-}: {
-  variant?: "row" | "hero" | "header";
-}) {
+export function PreviewModeSwitch({ variant = "row" }: { variant?: "row" | "hero" | "header" }) {
   const theme = useMobileTheme();
   const router = useRouter();
   const enabled = usePreviewStore((state) => state.enabled);

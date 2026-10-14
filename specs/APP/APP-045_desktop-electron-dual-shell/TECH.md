@@ -13,7 +13,7 @@ This document defines a **dual-shell architecture** (historical design + current
 
 **Clarification (M9):** Keeping Rust does **not** mean keeping Tauri. Electron must not load Tauri. Rust continues as:
 
-1. Atmos Server process (existing `runtime-manager` supervisor path), and  
+1. Atmos Server process (existing `runtime-manager` supervisor path), and
 2. Optional native helpers (e.g. AppShot) as plain binaries or N-API later — not as a second UI engine.
 
 There is **one UI engine per running shell** (WKWebView under Tauri on macOS, Chromium under Electron). Multiple OS processes (Electron main/renderer + Server) are expected and are not “two desktop frameworks.”
@@ -48,15 +48,15 @@ There is **one UI engine per running shell** (WKWebView under Tauri on macOS, Ch
 
 ### Layers touched
 
-| Layer | Role in this spec |
-|-------|-------------------|
-| `apps/web` | Bridge API, migrate call sites off raw Tauri imports |
-| `apps/desktop` | Tauri adapter remains; minimal changes (compat with bridge) |
-| `apps/desktop-electron` | **New** Electron shell |
-| `scripts/desktop/*` | Shared prepare/layout runtime; new just recipes |
-| `crates/runtime-manager` | Reuse as-is for ensure/stop server |
+| Layer                                         | Role in this spec                                                                   |
+| --------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `apps/web`                                    | Bridge API, migrate call sites off raw Tauri imports                                |
+| `apps/desktop`                                | Tauri adapter remains; minimal changes (compat with bridge)                         |
+| `apps/desktop-electron`                       | **New** Electron shell                                                              |
+| `scripts/desktop/*`                           | Shared prepare/layout runtime; new just recipes                                     |
+| `crates/runtime-manager`                      | Reuse as-is for ensure/stop server                                                  |
 | `crates/*` AppShot / browser-cookies / tunnel | Prefer reuse from Electron via helper or in-process later; not rewritten in Phase 0 |
-| `apps/api` | No protocol change required for Phase 0 |
+| `apps/api`                                    | No protocol change required for Phase 0                                             |
 
 ### Explicit non-goals (architecture)
 
@@ -66,18 +66,18 @@ There is **one UI engine per running shell** (WKWebView under Tauri on macOS, Ch
 
 ## Decisions (locked)
 
-| ID | Decision | Rationale |
-|----|----------|-----------|
-| D1 | Dual shell directories, not replace-in-place | M1, M5 — Tauri stays shippable |
-| D2 | Shared web static + shared Server runtime | M2, M3 — no product fork |
-| D3 | Desktop Bridge is the only web→shell API | M4 — adapters hide Tauri/Electron |
-| D4 | Command names v1 = existing Tauri command strings | Minimize web churn; Electron implements same names |
-| D5 | Electron does not depend on Tauri crates/runtime | M9 |
-| D6 | AppShot stays Rust-owned when ported | Avoid Node rewrite of Accessibility stack |
-| D7 | Preview on Electron uses `WebContentsView` + `session.fromPartition` | Chromium analog of child webview + data store |
-| D8 | Production updater / `release-desktop` remains Tauri until Phase 5 | M8 |
-| D9 | Feature parity ≠ perfect behavior | PRD out of scope; document engine diffs |
-| D10 | Child surface occlusion still required on Electron | APP-029 class problem remains |
+| ID  | Decision                                                             | Rationale                                          |
+| --- | -------------------------------------------------------------------- | -------------------------------------------------- |
+| D1  | Dual shell directories, not replace-in-place                         | M1, M5 — Tauri stays shippable                     |
+| D2  | Shared web static + shared Server runtime                            | M2, M3 — no product fork                           |
+| D3  | Desktop Bridge is the only web→shell API                             | M4 — adapters hide Tauri/Electron                  |
+| D4  | Command names v1 = existing Tauri command strings                    | Minimize web churn; Electron implements same names |
+| D5  | Electron does not depend on Tauri crates/runtime                     | M9                                                 |
+| D6  | AppShot stays Rust-owned when ported                                 | Avoid Node rewrite of Accessibility stack          |
+| D7  | Preview on Electron uses `WebContentsView` + `session.fromPartition` | Chromium analog of child webview + data store      |
+| D8  | Production updater / `release-desktop` remains Tauri until Phase 5   | M8                                                 |
+| D9  | Feature parity ≠ perfect behavior                                    | PRD out of scope; document engine diffs            |
+| D10 | Child surface occlusion still required on Electron                   | APP-029 class problem remains                      |
 
 ## Module-by-module design
 
@@ -99,21 +99,21 @@ Responsibilities:
 ```ts
 // Pseudocode
 function detectShell(): DesktopShell {
-  if (typeof window === 'undefined') return 'none';
+  if (typeof window === "undefined") return "none";
   // Electron preload injects first-party marker (preferred)
-  if (window.__ATMOS_DESKTOP__?.shell === 'electron') return 'electron';
+  if (window.__ATMOS_DESKTOP__?.shell === "electron") return "electron";
   // Tauri injects internals
-  if ('__TAURI_INTERNALS__' in window) return 'tauri';
-  return 'none';
+  if ("__TAURI_INTERNALS__" in window) return "tauri";
+  return "none";
 }
 ```
 
 Electron preload **must** set:
 
 ```ts
-contextBridge.exposeInMainWorld('__ATMOS_DESKTOP__', {
-  shell: 'electron',
-  invoke: (cmd, args) => ipcRenderer.invoke('atmos:desktop-invoke', { cmd, args }),
+contextBridge.exposeInMainWorld("__ATMOS_DESKTOP__", {
+  shell: "electron",
+  invoke: (cmd, args) => ipcRenderer.invoke("atmos:desktop-invoke", { cmd, args }),
   // optional: on/off for events
 });
 ```
@@ -122,15 +122,15 @@ contextBridge.exposeInMainWorld('__ATMOS_DESKTOP__', {
 
 Existing hotspots (non-exhaustive):
 
-| Area | Today | Target |
-|------|-------|--------|
-| `desktop-runtime.ts` | `isTauriRuntime`, `get_api_config` via invoke | bridge + shared config fetch |
-| `desktop-preview-bridge.ts` | `@tauri-apps/api` invoke/listen | `desktopInvoke` / `desktopListen` |
-| `features/appshot/lib/appshot-client.ts` | tauri invoke/listen | bridge |
-| `desktop-directory-picker.ts` | plugin-dialog | bridge command or shell-specific adapter behind bridge |
-| `notifications.ts` | tauri invoke | bridge |
-| `standalone-window-handoff.ts` | tauri event/window | bridge events |
-| CodeMirror `useDrawSelection: !isTauriRuntime()` | WebKit workaround | `detectShell() === 'tauri'` or `engine === 'webkit'` (**N7**) |
+| Area                                             | Today                                         | Target                                                        |
+| ------------------------------------------------ | --------------------------------------------- | ------------------------------------------------------------- |
+| `desktop-runtime.ts`                             | `isTauriRuntime`, `get_api_config` via invoke | bridge + shared config fetch                                  |
+| `desktop-preview-bridge.ts`                      | `@tauri-apps/api` invoke/listen               | `desktopInvoke` / `desktopListen`                             |
+| `features/appshot/lib/appshot-client.ts`         | tauri invoke/listen                           | bridge                                                        |
+| `desktop-directory-picker.ts`                    | plugin-dialog                                 | bridge command or shell-specific adapter behind bridge        |
+| `notifications.ts`                               | tauri invoke                                  | bridge                                                        |
+| `standalone-window-handoff.ts`                   | tauri event/window                            | bridge events                                                 |
+| CodeMirror `useDrawSelection: !isTauriRuntime()` | WebKit workaround                             | `detectShell() === 'tauri'` or `engine === 'webkit'` (**N7**) |
 
 **Rule:** New desktop code must use bridge only. Legacy raw imports allowed only inside bridge adapters until deleted.
 
@@ -269,62 +269,62 @@ Freeze **string command names** to current Tauri surface (from `commands.rs`, `b
 
 ##### Runtime / shell
 
-| Command | Phase target | Notes |
-|---------|--------------|-------|
-| `get_api_config` | 0 | `{ host, port }` |
-| `get_version_info` | 1 | |
-| `list_desktop_releases` | 1 / 4 | may stay HTTP-only |
-| `write_log` | 0 | |
-| `clear_client_session_cmd` | 1 | |
-| `get_local_computer_display_name` | 1 | |
-| `send_notification` | 1 | |
-| `open_in_external_editor` | 1 | |
+| Command                           | Phase target | Notes              |
+| --------------------------------- | ------------ | ------------------ |
+| `get_api_config`                  | 0            | `{ host, port }`   |
+| `get_version_info`                | 1            |                    |
+| `list_desktop_releases`           | 1 / 4        | may stay HTTP-only |
+| `write_log`                       | 0            |                    |
+| `clear_client_session_cmd`        | 1            |                    |
+| `get_local_computer_display_name` | 1            |                    |
+| `send_notification`               | 1            |                    |
+| `open_in_external_editor`         | 1            |                    |
 
 ##### Windows / handoff
 
-| Command | Phase target | Notes |
-|---------|--------------|-------|
-| `open_agent_chat_window` | 1 | second BrowserWindow |
-| `write_agent_chat_handoff` | 1 | userData fs |
-| `read_agent_chat_handoff` | 1 | |
-| `open_preview_browser_window` | 2 | |
+| Command                       | Phase target | Notes                |
+| ----------------------------- | ------------ | -------------------- |
+| `open_agent_chat_window`      | 1            | second BrowserWindow |
+| `write_agent_chat_handoff`    | 1            | userData fs          |
+| `read_agent_chat_handoff`     | 1            |                      |
+| `open_preview_browser_window` | 2            |                      |
 
 ##### Preview bridge
 
-| Command | Phase target | Notes |
-|---------|--------------|-------|
-| `preview_bridge_open` | 2 | WebContentsView |
-| `preview_bridge_update_bounds` | 2 | |
-| `preview_bridge_set_detached` | 2 | |
-| `preview_bridge_navigate` | 2 | |
-| `preview_bridge_enter_pick_mode` | 2 | |
-| `preview_bridge_clear_selection` | 2 | |
-| `preview_bridge_clear_annotations` | 2 | |
-| `preview_bridge_open_devtools` | 2 | **Chrome DevTools** |
-| `preview_bridge_close` / `show` / `hide` | 2 | |
-| `preview_bridge_event` | 2 | from preview → main → app |
-| `preview_bridge_probe_url` | 2 | |
+| Command                                  | Phase target | Notes                     |
+| ---------------------------------------- | ------------ | ------------------------- |
+| `preview_bridge_open`                    | 2            | WebContentsView           |
+| `preview_bridge_update_bounds`           | 2            |                           |
+| `preview_bridge_set_detached`            | 2            |                           |
+| `preview_bridge_navigate`                | 2            |                           |
+| `preview_bridge_enter_pick_mode`         | 2            |                           |
+| `preview_bridge_clear_selection`         | 2            |                           |
+| `preview_bridge_clear_annotations`       | 2            |                           |
+| `preview_bridge_open_devtools`           | 2            | **Chrome DevTools**       |
+| `preview_bridge_close` / `show` / `hide` | 2            |                           |
+| `preview_bridge_event`                   | 2            | from preview → main → app |
+| `preview_bridge_probe_url`               | 2            |                           |
 
 ##### Cookies (APP-041)
 
-| Command | Phase target | Notes |
-|---------|--------------|-------|
-| `list_importable_browsers` | 3 | reuse Rust crate via helper or port logic |
-| `import_browser_cookies` | 3 | write into preview partition |
-| `clear_browser_cache` | 3 | |
-| `clear_browser_site_data` | 3 | |
+| Command                    | Phase target | Notes                                     |
+| -------------------------- | ------------ | ----------------------------------------- |
+| `list_importable_browsers` | 3            | reuse Rust crate via helper or port logic |
+| `import_browser_cookies`   | 3            | write into preview partition              |
+| `clear_browser_cache`      | 3            |                                           |
+| `clear_browser_site_data`  | 3            |                                           |
 
 ##### AppShot (APP-021)
 
-| Command | Phase target | Notes |
-|---------|--------------|-------|
-| `appshot_*` family | 3 | prefer Rust helper process |
+| Command            | Phase target | Notes                      |
+| ------------------ | ------------ | -------------------------- |
+| `appshot_*` family | 3            | prefer Rust helper process |
 
 ##### Tunnel (APP-012)
 
-| Command | Phase target | Notes |
-|---------|--------------|-------|
-| `tunnel_connector_*` | 3 | reuse manager; host lifecycle in Electron main |
+| Command              | Phase target | Notes                                          |
+| -------------------- | ------------ | ---------------------------------------------- |
+| `tunnel_connector_*` | 3            | reuse manager; host lifecycle in Electron main |
 
 **Unsupported command behavior:** return `Error` with stable code e.g. `DESKTOP_CMD_UNSUPPORTED` so UI can hide/disable.
 
@@ -332,14 +332,14 @@ Freeze **string command names** to current Tauri surface (from `commands.rs`, `b
 
 Parity target for desktop-native transport:
 
-| Tauri | Electron |
-|-------|----------|
-| `Window::add_child(WebviewBuilder)` | `WebContentsView` attached to main window content view |
-| `data_store_identifier` | `session.fromPartition('persist:atmos-preview…')` |
-| `initialization_script` | `session.registerPreloadScript` or `executeJavaScript` on dom-ready + navigation |
-| `open_devtools` | `webContents.openDevTools()` |
-| bounds update | `setBounds` in DIP/physical pixels with scale factor care |
-| hide on occlusion | same web APP-029 hooks → `preview_bridge_hide` |
+| Tauri                               | Electron                                                                         |
+| ----------------------------------- | -------------------------------------------------------------------------------- |
+| `Window::add_child(WebviewBuilder)` | `WebContentsView` attached to main window content view                           |
+| `data_store_identifier`             | `session.fromPartition('persist:atmos-preview…')`                                |
+| `initialization_script`             | `session.registerPreloadScript` or `executeJavaScript` on dom-ready + navigation |
+| `open_devtools`                     | `webContents.openDevTools()`                                                     |
+| bounds update                       | `setBounds` in DIP/physical pixels with scale factor care                        |
+| hide on occlusion                   | same web APP-029 hooks → `preview_bridge_hide`                                   |
 
 **Still required:** APP-029 occlusion manager in web — Electron does not fix native surface stacking.
 
@@ -360,18 +360,18 @@ Electron main  --spawn/IPC-->  atmos-appshot-helper (Rust binary)
 
 ### 8. Data directories & concurrent shells
 
-| Concern | Guidance |
-|---------|----------|
-| Server port / manifest | `runtime-manager` already shared via `~/.atmos/runtime_manifest.json` |
-| Both shells running | Allowed for dogfood; document “prefer one shell for preview cookie / AppShot permissions” |
-| Electron userData | `app.getPath('userData')` for handoff files; do not collide with Tauri app config filenames carelessly — namespace `agent-chat-handoff` paths per shell if needed |
-| ATMOS_DATA_DIR | Align with Server expectations; match Tauri desktop data dir policy where possible for dogfood continuity |
+| Concern                | Guidance                                                                                                                                                          |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Server port / manifest | `runtime-manager` already shared via `~/.atmos/runtime_manifest.json`                                                                                             |
+| Both shells running    | Allowed for dogfood; document “prefer one shell for preview cookie / AppShot permissions”                                                                         |
+| Electron userData      | `app.getPath('userData')` for handoff files; do not collide with Tauri app config filenames carelessly — namespace `agent-chat-handoff` paths per shell if needed |
+| ATMOS_DATA_DIR         | Align with Server expectations; match Tauri desktop data dir policy where possible for dogfood continuity                                                         |
 
 ### 9. Packaging & updater (Phase 4 / M8)
 
-| Channel | Artifact | Updater feed |
-|---------|----------|--------------|
-| Production | Tauri (`release-desktop`) | existing `latest.json` / desktop tags |
+| Channel      | Artifact                                             | Updater feed                                       |
+| ------------ | ---------------------------------------------------- | -------------------------------------------------- |
+| Production   | Tauri (`release-desktop`)                            | existing `latest.json` / desktop tags              |
 | Experimental | Electron (`desktop-electron-*` tag or internal only) | **separate** feed or disabled updater until parity |
 
 Never point Electron builds at the production Tauri updater endpoint until Phase 5 decision.
@@ -448,14 +448,14 @@ Ordered, mergeable steps.
 
 ## Risks & tradeoffs
 
-| Risk | Mitigation |
-|------|------------|
-| Dual maintenance forever | Hard Phase 5 decision; matrix must not stay half-done without timeline review |
-| Electron reads Tauri binary paths | Phase 0 only; move to `dist/desktop-runtime` (N1) |
-| IPC security holes | contextIsolation, partition, allowlist, no nodeIntegration |
-| Preview stacking still broken | Keep APP-029; do not claim Electron fixes it |
-| AppShot delay | Explicit unsupported until Phase 3; UI degrades |
-| Updater accident | Separate channels (M8) |
+| Risk                               | Mitigation                                                                                                                    |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Dual maintenance forever           | Hard Phase 5 decision; matrix must not stay half-done without timeline review                                                 |
+| Electron reads Tauri binary paths  | Phase 0 only; move to `dist/desktop-runtime` (N1)                                                                             |
+| IPC security holes                 | contextIsolation, partition, allowlist, no nodeIntegration                                                                    |
+| Preview stacking still broken      | Keep APP-029; do not claim Electron fixes it                                                                                  |
+| AppShot delay                      | Explicit unsupported until Phase 3; UI degrades                                                                               |
+| Updater accident                   | Separate channels (M8)                                                                                                        |
 | Both shells fight Server lifecycle | Prefer single owner per session; on quit stop only if this shell started/owned the instance — align with supervisor semantics |
 
 **Tradeoff:** Larger install and RAM on Electron accepted to gain Chromium consistency.
@@ -481,37 +481,37 @@ Ordered, mergeable steps.
 
 Maintain this table in-repo (TECH or PROGRESS) during implementation:
 
-| Command / capability | Tauri | Electron | Phase | Notes |
-|----------------------|-------|----------|-------|-------|
-| Main window + Server | done | | 0 | |
-| `get_api_config` | done | | 0 | |
-| `write_log` | done | | 0 | |
-| Agent chat window | done | | 1 | |
-| Preview embedded | done | | 2 | |
-| Preview DevTools | Safari Inspector | Chrome DevTools | 2 | intentional engine diff |
-| Cookie import | done | | 3 | |
-| AppShot | done | | 3 | Rust helper |
-| Tunnel | done | | 3 | |
-| Production updater | done | unsupported | 4–5 | separate channel |
+| Command / capability | Tauri            | Electron        | Phase | Notes                   |
+| -------------------- | ---------------- | --------------- | ----- | ----------------------- |
+| Main window + Server | done             |                 | 0     |                         |
+| `get_api_config`     | done             |                 | 0     |                         |
+| `write_log`          | done             |                 | 0     |                         |
+| Agent chat window    | done             |                 | 1     |                         |
+| Preview embedded     | done             |                 | 2     |                         |
+| Preview DevTools     | Safari Inspector | Chrome DevTools | 2     | intentional engine diff |
+| Cookie import        | done             |                 | 3     |                         |
+| AppShot              | done             |                 | 3     | Rust helper             |
+| Tunnel               | done             |                 | 3     |                         |
+| Production updater   | done             | unsupported     | 4–5   | separate channel        |
 
 ## Appendix B — “Perfect migration” stance
 
-| Goal | Stance |
-|------|--------|
-| Feature / capability parity | **Yes — required before default switch** |
-| Perfect behavioral identity | **No — not required** |
-| Keep Tauri during experiment | **Yes** |
-| Keep Rust Server | **Yes** |
-| Keep Tauri UI framework under Electron | **No** |
+| Goal                                   | Stance                                   |
+| -------------------------------------- | ---------------------------------------- |
+| Feature / capability parity            | **Yes — required before default switch** |
+| Perfect behavioral identity            | **No — not required**                    |
+| Keep Tauri during experiment           | **Yes**                                  |
+| Keep Rust Server                       | **Yes**                                  |
+| Keep Tauri UI framework under Electron | **No**                                   |
 
 ## Appendix C — Mapping discussion → design
 
-| Discussion conclusion | Where it lives |
-|----------------------|----------------|
-| Electron viable; Tauri not ideal for IDE-like tool | BRAINSTORM + PRD goals |
-| Cannot one-click Tauri→Chromium; CEF experimental | BRAINSTORM Option C rejected for primary path |
-| DevTools = engine-bound (Safari vs Chrome) | TECH preview + matrix |
-| Keep Rust ≠ keep Tauri; not two UI engines | TECH Scope + process model |
-| Dual shell + bridge for safe try | Architecture + Phase 0 |
-| AppShot stay Rust | D6 + Phase 3 |
-| Occlusion remains | D10 + Phase 2 |
+| Discussion conclusion                              | Where it lives                                |
+| -------------------------------------------------- | --------------------------------------------- |
+| Electron viable; Tauri not ideal for IDE-like tool | BRAINSTORM + PRD goals                        |
+| Cannot one-click Tauri→Chromium; CEF experimental  | BRAINSTORM Option C rejected for primary path |
+| DevTools = engine-bound (Safari vs Chrome)         | TECH preview + matrix                         |
+| Keep Rust ≠ keep Tauri; not two UI engines         | TECH Scope + process model                    |
+| Dual shell + bridge for safe try                   | Architecture + Phase 0                        |
+| AppShot stay Rust                                  | D6 + Phase 3                                  |
+| Occlusion remains                                  | D10 + Phase 2                                 |

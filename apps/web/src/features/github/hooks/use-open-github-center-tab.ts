@@ -21,13 +21,9 @@ export function useOpenGithubCenterTab() {
   const { effectiveContextId: hostContextId } = useContextParams();
   const paintContextId = useCenterPaintContextId();
   const drawerNav = useTaskGithubDrawerNav();
-  const openPullRequest = useGithubCenterTabsStore(
-    (state) => state.openPullRequest,
-  );
+  const openPullRequest = useGithubCenterTabsStore((state) => state.openPullRequest);
   const openIssue = useGithubCenterTabsStore((state) => state.openIssue);
-  const openActionRun = useGithubCenterTabsStore(
-    (state) => state.openActionRun,
-  );
+  const openActionRun = useGithubCenterTabsStore((state) => state.openActionRun);
 
   /**
    * Activate a center tab on `contextId`. Cross-workspace hops pass `tab` as a
@@ -125,10 +121,7 @@ export function useOpenGithubCenterTab() {
       const targetContextId = resolveContextId(contextId);
       if (!targetContextId) return false;
       const tab = openActionRun(targetContextId, {
-        label:
-          label ||
-          run.workflowName ||
-          t("actionRun", { number: runId }),
+        label: label || run.workflowName || t("actionRun", { number: runId }),
         owner,
         repo,
         run,

@@ -35,9 +35,11 @@ describe("md-live stream lock", () => {
   test("restoreAndUnlock is a no-op when the path is not locked", () => {
     const path = `/repo/idle-${Date.now()}.md`;
     let writes = 0;
-    expect(restoreAndUnlockMdLiveStream(path, () => {
-      writes += 1;
-    })).toBe(false);
+    expect(
+      restoreAndUnlockMdLiveStream(path, () => {
+        writes += 1;
+      }),
+    ).toBe(false);
     expect(writes).toBe(0);
   });
 });

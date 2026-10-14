@@ -18,7 +18,9 @@
       "post": { "responses": { "200": { "description": "create session" } } }
     },
     "/session/{id}": {
-      "get": { "responses": { "200": { "description": "session" }, "404": { "description": "missing" } } }
+      "get": {
+        "responses": { "200": { "description": "session" }, "404": { "description": "missing" } }
+      }
     },
     "/session/{id}/prompt_async": {
       "post": { "responses": { "204": { "description": "Prompt accepted" } } }

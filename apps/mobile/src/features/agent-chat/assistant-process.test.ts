@@ -39,22 +39,37 @@ describe("assistant process fold", () => {
       { type: "text", text: "final" },
     ];
     const { processParts, tailParts } = splitAssistantProcessParts(parts);
-    expect(processParts.map((item) => item.part.type === "text" ? "looking" : item.part.type)).toEqual([
-      "looking",
-      "tool_call",
-    ]);
+    expect(
+      processParts.map((item) => (item.part.type === "text" ? "looking" : item.part.type)),
+    ).toEqual(["looking", "tool_call"]);
     expect(tailParts.map((item) => item.part)).toEqual([{ type: "text", text: "final" }]);
   });
 
   test("a settled turn with tools can collapse, a running tool cannot", () => {
     const parts: AgentPart[] = [tool("t1", "read"), { type: "text", text: "ok" }];
-    expect(shouldCollapseAssistantProcess({ streaming: false, completed_at: "2026-09-25T00:00:00Z" }, parts)).toBe(true);
-    expect(shouldCollapseAssistantProcess({ streaming: true, completed_at: null }, parts)).toBe(false);
+    expect(
+      shouldCollapseAssistantProcess(
+        { streaming: false, completed_at: "2026-09-25T00:00:00Z" },
+        parts,
+      ),
+    ).toBe(true);
+    expect(shouldCollapseAssistantProcess({ streaming: true, completed_at: null }, parts)).toBe(
+      false,
+    );
     const runningTool = tool("t1", "read");
-    const running: AgentPart[] = runningTool.type === "tool_call"
-      ? [{ ...runningTool, status: "running" }, { type: "text", text: "ok" }]
-      : [];
-    expect(shouldCollapseAssistantProcess({ streaming: false, completed_at: "2026-09-25T00:00:00Z" }, running)).toBe(false);
+    const running: AgentPart[] =
+      runningTool.type === "tool_call"
+        ? [
+            { ...runningTool, status: "running" },
+            { type: "text", text: "ok" },
+          ]
+        : [];
+    expect(
+      shouldCollapseAssistantProcess(
+        { streaming: false, completed_at: "2026-09-25T00:00:00Z" },
+        running,
+      ),
+    ).toBe(false);
   });
 
   test("compact groups name reads and writes the way web does", () => {
@@ -72,16 +87,21 @@ describe("assistant process fold", () => {
     }
     const { process, tail } = splitAssistantSegments(segments);
     expect(process).toHaveLength(1);
-    expect(tail.map((item) => item.type === "part" && item.part.type === "text" ? item.part.text : item.type)).toEqual(["done"]);
+    expect(
+      tail.map((item) =>
+        item.type === "part" && item.part.type === "text" ? item.part.text : item.type,
+      ),
+    ).toEqual(["done"]);
   });
 
   test("the last reply stays visible when the turn ends on a tool", () => {
-    const parts: AgentPart[] = [
-      { type: "text", text: "the numbers" },
-      tool("t1", "read"),
-    ];
+    const parts: AgentPart[] = [{ type: "text", text: "the numbers" }, tool("t1", "read")];
     const { process, tail } = splitAssistantSegments(segmentAssistantParts(parts));
     expect(process.map((item) => item.type)).toEqual(["part"]);
-    expect(tail.map((item) => item.type === "part" && item.part.type === "text" ? item.part.text : item.type)).toEqual(["the numbers"]);
+    expect(
+      tail.map((item) =>
+        item.type === "part" && item.part.type === "text" ? item.part.text : item.type,
+      ),
+    ).toEqual(["the numbers"]);
   });
 });

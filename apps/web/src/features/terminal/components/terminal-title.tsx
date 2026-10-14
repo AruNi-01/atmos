@@ -12,12 +12,7 @@ import {
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import type { TerminalPaneAgent } from "../types/index";
 
-export {
-  getTerminalDisplayMeta,
-  getTerminalDisplayTitle,
-  isPathLikeTitle,
-  resolveAgentForTitle,
-};
+export { getTerminalDisplayMeta, getTerminalDisplayTitle, isPathLikeTitle, resolveAgentForTitle };
 
 /**
  * Show `text` normally; if it overflows the available width, scroll it as a marquee.
@@ -31,13 +26,7 @@ export {
  * Updating `--marquee-duration` restarts the animation, which looks like the title
  * is "constantly updating" and prevents the marquee from actually scrolling.
  */
-export function TerminalTitleMarquee({
-  text,
-  className,
-}: {
-  text: string;
-  className?: string;
-}) {
+export function TerminalTitleMarquee({ text, className }: { text: string; className?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLSpanElement>(null);
   const [overflowPx, setOverflowPx] = useState(0);
@@ -92,8 +81,7 @@ export function TerminalTitleMarquee({
         lastDistanceRef.current = overflow;
         container.style.setProperty("--marquee-distance", `${overflow}px`);
       }
-      const durationSec =
-        overflow > 0 ? Math.min(28, Math.max(6, Math.round(overflow / 40))) : 0;
+      const durationSec = overflow > 0 ? Math.min(28, Math.max(6, Math.round(overflow / 40))) : 0;
       if (durationSec !== lastDurationRef.current) {
         lastDurationRef.current = durationSec;
         container.style.setProperty("--marquee-duration", `${durationSec}s`);
@@ -118,18 +106,11 @@ export function TerminalTitleMarquee({
   }, [text, animKey, overflowPx > 0]);
 
   return (
-    <div
-      ref={containerRef}
-      className={cn("terminal-title-marquee", className)}
-      title={text}
-    >
+    <div ref={containerRef} className={cn("terminal-title-marquee", className)} title={text}>
       <span
         key={animKey}
         ref={contentRef}
-        className={cn(
-          "terminal-title-marquee-text",
-          overflowPx > 0 && "is-overflowing",
-        )}
+        className={cn("terminal-title-marquee-text", overflowPx > 0 && "is-overflowing")}
       >
         {text}
       </span>

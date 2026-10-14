@@ -336,10 +336,7 @@ function sideChatModalResizeCursor(edge: SideChatResizeEdge): string {
   return `${edge}-resize`;
 }
 
-function sideChatModalLayoutsEqual(
-  a: SideChatModalLayout | null,
-  b: SideChatModalLayout,
-): boolean {
+function sideChatModalLayoutsEqual(a: SideChatModalLayout | null, b: SideChatModalLayout): boolean {
   return !!a && a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
 }
 

@@ -5,7 +5,11 @@ import { queryKeys } from "@/api/query/query-keys";
 import { wsQueryOptions } from "@/api/query/computer-query-options";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
 import type { Group, Project, WorkspaceLabel } from "@/shared/types/domain";
-import { mapProjectModel, mapWorkspaceModel, sortWorkspaces } from "@/features/project/store/project-store-mappers";
+import {
+  mapProjectModel,
+  mapWorkspaceModel,
+  sortWorkspaces,
+} from "@/features/project/store/project-store-mappers";
 import { waitForConnection } from "@/features/project/store/project-store-connection";
 import type { GroupModel } from "@/api/ws-api-types";
 

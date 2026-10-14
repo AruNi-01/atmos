@@ -6,14 +6,8 @@ import type { ComputerRow } from "@/api/types";
 import { activeSettingsComputers } from "@/features/settings/computer-settings";
 import { getRelayUrlSaveState } from "@/features/settings/relay-url-settings";
 import { useRelayClient } from "@/hooks/use-relay-client";
-import {
-  requireDeviceCredential,
-  signOutThisPhone,
-} from "@/lib/device-credential";
-import {
-  clearRelaySecretKey,
-  storeRelaySecretKey,
-} from "@/lib/relay-secret-key";
+import { requireDeviceCredential, signOutThisPhone } from "@/lib/device-credential";
+import { clearRelaySecretKey, storeRelaySecretKey } from "@/lib/relay-secret-key";
 import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
 
@@ -23,9 +17,7 @@ export function useMobileSettingsController() {
   const client = useRelayClient();
   const relayUrl = useSessionStore((state) => state.relayUrl);
   const relayAuthRevision = useSessionStore((state) => state.relayAuthRevision);
-  const hasDeviceCredential = useSessionStore(
-    (state) => state.hasDeviceCredential,
-  );
+  const hasDeviceCredential = useSessionStore((state) => state.hasDeviceCredential);
   const relaySecretKey = useSessionStore((state) => state.relaySecretKey);
   const setRelayUrl = useSessionStore((state) => state.setRelayUrl);
   const setRelaySecretKey = useSessionStore((state) => state.setRelaySecretKey);
@@ -50,9 +42,7 @@ export function useMobileSettingsController() {
   });
   const activeComputers = activeSettingsComputers(computersQuery.data ?? []);
   const selectedComputer = useMemo(
-    () =>
-      activeComputers.find((computer) => computer.server_id === selectedServerId) ??
-      null,
+    () => activeComputers.find((computer) => computer.server_id === selectedServerId) ?? null,
     [activeComputers, selectedServerId],
   );
   const relayUrlSaveState = getRelayUrlSaveState({
@@ -63,8 +53,7 @@ export function useMobileSettingsController() {
   const canSaveRelaySettings =
     relayUrlSaveState.canSave || normalizedRelaySecretDraft !== relaySecretKey;
   const relayConfigured =
-    !canSaveRelaySettings &&
-    relayUrlSaveState.reason === "Relay URL is already saved.";
+    !canSaveRelaySettings && relayUrlSaveState.reason === "Relay URL is already saved.";
 
   const saveRelaySettings = useMutation({
     mutationFn: async () => {
@@ -86,15 +75,10 @@ export function useMobileSettingsController() {
       setComputers([]);
       queryClient.removeQueries({ queryKey: ["computers"] });
       setError(null);
-      Alert.alert(
-        "Relay saved",
-        "Select a Computer to create a fresh mobile session.",
-      );
+      Alert.alert("Relay saved", "Select a Computer to create a fresh mobile session.");
     },
     onError: (nextError) =>
-      setError(
-        nextError instanceof Error ? nextError.message : "Could not save Relay.",
-      ),
+      setError(nextError instanceof Error ? nextError.message : "Could not save Relay."),
   });
 
   const switchComputer = useMutation({
@@ -109,11 +93,7 @@ export function useMobileSettingsController() {
       setError(null);
     },
     onError: (nextError) =>
-      setError(
-        nextError instanceof Error
-          ? nextError.message
-          : "Computer switch failed.",
-      ),
+      setError(nextError instanceof Error ? nextError.message : "Computer switch failed."),
   });
 
   const createRegisterCommand = useMutation({
@@ -127,9 +107,7 @@ export function useMobileSettingsController() {
     },
     onError: (nextError) =>
       setError(
-        nextError instanceof Error
-          ? nextError.message
-          : "Could not create register command.",
+        nextError instanceof Error ? nextError.message : "Could not create register command.",
       ),
   });
 
@@ -147,11 +125,7 @@ export function useMobileSettingsController() {
       router.replace("/");
     },
     onError: (nextError) =>
-      setError(
-        nextError instanceof Error
-          ? nextError.message
-          : "Could not sign out this phone.",
-      ),
+      setError(nextError instanceof Error ? nextError.message : "Could not sign out this phone."),
   });
 
   const renameComputer = useMutation({

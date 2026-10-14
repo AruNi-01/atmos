@@ -1,6 +1,4 @@
-export type McpFileArg =
-  | { ok: true; file: string | undefined }
-  | { ok: false; error: string };
+export type McpFileArg = { ok: true; file: string | undefined } | { ok: false; error: string };
 
 /** `--file` / `-f` win over `PT_DESIGN_FILE`. A bare or dashed value is usage, not env fallback. */
 export function parseMcpFileArg(argv: string[], envFile?: string): McpFileArg {

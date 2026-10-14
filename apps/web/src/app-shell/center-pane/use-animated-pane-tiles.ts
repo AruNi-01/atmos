@@ -12,8 +12,7 @@ import type { TerminalLeafBox } from "@/features/terminal/lib/terminal-layout-tr
 
 function prefersReducedMotion(): boolean {
   return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
   );
 }
 
@@ -65,10 +64,7 @@ export function useAnimatedPaneTiles(
     }
 
     const previous = prevLeavesRef.current;
-    const shouldSeed =
-      options.seedFromFullPane &&
-      !seenSeedRef.current &&
-      previous.length <= 1;
+    const shouldSeed = options.seedFromFullPane && !seenSeedRef.current && previous.length <= 1;
     if (options.seedFromFullPane) seenSeedRef.current = true;
 
     if (options.liveResizing || prefersReducedMotion()) {
@@ -77,10 +73,7 @@ export function useAnimatedPaneTiles(
       return;
     }
 
-    const plan = planPaneTileMotion(
-      shouldSeed ? seedFullStagePrevious(leaves) : previous,
-      leaves,
-    );
+    const plan = planPaneTileMotion(shouldSeed ? seedFullStagePrevious(leaves) : previous, leaves);
     prevLeavesRef.current = leaves;
 
     const hasMotion =

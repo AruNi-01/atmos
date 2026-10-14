@@ -13,10 +13,7 @@ describe("md-live structural gates", () => {
   });
 
   test("adapters are copy and headless only", () => {
-    const source = readFileSync(
-      join(import.meta.dir, "../md-live-adapters.ts"),
-      "utf8",
-    );
+    const source = readFileSync(join(import.meta.dir, "../md-live-adapters.ts"), "utf8");
     expect(source).toContain("copyMdLivePrompt");
     expect(source).toContain("buildHeadlessPrompt");
     expect(source).not.toContain("terminal-current");
@@ -36,7 +33,7 @@ describe("md-live structural gates", () => {
       join(import.meta.dir, "../../components/MdLiveSelectionToolbar.tsx"),
       "utf8",
     );
-    expect(source).toContain('@atmos/md-live/ui');
+    expect(source).toContain("@atmos/md-live/ui");
     expect(source).toContain("MdLiveEditor");
     expect(source).toContain("mdLiveEmbedBlock");
     expect(slash).toContain("MdLiveEmbedPicker");
@@ -47,48 +44,27 @@ describe("md-live structural gates", () => {
     expect(slash).toContain("rounded-2xl");
     expect(toolbar).toContain("rounded-xl");
     expect(slash).toContain("scrollFade");
-    const picker = readFileSync(
-      join(import.meta.dir, "../../embeds/picker.tsx"),
-      "utf8",
-    );
+    const picker = readFileSync(join(import.meta.dir, "../../embeds/picker.tsx"), "utf8");
     expect(picker).toContain("scrollFade");
     expect(picker).toContain("h-8");
     expect(slash).toContain("onKeepSlash");
     expect(slash).toContain("scrollActiveListItemIntoView");
-    const registry = readFileSync(
-      join(import.meta.dir, "../../embeds/registry.ts"),
-      "utf8",
-    );
+    const registry = readFileSync(join(import.meta.dir, "../../embeds/registry.ts"), "utf8");
     expect(registry).toContain("resolveMdLiveEmbed");
     expect(registry).toContain("github-issue");
     expect(registry).toContain("github-pr");
-    expect(registry).toContain("kind: \"file\"");
-    expect(registry).toContain("kind: \"folder\"");
-    const chrome = readFileSync(
-      join(import.meta.dir, "../../embeds/chrome.tsx"),
-      "utf8",
-    );
+    expect(registry).toContain('kind: "file"');
+    expect(registry).toContain('kind: "folder"');
+    const chrome = readFileSync(join(import.meta.dir, "../../embeds/chrome.tsx"), "utf8");
     expect(chrome).not.toContain("inset-y-2 left-0");
     expect(chrome).toContain("flex min-w-0 items-center gap-1.5");
-    const pathEmbed = readFileSync(
-      join(import.meta.dir, "../../embeds/path-embed.tsx"),
-      "utf8",
-    );
+    const pathEmbed = readFileSync(join(import.meta.dir, "../../embeds/path-embed.tsx"), "utf8");
     expect(pathEmbed).toContain("MdLivePathIcon");
-    const pathIcon = readFileSync(
-      join(import.meta.dir, "../../embeds/path-icon.tsx"),
-      "utf8",
-    );
+    const pathIcon = readFileSync(join(import.meta.dir, "../../embeds/path-icon.tsx"), "utf8");
     expect(pathIcon).toContain("getFileIconProps");
-    const embedNodes = readFileSync(
-      join(import.meta.dir, "../md-live-embed-nodes.ts"),
-      "utf8",
-    );
+    const embedNodes = readFileSync(join(import.meta.dir, "../md-live-embed-nodes.ts"), "utf8");
     expect(embedNodes).toContain("remarkUnknownMdast");
-    const plugin = readFileSync(
-      join(import.meta.dir, "../md-live-embed-plugin.tsx"),
-      "utf8",
-    );
+    const plugin = readFileSync(join(import.meta.dir, "../md-live-embed-plugin.tsx"), "utf8");
     expect(plugin).toContain("resolveMdLiveEmbed");
     expect(plugin).toContain("selectNode");
     expect(embedNodes).toContain("restoreUnknownTextDirective");
@@ -114,10 +90,7 @@ describe("md-live structural gates", () => {
     expect(tabBar).toContain("onCreateMarkdownNote");
     expect(tabBar).toContain("newMarkdown");
     expect(tabBar).toContain("openUntitledMarkdown");
-    const blocks = readFileSync(
-      join(import.meta.dir, "../md-live-preview-blocks.tsx"),
-      "utf8",
-    );
+    const blocks = readFileSync(join(import.meta.dir, "../md-live-preview-blocks.tsx"), "utf8");
     expect(blocks).toContain("CodeBlockHeader");
     expect(blocks).toContain("CodeBlockContent");
     expect(blocks).toContain("MARKDOWN_TABLE_TH_CLASS");
@@ -133,7 +106,9 @@ describe("md-live structural gates", () => {
     expect(blocks).toContain("MermaidModeSwitch");
     expect(blocks).toContain("MermaidPreviewPane");
     expect(blocks).toMatch(/const SHIKI_LANGS = new Set\(\[[\s\S]*?"mermaid"/);
-    expect(blocks).not.toContain("if (isMermaidFenceLanguage(language)) {\n      overlay.replaceChildren()");
+    expect(blocks).not.toContain(
+      "if (isMermaidFenceLanguage(language)) {\n      overlay.replaceChildren()",
+    );
     expect(blocks).not.toContain("@milkdown/components/code-block");
     expect(source).not.toContain("slashFactory");
     expect(slash).toContain("CommandItem");
@@ -170,10 +145,7 @@ describe("md-live structural gates", () => {
   });
 
   test("github embed open uses the native center tab", () => {
-    const source = readFileSync(
-      join(import.meta.dir, "../../embeds/open-embed.ts"),
-      "utf8",
-    );
+    const source = readFileSync(join(import.meta.dir, "../../embeds/open-embed.ts"), "utf8");
     expect(source).toContain("openIssue");
     expect(source).toContain("openPullRequest");
     expect(source).toContain("activateCenterChromeTab");
@@ -196,7 +168,7 @@ describe("md-live structural gates", () => {
     expect(source).not.toContain("copyMdLivePrompt");
     expect(source).not.toContain("Send to terminal");
     expect(source).not.toContain("EditorPromptComposer");
-    expect(source).not.toContain("{t(\"run\")}\n        </Button>");
+    expect(source).not.toContain('{t("run")}\n        </Button>');
     expect(source).toContain("isTerminalAgentInputShortcut");
     expect(source).toContain("h-1 w-28 rounded-full");
     expect(source).toContain("pointer-events-none absolute inset-x-0 bottom-1.5");

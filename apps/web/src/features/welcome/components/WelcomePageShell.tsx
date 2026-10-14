@@ -54,11 +54,17 @@ export function WelcomeCloseButton({ onClose }: { onClose: () => void }) {
     <button
       type="button"
       onClick={onClose}
-      className="group absolute left-1/2 top-0 z-20 -translate-x-1/2 flex cursor-pointer flex-col items-center gap-0 px-6 py-0.5 text-muted-foreground/40 hover:text-muted-foreground"
+      className="group absolute top-0 left-1/2 z-20 flex -translate-x-1/2 cursor-pointer flex-col items-center gap-0 px-6 py-0.5 text-muted-foreground/40 hover:text-muted-foreground"
       aria-label={t("shell.close")}
     >
-      <ChevronDown className="h-5 w-9 animate-[bounce-down_1.6s_ease-in-out_infinite]" strokeWidth={1.2} />
-      <ChevronDown className="h-5 w-9 -mt-2.5 animate-[bounce-down_1.6s_ease-in-out_0.15s_infinite]" strokeWidth={1.2} />
+      <ChevronDown
+        className="h-5 w-9 animate-[bounce-down_1.6s_ease-in-out_infinite]"
+        strokeWidth={1.2}
+      />
+      <ChevronDown
+        className="-mt-2.5 h-5 w-9 animate-[bounce-down_1.6s_ease-in-out_0.15s_infinite]"
+        strokeWidth={1.2}
+      />
     </button>
   );
 }
@@ -83,7 +89,7 @@ export function WelcomeComposerPlaceholder({
         {exitingPlaceholder ? (
           <span
             key={`exit-${exitingPlaceholder}`}
-            className="welcome-placeholder-exit pointer-events-none absolute left-0 top-0 block whitespace-nowrap"
+            className="welcome-placeholder-exit pointer-events-none absolute top-0 left-0 block whitespace-nowrap"
           >
             {exitingPlaceholder}
           </span>

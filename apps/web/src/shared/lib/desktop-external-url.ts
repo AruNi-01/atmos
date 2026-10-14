@@ -5,10 +5,7 @@ import { debugLog, errorLog } from "@/shared/lib/desktop-logger";
 
 export function isSupportedExternalProtocol(protocol: string) {
   return (
-    protocol === "http:" ||
-    protocol === "https:" ||
-    protocol === "mailto:" ||
-    protocol === "tel:"
+    protocol === "http:" || protocol === "https:" || protocol === "mailto:" || protocol === "tel:"
   );
 }
 

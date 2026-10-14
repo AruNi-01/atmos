@@ -38,9 +38,7 @@ import {
   useRepoPrListQuery,
   useInvalidateGithubPrs,
 } from "@/features/github/hooks/use-github-pr-query";
-import {
-  useTaskWorkspaceDraftStore,
-} from "@/features/task/store/task-workspace-draft-store";
+import { useTaskWorkspaceDraftStore } from "@/features/task/store/task-workspace-draft-store";
 
 type LinkType = "none" | "issue" | "pr" | "linear";
 
@@ -90,9 +88,9 @@ export function useWelcomeProjectContext({
   const [autoExtractTodos, setAutoExtractTodos] = React.useState(false);
   const [autoExtractTodosPr, setAutoExtractTodosPr] = React.useState(false);
   const [linkType, setLinkType] = React.useState<LinkType>("none");
-  const [displayedLinkType, setDisplayedLinkType] = React.useState<
-    "issue" | "pr" | "linear"
-  >("issue");
+  const [displayedLinkType, setDisplayedLinkType] = React.useState<"issue" | "pr" | "linear">(
+    "issue",
+  );
 
   const [isBaseBranchesLoading, setIsBaseBranchesLoading] = React.useState(false);
   const [isIssuesLoading, setIsIssuesLoading] = React.useState(false);
@@ -103,9 +101,7 @@ export function useWelcomeProjectContext({
   const issueLoadSeqRef = React.useRef(0);
 
   const [linearIssues, setLinearIssues] = React.useState<LinearIssuePayload[]>([]);
-  const [linearPreview, setLinearPreview] = React.useState<LinearIssuePayload | null>(
-    null,
-  );
+  const [linearPreview, setLinearPreview] = React.useState<LinearIssuePayload | null>(null);
   const [selectedLinearId, setSelectedLinearId] = React.useState("");
   const [isLinearLoading, setIsLinearLoading] = React.useState(false);
   const [isLinearLoadingMore, setIsLinearLoadingMore] = React.useState(false);
@@ -184,8 +180,7 @@ export function useWelcomeProjectContext({
 
       const prefill = taskPrefillRef.current;
       const preserveTaskPrefill = Boolean(
-        prefill?.coreApplied &&
-          (prefill.linear || prefill.issue || prefill.pr || prefill.name),
+        prefill?.coreApplied && (prefill.linear || prefill.issue || prefill.pr || prefill.name),
       );
 
       setIsBaseBranchesLoading(true);
@@ -499,8 +494,7 @@ export function useWelcomeProjectContext({
       try {
         await ensureLinearLocalKeysHydrated();
         const sel = getLinearAuthSelection();
-        const localKey =
-          sel.mode !== "oauth" ? getActiveLinearApiKeyForRequest() : null;
+        const localKey = sel.mode !== "oauth" ? getActiveLinearApiKeyForRequest() : null;
         const status = await wsLinearApi.status({
           linearApiKey: localKey,
         });
@@ -514,8 +508,7 @@ export function useWelcomeProjectContext({
           setLinearError(null);
           return;
         }
-        const after =
-          options?.loadMore && linearEndCursor ? linearEndCursor : undefined;
+        const after = options?.loadMore && linearEndCursor ? linearEndCursor : undefined;
         if (options?.loadMore && !after) return;
         const page = await wsLinearApi.issueList({
           state_types: [...LINEAR_OPEN_STATE_TYPES],
@@ -526,10 +519,7 @@ export function useWelcomeProjectContext({
         const next = page.issues ?? [];
         setLinearIssues((prev) =>
           options?.loadMore
-            ? [
-                ...prev,
-                ...next.filter((n) => !prev.some((p) => p.id === n.id)),
-              ]
+            ? [...prev, ...next.filter((n) => !prev.some((p) => p.id === n.id))]
             : next,
         );
         setLinearHasMore(Boolean(page.has_next_page));
@@ -542,9 +532,7 @@ export function useWelcomeProjectContext({
           setLinearHasMore(false);
           setLinearEndCursor(null);
         }
-        setLinearError(
-          error instanceof Error ? error.message : t("errors.loadLinearIssues"),
-        );
+        setLinearError(error instanceof Error ? error.message : t("errors.loadLinearIssues"));
       } finally {
         if (loadSeq === linearLoadSeqRef.current) {
           setIsLinearLoading(false);
@@ -572,8 +560,7 @@ export function useWelcomeProjectContext({
     }
 
     const existing = taskPrefillRef.current;
-    const coreAlreadyApplied =
-      existing?.createdAt === draft.createdAt && existing.coreApplied;
+    const coreAlreadyApplied = existing?.createdAt === draft.createdAt && existing.coreApplied;
 
     const preferLinear = Boolean(draft.linearIssue);
     const link = draft.link ?? null;
@@ -756,14 +743,14 @@ export function useWelcomeProjectContext({
     }
 
     // Always attach GitHub when present (coexists with Linear). Issue ↔ PR exclusive.
-    const rememberGithubPrefill = (
-      next: { issue?: GithubIssuePayload | null; pr?: GithubPrPayload | null },
-    ) => {
+    const rememberGithubPrefill = (next: {
+      issue?: GithubIssuePayload | null;
+      pr?: GithubPrPayload | null;
+    }) => {
       if (!taskPrefillRef.current) return;
       taskPrefillRef.current = {
         ...taskPrefillRef.current,
-        issue:
-          next.issue !== undefined ? next.issue : taskPrefillRef.current.issue,
+        issue: next.issue !== undefined ? next.issue : taskPrefillRef.current.issue,
         pr: next.pr !== undefined ? next.pr : taskPrefillRef.current.pr,
       };
     };
@@ -803,8 +790,7 @@ export function useWelcomeProjectContext({
     } else if (link.kind === "issue") {
       if (!preferLinear) setLinkType("issue");
       setIssueUrl(
-        link.url ??
-          `https://github.com/${link.owner}/${link.repo}/issues/${link.number}`,
+        link.url ?? `https://github.com/${link.owner}/${link.repo}/issues/${link.number}`,
       );
       void (async () => {
         try {
@@ -823,10 +809,7 @@ export function useWelcomeProjectContext({
       })();
     } else {
       if (!preferLinear) setLinkType("pr");
-      setPrUrl(
-        link.url ??
-          `https://github.com/${link.owner}/${link.repo}/pull/${link.number}`,
-      );
+      setPrUrl(link.url ?? `https://github.com/${link.owner}/${link.repo}/pull/${link.number}`);
       void (async () => {
         try {
           const preview = await wsGithubApi.getPr({

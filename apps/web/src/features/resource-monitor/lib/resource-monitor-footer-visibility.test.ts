@@ -3,10 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { effectiveShowResourceMonitor } from "@/features/resource-monitor/lib/resource-monitor-footer-visibility";
 
-const footerSrc = readFileSync(
-  join(import.meta.dir, "../../../app-shell/Footer.tsx"),
-  "utf8",
-);
+const footerSrc = readFileSync(join(import.meta.dir, "../../../app-shell/Footer.tsx"), "utf8");
 
 describe("effectiveShowResourceMonitor", () => {
   test("does not show the monitor before layout settings load", () => {
@@ -46,9 +43,7 @@ describe("Footer resource monitor visibility", () => {
   test("shows WebSocket status only on connection problems and puts Monitor first", () => {
     expect(footerSrc).toContain("{showLocalServices ? (");
     expect(footerSrc).toContain("{showWsStatus ? (");
-    expect(footerSrc).toContain(
-      'const showWsStatus = connectionState !== "connected"',
-    );
+    expect(footerSrc).toContain('const showWsStatus = connectionState !== "connected"');
     expect(footerSrc).not.toContain("showWsConnection");
     expect(footerSrc.indexOf("<ResourceMonitorFooterItem")).toBeLessThan(
       footerSrc.indexOf("<LocalServicesFooterItem"),

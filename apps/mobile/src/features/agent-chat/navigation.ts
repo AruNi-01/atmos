@@ -62,7 +62,7 @@ export function openSessionDestination(
   const scopeId = workspaceId || row.projectId?.trim() || "";
   const chatId = row.chatId?.trim() ?? "";
   if (scopeId && chatId) {
-    const title = row.titlePending ? "" : row.title?.trim() ?? "";
+    const title = row.titlePending ? "" : (row.title?.trim() ?? "");
     return {
       pathname: "/workspace/[workspaceId]/chat/[chatId]",
       params: title ? { workspaceId: scopeId, chatId, title } : { workspaceId: scopeId, chatId },

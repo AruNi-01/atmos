@@ -16,7 +16,9 @@ import {
   tokenAuthEnvName,
 } from "@/features/agent/lib/custom-agent-registry";
 
-function custom(partial: Partial<CustomAgent> & Pick<CustomAgent, "name" | "command">): CustomAgent {
+function custom(
+  partial: Partial<CustomAgent> & Pick<CustomAgent, "name" | "command">,
+): CustomAgent {
   return {
     type: "custom",
     args: [],
@@ -150,7 +152,9 @@ describe("custom agent registry merge", () => {
   });
 });
 
-function native(partial: Partial<NativeChatAgent> & Pick<NativeChatAgent, "id" | "name">): NativeChatAgent {
+function native(
+  partial: Partial<NativeChatAgent> & Pick<NativeChatAgent, "id" | "name">,
+): NativeChatAgent {
   return {
     description: "",
     executable: partial.id,
@@ -195,10 +199,7 @@ describe("native chat picker merge", () => {
   });
 
   it("omits a disabled downloaded ACP from the chat picker", () => {
-    const merged = mergeInstalledAgents(
-      [{ ...registry("cursor", "Cursor"), enabled: false }],
-      [],
-    );
+    const merged = mergeInstalledAgents([{ ...registry("cursor", "Cursor"), enabled: false }], []);
     expect(merged.map((agent) => agent.id)).toEqual([]);
   });
 

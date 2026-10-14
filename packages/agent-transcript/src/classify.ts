@@ -45,7 +45,14 @@ export type TranscriptDetail = (
   | { kind: "patch"; path: string | null; patch: string }
   | { kind: "diff_stats"; path: string | null; additions: number; deletions: number }
   | { kind: "code"; path: string | null; language: string; code: string; hint?: "new" | "deleted" }
-  | { kind: "search"; query: string; glob?: string | null; path?: string | null; hits: SearchHit[]; summary?: string }
+  | {
+      kind: "search";
+      query: string;
+      glob?: string | null;
+      path?: string | null;
+      hits: SearchHit[];
+      summary?: string;
+    }
   | { kind: "web_search"; query: string; links: WebResultLink[] }
   | { kind: "web_fetch"; url: string; title?: string; markdown?: string; text?: string }
   | { kind: "images"; images: ImageDetail[] }
@@ -128,7 +135,7 @@ export type TranscriptDetail = (
       shownInTranscript: boolean;
     }
   | { kind: "hidden"; reason: "plan" | "attachment" | "plan_mode" | "mode_only" }
-  ) & { paramsJson?: string | null };
+) & { paramsJson?: string | null };
 
 export type ClassifiedTranscriptPart = {
   visibility: TranscriptVisibility;
@@ -167,9 +174,10 @@ function sessionLifecycleLabel(part: Extract<AgentPart, { type: "session_lifecyc
   const running = part.status === "running";
   const failed = part.status === "failed";
   const resume = part.action === "resume";
-  const duration = part.duration_ms != null && part.duration_ms >= 1000
-    ? formatWorkDuration(part.duration_ms)
-    : null;
+  const duration =
+    part.duration_ms != null && part.duration_ms >= 1000
+      ? formatWorkDuration(part.duration_ms)
+      : null;
   if (running) return resume ? "Resuming session..." : "Creating session...";
   if (failed) return resume ? "Failed to resume session" : "Failed to create session";
   if (duration) {
@@ -185,7 +193,9 @@ function sessionConfigLabel(part: Extract<AgentPart, { type: "session_config_cha
   const modeFrom = changeFrom(part.mode);
   if (model && mode) return `Switched model to ${model} · mode to ${mode}`;
   if (model) {
-    return modelFrom ? `Switched model from ${modelFrom} to ${model}` : `Switched model to ${model}`;
+    return modelFrom
+      ? `Switched model from ${modelFrom} to ${model}`
+      : `Switched model to ${model}`;
   }
   return modeFrom ? `Switched mode from ${modeFrom} to ${mode}` : `Switched mode to ${mode}`;
 }
@@ -201,12 +211,12 @@ function isSubagentDispatchAckText(text: string): boolean {
   const trimmed = text.trim();
   if (!trimmed) return false;
   return (
-    trimmed.startsWith("Async agent launched successfully.")
-    || trimmed.includes("This tool result is internal metadata")
-    || trimmed.includes("The agent is working in the background.")
-    || trimmed.startsWith("Subagent started in background.")
-    || trimmed.includes("moved to the background to keep the conversation responsive")
-    || trimmed.startsWith("The task is working in the background.")
+    trimmed.startsWith("Async agent launched successfully.") ||
+    trimmed.includes("This tool result is internal metadata") ||
+    trimmed.includes("The agent is working in the background.") ||
+    trimmed.startsWith("Subagent started in background.") ||
+    trimmed.includes("moved to the background to keep the conversation responsive") ||
+    trimmed.startsWith("The task is working in the background.")
   );
 }
 
@@ -521,7 +531,8 @@ export function subagentChildParts(
       tools.push(part);
     }
   }
-  if (!tools.some((tool) => tool.tool_call_id === toolCallId && tool.kind === "subagent")) return [];
+  if (!tools.some((tool) => tool.tool_call_id === toolCallId && tool.kind === "subagent"))
+    return [];
   const descendants = descendantToolIds(tools, toolCallId);
   const parts: AgentPart[] = [];
   for (const message of messages) {
@@ -533,7 +544,10 @@ export function subagentChildParts(
         parts.push(stripSelectedParent(part, toolCallId));
         continue;
       }
-      if ((part.type === "text" || part.type === "thinking") && part.parent_tool_call_id === toolCallId) {
+      if (
+        (part.type === "text" || part.type === "thinking") &&
+        part.parent_tool_call_id === toolCallId
+      ) {
         if (part.type === "text" && isSubagentDispatchAckText(part.text)) continue;
         parts.push(stripSelectedParent(part, toolCallId));
       }
@@ -547,7 +561,8 @@ export function nestedPartsFor(parentId: string, parts: AgentPart[]): WaitForRow
   parts.forEach((part, index) => {
     if (partParentToolCallId(part) !== parentId) return;
     if (isHiddenTranscriptChromePart(part)) return;
-    if (isNestedSubagentChild(part) && part.type === "tool_call" && isSubagentWaitTool(part)) return;
+    if (isNestedSubagentChild(part) && part.type === "tool_call" && isSubagentWaitTool(part))
+      return;
     rows.push({ part, index });
   });
   return rows;

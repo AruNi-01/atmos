@@ -36,7 +36,7 @@ const KeyCircleIcon = forwardRef<KeyIconHandle, KeyIconProps>(
           controls.start("animate");
         }
       },
-      [controls, onMouseEnter]
+      [controls, onMouseEnter],
     );
 
     const handleMouseLeave = useCallback(
@@ -47,7 +47,7 @@ const KeyCircleIcon = forwardRef<KeyIconHandle, KeyIconProps>(
           controls.start("normal");
         }
       },
-      [controls, onMouseLeave]
+      [controls, onMouseLeave],
     );
 
     return (
@@ -85,7 +85,7 @@ const KeyCircleIcon = forwardRef<KeyIconHandle, KeyIconProps>(
         </motion.svg>
       </div>
     );
-  }
+  },
 );
 
 KeyCircleIcon.displayName = "KeyCircleIcon";

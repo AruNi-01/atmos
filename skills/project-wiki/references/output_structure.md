@@ -63,34 +63,34 @@ The catalog metadata file defines the hierarchical structure and navigation of t
 
 ### Top-Level Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `version` | string | Yes | Catalog format version (e.g., `"2.0"`) |
-| `generated_at` | string | Yes | ISO 8601 timestamp |
-| `project` | object | Yes | Project metadata |
-| `catalog` | array | Yes | Hierarchical catalog tree (min 1 item) |
+| Field          | Type   | Required | Description                            |
+| -------------- | ------ | -------- | -------------------------------------- |
+| `version`      | string | Yes      | Catalog format version (e.g., `"2.0"`) |
+| `generated_at` | string | Yes      | ISO 8601 timestamp                     |
+| `project`      | object | Yes      | Project metadata                       |
+| `catalog`      | array  | Yes      | Hierarchical catalog tree (min 1 item) |
 
 ### `project` Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Project name |
-| `description` | string | Yes | Brief project description |
-| `repository` | string | No | Repository URL (URI format) |
+| Field         | Type   | Required | Description                 |
+| ------------- | ------ | -------- | --------------------------- |
+| `name`        | string | Yes      | Project name                |
+| `description` | string | Yes      | Brief project description   |
+| `repository`  | string | No       | Repository URL (URI format) |
 
 ### Catalog Item Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `id` | string | Yes | Unique identifier, dot-separated hierarchy |
-| `title` | string | Yes | Display title |
-| `path` | string | Yes | File path relative to `.atmos/wiki/` |
-| `order` | integer | Yes | Sort order among siblings (0-based) |
-| `file` | string | Yes | Path to Markdown file relative to `.atmos/wiki/` |
-| `section` | string | No | `getting-started` or `deep-dive` |
-| `level` | string | No | `beginner`, `intermediate`, or `advanced` |
-| `reading_time` | integer | No | Estimated reading time in minutes |
-| `children` | array | Yes | Child catalog items (empty array if leaf) |
+| Field          | Type    | Required | Description                                      |
+| -------------- | ------- | -------- | ------------------------------------------------ |
+| `id`           | string  | Yes      | Unique identifier, dot-separated hierarchy       |
+| `title`        | string  | Yes      | Display title                                    |
+| `path`         | string  | Yes      | File path relative to `.atmos/wiki/`             |
+| `order`        | integer | Yes      | Sort order among siblings (0-based)              |
+| `file`         | string  | Yes      | Path to Markdown file relative to `.atmos/wiki/` |
+| `section`      | string  | No       | `getting-started` or `deep-dive`                 |
+| `level`        | string  | No       | `beginner`, `intermediate`, or `advanced`        |
+| `reading_time` | integer | No       | Estimated reading time in minutes                |
+| `children`     | array   | Yes      | Child catalog items (empty array if leaf)        |
 
 ### Naming Conventions
 
@@ -159,7 +159,6 @@ sources:
   - apps/api/src/api/ws/mod.rs
 updated_at: 2026-02-10T12:00:00Z
 ---
-
 # WebSocket Service Architecture
 
 First paragraph...
@@ -188,15 +187,15 @@ Reading Time: 13 minutes | Level: Advanced
 - Do NOT use inline text like "Reading Time: X minutes".
 - `sources` MUST be a YAML array (hyphen-prefixed list), not a string or inline text.
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `title` | string | Yes | Document title |
-| `section` | string | Yes | `getting-started` or `deep-dive` |
-| `level` | string | Yes | `beginner`, `intermediate`, or `advanced` |
-| `reading_time` | integer | Yes | Estimated reading time in minutes |
-| `path` | string | Yes | Path relative to `.atmos/wiki/` |
-| `sources` | array | Yes | Source files this document covers (min 3 for getting-started, min 5 for deep-dive) |
-| `updated_at` | string | Yes | ISO 8601 last-updated timestamp |
+| Field          | Type    | Required | Description                                                                        |
+| -------------- | ------- | -------- | ---------------------------------------------------------------------------------- |
+| `title`        | string  | Yes      | Document title                                                                     |
+| `section`      | string  | Yes      | `getting-started` or `deep-dive`                                                   |
+| `level`        | string  | Yes      | `beginner`, `intermediate`, or `advanced`                                          |
+| `reading_time` | integer | Yes      | Estimated reading time in minutes                                                  |
+| `path`         | string  | Yes      | Path relative to `.atmos/wiki/`                                                    |
+| `sources`      | array   | Yes      | Source files this document covers (min 3 for getting-started, min 5 for deep-dive) |
+| `updated_at`   | string  | Yes      | ISO 8601 last-updated timestamp                                                    |
 
 ### Document Body Structure
 
@@ -230,11 +229,11 @@ Reading Time: 13 minutes | Level: Advanced
 6. **`## Key Source Files`** -- Table of source files referenced:
 
    ```markdown
-   | File | Purpose |
-   |------|---------|
-   | `crates/infra/src/websocket/manager.rs` | Connection lifecycle management |
+   | File                                       | Purpose                             |
+   | ------------------------------------------ | ----------------------------------- |
+   | `crates/infra/src/websocket/manager.rs`    | Connection lifecycle management     |
    | `crates/infra/src/websocket/connection.rs` | Individual connection state and I/O |
-   | `apps/api/src/api/ws/handlers.rs` | HTTP upgrade and message routing |
+   | `apps/api/src/api/ws/handlers.rs`          | HTTP upgrade and message routing    |
    ```
 
 7. **`## Next Steps`** -- 2-4 bullet points linking to related articles:
@@ -257,30 +256,30 @@ Reading Time: 13 minutes | Level: Advanced
 
 ### Content Depth Standards
 
-| Metric | Getting Started | Deep Dive |
-|--------|----------------|-----------|
-| **Word Count** | 800+ words | 1500+ words |
-| **Source Files** | 3+ referenced | 5+ referenced |
-| **Code Snippets** | 0–1 (only when essential) | 0–2 (only when essential) |
-| **Mermaid Diagrams** | 2+ | 3+ |
-| **Reading Time** | 5-8 minutes | 8-15 minutes |
-| **H2 Sections** | 4+ | 6+ |
+| Metric               | Getting Started            | Deep Dive                  |
+| -------------------- | -------------------------- | -------------------------- |
+| **Word Count**       | 800+ words                 | 1500+ words                |
+| **Source Files**     | 3+ referenced              | 5+ referenced              |
+| **Code Snippets**    | 0–1 (only when essential)  | 0–2 (only when essential)  |
+| **Mermaid Diagrams** | 2+                         | 3+                         |
+| **Reading Time**     | 5-8 minutes                | 8-15 minutes               |
+| **H2 Sections**      | 4+                         | 6+                         |
 | **Cross-references** | 2+ links to other articles | 4+ links to other articles |
 
 **Readers come for business logic, implementation reasoning, and technical architecture — not to read code.** Translate code logic into natural language. Use diagrams liberally. Prefer prose and Mermaid over code blocks.
 
 ### Mandatory Content Rules
 
-| Rule | Description |
-|------|-------------|
-| **Prose over code** | Translate implementation logic into natural language. Use Mermaid diagrams (architecture, flowchart, sequence) to illustrate structure and flow. |
-| **Diagram-heavy** | At least 2–3 Mermaid diagrams per article. Architecture, flow, and sequence diagrams communicate faster than code. |
-| **Minimal code** | Code snippets only when a short 2–3 line example is genuinely clearer than prose. Avoid long code blocks. |
-| **Source file links** | If you include a code snippet, it MUST have a source file path. Prefer citing source files in the Key Source Files table. |
-| **Mermaid accuracy** | Mermaid diagrams MUST reflect actual code architecture. |
-| **Relative links** | Use relative paths for all cross-document references. |
-| **Trace the flow** | Use sequence diagrams and numbered prose steps, not code. |
-| **Cover error cases** | Explain failure modes in prose, not just the happy path. |
+| Rule                  | Description                                                                                                                                      |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Prose over code**   | Translate implementation logic into natural language. Use Mermaid diagrams (architecture, flowchart, sequence) to illustrate structure and flow. |
+| **Diagram-heavy**     | At least 2–3 Mermaid diagrams per article. Architecture, flow, and sequence diagrams communicate faster than code.                               |
+| **Minimal code**      | Code snippets only when a short 2–3 line example is genuinely clearer than prose. Avoid long code blocks.                                        |
+| **Source file links** | If you include a code snippet, it MUST have a source file path. Prefer citing source files in the Key Source Files table.                        |
+| **Mermaid accuracy**  | Mermaid diagrams MUST reflect actual code architecture.                                                                                          |
+| **Relative links**    | Use relative paths for all cross-document references.                                                                                            |
+| **Trace the flow**    | Use sequence diagrams and numbered prose steps, not code.                                                                                        |
+| **Cover error cases** | Explain failure modes in prose, not just the happy path.                                                                                         |
 
 ### Writing Quality Guidelines
 
@@ -302,7 +301,7 @@ A project architecture mindmap using Mermaid mindmap syntax that shows both Gett
 
 ### Format
 
-```markdown
+````markdown
 # Project Architecture Mindmap
 
 ```mermaid
@@ -330,6 +329,8 @@ mindmap
         Components
         State Management
 ```
+````
+
 ```
 
 ### Guidelines
@@ -338,3 +339,4 @@ mindmap
 - First level should show the two-part structure (Getting Started + Deep Dive)
 - Keep depth to 3-4 levels for readability
 - Include all major modules and technologies
+```

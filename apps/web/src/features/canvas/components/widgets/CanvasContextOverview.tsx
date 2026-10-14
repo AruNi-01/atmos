@@ -30,9 +30,7 @@ export function CanvasContextOverview({ context }: { context: CanvasContextRef }
   const paintContextId = useCenterPaintContextId();
   const hostId = hostIdFromCenterKey(contextId);
   const tabContextId =
-    paintContextId && hostIdFromCenterKey(paintContextId) === hostId
-      ? paintContextId
-      : hostId;
+    paintContextId && hostIdFromCenterKey(paintContextId) === hostId ? paintContextId : hostId;
 
   React.useEffect(() => {
     const container = editor.getContainer();
@@ -87,8 +85,13 @@ export function CanvasContextOverview({ context }: { context: CanvasContextRef }
         projectId={project?.id ?? context.projectId ?? undefined}
         projectName={project?.name ?? context.projectName}
         projectPath={project?.mainFilePath ?? context.repoPath ?? context.localPath}
-        workspaceName={workspace?.displayName ?? workspace?.name ?? context.workspaceName ?? undefined}
-        workspacePath={workspace?.localPath ?? (context.contextScope === "workspace" ? context.localPath : undefined)}
+        workspaceName={
+          workspace?.displayName ?? workspace?.name ?? context.workspaceName ?? undefined
+        }
+        workspacePath={
+          workspace?.localPath ??
+          (context.contextScope === "workspace" ? context.localPath : undefined)
+        }
         gitBranch={workspace?.branch ?? currentBranch ?? undefined}
         createdAt={workspace?.createdAt}
         isProjectOnly={context.contextScope === "project" || !workspace}

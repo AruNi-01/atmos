@@ -49,24 +49,24 @@ Optional: `atmos automation status --run <run_guid>` to confirm.
 
 Typical layout under `~/.atmos/data/automations/`:
 
-| Path | Meaning |
-|------|---------|
-| `definitions/{automation_guid}/` | Job home (`instructions.md`, `memory.md`) |
-| `definitions/{automation_guid}/instructions.md` | Job instructions |
-| `definitions/{automation_guid}/memory.md` | Durable memory |
-| `runs/.../{run_guid}/` | This run (`prompt.md`, `final.md`, `run.json`) |
-| `~/.atmos/skills/.system/atmos-automation/SKILL.md` | This skill |
+| Path                                                | Meaning                                        |
+| --------------------------------------------------- | ---------------------------------------------- |
+| `definitions/{automation_guid}/`                    | Job home (`instructions.md`, `memory.md`)      |
+| `definitions/{automation_guid}/instructions.md`     | Job instructions                               |
+| `definitions/{automation_guid}/memory.md`           | Durable memory                                 |
+| `runs/.../{run_guid}/`                              | This run (`prompt.md`, `final.md`, `run.json`) |
+| `~/.atmos/skills/.system/atmos-automation/SKILL.md` | This skill                                     |
 
 `atmos automation paths --run <guid>` returns the concrete paths for this run.
 
 ## CLI verbs
 
-| Intent | Command |
-|--------|---------|
-| Resolve paths | `atmos automation paths --run <guid>` |
-| Check status | `atmos automation status --run <guid>` |
-| Finish success | `atmos automation complete --run <guid>` |
-| Finish failure | `atmos automation complete --run <guid> --failed --message "<reason>"` |
-| Start a saved job | `atmos automation run --id <automation_guid>` |
+| Intent            | Command                                                                |
+| ----------------- | ---------------------------------------------------------------------- |
+| Resolve paths     | `atmos automation paths --run <guid>`                                  |
+| Check status      | `atmos automation status --run <guid>`                                 |
+| Finish success    | `atmos automation complete --run <guid>`                               |
+| Finish failure    | `atmos automation complete --run <guid> --failed --message "<reason>"` |
+| Start a saved job | `atmos automation run --id <automation_guid>`                          |
 
 These call Atmos Server (`POST /api/cli/invoke`). They are not a second data plane.

@@ -2,11 +2,7 @@ import type { Editor, TLShapeId } from "tldraw";
 
 import { getShapePageBoundsBox } from "./canvas-agent-bounds";
 import { CanvasAgentError } from "./canvas-agent-errors";
-import {
-  buildLintFixSuggestions,
-  computeCanvasLints,
-  summarizeLints,
-} from "./canvas-agent-lint";
+import { buildLintFixSuggestions, computeCanvasLints, summarizeLints } from "./canvas-agent-lint";
 import {
   optionalString,
   parseOlderOffset,
@@ -21,10 +17,7 @@ import {
   truncateText,
 } from "./canvas-shape-text";
 import { extractCanvasTerminalText } from "./canvas-terminal-copy";
-import {
-  CANVAS_TERMINAL_SHAPE_TYPE,
-  type CanvasTerminalShape,
-} from "./canvas-terminal-shape";
+import { CANVAS_TERMINAL_SHAPE_TYPE, type CanvasTerminalShape } from "./canvas-terminal-shape";
 
 export function runCanvasAgentStatus(editor: Editor, bridgeAccepting: boolean) {
   return {
@@ -36,21 +29,12 @@ export function runCanvasAgentStatus(editor: Editor, bridgeAccepting: boolean) {
   };
 }
 
-export function runCanvasAgentGetState(
-  editor: Editor,
-  args: Record<string, unknown>,
-) {
+export function runCanvasAgentGetState(editor: Editor, args: Record<string, unknown>) {
   const requestedPage = optionalString(args.page_id);
   const currentPageId = editor.getCurrentPageId();
-  const pageId = (requestedPage ?? currentPageId) as ReturnType<
-    Editor["getCurrentPageId"]
-  >;
+  const pageId = (requestedPage ?? currentPageId) as ReturnType<Editor["getCurrentPageId"]>;
   if (requestedPage && !editor.getPages().some((p) => p.id === pageId)) {
-    throw new CanvasAgentError(
-      "STALE_SHAPE_ID",
-      `Page ${requestedPage} does not exist`,
-      true,
-    );
+    throw new CanvasAgentError("STALE_SHAPE_ID", `Page ${requestedPage} does not exist`, true);
   }
   // The downstream reads (`getCurrentPageShapes` / `getCamera` /
   // `getViewportPageBounds` / `getSelectedShapeIds`) always operate on the
@@ -112,10 +96,7 @@ export function runCanvasAgentGetState(
   };
 }
 
-export function runCanvasAgentLint(
-  editor: Editor,
-  args: Record<string, unknown> = {},
-) {
+export function runCanvasAgentLint(editor: Editor, args: Record<string, unknown> = {}) {
   const wantFixes =
     args.fix_suggestions === true ||
     args.fixSuggestions === true ||
@@ -134,25 +115,18 @@ export function runCanvasAgentLint(
   return { lints, summary: summarizeLints(lints) };
 }
 
-export function runCanvasAgentSetStatus(
-  editor: Editor,
-  args: Record<string, unknown>,
-) {
+export function runCanvasAgentSetStatus(editor: Editor, args: Record<string, unknown>) {
   const raw = optionalString(args.status);
   if (!raw) {
     throw new CanvasAgentError(
       "VALIDATION_ARG",
-      "set_status requires status: \"idle\" or \"active\"",
+      'set_status requires status: "idle" or "active"',
       false,
     );
   }
   const status = raw.trim().toLowerCase();
   if (status !== "idle" && status !== "active") {
-    throw new CanvasAgentError(
-      "VALIDATION_ARG",
-      'status must be "idle" or "active"',
-      false,
-    );
+    throw new CanvasAgentError("VALIDATION_ARG", 'status must be "idle" or "active"', false);
   }
   const lints = computeCanvasLints(editor);
   const summary = summarizeLints(lints);
@@ -168,10 +142,7 @@ export function runCanvasAgentSetStatus(
 }
 
 /** Read text content for specific shapes on demand (includes tmux capture for terminals). */
-export async function runCanvasAgentExtractText(
-  editor: Editor,
-  args: Record<string, unknown>,
-) {
+export async function runCanvasAgentExtractText(editor: Editor, args: Record<string, unknown>) {
   const ids = resolveExtractTextShapeIds(editor, args);
   requireExistingShapes(editor, ids);
 

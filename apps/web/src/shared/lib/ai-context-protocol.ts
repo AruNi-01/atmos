@@ -217,9 +217,7 @@ export function formatAiContextToken(kind: AiContextKind, id: string): string {
   return `${AI_CONTEXT_TOKEN_PREFIX}${kind}:${id}]`;
 }
 
-export function parseAiContextToken(
-  token: string,
-): { kind: AiContextKind; id: string } | null {
+export function parseAiContextToken(token: string): { kind: AiContextKind; id: string } | null {
   if (!token.startsWith(AI_CONTEXT_TOKEN_PREFIX) || !token.endsWith("]")) {
     return null;
   }
@@ -234,8 +232,7 @@ export function parseAiContextToken(
 }
 
 /** Match any registered context chip token. */
-export const AI_CONTEXT_TOKEN_PATTERN =
-  /\[#ctx:([a-z0-9-]+):([a-zA-Z0-9_-]+)\]/g;
+export const AI_CONTEXT_TOKEN_PATTERN = /\[#ctx:([a-z0-9-]+):([a-zA-Z0-9_-]+)\]/g;
 
 export function expandAiContextTokens(text: string): string {
   return text.replace(AI_CONTEXT_TOKEN_PATTERN, (match, kind: string, id: string) => {
@@ -373,8 +370,7 @@ function deriveChipTooltip(kind: AiContextKind, promptText: string): string | nu
       return matchField(promptText, ["Wiki page", "Wiki 页面", "页面"]);
     case "preview-element":
       return (
-        matchField(promptText, ["Selector", "选择器"]) ||
-        matchField(promptText, ["Page", "页面"])
+        matchField(promptText, ["Selector", "选择器"]) || matchField(promptText, ["Page", "页面"])
       );
     case "terminal-selection": {
       const first = firstNonEmptyLine(promptText);
@@ -401,9 +397,7 @@ function deriveChipTooltip(kind: AiContextKind, promptText: string): string | nu
 function matchField(promptText: string, labels: string[]): string | null {
   for (const label of labels) {
     const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const match = promptText.match(
-      new RegExp(`\\*\\*${escaped}\\*\\*:\\s*\`([^\`]+)\``),
-    );
+    const match = promptText.match(new RegExp(`\\*\\*${escaped}\\*\\*:\\s*\`([^\`]+)\``));
     if (match?.[1]?.trim()) return match[1].trim();
   }
   return null;

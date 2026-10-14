@@ -1,23 +1,19 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { debugLog, errorLog } from '@/shared/lib/desktop-logger';
-import {
-  desktopInvoke,
-  desktopListen,
-  isDesktopRuntime,
-} from '@/shared/lib/desktop-bridge';
+import { debugLog, errorLog } from "@/shared/lib/desktop-logger";
+import { desktopInvoke, desktopListen, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type ProviderKind = 'tailscale' | 'cloudflare' | 'ngrok';
+export type ProviderKind = "tailscale" | "cloudflare" | "ngrok";
 
-export type ProviderAccessMode = 'private' | 'public';
+export type ProviderAccessMode = "private" | "public";
 
-export type ProviderStatusState = 'Unavailable' | 'Idle' | 'Running' | 'Error';
+export type ProviderStatusState = "Unavailable" | "Idle" | "Running" | "Error";
 
 export type ProviderStatus = {
   state: ProviderStatusState;
@@ -74,20 +70,23 @@ export function useTunnelConnector(enabled = true) {
   const refreshStatus = useCallback(async () => {
     if (!isDesktop) return;
     try {
-      const result = await desktopInvoke<Record<string, TunnelConnectorStatus | null | undefined>>(
-        'tunnel_connector_status',
-      );
+      const result =
+        await desktopInvoke<Record<string, TunnelConnectorStatus | null | undefined>>(
+          "tunnel_connector_status",
+        );
       // Drop incomplete entries (missing provider_status) so Header filters
       // never read `.state` on undefined — Electron once returned a flatter shape.
       const next: TunnelConnectorStatusMap = {};
       for (const [key, value] of Object.entries(result ?? {})) {
-        if (value && value.provider_status && typeof value.provider_status.state === 'string') {
+        if (value && value.provider_status && typeof value.provider_status.state === "string") {
           next[key as ProviderKind] = value;
         }
       }
       setStatusMap(next);
     } catch (err) {
-      errorLog(`[tunnel-connector] refreshStatus failed: ${err instanceof Error ? err.message : String(err)}`);
+      errorLog(
+        `[tunnel-connector] refreshStatus failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }, [isDesktop]);
 
@@ -95,10 +94,14 @@ export function useTunnelConnector(enabled = true) {
     if (!isDesktop) return;
     setIsLoading(true);
     try {
-      const result = await desktopInvoke<{ providers: ProviderDiagnostics[] }>('tunnel_connector_detect');
+      const result = await desktopInvoke<{ providers: ProviderDiagnostics[] }>(
+        "tunnel_connector_detect",
+      );
       setProviders(result.providers);
     } catch (err) {
-      errorLog(`[tunnel-connector] detect failed: ${err instanceof Error ? err.message : String(err)}`);
+      errorLog(
+        `[tunnel-connector] detect failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       setIsLoading(false);
     }
@@ -119,12 +122,14 @@ export function useTunnelConnector(enabled = true) {
         };
         debugLog(`[tunnel-connector] start: ${JSON.stringify(payload)}`);
         const result = await Promise.race([
-          desktopInvoke<TunnelConnectorStatus>('tunnel_connector_start', payload),
+          desktopInvoke<TunnelConnectorStatus>("tunnel_connector_start", payload),
           new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Start tunnel timed out after 30s')), 30_000),
+            setTimeout(() => reject(new Error("Start tunnel timed out after 30s")), 30_000),
           ),
         ]);
-        debugLog(`[tunnel-connector] start ok: provider=${result.provider} url=${result.public_url}`);
+        debugLog(
+          `[tunnel-connector] start ok: provider=${result.provider} url=${result.public_url}`,
+        );
         setStatusMap((prev) => ({ ...prev, [provider]: result }));
         return result;
       } catch (err) {
@@ -147,14 +152,16 @@ export function useTunnelConnector(enabled = true) {
       if (!isDesktop) return;
       setStoppingProviders((prev) => new Set(prev).add(provider));
       try {
-        await desktopInvoke('tunnel_connector_stop', { req: { provider } });
+        await desktopInvoke("tunnel_connector_stop", { req: { provider } });
         setStatusMap((prev) => {
           const next = { ...prev };
           delete next[provider];
           return next;
         });
       } catch (err) {
-        errorLog(`[tunnel-connector] stop failed: ${err instanceof Error ? err.message : String(err)}`);
+        errorLog(
+          `[tunnel-connector] stop failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
       } finally {
         setStoppingProviders((prev) => {
           const next = new Set(prev);
@@ -174,13 +181,15 @@ export function useTunnelConnector(enabled = true) {
     ): Promise<TunnelConnectorStatus | undefined> => {
       if (!isDesktop) return undefined;
       try {
-        const result = await desktopInvoke<TunnelConnectorStatus>('tunnel_connector_renew', {
+        const result = await desktopInvoke<TunnelConnectorStatus>("tunnel_connector_renew", {
           req: { provider, ttl_secs: ttlSecs, reuse_token: reuseToken ?? true },
         });
         setStatusMap((prev) => ({ ...prev, [provider]: result }));
         return result;
       } catch (err) {
-        errorLog(`[tunnel-connector] renew failed: ${err instanceof Error ? err.message : String(err)}`);
+        errorLog(
+          `[tunnel-connector] renew failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
         throw err;
       }
     },
@@ -191,12 +200,16 @@ export function useTunnelConnector(enabled = true) {
     if (!isDesktop) return;
     setIsLoading(true);
     try {
-      const result = await desktopInvoke<Record<string, TunnelConnectorStatus>>('tunnel_connector_recover');
+      const result = await desktopInvoke<Record<string, TunnelConnectorStatus>>(
+        "tunnel_connector_recover",
+      );
       if (result && Object.keys(result).length > 0) {
         setStatusMap(result as TunnelConnectorStatusMap);
       }
     } catch (err) {
-      errorLog(`[tunnel-connector] recover failed: ${err instanceof Error ? err.message : String(err)}`);
+      errorLog(
+        `[tunnel-connector] recover failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       setIsLoading(false);
     }
@@ -206,9 +219,11 @@ export function useTunnelConnector(enabled = true) {
     async (provider: ProviderKind): Promise<string[]> => {
       if (!isDesktop) return [];
       try {
-        return await desktopInvoke<string[]>('tunnel_connector_provider_guide', { provider });
+        return await desktopInvoke<string[]>("tunnel_connector_provider_guide", { provider });
       } catch (err) {
-        errorLog(`[tunnel-connector] getProviderGuide failed: ${err instanceof Error ? err.message : String(err)}`);
+        errorLog(
+          `[tunnel-connector] getProviderGuide failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
         return [];
       }
     },
@@ -219,9 +234,11 @@ export function useTunnelConnector(enabled = true) {
     async (provider: ProviderKind, credential: string) => {
       if (!isDesktop) return;
       try {
-        await desktopInvoke('tunnel_connector_save_credential', { req: { provider, credential } });
+        await desktopInvoke("tunnel_connector_save_credential", { req: { provider, credential } });
       } catch (err) {
-        errorLog(`[tunnel-connector] saveCredential failed: ${err instanceof Error ? err.message : String(err)}`);
+        errorLog(
+          `[tunnel-connector] saveCredential failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     },
     [isDesktop],
@@ -231,9 +248,11 @@ export function useTunnelConnector(enabled = true) {
     async (provider: ProviderKind) => {
       if (!isDesktop) return;
       try {
-        await desktopInvoke('tunnel_connector_clear_credential', { provider });
+        await desktopInvoke("tunnel_connector_clear_credential", { provider });
       } catch (err) {
-        errorLog(`[tunnel-connector] clearCredential failed: ${err instanceof Error ? err.message : String(err)}`);
+        errorLog(
+          `[tunnel-connector] clearCredential failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     },
     [isDesktop],
@@ -250,12 +269,8 @@ export function useTunnelConnector(enabled = true) {
     let cancelled = false;
     let unlisten: (() => void) | undefined;
 
-    void desktopListen('tunnel-connector-recovered', (payload) => {
-      if (
-        payload &&
-        typeof payload === 'object' &&
-        Object.keys(payload as object).length > 0
-      ) {
+    void desktopListen("tunnel-connector-recovered", (payload) => {
+      if (payload && typeof payload === "object" && Object.keys(payload as object).length > 0) {
         setStatusMap(payload as TunnelConnectorStatusMap);
       }
     }).then((fn) => {

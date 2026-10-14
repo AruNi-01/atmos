@@ -13,7 +13,10 @@ const OVERLAY_CLOSE_SELECTOR = [
   "em-emoji-picker",
 ].join(",");
 
-export function isMdLiveOverlayEventTarget(target: EventTarget | null, hosts: Array<Element | null>): boolean {
+export function isMdLiveOverlayEventTarget(
+  target: EventTarget | null,
+  hosts: Array<Element | null>,
+): boolean {
   if (!(target instanceof Node)) return false;
   if (hosts.some((host) => host?.contains(target))) return true;
   if (!(target instanceof Element)) return false;
@@ -47,7 +50,11 @@ export function mdLiveUnifyBlockKindId(ids: Iterable<string>): string | null {
   return found;
 }
 
-export function mdLiveSelectionBlockKindId(doc: ProseNode, from: number, to: number): string | null {
+export function mdLiveSelectionBlockKindId(
+  doc: ProseNode,
+  from: number,
+  to: number,
+): string | null {
   const ids: string[] = [];
   doc.nodesBetween(from, to, (node, _pos, parent) => {
     if (!node.isTextblock) return true;

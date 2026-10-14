@@ -7,10 +7,7 @@ import {
   type ProcessMetricLike,
 } from "./desktop-shell-metrics.ts";
 
-function usageOf(
-  snapshot: DesktopShellMetricsSnapshot,
-  kind: DesktopShellGroupKind,
-) {
+function usageOf(snapshot: DesktopShellMetricsSnapshot, kind: DesktopShellGroupKind) {
   const group = snapshot.groups.find((item) => item.kind === kind);
   expect(group).toBeDefined();
   return group!.usage;
@@ -75,9 +72,7 @@ describe("collectDesktopShellMetrics", () => {
     expect(snapshot.supported).toBe(true);
     expect(snapshot.collected_at_ms).toBe(1_700_000_000_123);
     expect(snapshot.logical_cpu_count).toBe(8);
-    expect(snapshot.groups.map((group) => group.kind)).toEqual([
-      ...DESKTOP_SHELL_GROUP_KINDS,
-    ]);
+    expect(snapshot.groups.map((group) => group.kind)).toEqual([...DESKTOP_SHELL_GROUP_KINDS]);
 
     expect(usageOf(snapshot, "main")).toEqual({
       cpu_percent: 80,

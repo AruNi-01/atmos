@@ -22,13 +22,7 @@ import {
   TooltipTrigger,
   cn,
 } from "@workspace/ui";
-import {
-  ChevronDown,
-  Folder,
-  Loader2,
-  RotateCcw,
-  Search,
-} from "lucide-react";
+import { ChevronDown, Folder, Loader2, RotateCcw, Search } from "lucide-react";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { hostSessionApi } from "@/api/ws/host-session-api";
 import { HostSessionBulkToolbar } from "@/features/agent-sessions/components/HostSessionBulkToolbar";
@@ -69,13 +63,7 @@ function easeOutCubic(t: number): number {
   return 1 - (1 - t) ** 3;
 }
 
-function HostSessionGroupGlyph({
-  icon,
-  collapsed,
-}: {
-  icon: React.ReactNode;
-  collapsed: boolean;
-}) {
+function HostSessionGroupGlyph({ icon, collapsed }: { icon: React.ReactNode; collapsed: boolean }) {
   return (
     <span className="relative size-4 shrink-0 overflow-hidden text-muted-foreground transition-colors duration-150 group-hover/header:text-foreground">
       <span
@@ -412,8 +400,13 @@ export function HostSessionListView() {
   }, [bulkBusy, pendingDelete, reload, t]);
 
   const filterCount = hostSessionFilterCount(filters);
-  const emptyKind =
-    query.trim() ? "search" : sessions.length === 0 ? "homes" : filterCount > 0 ? "filters" : "list";
+  const emptyKind = query.trim()
+    ? "search"
+    : sessions.length === 0
+      ? "homes"
+      : filterCount > 0
+        ? "filters"
+        : "list";
   const indexing =
     searchStatus === "indexing" ||
     (searchProgress != null &&
@@ -426,7 +419,10 @@ export function HostSessionListView() {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="relative flex h-full min-h-0 flex-col bg-background/50" data-testid="host-session-list">
+      <div
+        className="relative flex h-full min-h-0 flex-col bg-background/50"
+        data-testid="host-session-list"
+      >
         <div className="sticky top-0 z-10 shrink-0 bg-background/50 px-8 py-6 backdrop-blur-sm">
           <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -449,7 +445,7 @@ export function HostSessionListView() {
                     variant="outline"
                     data-testid="host-session-index-progress"
                     aria-live="polite"
-                    className="h-10 gap-1.5 rounded-xl border-border/50 bg-muted/20 px-3 text-xs font-medium tabular-nums text-muted-foreground"
+                    className="h-10 gap-1.5 rounded-xl border-border/50 bg-muted/20 px-3 text-xs font-medium text-muted-foreground tabular-nums"
                   >
                     <Loader2 className="size-3.5 animate-spin" />
                     {indexPercent == null
@@ -481,7 +477,7 @@ export function HostSessionListView() {
             </div>
             <div className="flex items-center gap-2">
               <div className="group relative min-w-0 flex-1">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary" />
+                <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary" />
                 <Input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
@@ -537,9 +533,7 @@ export function HostSessionListView() {
                   icon={<IconDanger />}
                   title={t("errorTitle")}
                   description={t("error")}
-                  actions={
-                    <EmptyAction onClick={() => refresh()}>{t("retry")}</EmptyAction>
-                  }
+                  actions={<EmptyAction onClick={() => refresh()}>{t("retry")}</EmptyAction>}
                 />
               ) : rows.length === 0 ? (
                 <PageEmptyState
@@ -603,7 +597,11 @@ export function HostSessionListView() {
                   }
                 />
               ) : (
-                <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }} aria-label={t("listAria")}>
+                <div
+                  className="relative w-full"
+                  style={{ height: virtualizer.getTotalSize() }}
+                  aria-label={t("listAria")}
+                >
                   {virtualizer.getVirtualItems().map((item) => {
                     const row = rows[item.index];
                     if (!row) return null;
@@ -613,7 +611,7 @@ export function HostSessionListView() {
                       return (
                         <div
                           key={item.key}
-                          className="absolute left-0 top-0 w-full"
+                          className="absolute top-0 left-0 w-full"
                           style={{ height: item.size, transform: `translateY(${item.start}px)` }}
                         >
                           <button
@@ -656,7 +654,7 @@ export function HostSessionListView() {
                       <div
                         key={item.key}
                         className={cn(
-                          "absolute left-0 top-0 w-full overflow-hidden",
+                          "absolute top-0 left-0 w-full overflow-hidden",
                           item.size < SESSION_ROW_ESTIMATE && "pointer-events-none",
                         )}
                         style={{
@@ -710,7 +708,12 @@ export function HostSessionListView() {
             error={bulkError}
             undoToken={pendingDelete?.token ?? null}
             onSelectAll={() => {
-              setCheckedKeys(nextHostSessionSelection(checkedKeys, visibleSessions.map((session) => session.key)));
+              setCheckedKeys(
+                nextHostSessionSelection(
+                  checkedKeys,
+                  visibleSessions.map((session) => session.key),
+                ),
+              );
             }}
             onArchive={() => {
               void archiveChecked();

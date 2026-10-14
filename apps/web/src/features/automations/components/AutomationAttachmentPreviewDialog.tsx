@@ -27,15 +27,11 @@ export function AutomationAttachmentPreviewDialog({
     if (!attachment || typeof document === "undefined") return;
 
     const previousFocus =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const focusFrame = window.requestAnimationFrame(() => {
       const dialog = previewDialogRef.current;
       if (!dialog) return;
-      const firstFocusable = dialog.querySelector<HTMLElement>(
-        PREVIEW_FOCUSABLE_SELECTOR,
-      );
+      const firstFocusable = dialog.querySelector<HTMLElement>(PREVIEW_FOCUSABLE_SELECTOR);
       (firstFocusable ?? dialog).focus();
     });
 
@@ -96,7 +92,7 @@ export function AutomationAttachmentPreviewDialog({
     >
       <button
         type="button"
-        className="absolute right-4 top-4 inline-flex size-10 items-center justify-center rounded-md border border-white/20 bg-black/40 text-white shadow-lg transition hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        className="absolute top-4 right-4 inline-flex size-10 items-center justify-center rounded-md border border-white/20 bg-black/40 text-white shadow-lg transition hover:bg-black/60 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
         onClick={onClose}
       >
         <X className="size-5" />

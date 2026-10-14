@@ -25,12 +25,7 @@ export const AGENT_TO_QUOTA_PROVIDER_IDS: Readonly<Record<string, readonly strin
 };
 
 /** Known usage providers that are not tied to a terminal agent (opt-in only). */
-export const AGENT_UNLINKED_QUOTA_PROVIDER_IDS = [
-  "zai",
-  "minimax",
-  "mimo",
-  "zed",
-] as const;
+export const AGENT_UNLINKED_QUOTA_PROVIDER_IDS = ["zai", "minimax", "mimo", "zed"] as const;
 
 /**
  * Full provider list for first-run Quota Usage onboarding (order matches backend specs).
@@ -60,9 +55,7 @@ export type QuotaUsageOnboardingProviderId =
 /**
  * Resolve which usage provider ids should be enabled for the selected agents.
  */
-export function usageProviderIdsForAgents(
-  agentIds: Iterable<string>,
-): Set<string> {
+export function usageProviderIdsForAgents(agentIds: Iterable<string>): Set<string> {
   const providers = new Set<string>();
   for (const agentId of agentIds) {
     const mapped = AGENT_TO_QUOTA_PROVIDER_IDS[agentId];

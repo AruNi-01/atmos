@@ -93,7 +93,7 @@ flowchart LR
 
 ### Nice to Have
 
-- **N1**: *(promoted to M13–M16)*
+- **N1**: _(promoted to M13–M16)_
 - **N2**: Cursor IDE Composer history (`state.vscdb`) in addition to Cursor Agent CLI transcripts.
 - **N3**: Remote/SSH host mirrors.
 - **N4**: Usage / cost rollups.

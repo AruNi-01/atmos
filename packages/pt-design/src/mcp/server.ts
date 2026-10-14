@@ -53,7 +53,11 @@ Error handling:
   - Open board — POST /api/pt-design/agent/invoke; do not join a collaboration room`;
 }
 
-export function executeTool(fs: FileSession, name: string, raw: Record<string, unknown>): ToolResult {
+export function executeTool(
+  fs: FileSession,
+  name: string,
+  raw: Record<string, unknown>,
+): ToolResult {
   if (!(name in PT_TOOL_SCHEMAS)) {
     return toolError(new PtDesignError("unknown_tool", unknownToolMessage(name)));
   }
@@ -67,7 +71,9 @@ export function executeTool(fs: FileSession, name: string, raw: Record<string, u
     );
   }
   const args = parsed.data as Record<string, unknown>;
-  const format = (typeof args.response_format === "string" ? args.response_format : "json") as ResponseFormat;
+  const format = (
+    typeof args.response_format === "string" ? args.response_format : "json"
+  ) as ResponseFormat;
   try {
     requireOfflineFile(fs, name);
     const data = runTool(fs, { name, args });

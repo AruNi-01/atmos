@@ -53,10 +53,7 @@ export type RedactOptions = {
  * Build a safe public snapshot from client-supplied overview JSON.
  * Drops denylisted keys; strips cost fields unless includeCost.
  */
-export function redactSnapshot(
-  input: unknown,
-  opts: RedactOptions,
-): Record<string, unknown> {
+export function redactSnapshot(input: unknown, opts: RedactOptions): Record<string, unknown> {
   const cleaned = stripDenied(input);
   const base = isPlainObject(cleaned) ? cleaned : { raw: cleaned };
 
@@ -79,11 +76,7 @@ function stripCostFields(value: unknown): unknown {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(value)) {
     const key = k.toLowerCase();
-    if (
-      key.includes("cost") ||
-      key === "total_cost_usd" ||
-      key === "estimated_cost"
-    ) {
+    if (key.includes("cost") || key === "total_cost_usd" || key === "estimated_cost") {
       continue;
     }
     out[k] = stripCostFields(v);

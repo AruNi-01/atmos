@@ -67,8 +67,24 @@ Use a cue map with continuous fields. A good cue shape is:
 
 ```js
 const cues = [
-  { name: "intro", start: 0, chord: [73.42, 110, 146.83, 220], pad: 0.9, arp: 0.05, drums: 0.05, shimmer: 0.25 },
-  { name: "build", start: 4.0, chord: [58.27, 116.54, 174.61, 233.08], pad: 0.8, arp: 0.3, drums: 0.35, shimmer: 0.35 },
+  {
+    name: "intro",
+    start: 0,
+    chord: [73.42, 110, 146.83, 220],
+    pad: 0.9,
+    arp: 0.05,
+    drums: 0.05,
+    shimmer: 0.25,
+  },
+  {
+    name: "build",
+    start: 4.0,
+    chord: [58.27, 116.54, 174.61, 233.08],
+    pad: 0.8,
+    arp: 0.3,
+    drums: 0.35,
+    shimmer: 0.35,
+  },
 ];
 ```
 

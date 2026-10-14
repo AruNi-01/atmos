@@ -25,10 +25,7 @@ function job(
   };
 }
 
-function progress(
-  workspaceId: string,
-  stepTitle = "Running setup",
-): WorkspaceSetupProgress {
+function progress(workspaceId: string, stepTitle = "Running setup"): WorkspaceSetupProgress {
   return {
     workspaceId,
     status: "setting_up",

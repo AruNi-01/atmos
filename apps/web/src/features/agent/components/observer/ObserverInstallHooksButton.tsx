@@ -36,7 +36,11 @@ export function ObserverInstallHooksButton({
   const missingNames = summary.missingKeys.map((key) => toolsT(`tools.${key}`));
 
   const button = (
-    <EmptyAction icon={allInstalled ? undefined : <IconPlus />} disabled={disabled} onClick={onInstall}>
+    <EmptyAction
+      icon={allInstalled ? undefined : <IconPlus />}
+      disabled={disabled}
+      onClick={onInstall}
+    >
       {label}
     </EmptyAction>
   );

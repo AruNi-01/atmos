@@ -50,7 +50,7 @@ describe("Agent Sessions host wiring", () => {
 
   test("LeftSidebar keeps the workspace tree on Agent Sessions", () => {
     const sidebar = readWeb("../LeftSidebar.tsx");
-    expect(sidebar).toContain('currentView === \'agent-sessions\'');
+    expect(sidebar).toContain("currentView === 'agent-sessions'");
     expect(sidebar).not.toContain("HostSessionSidebar");
     expect(sidebar).not.toContain("isAgentSessionsView");
     expect(sidebar).toContain("LeftSidebarLaunchpadBlock");
@@ -133,7 +133,9 @@ describe("Agent Sessions host wiring", () => {
     expect(menu).toContain('sort.field === "started_at"');
     expect(menu).toContain('sort.field === "byte_size"');
     expect(menu).toContain("HostSessionDateMenuItem");
-    const dateFilter = readWeb("../../features/agent-sessions/components/HostSessionDateRangeFilter.tsx");
+    const dateFilter = readWeb(
+      "../../features/agent-sessions/components/HostSessionDateRangeFilter.tsx",
+    );
     expect(dateFilter).toContain("DateRangePickerPanel");
     expect(dateFilter).toContain("DropdownMenuSubTrigger");
     expect(dateFilter).toContain("onClose");
@@ -151,7 +153,9 @@ describe("Agent Sessions host wiring", () => {
     expect(list).toContain("isSyncing");
     const header = list.slice(list.indexOf("sticky top-0"), list.indexOf("searchPlaceholder"));
     expect(header).toContain('aria-label={t("refresh")}');
-    expect(header.indexOf("indexingProgress")).toBeLessThan(header.indexOf('aria-label={t("refresh")}'));
+    expect(header.indexOf("indexingProgress")).toBeLessThan(
+      header.indexOf('aria-label={t("refresh")}'),
+    );
     expect(header).not.toContain("LaunchpadPageTabs");
     const hook = readWeb("../../features/agent-sessions/hooks/use-host-session-list.ts");
     expect(hook).toContain("HOST_SESSION_PAGE_SIZE");

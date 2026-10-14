@@ -2,18 +2,12 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const composerFile = readFileSync(
-  join(import.meta.dir, "../AgentPromptComposer.tsx"),
-  "utf8",
-);
+const composerFile = readFileSync(join(import.meta.dir, "../AgentPromptComposer.tsx"), "utf8");
 const overlays = readFileSync(
   join(import.meta.dir, "../AgentChatAboveComposerOverlays.tsx"),
   "utf8",
 );
-const configInput = readFileSync(
-  join(import.meta.dir, "../ChatAgentConfigInput.tsx"),
-  "utf8",
-);
+const configInput = readFileSync(join(import.meta.dir, "../ChatAgentConfigInput.tsx"), "utf8");
 const composer = `${composerFile}\n${configInput}`;
 
 describe("agent prompt composer", () => {
@@ -39,9 +33,7 @@ describe("agent prompt composer", () => {
     expect(composer).toContain(
       'configOptions.find((option) => configKindMatches(option.id, option.category, "mode"))',
     );
-    expect(composer).toContain(
-      'configKindMatches(option.id, option.category, "permission_mode")',
-    );
+    expect(composer).toContain('configKindMatches(option.id, option.category, "permission_mode")');
     expect(composer).not.toContain("splitComposerConfigOptions");
     expect(composer).not.toContain("extraConfigOptions");
     expect(composer).toContain("thinkingLevels=");
@@ -64,7 +56,7 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("MessageSquare");
     expect(composer).toContain("MessageCircleQuestionMark");
     expect(composer).toContain("BotMessageSquare");
-    expect(composer).not.toContain("icon: <Bot className=\"size-3.5 shrink-0\" />");
+    expect(composer).not.toContain('icon: <Bot className="size-3.5 shrink-0" />');
   });
 
   it("uses the beui prompt input with a combined agent-model menu and effort slider labels", () => {
@@ -99,7 +91,7 @@ describe("agent prompt composer", () => {
     expect(composer).toContain("agentOptions.length === 0 ? null");
     expect(composer).not.toContain("agentLocked || !onProviderChange || agentOptions.length === 0");
     expect(composer).toContain("const agentsLocked = agentLocked || !onProviderChange");
-    expect(composer).toContain("const currentAgentId = registryId || agentOptions[0]?.value || \"\"");
+    expect(composer).toContain('const currentAgentId = registryId || agentOptions[0]?.value || ""');
     expect(composer).toContain("const isCurrentAgent = option.value === currentAgentId");
     expect(composer).toContain("agentsLocked && !isCurrentAgent");
     expect(composer).not.toContain("disabled={option.disabled || agentsLocked}");
@@ -115,7 +107,9 @@ describe("agent prompt composer", () => {
     expect(composer).toContain(
       "relative z-[1] mx-6 overflow-hidden rounded-t-3xl border border-b-0 border-foreground/10 bg-foreground/[0.04]",
     );
-    expect(composer).not.toContain("mx-6 overflow-hidden rounded-3xl border border-border/70 bg-background/95");
+    expect(composer).not.toContain(
+      "mx-6 overflow-hidden rounded-3xl border border-border/70 bg-background/95",
+    );
     expect(composer).not.toContain("border-b-0 border-border/70 bg-background/95");
     expect(composer).not.toContain("relative flex flex-col gap-2");
     expect(composer).not.toContain("ComposerFlyingMessagePortal");
@@ -181,8 +175,12 @@ describe("agent prompt composer", () => {
 
   it("uses a three-line editor on new chat and a one-line editor after the session exists", () => {
     expect(composer).toContain("minRows={landing ? 2 : 1}");
-    expect(composer).toContain('"min-h-10 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"');
-    expect(composer).toContain('"min-h-5 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"');
+    expect(composer).toContain(
+      '"min-h-10 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"',
+    );
+    expect(composer).toContain(
+      '"min-h-5 max-h-40 select-text rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5"',
+    );
     expect(composer).not.toContain("data-agent-composer-landing");
   });
 

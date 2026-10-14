@@ -13,18 +13,15 @@
  * time and the token is the same value (`gateway_token === client_token`).
  */
 
-import {
-  clientWsUrlFromGateway,
-  type RelayClientKind,
-} from '@atmos/relay-client';
-import { getRuntimeApiConfig, httpBase } from '@/shared/lib/desktop-runtime';
-import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
-import { workbenchRelayClientKind } from '@/features/connection/lib/workbench-relay-client-kind';
-import { useConnectionStore } from '@/features/connection/store/connection-store';
+import { clientWsUrlFromGateway, type RelayClientKind } from "@atmos/relay-client";
+import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
+import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
+import { workbenchRelayClientKind } from "@/features/connection/lib/workbench-relay-client-kind";
+import { useConnectionStore } from "@/features/connection/store/connection-store";
 import {
   applyRelaySessionTransport,
   resetRelaySessionForQuery,
-} from '@/features/connection/lib/query-identity-lifecycle';
+} from "@/features/connection/lib/query-identity-lifecycle";
 
 interface ClientSession {
   version: number;
@@ -53,7 +50,9 @@ async function fetchLocalServerId(
     if (!res.ok) {
       return null;
     }
-    const envelope = (await res.json().catch(() => null)) as ApiEnvelope<LocalComputerStatus> | null;
+    const envelope = (await res
+      .json()
+      .catch(() => null)) as ApiEnvelope<LocalComputerStatus> | null;
     const serverId = envelope?.data?.server_id?.trim();
     return serverId || null;
   } catch {
@@ -66,10 +65,10 @@ async function clearRelayClientSession(
   headers: Record<string, string>,
 ): Promise<void> {
   await fetch(`${base}/api/system/client-session`, {
-    method: 'PUT',
+    method: "PUT",
     headers: {
       ...headers,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ clear: true }),
   }).catch(() => undefined);
@@ -77,16 +76,15 @@ async function clearRelayClientSession(
 
 export async function hydrateRelaySessionFromDisk(opts?: {
   /** Prefer `clientKind`; kept for call-site clarity with WS client_type. */
-  clientType?: Extract<RelayClientKind, 'web' | 'desktop'>;
-  clientKind?: Extract<RelayClientKind, 'web' | 'desktop'>;
+  clientType?: Extract<RelayClientKind, "web" | "desktop">;
+  clientKind?: Extract<RelayClientKind, "web" | "desktop">;
 }): Promise<void> {
   const cfg = await getRuntimeApiConfig().catch(() => null);
   if (!cfg) {
     return;
   }
-  const base = httpBase(cfg).replace(/\/$/, '');
-  const token =
-    typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_API_TOKEN : undefined;
+  const base = httpBase(cfg).replace(/\/$/, "");
+  const token = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_API_TOKEN : undefined;
   const headers: Record<string, string> = {};
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -96,7 +94,7 @@ export async function hydrateRelaySessionFromDisk(opts?: {
   let envelope: Envelope | null = null;
   try {
     const res = await fetch(`${base}/api/system/client-session`, {
-      method: 'GET',
+      method: "GET",
       headers,
     });
     if (res.status === 404) {
@@ -111,17 +109,11 @@ export async function hydrateRelaySessionFromDisk(opts?: {
   }
 
   const session = envelope?.data?.session;
-  if (
-    !session ||
-    !session.server_id ||
-    !session.api_base_url ||
-    !session.gateway_token
-  ) {
+  if (!session || !session.server_id || !session.api_base_url || !session.gateway_token) {
     return;
   }
 
-  const clientKind =
-    opts?.clientKind ?? opts?.clientType ?? workbenchRelayClientKind();
+  const clientKind = opts?.clientKind ?? opts?.clientType ?? workbenchRelayClientKind();
   const wsUrl = clientWsUrlFromGateway({
     gatewayUrl: session.api_base_url,
     serverId: session.server_id,
@@ -133,14 +125,13 @@ export async function hydrateRelaySessionFromDisk(opts?: {
   }
 
   const store = useAtmosComputerStore.getState();
-  const localServerId =
-    store.localServerId?.trim() || (await fetchLocalServerId(base, headers));
+  const localServerId = store.localServerId?.trim() || (await fetchLocalServerId(base, headers));
   if (localServerId) {
     store.setLocalServerId(localServerId);
   }
   if (localServerId && session.server_id === localServerId) {
     await resetRelaySessionForQuery();
-    store.setConnectionMode('local');
+    store.setConnectionMode("local");
     await clearRelayClientSession(base, headers);
     useConnectionStore.getState().syncActiveInstanceFromComputer();
     return;
@@ -152,7 +143,7 @@ export async function hydrateRelaySessionFromDisk(opts?: {
     relayGatewayHttpBase: session.api_base_url,
     relayClientToken: session.gateway_token,
   });
-  store.setConnectionMode('relay');
+  store.setConnectionMode("relay");
   // Mirror onto the active connection instance so downstream code reading
   // `useConnectionStore` sees the relay target immediately.
   useConnectionStore.getState().syncActiveInstanceFromComputer();

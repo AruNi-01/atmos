@@ -13,34 +13,34 @@
 ## Coverage map
 
 | PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S9 |
-| M2 | S1, S2, S8 |
-| M3 | S3, S5 |
-| M4 | S2, S4 |
-| M5 | S5, S6 |
-| M6 | S6, S7 |
-| M7 | S3, S5 |
-| M8 | S2, S8 |
-| M9 | S4, S10 |
-| M10 | S9 |
-| M11 | S11 |
+| -------- | ------------ |
+| M1       | S1, S9       |
+| M2       | S1, S2, S8   |
+| M3       | S3, S5       |
+| M4       | S2, S4       |
+| M5       | S5, S6       |
+| M6       | S6, S7       |
+| M7       | S3, S5       |
+| M8       | S2, S8       |
+| M9       | S4, S10      |
+| M10      | S9           |
+| M11      | S11          |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Bun component | `bun test` | `bun test apps/web/src/features/terminal` | terminal with selected text snapshot | toolbar visible; buttons show `MessageCircleMore` and `MessageCirclePlus`; action callbacks receive copied snapshot | planned |
-| S2 | Bun integration | `bun test` | `bun test apps/web/src/features/terminal apps/web/src/features/welcome` | selection snapshot and AI Input overlay | `Selection` chip inserted; input focused; final normal prompt contains selected-context block | planned |
-| S3 | Bun integration | `bun test` | `bun test apps/web/src/features/terminal` | selection snapshot, side action, fake side agent | side chip inserted; side submit calls `onStartSideChat` with selection context; source send callbacks untouched | planned |
-| S4 | Bun unit | `bun test` | `bun test apps/web/src/features/terminal` | selection text containing ANSI/control chars and large content | context text is normalized, bounded, and marked truncated; no logs contain text | planned |
-| S5 | Bun unit/integration | `bun test` | `bun test apps/web/src/features/terminal` | side chip referencing terminal selection context | `captureContext` mock is called once; side prompt contains normal bounded capture plus selected context section | planned |
-| S6 | Bun component | `bun test` | `bun test apps/web/src/features/terminal apps/web/src/features/welcome` | pasted text containing `/side` | composer sends ordinary prompt; no side chip; no side selector; no `onStartSideChat` | planned |
-| S7 | Bun component | `bun test` | `bun test apps/web/src/features/terminal` | slash menu selection for `/side` | slash menu inserts `atmos://side-chat/{context_id}` chip, not raw `/side` | planned |
-| S8 | Bun component | `bun test` | `bun test apps/web/src/features/welcome` | composer with selection and side chips | Backspace/Delete removes whole chips; removing selection removes context from final prompt | planned |
-| S9 | E2E | Playwright | `just test-e2e -- tests/specs/APP-031_terminal-selection-ai-context.e2e.ts` | local app, seeded terminal output, terminal AI Input available | select terminal text; toolbar appears; Add as context and Side chat for selection work in browser UI | planned |
-| S10 | Static/security | `bun test` or lint | `bun test apps/web/src/features/terminal` | side-chat registry mocks and console spies | selected text is not stored in side-chat record, console error, debug log payload, or persisted local registry | planned |
-| S11 | Static/i18n | `bun test` or lint | `bun test apps/web/src/features/terminal` | `en.json` and `zh.json` | all new toolbar/chip/error copy keys exist in both locales | planned |
+| Scenario | Level                | Expected tool      | Target command / method                                                     | Fixture / data                                                 | Signals                                                                                                             | Status  |
+| -------- | -------------------- | ------------------ | --------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------- |
+| S1       | Bun component        | `bun test`         | `bun test apps/web/src/features/terminal`                                   | terminal with selected text snapshot                           | toolbar visible; buttons show `MessageCircleMore` and `MessageCirclePlus`; action callbacks receive copied snapshot | planned |
+| S2       | Bun integration      | `bun test`         | `bun test apps/web/src/features/terminal apps/web/src/features/welcome`     | selection snapshot and AI Input overlay                        | `Selection` chip inserted; input focused; final normal prompt contains selected-context block                       | planned |
+| S3       | Bun integration      | `bun test`         | `bun test apps/web/src/features/terminal`                                   | selection snapshot, side action, fake side agent               | side chip inserted; side submit calls `onStartSideChat` with selection context; source send callbacks untouched     | planned |
+| S4       | Bun unit             | `bun test`         | `bun test apps/web/src/features/terminal`                                   | selection text containing ANSI/control chars and large content | context text is normalized, bounded, and marked truncated; no logs contain text                                     | planned |
+| S5       | Bun unit/integration | `bun test`         | `bun test apps/web/src/features/terminal`                                   | side chip referencing terminal selection context               | `captureContext` mock is called once; side prompt contains normal bounded capture plus selected context section     | planned |
+| S6       | Bun component        | `bun test`         | `bun test apps/web/src/features/terminal apps/web/src/features/welcome`     | pasted text containing `/side`                                 | composer sends ordinary prompt; no side chip; no side selector; no `onStartSideChat`                                | planned |
+| S7       | Bun component        | `bun test`         | `bun test apps/web/src/features/terminal`                                   | slash menu selection for `/side`                               | slash menu inserts `atmos://side-chat/{context_id}` chip, not raw `/side`                                           | planned |
+| S8       | Bun component        | `bun test`         | `bun test apps/web/src/features/welcome`                                    | composer with selection and side chips                         | Backspace/Delete removes whole chips; removing selection removes context from final prompt                          | planned |
+| S9       | E2E                  | Playwright         | `just test-e2e -- tests/specs/APP-031_terminal-selection-ai-context.e2e.ts` | local app, seeded terminal output, terminal AI Input available | select terminal text; toolbar appears; Add as context and Side chat for selection work in browser UI                | planned |
+| S10      | Static/security      | `bun test` or lint | `bun test apps/web/src/features/terminal`                                   | side-chat registry mocks and console spies                     | selected text is not stored in side-chat record, console error, debug log payload, or persisted local registry      | planned |
+| S11      | Static/i18n          | `bun test` or lint | `bun test apps/web/src/features/terminal`                                   | `en.json` and `zh.json`                                        | all new toolbar/chip/error copy keys exist in both locales                                                          | planned |
 
 ## Scenarios
 

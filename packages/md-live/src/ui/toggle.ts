@@ -50,12 +50,14 @@ export const detailsSchema = $nodeSchema("details", (ctx) => ({
   attrs: {
     open: { default: true, validate: "boolean" },
   },
-  parseDOM: [{
-    tag: "div.md-live-toggle",
-    getAttrs: (dom) => ({
-      open: !(dom instanceof HTMLElement) || dom.dataset.open !== "false",
-    }),
-  }],
+  parseDOM: [
+    {
+      tag: "div.md-live-toggle",
+      getAttrs: (dom) => ({
+        open: !(dom instanceof HTMLElement) || dom.dataset.open !== "false",
+      }),
+    },
+  ],
   toDOM: (node) => [
     "div",
     {
@@ -112,10 +114,7 @@ export function insertMdLiveToggle(ctx: Ctx): boolean {
   const from = $from.before($from.depth);
   const to = $from.after($from.depth);
   const hasTitle = $from.parent.content.size > 0;
-  const summary = summaryType.create(
-    null,
-    hasTitle ? $from.parent.content : undefined,
-  );
+  const summary = summaryType.create(null, hasTitle ? $from.parent.content : undefined);
   const created = details.create({ open: hasTitle || toggleDefaultOpen(ctx) }, [
     summary,
     paragraph.create(),
@@ -169,7 +168,8 @@ export const mdLiveToggleView = $prose(() => {
               for (let depth = $sel.depth; depth > 0; depth -= 1) {
                 if ($sel.node(depth).type.name !== "details") continue;
                 if ($sel.before(depth) !== pos) break;
-                const inSummary = $sel.depth > depth && $sel.node(depth + 1).type.name === "details_summary";
+                const inSummary =
+                  $sel.depth > depth && $sel.node(depth + 1).type.name === "details_summary";
                 if (!inSummary) tr = tr.setSelection(TextSelection.create(tr.doc, pos + 2));
                 break;
               }
@@ -234,10 +234,10 @@ export const mdLiveToggleKeys = $prose((ctx) => {
         if (!paragraph) return false;
 
         if (
-          event.key === "Enter"
-          && $from.parent.type.name === "paragraph"
-          && $from.parent.content.size === 0
-          && $from.index(depth) === details.childCount - 1
+          event.key === "Enter" &&
+          $from.parent.type.name === "paragraph" &&
+          $from.parent.content.size === 0 &&
+          $from.index(depth) === details.childCount - 1
         ) {
           event.preventDefault();
           const after = detailsPos + details.nodeSize;
@@ -257,14 +257,16 @@ export const mdLiveToggleKeys = $prose((ctx) => {
           });
           const replacement = body.length ? body : [paragraph.create()];
           const tr = state.tr.replaceWith(detailsPos, detailsPos + details.nodeSize, replacement);
-          view.dispatch(tr.setSelection(TextSelection.create(tr.doc, detailsPos + 1)).scrollIntoView());
+          view.dispatch(
+            tr.setSelection(TextSelection.create(tr.doc, detailsPos + 1)).scrollIntoView(),
+          );
           return true;
         }
 
         if (
-          $from.parent.type.name === "paragraph"
-          && $from.index(depth) === 1
-          && $from.parent.content.size === 0
+          $from.parent.type.name === "paragraph" &&
+          $from.index(depth) === 1 &&
+          $from.parent.content.size === 0
         ) {
           event.preventDefault();
           view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, detailsPos + 2)));

@@ -44,22 +44,21 @@ export function AutomationPage() {
     });
   };
 
-  const setupOverlay =
-    overlayMode ? (
-      <AutomationSetup
-        mode={overlayMode}
-        initialAutomation={overlayMode === "edit" ? state.selectedDetail : null}
-        initialAutomationLoading={overlayMode === "edit" && state.detailLoading}
-        agents={state.agents}
-        projects={state.projects}
-        projectsLoading={state.isProjectsLoading}
-        schedulePreview={state.schedulePreview}
-        onCancel={handleCancelSetup}
-        onCreate={state.handleCreate}
-        onUpdate={state.handleUpdate}
-        onRunNow={state.runNow}
-      />
-    ) : null;
+  const setupOverlay = overlayMode ? (
+    <AutomationSetup
+      mode={overlayMode}
+      initialAutomation={overlayMode === "edit" ? state.selectedDetail : null}
+      initialAutomationLoading={overlayMode === "edit" && state.detailLoading}
+      agents={state.agents}
+      projects={state.projects}
+      projectsLoading={state.isProjectsLoading}
+      schedulePreview={state.schedulePreview}
+      onCancel={handleCancelSetup}
+      onCreate={state.handleCreate}
+      onUpdate={state.handleUpdate}
+      onRunNow={state.runNow}
+    />
+  ) : null;
 
   return (
     <PushPageStack

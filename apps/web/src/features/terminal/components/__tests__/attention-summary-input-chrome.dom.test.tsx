@@ -5,8 +5,7 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 mock.module("@workspace/ui", () => ({
-  cn: (...values: Array<string | false | null | undefined>) =>
-    values.filter(Boolean).join(" "),
+  cn: (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" "),
 }));
 
 mock.module("next-intl", () => ({
@@ -123,12 +122,7 @@ describe("attention summary inside terminal input shell", () => {
           handleAttachmentRemove={() => undefined}
           handleImagePaste={() => undefined}
           handleTextChange={() => undefined}
-          header={
-            <AttentionSummaryPanel
-              summary={summary}
-              onPickNextStep={() => undefined}
-            />
-          }
+          header={<AttentionSummaryPanel summary={summary} onPickNextStep={() => undefined} />}
           inputShellRef={inputShellRef}
           isOverlayVisible={false}
           isSendAnimating={false}

@@ -86,9 +86,7 @@ export function AgentToolCallDensitySettingsSection() {
     };
   }, [hoverIndex]);
 
-  const previewDensity = hoverIndex == null
-    ? null
-    : toolCallDensityFromIndex(hoverIndex);
+  const previewDensity = hoverIndex == null ? null : toolCallDensityFromIndex(hoverIndex);
   const transition = reduce ? { duration: 0 } : SPRING_LAYOUT;
 
   return (
@@ -101,9 +99,7 @@ export function AgentToolCallDensitySettingsSection() {
             if (event.pointerType === "touch") return;
             const rect = event.currentTarget.getBoundingClientRect();
             if (rect.width <= 0) return;
-            setHoverIndex(
-              toolCallDensityIndexFromRatio((event.clientX - rect.left) / rect.width),
-            );
+            setHoverIndex(toolCallDensityIndexFromRatio((event.clientX - rect.left) / rect.width));
           }}
           onPointerLeave={() => setHoverIndex(null)}
         >
@@ -133,49 +129,57 @@ export function AgentToolCallDensitySettingsSection() {
         </div>
         {portalReady
           ? createPortal(
-            <AnimatePresence>
-              {previewDensity && anchor ? (
-                <motion.div
-                  key="tool-call-density-preview"
-                  className="pointer-events-none fixed z-[80] -translate-x-1/2"
-                  initial={{ opacity: 0, y: 6, left: anchor.x, top: anchor.y }}
-                  animate={{ opacity: 1, y: 0, left: anchor.x, top: anchor.y }}
-                  exit={{ opacity: 0, y: 4, transition: { duration: reduce ? 0 : 0.12, ease: EASE_OUT } }}
-                  transition={transition}
-                  style={{ width: PREVIEW_WIDTH }}
-                >
+              <AnimatePresence>
+                {previewDensity && anchor ? (
                   <motion.div
-                    layout
+                    key="tool-call-density-preview"
+                    className="pointer-events-none fixed z-[80] -translate-x-1/2"
+                    initial={{ opacity: 0, y: 6, left: anchor.x, top: anchor.y }}
+                    animate={{ opacity: 1, y: 0, left: anchor.x, top: anchor.y }}
+                    exit={{
+                      opacity: 0,
+                      y: 4,
+                      transition: { duration: reduce ? 0 : 0.12, ease: EASE_OUT },
+                    }}
                     transition={transition}
-                    className="overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-md"
+                    style={{ width: PREVIEW_WIDTH }}
                   >
-                    <AnimatePresence mode="wait" initial={false}>
-                      <motion.div
-                        key={previewDensity}
-                        initial={reduce ? { opacity: 0 } : { opacity: 0, y: 4, filter: "blur(6px)" }}
-                        animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, filter: "blur(0px)" }}
-                        exit={
-                          reduce
-                            ? { opacity: 0 }
-                            : {
-                                opacity: 0,
-                                y: -2,
-                                filter: "blur(4px)",
-                                transition: { duration: 0.12, ease: EASE_OUT },
-                              }
-                        }
-                        transition={{ duration: reduce ? 0 : 0.18, ease: EASE_OUT }}
-                        className="p-3"
-                      >
-                        <AgentToolCallDensityPreview density={previewDensity} />
-                      </motion.div>
-                    </AnimatePresence>
+                    <motion.div
+                      layout
+                      transition={transition}
+                      className="overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-md"
+                    >
+                      <AnimatePresence mode="wait" initial={false}>
+                        <motion.div
+                          key={previewDensity}
+                          initial={
+                            reduce ? { opacity: 0 } : { opacity: 0, y: 4, filter: "blur(6px)" }
+                          }
+                          animate={
+                            reduce ? { opacity: 1 } : { opacity: 1, y: 0, filter: "blur(0px)" }
+                          }
+                          exit={
+                            reduce
+                              ? { opacity: 0 }
+                              : {
+                                  opacity: 0,
+                                  y: -2,
+                                  filter: "blur(4px)",
+                                  transition: { duration: 0.12, ease: EASE_OUT },
+                                }
+                          }
+                          transition={{ duration: reduce ? 0 : 0.18, ease: EASE_OUT }}
+                          className="p-3"
+                        >
+                          <AgentToolCallDensityPreview density={previewDensity} />
+                        </motion.div>
+                      </AnimatePresence>
+                    </motion.div>
                   </motion.div>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>,
-            document.body,
-          )
+                ) : null}
+              </AnimatePresence>,
+              document.body,
+            )
           : null}
       </SettingsGroupRow>
     </SettingsGroupCard>

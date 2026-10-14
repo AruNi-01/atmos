@@ -86,8 +86,7 @@ export function layoutGitHistoryGraph(
     }
     const primaryIncoming = incoming[0];
     const nodeLane = primaryIncoming ?? before.length;
-    const primaryLane =
-      primaryIncoming === undefined ? undefined : before[primaryIncoming];
+    const primaryLane = primaryIncoming === undefined ? undefined : before[primaryIncoming];
     const nodeColorId = primaryLane?.colorId ?? nextColorId++;
     const resolvedIds = new Set(incoming.map((index) => before[index]!.id));
     const nextLanes = before.filter((lane) => !resolvedIds.has(lane.id));
@@ -123,11 +122,7 @@ export function layoutGitHistoryGraph(
         primaryOutgoingId === undefined
           ? Math.min(nodeLane, nextLanes.length)
           : laneIndex(nextLanes, primaryOutgoingId);
-      nextLanes.splice(
-        Math.min(primaryIndex + parentOffset, nextLanes.length),
-        0,
-        lane,
-      );
+      nextLanes.splice(Math.min(primaryIndex + parentOffset, nextLanes.length), 0, lane);
       parentOffset += 1;
       outgoing.push({ id: lane.id, colorId: lane.colorId });
     }

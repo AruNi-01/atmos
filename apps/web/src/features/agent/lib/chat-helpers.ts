@@ -1,6 +1,20 @@
 import React from "react";
 import type { ToolState } from "@workspace/ui";
-import { BotMessageSquare, Brain, FileText, FolderInput, Globe, ImageIcon, Pencil, Plug, Search, Sparkles, Terminal, Trash2, Wrench } from "lucide-react";
+import {
+  BotMessageSquare,
+  Brain,
+  FileText,
+  FolderInput,
+  Globe,
+  ImageIcon,
+  Pencil,
+  Plug,
+  Search,
+  Sparkles,
+  Terminal,
+  Trash2,
+  Wrench,
+} from "lucide-react";
 import { createTranslator } from "next-intl";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
@@ -109,7 +123,7 @@ export {
   readDefaultAgentRegistryId,
   writeDefaultAgentRegistryId,
   writeAgentLastSession,
-} from '@/shared/stores/use-ui-pref-hooks';
+} from "@/shared/stores/use-ui-pref-hooks";
 
 export function getToolKindIcon(kind: AgentToolKind): React.ReactNode {
   switch (kind) {
@@ -217,13 +231,17 @@ export function toolStatusToState(status: string): ToolState {
   }
 }
 
-export function isSkillInvocation(raw_input?: unknown): raw_input is Record<string, unknown> & { skill?: string; command?: string } {
+export function isSkillInvocation(
+  raw_input?: unknown,
+): raw_input is Record<string, unknown> & { skill?: string; command?: string } {
   if (!raw_input || typeof raw_input !== "object") return false;
   const o = raw_input as Record<string, unknown>;
   return "skill" in o && typeof o.skill === "string" && o.skill.length > 0;
 }
 
-export function isSkillCommand(raw_input?: unknown): raw_input is Record<string, unknown> & { command: string } {
+export function isSkillCommand(
+  raw_input?: unknown,
+): raw_input is Record<string, unknown> & { command: string } {
   if (!raw_input || typeof raw_input !== "object") return false;
   const o = raw_input as Record<string, unknown>;
   const cmd = o.command;
@@ -240,27 +258,24 @@ export function getSkillName(raw_input: Record<string, unknown>): string {
 export function isTerminalCommand(tool: string): boolean {
   const t = (tool || "").toLowerCase().replace(/[\s-]+/g, "_");
   return (
-    t === "execute"
-    || t === "run_command"
-    || t === "bash"
-    || t === "shell"
-    || t === "terminal"
-    || t === "command"
-    || t === "run_terminal_cmd"
-    || t === "powershell"
-    || t === "cmd"
-    || t.endsWith("_bash")
-    || t.endsWith("_shell")
+    t === "execute" ||
+    t === "run_command" ||
+    t === "bash" ||
+    t === "shell" ||
+    t === "terminal" ||
+    t === "command" ||
+    t === "run_terminal_cmd" ||
+    t === "powershell" ||
+    t === "cmd" ||
+    t.endsWith("_bash") ||
+    t.endsWith("_shell")
   );
 }
 
 export function isDiffString(s: string): boolean {
   const t = s.trimStart();
   return (
-    t.startsWith("--- ") ||
-    t.startsWith("diff --git ") ||
-    t.startsWith("*** ") ||
-    /^@@ /.test(t)
+    t.startsWith("--- ") || t.startsWith("diff --git ") || t.startsWith("*** ") || /^@@ /.test(t)
   );
 }
 
@@ -384,16 +399,17 @@ function runningWaitToolCount(message: AgentMessage): number {
 
 function waitingForBackgroundAgentsActivity(count: number): AgentActivity {
   const n = Math.max(1, count);
-  const label = n === 1
-    ? chatHelpersT(
-      "activity.waitingForBackgroundAgent",
-      "Waiting for 1 background agent to finish",
-    )
-    : chatHelpersT(
-      "activity.waitingForBackgroundAgents",
-      "Waiting for {count} background agents to finish",
-      { count: n },
-    );
+  const label =
+    n === 1
+      ? chatHelpersT(
+          "activity.waitingForBackgroundAgent",
+          "Waiting for 1 background agent to finish",
+        )
+      : chatHelpersT(
+          "activity.waitingForBackgroundAgents",
+          "Waiting for {count} background agents to finish",
+          { count: n },
+        );
   return { busy: true, label, kind: "working", trail: "none" };
 }
 
@@ -423,9 +439,9 @@ export function isSessionChromeOnly(parts: AgentPart[]): boolean {
   if (parts.length === 0) return true;
   return parts.every(
     (part) =>
-      part.type === "session_lifecycle"
-      || part.type === "session_config_change"
-      || part.type === "session_hint",
+      part.type === "session_lifecycle" ||
+      part.type === "session_config_change" ||
+      part.type === "session_hint",
   );
 }
 
@@ -460,7 +476,11 @@ export function deriveAgentActivity(messages: AgentMessage[], turnOpen: boolean)
   const last = messages[messages.length - 1];
   if (!last || last.role !== "assistant") {
     if (turnOpen) {
-      return { busy: true, label: chatHelpersT("activity.generating", "Generating"), kind: "working" };
+      return {
+        busy: true,
+        label: chatHelpersT("activity.generating", "Generating"),
+        kind: "working",
+      };
     }
     return { busy: false };
   }
@@ -469,9 +489,10 @@ export function deriveAgentActivity(messages: AgentMessage[], turnOpen: boolean)
     (part) => part.type === "session_lifecycle" && toolStatusIsActive(part.status),
   );
   if (session?.type === "session_lifecycle") {
-    const label = session.action === "resume"
-      ? chatHelpersT("activity.resumingSession", "Resuming session")
-      : chatHelpersT("activity.creatingSession", "Creating session");
+    const label =
+      session.action === "resume"
+        ? chatHelpersT("activity.resumingSession", "Resuming session")
+        : chatHelpersT("activity.creatingSession", "Creating session");
     return { busy: true, label, kind: "working" };
   }
 
@@ -479,10 +500,10 @@ export function deriveAgentActivity(messages: AgentMessage[], turnOpen: boolean)
     const part = last.parts[i];
     if (isNestedChildWork(part)) continue;
     if (
-      part.type === "tool_call"
-      && toolStatusIsActive(part.status)
-      && !isLiveBackgroundToolCall(part)
-      && isParentProcessTool(part)
+      part.type === "tool_call" &&
+      toolStatusIsActive(part.status) &&
+      !isLiveBackgroundToolCall(part) &&
+      isParentProcessTool(part)
     ) {
       return activityForToolPart(part, last);
     }
@@ -491,11 +512,7 @@ export function deriveAgentActivity(messages: AgentMessage[], turnOpen: boolean)
   for (let i = last.parts.length - 1; i >= 0; i--) {
     const part = last.parts[i];
     if (isNestedChildWork(part)) continue;
-    if (
-      part.type === "tool_call"
-      && toolStatusIsActive(part.status)
-      && isSubagentWaitTool(part)
-    ) {
+    if (part.type === "tool_call" && toolStatusIsActive(part.status) && isSubagentWaitTool(part)) {
       return activityForToolPart(part, last);
     }
   }
@@ -504,9 +521,9 @@ export function deriveAgentActivity(messages: AgentMessage[], turnOpen: boolean)
     const part = last.parts[i];
     if (isNestedChildWork(part)) continue;
     if (
-      part.type === "tool_call"
-      && toolStatusIsActive(part.status)
-      && !isLiveBackgroundToolCall(part)
+      part.type === "tool_call" &&
+      toolStatusIsActive(part.status) &&
+      !isLiveBackgroundToolCall(part)
     ) {
       return activityForToolPart(part, last);
     }
@@ -522,19 +539,35 @@ export function deriveAgentActivity(messages: AgentMessage[], turnOpen: boolean)
         return activityForToolPart(part, last);
       }
       if (part.type === "thinking") {
-        return { busy: true, label: chatHelpersT("activity.thinking", "Thinking"), kind: "thinking" };
+        return {
+          busy: true,
+          label: chatHelpersT("activity.thinking", "Thinking"),
+          kind: "thinking",
+        };
       }
       if (part.type === "text") {
-        return { busy: true, label: chatHelpersT("activity.streaming", "Streaming"), kind: "working" };
+        return {
+          busy: true,
+          label: chatHelpersT("activity.streaming", "Streaming"),
+          kind: "working",
+        };
       }
     }
-    return { busy: true, label: chatHelpersT("activity.generating", "Generating"), kind: "working" };
+    return {
+      busy: true,
+      label: chatHelpersT("activity.generating", "Generating"),
+      kind: "working",
+    };
   }
 
   // Streaming cleared early (e.g. premature settle) but the host turn is still
   // open — keep generating instead of a false idle/ended state.
   if (turnOpen) {
-    return { busy: true, label: chatHelpersT("activity.generating", "Generating"), kind: "working" };
+    return {
+      busy: true,
+      label: chatHelpersT("activity.generating", "Generating"),
+      kind: "working",
+    };
   }
 
   return { busy: false };
@@ -546,10 +579,7 @@ export function deriveAgentActivity(messages: AgentMessage[], turnOpen: boolean)
  * closed — that is still a live turn. Clearing busy here flips the input
  * back to send and drops Generating.
  */
-export function shouldClearComposerBusy(
-  payloadType: string,
-  liveTurn: boolean,
-): boolean {
+export function shouldClearComposerBusy(payloadType: string, liveTurn: boolean): boolean {
   if (liveTurn) return false;
   return payloadType === "turn_completed";
 }

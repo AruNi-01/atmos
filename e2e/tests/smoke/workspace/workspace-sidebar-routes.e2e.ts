@@ -35,9 +35,7 @@ test.describe("smoke workspace", () => {
     await expect(page.getByRole("tab", { name: /^(文件|Files)$/ })).toBeVisible({
       timeout: 45_000,
     });
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("tab"))
-      .toBeNull();
+    await expect.poll(async () => new URL(page.url()).searchParams.get("tab")).toBeNull();
 
     // Stay on this paint context: `?tab=` hops are leftover chrome after last-tab
     // files, and a full navigation remounts the strip. Open tools from plus.
@@ -58,7 +56,10 @@ test.describe("smoke workspace", () => {
     const runStage = await getCenterStage(page);
     // The Run surface's inner terminal strip reuses the same 运行/Run tab name.
     await expect(
-      runStage.getByRole("tablist").first().getByRole("tab", { name: /运行|Run/ }),
+      runStage
+        .getByRole("tablist")
+        .first()
+        .getByRole("tab", { name: /运行|Run/ }),
     ).toBeVisible({ timeout: 45_000 });
 
     // GITHUB_HUB_CENTER_TAB_VISIBLE is off; GitHub is not a plus-menu / center tab.
@@ -109,18 +110,10 @@ test.describe("smoke workspace", () => {
     await expect
       .poll(async () => normalizePathname(new URL(page.url()).pathname))
       .toBe("/workspace");
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("id") ?? "")
-      .not.toBe("");
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("lsTab"))
-      .toBe("projects");
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("lsTask"))
-      .toBe("true");
-    await expect
-      .poll(async () => page.locator("html").getAttribute("lang"))
-      .toBe("zh");
+    await expect.poll(async () => new URL(page.url()).searchParams.get("id") ?? "").not.toBe("");
+    await expect.poll(async () => new URL(page.url()).searchParams.get("lsTab")).toBe("projects");
+    await expect.poll(async () => new URL(page.url()).searchParams.get("lsTask")).toBe("true");
+    await expect.poll(async () => page.locator("html").getAttribute("lang")).toBe("zh");
     await expect(page.locator("body")).toBeVisible();
 
     const filesRoute = withSearchParams(workspaceUrl!, {
@@ -137,9 +130,7 @@ test.describe("smoke workspace", () => {
     await expect(page.getByRole("tab", { name: /^(文件|Files)$/ })).toBeVisible({
       timeout: 45_000,
     });
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("lsTask") ?? "")
-      .toBe("");
+    await expect.poll(async () => new URL(page.url()).searchParams.get("lsTask") ?? "").toBe("");
 
     await gotoSettingsRoute(page, "keyboard", { locale: "zh" });
     await expect

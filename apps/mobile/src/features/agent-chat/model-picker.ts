@@ -1,4 +1,7 @@
-import type { AgentOptionsSnapshot, AgentThinkingSupport } from "@atmos/api-types/ws/dto/agent-chat";
+import type {
+  AgentOptionsSnapshot,
+  AgentThinkingSupport,
+} from "@atmos/api-types/ws/dto/agent-chat";
 import { thinkingLevelLabel } from "./option-controls";
 
 export type PickerChoice = { id: string; label: string };
@@ -83,12 +86,16 @@ function listed(items: Array<{ id: string; label: string }> | null | undefined):
 
 function thinkingChoices(thinking: AgentThinkingSupport | null | undefined): PickerChoice[] {
   if (!thinking || thinking.type !== "enum") return [];
-  return listed(thinking.options.map((option) => ({ id: option, label: thinkingLevelLabel(option) })));
+  return listed(
+    thinking.options.map((option) => ({ id: option, label: thinkingLevelLabel(option) })),
+  );
 }
 
 function choiceLabel(choices: PickerChoice[], selectedId: string): string {
   if (!selectedId) return "";
-  return choices.find((choice) => choice.id === selectedId)?.label ?? thinkingLevelLabel(selectedId);
+  return (
+    choices.find((choice) => choice.id === selectedId)?.label ?? thinkingLevelLabel(selectedId)
+  );
 }
 
 export function composerTriggerLabel(input: {
@@ -129,7 +136,10 @@ export function favoriteModelsFromUnknown(value: unknown): FavoriteModel[] {
   return next;
 }
 
-export function toggleFavoriteModel(favorites: readonly FavoriteModel[], entry: FavoriteModel): FavoriteModel[] {
+export function toggleFavoriteModel(
+  favorites: readonly FavoriteModel[],
+  entry: FavoriteModel,
+): FavoriteModel[] {
   const agentId = entry.agentId.trim();
   const model = entry.model.trim();
   if (!agentId || !model) return [...favorites];
@@ -140,7 +150,11 @@ export function toggleFavoriteModel(favorites: readonly FavoriteModel[], entry: 
   return [...favorites, { agentId, model, label: entry.label.trim() || model }];
 }
 
-export function isFavoriteModel(favorites: readonly FavoriteModel[], agentId: string, model: string): boolean {
+export function isFavoriteModel(
+  favorites: readonly FavoriteModel[],
+  agentId: string,
+  model: string,
+): boolean {
   const key = `${agentId.trim()}\u001f${model.trim()}`;
   return favorites.some((item) => `${item.agentId}\u001f${item.model}` === key);
 }
@@ -178,7 +192,10 @@ export function groupedModelRows(models: PickerModelRow[]): GroupedModelRow[] {
 }
 
 function compactId(value: string): string {
-  return value.trim().toLowerCase().replace(/[-_\s]/g, "");
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[-_\s]/g, "");
 }
 
 export function modeIconKind(value: string): "plan" | "build" | "ask" | "code" | "chat" | "layers" {
@@ -243,42 +260,53 @@ export function buildComposerPicker(input: {
   const models: PickerModelRow[] = (input.options?.models ?? []).flatMap((model) => {
     const id = model.id.trim();
     if (!id) return [];
-    const multiplier = fastEnabled && model.fast_multiplier?.trim()
-      ? model.fast_multiplier.trim()
-      : (model.multiplier?.trim() ?? "");
-    return [{
-      id,
-      label: model.label.trim() || id,
-      group: model.group?.trim() ?? "",
-      multiplier,
-      fast: Boolean(model.fast),
-    }];
+    const multiplier =
+      fastEnabled && model.fast_multiplier?.trim()
+        ? model.fast_multiplier.trim()
+        : (model.multiplier?.trim() ?? "");
+    return [
+      {
+        id,
+        label: model.label.trim() || id,
+        group: model.group?.trim() ?? "",
+        multiplier,
+        fast: Boolean(model.fast),
+      },
+    ];
   });
   const requestedModel = input.modelId?.trim() ?? "";
-  const defaultModel = input.options?.models.find((model) => model.is_default)?.id?.trim()
-    || models[0]?.id
-    || "";
-  const modelId = models.some((model) => model.id === requestedModel) ? requestedModel : defaultModel;
+  const defaultModel =
+    input.options?.models.find((model) => model.is_default)?.id?.trim() || models[0]?.id || "";
+  const modelId = models.some((model) => model.id === requestedModel)
+    ? requestedModel
+    : defaultModel;
   const selected = input.options?.models.find((model) => model.id === modelId) ?? null;
   const thinking = thinkingChoices(
     selected?.thinking?.type === "enum" ? selected.thinking : input.options?.thinking,
   );
-  const thinkingId = input.thinkingId?.trim() && thinking.some((item) => item.id === input.thinkingId)
-    ? input.thinkingId.trim()
-    : (thinking[0]?.id ?? "");
+  const thinkingId =
+    input.thinkingId?.trim() && thinking.some((item) => item.id === input.thinkingId)
+      ? input.thinkingId.trim()
+      : (thinking[0]?.id ?? "");
   const modelContext = listed(selected?.context);
   const context = modelContext.length > 1 ? modelContext : listed(input.options?.context);
-  const contextId = input.contextId?.trim() && context.some((item) => item.id === input.contextId)
-    ? input.contextId.trim()
-    : (context.find((item) => item.id)?.id ?? "");
+  const contextId =
+    input.contextId?.trim() && context.some((item) => item.id === input.contextId)
+      ? input.contextId.trim()
+      : (context.find((item) => item.id)?.id ?? "");
   const modes = listed(input.options?.modes);
-  const modeId = input.modeId?.trim() && modes.some((item) => item.id === input.modeId)
-    ? input.modeId.trim()
-    : (modes.find((item) => input.options?.modes.find((mode) => mode.is_default)?.id === item.id)?.id ?? modes[0]?.id ?? "");
+  const modeId =
+    input.modeId?.trim() && modes.some((item) => item.id === input.modeId)
+      ? input.modeId.trim()
+      : (modes.find((item) => input.options?.modes.find((mode) => mode.is_default)?.id === item.id)
+          ?.id ??
+        modes[0]?.id ??
+        "");
   const permissions = listed(input.options?.permission_modes);
-  const permissionId = input.permissionId?.trim() && permissions.some((item) => item.id === input.permissionId)
-    ? input.permissionId.trim()
-    : (permissions[0]?.id ?? "");
+  const permissionId =
+    input.permissionId?.trim() && permissions.some((item) => item.id === input.permissionId)
+      ? input.permissionId.trim()
+      : (permissions[0]?.id ?? "");
   const modelLabel = models.find((model) => model.id === modelId)?.label ?? "";
   const thinkingLabel = choiceLabel(thinking, thinkingId);
   const agentLabel = agent?.label ?? "";

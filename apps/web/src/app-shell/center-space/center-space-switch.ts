@@ -56,9 +56,7 @@ export async function refreshActiveCenterSpacePreview(hostId: string): Promise<v
   if (!hostId) return;
   await captureActiveCenterSpaceThumbnail(hostId);
   const spaces = useCenterSpaceStore.getState().list(hostId);
-  await Promise.all(
-    spaces.map((space) => decodeCenterSpaceThumbnail(space.thumbnailDataUrl)),
-  );
+  await Promise.all(spaces.map((space) => decodeCenterSpaceThumbnail(space.thumbnailDataUrl)));
 }
 
 function scheduleIncomingSpaceThumbnail(hostId: string): void {

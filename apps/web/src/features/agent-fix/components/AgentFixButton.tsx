@@ -36,7 +36,7 @@ export function AgentFixButton({
     setRunConfigForAgent,
     setSelectedAgentId,
   } = useAgentFixConfig();
-  const runConfig = selectedAgent ? runConfigByAgentId[selectedAgent.id] ?? null : null;
+  const runConfig = selectedAgent ? (runConfigByAgentId[selectedAgent.id] ?? null) : null;
   const { isLaunching, launchAgentFix } = useAgentFixActions({
     agent: selectedAgent,
     rememberAgent: rememberSelectedAgent,

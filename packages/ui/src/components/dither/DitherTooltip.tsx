@@ -1,19 +1,11 @@
 "use client";
 
-import {
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "motion/react";
 import { cn } from "../../lib/utils";
 import type { DitherTheme } from "../../lib/dither/math";
-import {
-  SlidingMetric,
-  type SlidingMetricParts,
-} from "../ui/sliding-metric";
+import { SlidingMetric, type SlidingMetricParts } from "../ui/sliding-metric";
 
 export type DitherTooltipSliding = SlidingMetricParts;
 
@@ -105,13 +97,7 @@ function TooltipText({ value }: { value: string }) {
  * Keep SlidingMetric mounted at a stable tree slot so digit springs morph
  * across hover targets. Do not key this by label/value — those change often.
  */
-function TooltipValue({
-  sliding,
-  fallback,
-}: {
-  sliding?: DitherTooltipSliding;
-  fallback: string;
-}) {
+function TooltipValue({ sliding, fallback }: { sliding?: DitherTooltipSliding; fallback: string }) {
   if (sliding) {
     return (
       <SlidingMetric
@@ -185,7 +171,7 @@ export function DitherTooltip({ state, theme = "dark" }: DitherTooltipProps) {
       className={cn(
         "pointer-events-none fixed z-[200] w-[200px] overflow-hidden rounded-xl border px-3 py-2.5 font-mono text-xs shadow-xl will-change-transform",
         // top/left stay 0; we move with transform for GPU-friendly tracking.
-        "left-0 top-0",
+        "top-0 left-0",
         isDark
           ? "border-white/10 bg-[#1a1a1a]/95 text-white shadow-black/40"
           : "border-black/10 bg-white/95 text-black shadow-black/10",
@@ -206,10 +192,7 @@ export function DitherTooltip({ state, theme = "dark" }: DitherTooltipProps) {
         {content.lines.map((line, index) => (
           // Index-only keys keep SlidingMetric mounted when labels/values change
           // (e.g. share % label, agent name) so digits spring instead of remount.
-          <div
-            key={`tip-line-${index}`}
-            className="flex items-center justify-between gap-3"
-          >
+          <div key={`tip-line-${index}`} className="flex items-center justify-between gap-3">
             <span className="inline-flex min-w-0 items-center gap-1.5">
               {line.icon ? (
                 <span className="inline-flex size-3.5 shrink-0 items-center justify-center [&>*]:max-h-full [&>*]:max-w-full">
@@ -222,16 +205,11 @@ export function DitherTooltip({ state, theme = "dark" }: DitherTooltipProps) {
                   aria-hidden
                 />
               ) : null}
-              <span
-                className={cn(
-                  "min-w-0 truncate",
-                  isDark ? "text-white/50" : "text-black/50",
-                )}
-              >
+              <span className={cn("min-w-0 truncate", isDark ? "text-white/50" : "text-black/50")}>
                 <TooltipText value={line.label} />
               </span>
             </span>
-            <span className="inline-flex min-w-[3.5ch] shrink-0 items-center justify-end tabular-nums font-medium">
+            <span className="inline-flex min-w-[3.5ch] shrink-0 items-center justify-end font-medium tabular-nums">
               <TooltipValue sliding={line.sliding} fallback={line.value} />
             </span>
           </div>

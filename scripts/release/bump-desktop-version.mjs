@@ -77,9 +77,7 @@ function updateJsonVersion(jsonText, fileLabel, nextVersion) {
 }
 
 function updateCargoVersion(tomlText, fileLabel, nextVersion) {
-  const packageSectionMatch = tomlText.match(
-    /^\[package\][\s\S]*?(?=^\[|\Z)/m,
-  );
+  const packageSectionMatch = tomlText.match(/^\[package\][\s\S]*?(?=^\[|\Z)/m);
 
   if (!packageSectionMatch) {
     throw new Error(`${fileLabel} does not contain a [package] section`);
@@ -89,9 +87,7 @@ function updateCargoVersion(tomlText, fileLabel, nextVersion) {
   const versionMatch = packageSection.match(/^version\s*=\s*"([^"]+)"\s*$/m);
 
   if (!versionMatch) {
-    throw new Error(
-      `${fileLabel} does not contain version = "..." inside [package]`,
-    );
+    throw new Error(`${fileLabel} does not contain version = "..." inside [package]`);
   }
 
   const previousVersion = versionMatch[1];
@@ -184,21 +180,9 @@ function main() {
   const cargoToml = readText(rootDir, DESKTOP_CARGO_TOML);
   const tauriConf = readText(rootDir, DESKTOP_TAURI_CONF);
 
-  const packageResult = updateJsonVersion(
-    packageJson.text,
-    DESKTOP_PACKAGE_JSON,
-    nextVersion,
-  );
-  const cargoResult = updateCargoVersion(
-    cargoToml.text,
-    DESKTOP_CARGO_TOML,
-    nextVersion,
-  );
-  const tauriResult = updateTauriConfigVersion(
-    tauriConf.text,
-    DESKTOP_TAURI_CONF,
-    nextVersion,
-  );
+  const packageResult = updateJsonVersion(packageJson.text, DESKTOP_PACKAGE_JSON, nextVersion);
+  const cargoResult = updateCargoVersion(cargoToml.text, DESKTOP_CARGO_TOML, nextVersion);
+  const tauriResult = updateTauriConfigVersion(tauriConf.text, DESKTOP_TAURI_CONF, nextVersion);
 
   const previousVersions = new Set([
     packageResult.previousVersion,
@@ -208,9 +192,7 @@ function main() {
 
   if (previousVersions.size !== 1) {
     console.warn("Warning: desktop version sources were not aligned before bump.");
-    console.warn(
-      `- ${DESKTOP_PACKAGE_JSON}: ${packageResult.previousVersion}`,
-    );
+    console.warn(`- ${DESKTOP_PACKAGE_JSON}: ${packageResult.previousVersion}`);
     console.warn(`- ${DESKTOP_CARGO_TOML}: ${cargoResult.previousVersion}`);
     console.warn(`- ${DESKTOP_TAURI_CONF}: ${tauriResult.previousVersion}`);
   }

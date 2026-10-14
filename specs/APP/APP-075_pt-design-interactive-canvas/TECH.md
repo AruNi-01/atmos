@@ -8,11 +8,11 @@
 
 Rebuild `@atmos/pt-design` around **extract/project**:
 
-| Surface | Truth | Undo |
-|---------|--------|------|
+| Surface              | Truth                                                    | Undo                                           |
+| -------------------- | -------------------------------------------------------- | ---------------------------------------------- |
 | Live board (browser) | Excalidraw **scene** (handle geometry + `customData.pt`) | Excalidraw `History` via `CaptureUpdateAction` |
-| File / Agent | **PTX** | n/a |
-| Headless CLI/MCP | **PT AST** | n/a (no editor) |
+| File / Agent         | **PTX**                                                  | n/a                                            |
+| Headless CLI/MCP     | **PT AST**                                               | n/a (no editor)                                |
 
 No parallel PT store on the live board. Overlay, inspector, and `pt_ptx_get` **extract** from `getSceneElements()`. Agent/palette/runtime writes **project** with `updateScene`.
 
@@ -54,17 +54,17 @@ Keep: `apps/api` collab WS (ciphertext), `pt_design_agent_dispatch` invoke, `app
 
 ## Decisions locked here
 
-| Topic | Decision |
-|-------|----------|
-| Live SoT | Excalidraw scene. `PtDesignSession` in embed is a facade over `excalidrawAPI`, not a second element array. |
-| File SoT | `document.ptx`. `canvas.json` = full scene dump for embed reopen (freehand + camera + files). Load: restore scene with `NEVER`, then ensure every PTX node has a handle (project missing ones, `NEVER`). If both exist, **scene handles win on reopen** because that is what undo produced; PTX is rewritten on save from extract. Headless open ignores canvas and uses PTX only. |
-| Undo | **Edit Mode only**, Excalidraw history. Palette / Agent `pt_ptx_apply`: `IMMEDIATELY`. Interact control commits (`value`/`checked`): `NEVER` (persist, not history). Collab remote + load + theme ink: `NEVER`. |
-| Interact | `viewModeEnabled={true}`: pan/zoom, no spatial edit, **no board undo/redo**. Overlay `pointer-events: auto`. Do not lock-handles-to-preserve-Cmd+Z — Interact must not drive Excalidraw history. |
-| `customData` | Full PT payload on the handle. Spatial fields stay on the element (`x,y,width,height,angle`). Extract copies spatial into PTX. History snapshots the element, so undo restores payload too. Set `customData` **after** `convertToExcalidrawElements` (upstream can drop it). |
-| Overlay | One rectangle handle per **page-level** node. Nested children render inside that overlay. Overlay box = scene → viewport transform of that handle. No HTML embeddable API in 0.18. |
-| Apply PTX | Agent sends the **entire** `document.ptx` text after editing it (same as saving a source file). Parse → validate → project mapped nodes. Unmapped freehand kept. Live: one `IMMEDIATELY` (undoable in **Edit Mode**). Pretty-print on `get` with stable tag/attr order so Agent diffs stay small. **Not** a separate “snippet merge” RPC — surgical edits are search/replace **inside** that XML text. |
-| Old code | Delete `src/ir`, wireframe `catalog/templates` as Agent API, `pt_layout_*`, Design IR types. New catalog is **every** `SHADCN_BASIC_IDS` id plus `REQUIRED_BLOCKS` (`packages/pt-design/src/catalog/shadcn-list.ts`). Wireframe drawings are not an Agent API. |
-| Persistence | New host key (`pt-design/v2/...`). Old localStorage ignored. |
+| Topic        | Decision                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Live SoT     | Excalidraw scene. `PtDesignSession` in embed is a facade over `excalidrawAPI`, not a second element array.                                                                                                                                                                                                                                                                                             |
+| File SoT     | `document.ptx`. `canvas.json` = full scene dump for embed reopen (freehand + camera + files). Load: restore scene with `NEVER`, then ensure every PTX node has a handle (project missing ones, `NEVER`). If both exist, **scene handles win on reopen** because that is what undo produced; PTX is rewritten on save from extract. Headless open ignores canvas and uses PTX only.                     |
+| Undo         | **Edit Mode only**, Excalidraw history. Palette / Agent `pt_ptx_apply`: `IMMEDIATELY`. Interact control commits (`value`/`checked`): `NEVER` (persist, not history). Collab remote + load + theme ink: `NEVER`.                                                                                                                                                                                        |
+| Interact     | `viewModeEnabled={true}`: pan/zoom, no spatial edit, **no board undo/redo**. Overlay `pointer-events: auto`. Do not lock-handles-to-preserve-Cmd+Z — Interact must not drive Excalidraw history.                                                                                                                                                                                                       |
+| `customData` | Full PT payload on the handle. Spatial fields stay on the element (`x,y,width,height,angle`). Extract copies spatial into PTX. History snapshots the element, so undo restores payload too. Set `customData` **after** `convertToExcalidrawElements` (upstream can drop it).                                                                                                                           |
+| Overlay      | One rectangle handle per **page-level** node. Nested children render inside that overlay. Overlay box = scene → viewport transform of that handle. No HTML embeddable API in 0.18.                                                                                                                                                                                                                     |
+| Apply PTX    | Agent sends the **entire** `document.ptx` text after editing it (same as saving a source file). Parse → validate → project mapped nodes. Unmapped freehand kept. Live: one `IMMEDIATELY` (undoable in **Edit Mode**). Pretty-print on `get` with stable tag/attr order so Agent diffs stay small. **Not** a separate “snippet merge” RPC — surgical edits are search/replace **inside** that XML text. |
+| Old code     | Delete `src/ir`, wireframe `catalog/templates` as Agent API, `pt_layout_*`, Design IR types. New catalog is **every** `SHADCN_BASIC_IDS` id plus `REQUIRED_BLOCKS` (`packages/pt-design/src/catalog/shadcn-list.ts`). Wireframe drawings are not an Agent API.                                                                                                                                         |
+| Persistence  | New host key (`pt-design/v2/...`). Old localStorage ignored.                                                                                                                                                                                                                                                                                                                                           |
 
 ## Module-by-module design
 
@@ -139,14 +139,14 @@ Agent contract: **PTX is a source file.** Skill: “Read `document.ptx` (or `pt_
 
 Must-have tools:
 
-| Tool | Notes |
-|------|--------|
-| `pt_ptx_get` | Pretty XML string (live extract or file) |
-| `pt_ptx_apply` | Complete PTX source; parse/validate/project |
-| `pt_catalog_list` | Tag names, attrs, examples in XML |
-| `pt_screenshot` | Live tab only |
-| `pt_doc_open` / `pt_doc_save` / `pt_doc_init` | `.ptd` / `document.ptx` |
-| `pt_tools_list` | |
+| Tool                                          | Notes                                       |
+| --------------------------------------------- | ------------------------------------------- |
+| `pt_ptx_get`                                  | Pretty XML string (live extract or file)    |
+| `pt_ptx_apply`                                | Complete PTX source; parse/validate/project |
+| `pt_catalog_list`                             | Tag names, attrs, examples in XML           |
+| `pt_screenshot`                               | Live tab only                               |
+| `pt_doc_open` / `pt_doc_save` / `pt_doc_init` | `.ptd` / `document.ptx`                     |
+| `pt_tools_list`                               |                                             |
 
 N7 (not in v1 ship): `pt_node_*`, `pt_batch`. Do not register APP-062 names.
 
@@ -376,16 +376,16 @@ Handle look: transparent fill, 1px low-contrast stroke (Edit hit target). Overla
 
 Wave 0 does **not** implement tools. Names and args are frozen for later slices:
 
-| Tool | Args | Result |
-|------|------|--------|
-| `pt_ptx_get` | `{}` | `{ ptx: string }` |
-| `pt_ptx_apply` | `{ ptx: string }` | `{ ok: true }` or error |
-| `pt_catalog_list` | `{}` | `{ types: [{ type, xmlExample, agentDescription, defaultBBox }] }` |
-| `pt_screenshot` | `{ nodeIds?: string[], maxEdge?: number }` | `{ mime, base64 }` |
-| `pt_doc_init` | `{ path: string }` | `{ ok: true }` |
-| `pt_doc_open` | `{ path: string }` | `{ ptx: string }` |
-| `pt_doc_save` | `{ path?: string }` | `{ ok: true }` |
-| `pt_tools_list` | `{}` | `{ tools: […] }` |
+| Tool              | Args                                       | Result                                                             |
+| ----------------- | ------------------------------------------ | ------------------------------------------------------------------ |
+| `pt_ptx_get`      | `{}`                                       | `{ ptx: string }`                                                  |
+| `pt_ptx_apply`    | `{ ptx: string }`                          | `{ ok: true }` or error                                            |
+| `pt_catalog_list` | `{}`                                       | `{ types: [{ type, xmlExample, agentDescription, defaultBBox }] }` |
+| `pt_screenshot`   | `{ nodeIds?: string[], maxEdge?: number }` | `{ mime, base64 }`                                                 |
+| `pt_doc_init`     | `{ path: string }`                         | `{ ok: true }`                                                     |
+| `pt_doc_open`     | `{ path: string }`                         | `{ ptx: string }`                                                  |
+| `pt_doc_save`     | `{ path?: string }`                        | `{ ok: true }`                                                     |
+| `pt_tools_list`   | `{}`                                       | `{ tools: […] }`                                                   |
 
 Error `code` strings (no APP-062 IR codes): `invalid_ptx` | `invalid_option` | `missing_file` | `unknown_tool` | `unknown_type` | `path_denied`.
 

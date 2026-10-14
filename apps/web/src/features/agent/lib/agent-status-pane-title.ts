@@ -1,9 +1,7 @@
 import { isTmuxIndexTitle } from "@atmos/shared/terminal";
 import type { ContestedOwnersMap } from "@atmos/shared/terminal";
 import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
-import {
-  readCachedOscTitle,
-} from "@/features/terminal/lib/terminal-dynamic-title-cache";
+import { readCachedOscTitle } from "@/features/terminal/lib/terminal-dynamic-title-cache";
 import { resolvePaneToolbarTitle } from "@/features/terminal/lib/terminal-center-tab-presentation";
 import {
   extraCenterSpaceTmuxWindowPrefix,
@@ -185,10 +183,7 @@ export function terminalSessionIsCurrentAgent(
   return !hostHasLoadedTerminalPanes(state, hostId);
 }
 
-function hostHasLoadedTerminalPanes(
-  state: AgentHookPaneLookupState,
-  hostId: string,
-): boolean {
+function hostHasLoadedTerminalPanes(state: AgentHookPaneLookupState, hostId: string): boolean {
   const maps = [state.workspacePanes, state.projectWikiPanes, state.codeReviewPanes];
   for (const panesByScope of maps) {
     if (!panesByScope) continue;

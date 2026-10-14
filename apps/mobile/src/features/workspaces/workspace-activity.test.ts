@@ -21,11 +21,11 @@ describe("workspace activity list", () => {
   });
 
   test("matches a terminal to the agent reported by its session", () => {
-    expect(terminalAgentId(
-      "ws",
-      { id: "pane", session_id: null, tmux_window_name: "codex" },
-      [{ session_id: "ws:codex", tool: "codex" }],
-    )).toBe("codex");
+    expect(
+      terminalAgentId("ws", { id: "pane", session_id: null, tmux_window_name: "codex" }, [
+        { session_id: "ws:codex", tool: "codex" },
+      ]),
+    ).toBe("codex");
   });
 
   test("a newer terminal agent session sorts with chats", () => {
@@ -33,13 +33,15 @@ describe("workspace activity list", () => {
       chats: [
         { id: "chat", title: "Older chat", place: "Thread", updatedAt: "2026-09-01T00:00:00Z" },
       ],
-      terminals: [{
-        id: "pane",
-        title: "claude",
-        subtitle: "Terminal",
-        updatedAt: "2026-09-25T00:00:00Z",
-        catalogId: "ws:claude",
-      }],
+      terminals: [
+        {
+          id: "pane",
+          title: "claude",
+          subtitle: "Terminal",
+          updatedAt: "2026-09-25T00:00:00Z",
+          catalogId: "ws:claude",
+        },
+      ],
     });
     expect(rows.map((row) => row.id)).toEqual(["pane", "chat"]);
     expect(rows[0]?.catalogId).toBe("ws:claude");
@@ -89,10 +91,12 @@ describe("workspace activity list", () => {
   });
 
   test("terminal title prefers the session title", () => {
-    expect(terminalActivityTitle({
-      session_title: "Greeting",
-      dynamic_title: "grok",
-      label: "3",
-    })).toBe("Greeting");
+    expect(
+      terminalActivityTitle({
+        session_title: "Greeting",
+        dynamic_title: "grok",
+        label: "3",
+      }),
+    ).toBe("Greeting");
   });
 });

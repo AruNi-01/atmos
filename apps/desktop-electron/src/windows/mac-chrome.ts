@@ -30,12 +30,12 @@ export function isMacChromeVariant(value: string): value is MacChromeVariant {
   return Object.prototype.hasOwnProperty.call(MAC_TRAFFIC_LIGHTS, value);
 }
 
-export function macWindowChromeOptions(
-  variant: MacChromeVariant = "primary",
-): {
-  titleBarStyle: "hiddenInset";
-  trafficLightPosition: { x: number; y: number };
-} | Record<string, never> {
+export function macWindowChromeOptions(variant: MacChromeVariant = "primary"):
+  | {
+      titleBarStyle: "hiddenInset";
+      trafficLightPosition: { x: number; y: number };
+    }
+  | Record<string, never> {
   if (process.platform !== "darwin") return {};
   const pos = MAC_TRAFFIC_LIGHTS[variant];
   return {
@@ -48,10 +48,7 @@ export function macWindowChromeOptions(
  * Runtime traffic-light move (macOS only). Used when main-window browser
  * maximize toggles dense vs shell chrome without recreating the window.
  */
-export function applyMacChromeVariant(
-  win: BrowserWindow,
-  variant: MacChromeVariant,
-): void {
+export function applyMacChromeVariant(win: BrowserWindow, variant: MacChromeVariant): void {
   if (process.platform !== "darwin") return;
   if (win.isDestroyed()) return;
   const pos = MAC_TRAFFIC_LIGHTS[variant];

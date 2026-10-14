@@ -143,12 +143,7 @@ export async function ackDelivery(
   assertGithubProvider(identity.provider);
 
   const serverFilter = identity.serverId ? " AND server_id = ?" : "";
-  const args: unknown[] = [
-    status,
-    errorCode,
-    identity.deliveryId,
-    identity.routeId,
-  ];
+  const args: unknown[] = [status, errorCode, identity.deliveryId, identity.routeId];
   if (identity.serverId) {
     args.push(identity.serverId);
   }

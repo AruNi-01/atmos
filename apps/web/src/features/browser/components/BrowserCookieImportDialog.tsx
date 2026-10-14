@@ -63,9 +63,7 @@ export function BrowserCookieImportDialog({
   const browserLabel = React.useCallback(
     (browser: string): string => {
       const known = new Set(["Chrome", "Edge", "Brave", "Firefox"]);
-      return known.has(browser)
-        ? t(`browsers.${browser}` as never)
-        : t("browsers.unknown");
+      return known.has(browser) ? t(`browsers.${browser}` as never) : t("browsers.unknown");
     },
     [t],
   );
@@ -238,7 +236,9 @@ export function BrowserCookieImportDialog({
 
             <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
               <div className="space-y-0.5">
-                <p className="text-sm font-medium text-foreground">{t("import.cookiesToggleLabel")}</p>
+                <p className="text-sm font-medium text-foreground">
+                  {t("import.cookiesToggleLabel")}
+                </p>
                 <p className="text-xs text-muted-foreground">{t("import.cookiesToggleHint")}</p>
               </div>
               <Switch

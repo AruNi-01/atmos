@@ -16,9 +16,7 @@ describe("AppShot protocol (Tauri parity)", () => {
 
   it("formats atmos://appshots protocol without absolute home paths", () => {
     const prompt = formatProtocolPrompt("1760000000000");
-    expect(prompt.startsWith(`${APPSHOT_PROTOCOL_PREFIX}1760000000000\n`)).toBe(
-      true,
-    );
+    expect(prompt.startsWith(`${APPSHOT_PROTOCOL_PREFIX}1760000000000\n`)).toBe(true);
     expect(prompt).toContain("~/.atmos/appshots/records/1760000000000/");
     expect(prompt).toContain("snapshot.png");
     expect(prompt).toContain("context.md");

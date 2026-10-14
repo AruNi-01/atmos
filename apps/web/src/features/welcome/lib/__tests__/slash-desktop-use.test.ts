@@ -30,11 +30,7 @@ describe("slash-desktop-use", () => {
       name: "atmos-desktop-use",
       path: "/Users/me/.atmos/skills/.system/atmos-desktop-use",
     } as SkillInfo;
-    expect(resolveDesktopUseSkillRef([skill]).absolutePath).toContain(
-      "atmos-desktop-use",
-    );
-    expect(resolveDesktopUseSkillRef([]).absolutePath).toContain(
-      ".system/atmos-desktop-use",
-    );
+    expect(resolveDesktopUseSkillRef([skill]).absolutePath).toContain("atmos-desktop-use");
+    expect(resolveDesktopUseSkillRef([]).absolutePath).toContain(".system/atmos-desktop-use");
   });
 });

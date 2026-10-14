@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import { SETTINGS_GROUPS, SETTINGS_SECTIONS } from "@/features/settings/components/settings-modal-data";
-import { __resetSettingsGroupTabMemoryForTests, rememberSettingsGroupTab } from "./settings-section-group-tabs";
+import {
+  SETTINGS_GROUPS,
+  SETTINGS_SECTIONS,
+} from "@/features/settings/components/settings-modal-data";
+import {
+  __resetSettingsGroupTabMemoryForTests,
+  rememberSettingsGroupTab,
+} from "./settings-section-group-tabs";
 import {
   DEFAULT_SETTINGS_TAB,
   __resetLastSettingsTabForTests,

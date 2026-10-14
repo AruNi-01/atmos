@@ -35,17 +35,17 @@
 
 > Orchestration board for `atmos-long-task-impl`. Not a requirements source.
 
-| ID | Wave | Owns | Forbids | Depends | Status | Impl | Review | Verify |
-|----|------|------|---------|---------|--------|------|--------|--------|
-| S0 | 0 | see card: domain + catalog enum + descriptor construction sites | `apps/web/**`, grok provider tree, session-op intercept | — | done | ok | pass | `cargo test -p agent descriptor` |
-| S1 | 1 | see card: api-types + apps/api WS + configure permission_mode + session_op_respond reject-if-none | web UI, grok/**, send intercept, native rewind verbs | S0 | done | ok | pass | `bun test packages/api-types/src/ws/dto/agent-chat.test.ts` |
-| S2 | 2 | see card: Native catalog + options_probe_spec_for + ACP permission_modes + Grok overlay | grok spawn, rewind verbs, tool_map.rs | S0,S1 | done | ok | pass | `cargo test -p agent catalog` + `cargo test -p core-service catalog` |
-| S3 | 2 | see card: providers/grok + NativeGrok + strip ACP grok special-case | catalog.rs, web, rewind/fork RPC | S0 | done | ok | pass | `cargo test -p agent grok` |
-| S4 | 2 | see card: claude/codex/opencode/pi tool_map SearchHits | grok/**, acp/tool_map.rs | S0 | done | ok | pass | `cargo test -p agent extract_search_hits` |
-| S5 | 3 | see card: session-op kernel + events + send intercept + snapshot fold | web UI, native rewind RPC bodies, messages json | S1,S3 | done | ok | pass | `cargo test -p core-service --lib agent_chat` |
-| S6 | 3 | see card: web session-op card + descriptorToConfigOptions + search card | messages json, rust crates | S1 | done | ok | pass | `bun test apps/web/src/features/agent` |
-| S7 | 4 | see card: native rewind/fork verbs + acp_client ExtMethod | web, catalog, messages json | S3,S5 | done | ok | pass | provider fixture tests |
-| S8 | 5 | `apps/web/messages/en.json` `zh.json` + leftover glue | crates | S6 | done | ok | pass | locale key grep |
+| ID  | Wave | Owns                                                                                              | Forbids                                                 | Depends | Status | Impl | Review | Verify                                                               |
+| --- | ---- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | ------- | ------ | ---- | ------ | -------------------------------------------------------------------- |
+| S0  | 0    | see card: domain + catalog enum + descriptor construction sites                                   | `apps/web/**`, grok provider tree, session-op intercept | —       | done   | ok   | pass   | `cargo test -p agent descriptor`                                     |
+| S1  | 1    | see card: api-types + apps/api WS + configure permission_mode + session_op_respond reject-if-none | web UI, grok/**, send intercept, native rewind verbs    | S0      | done   | ok   | pass   | `bun test packages/api-types/src/ws/dto/agent-chat.test.ts`          |
+| S2  | 2    | see card: Native catalog + options_probe_spec_for + ACP permission_modes + Grok overlay           | grok spawn, rewind verbs, tool_map.rs                   | S0,S1   | done   | ok   | pass   | `cargo test -p agent catalog` + `cargo test -p core-service catalog` |
+| S3  | 2    | see card: providers/grok + NativeGrok + strip ACP grok special-case                               | catalog.rs, web, rewind/fork RPC                        | S0      | done   | ok   | pass   | `cargo test -p agent grok`                                           |
+| S4  | 2    | see card: claude/codex/opencode/pi tool_map SearchHits                                            | grok/**, acp/tool_map.rs                                | S0      | done   | ok   | pass   | `cargo test -p agent extract_search_hits`                            |
+| S5  | 3    | see card: session-op kernel + events + send intercept + snapshot fold                             | web UI, native rewind RPC bodies, messages json         | S1,S3   | done   | ok   | pass   | `cargo test -p core-service --lib agent_chat`                        |
+| S6  | 3    | see card: web session-op card + descriptorToConfigOptions + search card                           | messages json, rust crates                              | S1      | done   | ok   | pass   | `bun test apps/web/src/features/agent`                               |
+| S7  | 4    | see card: native rewind/fork verbs + acp_client ExtMethod                                         | web, catalog, messages json                             | S3,S5   | done   | ok   | pass   | provider fixture tests                                               |
+| S8  | 5    | `apps/web/messages/en.json` `zh.json` + leftover glue                                             | crates                                                  | S6      | done   | ok   | pass   | locale key grep                                                      |
 
 **Status**: `planned` · `ready` · `in_progress` · `blocked` · `in_review` · `rework` · `done`
 
@@ -218,22 +218,22 @@
 
 ## Decisions Since TECH
 
-| ID | Decision | Why | Source update |
-|----|----------|-----|---------------|
-| D1 | `descriptor.support` is a sibling of `capabilities`, not extra capability flags | HUMAN asked for support to declare what can be probed | TECH + PRD M14 |
-| D2 | Grok thinking hardcoded 4.5 vs 4.6 | HUMAN | TECH overlay table |
-| D3 | Grok extension wire is `_x.ai/...` | ACP reserves `_` for extensions; `agent-client-protocol` 2.0 drops non-underscore unknowns as `-32601` | TECH Grok framing |
-| D4 | Worktree create `{ sessionId, sourcePath }` | Same shape as live ACP clients; optional `label` omitted | TECH fork+worktree |
+| ID  | Decision                                                                        | Why                                                                                                    | Source update      |
+| --- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------ |
+| D1  | `descriptor.support` is a sibling of `capabilities`, not extra capability flags | HUMAN asked for support to declare what can be probed                                                  | TECH + PRD M14     |
+| D2  | Grok thinking hardcoded 4.5 vs 4.6                                              | HUMAN                                                                                                  | TECH overlay table |
+| D3  | Grok extension wire is `_x.ai/...`                                              | ACP reserves `_` for extensions; `agent-client-protocol` 2.0 drops non-underscore unknowns as `-32601` | TECH Grok framing  |
+| D4  | Worktree create `{ sessionId, sourcePath }`                                     | Same shape as live ACP clients; optional `label` omitted                                               | TECH fork+worktree |
 
 ## Verification Status
 
-| Area | Command / Method | Last result | Notes |
-|------|------------------|-------------|-------|
-| Rust tests | `cargo test -p agent --lib app069_` | 23 passed, 2026-09-01 | plus `cargo test -p core-service --lib app069_` 20 passed |
-| Web tests | listed bun files in TEST.md Coverage Status | 59 pass on review-fix subset, 2026-09-01 | not full `just test` |
-| Clippy / eslint | targeted agent + core-service clippy; web lint on listed tests | exit 0 | full `just lint` not run |
-| E2E / agent-browser | Playwright optional; exploratory 1–4 | not_run | no local `just dev-web` / `just dev-api` |
-| Live CLI | Grok/Claude/Codex rewind | not_run | TEST.md Manual verification |
+| Area                | Command / Method                                               | Last result                              | Notes                                                     |
+| ------------------- | -------------------------------------------------------------- | ---------------------------------------- | --------------------------------------------------------- |
+| Rust tests          | `cargo test -p agent --lib app069_`                            | 23 passed, 2026-09-01                    | plus `cargo test -p core-service --lib app069_` 20 passed |
+| Web tests           | listed bun files in TEST.md Coverage Status                    | 59 pass on review-fix subset, 2026-09-01 | not full `just test`                                      |
+| Clippy / eslint     | targeted agent + core-service clippy; web lint on listed tests | exit 0                                   | full `just lint` not run                                  |
+| E2E / agent-browser | Playwright optional; exploratory 1–4                           | not_run                                  | no local `just dev-web` / `just dev-api`                  |
+| Live CLI            | Grok/Claude/Codex rewind                                       | not_run                                  | TEST.md Manual verification                               |
 
 ## Known Blockers
 

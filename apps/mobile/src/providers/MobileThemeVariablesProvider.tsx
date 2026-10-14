@@ -8,10 +8,7 @@ import { useMobileTheme } from "@/theme/theme-store";
 
 export function MobileThemeVariablesProvider({ children }: PropsWithChildren) {
   const theme = useMobileTheme();
-  const variables = useMemo(
-    () => getMobileCssVariables(theme.colorScheme),
-    [theme.colorScheme],
-  );
+  const variables = useMemo(() => getMobileCssVariables(theme.colorScheme), [theme.colorScheme]);
   // Inline style vars as a belt-and-suspenders path for components that still
   // read CSS custom properties via NativeWind className.
   const varStyle = useMemo(() => vars(variables), [variables]);

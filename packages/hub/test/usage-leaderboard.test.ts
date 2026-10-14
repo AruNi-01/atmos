@@ -96,28 +96,17 @@ describe("shouldRefreshLeaderboardCache", () => {
   test("rebuilds when the cache is missing or older than 5 minutes", () => {
     expect(shouldRefreshLeaderboardCache(null, now)).toBe(true);
     expect(shouldRefreshLeaderboardCache(0, now)).toBe(true);
-    expect(
-      shouldRefreshLeaderboardCache(
-        now - LEADERBOARD_WRITE_REFRESH_MIN_MS,
-        now,
-      ),
-    ).toBe(true);
-    expect(
-      shouldRefreshLeaderboardCache(
-        now - LEADERBOARD_WRITE_REFRESH_MIN_MS - 1,
-        now,
-      ),
-    ).toBe(true);
+    expect(shouldRefreshLeaderboardCache(now - LEADERBOARD_WRITE_REFRESH_MIN_MS, now)).toBe(true);
+    expect(shouldRefreshLeaderboardCache(now - LEADERBOARD_WRITE_REFRESH_MIN_MS - 1, now)).toBe(
+      true,
+    );
   });
 
   test("skips when the cache is younger than 5 minutes", () => {
     expect(shouldRefreshLeaderboardCache(now, now)).toBe(false);
-    expect(
-      shouldRefreshLeaderboardCache(
-        now - LEADERBOARD_WRITE_REFRESH_MIN_MS + 1,
-        now,
-      ),
-    ).toBe(false);
+    expect(shouldRefreshLeaderboardCache(now - LEADERBOARD_WRITE_REFRESH_MIN_MS + 1, now)).toBe(
+      false,
+    );
   });
 });
 
@@ -243,11 +232,7 @@ describe("refreshUsageLeaderboards", () => {
     expect(board.tokens.entries.map((e) => e.handle)).toEqual(["alice"]);
     expect(board.tokens.entries[0]?.value).toBe(100);
 
-    await putUsagePage(
-      db,
-      { userId: "a" },
-      { visibility: "public", snapshot: snapshot(400) },
-    );
+    await putUsagePage(db, { userId: "a" }, { visibility: "public", snapshot: snapshot(400) });
     board = await getUsageLeaderboards(db);
     expect(board.tokens.entries.map((e) => e.handle)).toEqual(["alice"]);
     expect(board.tokens.entries[0]?.value).toBe(100);
@@ -275,11 +260,7 @@ describe("refreshUsageLeaderboards", () => {
       })
       .where(eq(usageLeaderboards.boardId, LEADERBOARD_CACHE_ID));
 
-    await putUsagePage(
-      db,
-      { userId: "a" },
-      { visibility: "public", snapshot: snapshot(400) },
-    );
+    await putUsagePage(db, { userId: "a" }, { visibility: "public", snapshot: snapshot(400) });
 
     const board = await getUsageLeaderboards(db);
     expect(board.tokens.entries.map((e) => e.handle)).toEqual(["alice", "bob"]);

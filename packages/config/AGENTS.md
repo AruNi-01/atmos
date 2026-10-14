@@ -15,10 +15,10 @@
 
 Atmos installs two TypeScript packages on purpose until TypeScript 7.1 ships a stable programmatic API:
 
-| Package | Role | Version |
-|---------|------|---------|
-| `@typescript/native` (`npm:typescript@7`) | Native Go `tsc` binary (typecheck / CI) | 7.x |
-| `typescript` | Programmatic API for Next and other JS tools | 6.x |
+| Package                                   | Role                                         | Version |
+| ----------------------------------------- | -------------------------------------------- | ------- |
+| `@typescript/native` (`npm:typescript@7`) | Native Go `tsc` binary (typecheck / CI)      | 7.x     |
+| `typescript`                              | Programmatic API for Next and other JS tools | 6.x     |
 
 With Bun, installing both makes `.bin/tsc` resolve to the **native 7** binary, while `require("typescript")` / `import "typescript"` still resolve to the **6.x API**.
 

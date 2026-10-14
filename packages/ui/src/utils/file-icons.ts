@@ -1,7 +1,7 @@
 // VSCode-style file icons mapping based on vscode-great-icons
 // Icons are stored in packages/ui/src/assets/fileicons/icons/
 
-import iconsJson from '../assets/fileicons/icons.json';
+import iconsJson from "../assets/fileicons/icons.json";
 
 // Icon definitions from JSON
 const iconDefinitions: Record<string, { iconPath: string }> = iconsJson.iconDefinitions;
@@ -18,19 +18,19 @@ export function getFileIconName(name: string): string {
   }
 
   // Check file extension
-  const ext = name.includes('.') ? name.split('.').pop()?.toLowerCase() : '';
+  const ext = name.includes(".") ? name.split(".").pop()?.toLowerCase() : "";
   if (ext && fileExtensions[ext]) {
     return fileExtensions[ext];
   }
 
   // Default file icon
-  return '_file';
+  return "_file";
 }
 
 // Get icon path for a folder based on its name
 export function getFolderIconName(name: string, isOpen: boolean = false): string {
   const lowerName = name.toLowerCase();
-  const baseIcon = folderNames[lowerName] || '_fd_default';
+  const baseIcon = folderNames[lowerName] || "_fd_default";
 
   // Return open or closed version
   if (isOpen) {
@@ -44,9 +44,9 @@ export function getIconPath(iconKey: string): string {
   const iconDef = iconDefinitions[iconKey];
   if (iconDef?.iconPath) {
     // Convert relative path to absolute path for the public folder
-    return iconDef.iconPath.replace('./icons/', '/icons/');
+    return iconDef.iconPath.replace("./icons/", "/icons/");
   }
-  return '/icons/file.png';
+  return "/icons/file.png";
 }
 
 // Icon component props helper

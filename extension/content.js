@@ -1,6 +1,6 @@
 (function () {
   function inject(file) {
-    var script = document.createElement('script');
+    var script = document.createElement("script");
     script.src = chrome.runtime.getURL(file);
     script.async = false;
     script.onload = function () {
@@ -9,7 +9,7 @@
       }
     };
     script.onerror = function () {
-      console.warn('[Atmos Inspector] Failed to load ' + chrome.runtime.getURL(file));
+      console.warn("[Atmos Inspector] Failed to load " + chrome.runtime.getURL(file));
       if (script.parentNode) {
         script.parentNode.removeChild(script);
       }
@@ -17,7 +17,6 @@
     (document.head || document.documentElement).appendChild(script);
   }
 
-  inject('browser-runtime.js');
-  inject('injected.js');
-}());
-
+  inject("browser-runtime.js");
+  inject("injected.js");
+})();

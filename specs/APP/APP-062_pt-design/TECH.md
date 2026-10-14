@@ -42,23 +42,23 @@ Ship a **full product**:
 
 ### Dual package entry (critical)
 
-| Export | Used by | May import Excalidraw browser bundle? |
-|--------|---------|----------------------------------------|
-| `@atmos/pt-design` | Playground, host embed | Yes (client-only) |
-| `@atmos/pt-design/headless` | CLI, MCP, Node tests | **No** — CI fails if headless graph imports browser-only modules |
+| Export                      | Used by                | May import Excalidraw browser bundle?                            |
+| --------------------------- | ---------------------- | ---------------------------------------------------------------- |
+| `@atmos/pt-design`          | Playground, host embed | Yes (client-only)                                                |
+| `@atmos/pt-design/headless` | CLI, MCP, Node tests   | **No** — CI fails if headless graph imports browser-only modules |
 
 **Template factories** produce package-owned plain element JSON (Excalidraw-compatible fields). `PtDesignSession` applies them without browser APIs. Do **not** rely on `convertToExcalidrawElements` alone for `customData` (known drop risk) — set `customData.pt` after skeleton creation.
 
 ### Isolation rules (M1, M13–M16)
 
-| Rule | Detail |
-|------|--------|
-| Allowed runtime deps | React, ReactDOM, `@excalidraw/excalidraw` (browser path only), **ink**, MCP SDK, pure utils inside package |
-| Forbidden imports | `@atmos/api-types`, `@atmos/api-client`, `@atmos/hub-client`, `@atmos/relay-client`, `@atmos/shared`, `@workspace/ui`, `apps/*` incl. **`apps/cli`** |
-| Forbidden reverse | No deep imports of `@atmos/pt-design/src/**` |
-| Types | IR/Agent DTOs stay in this package |
-| CLI ownership | `bin` in this package only |
-| Boundary check | Extend monorepo boundary script **and/or** package self-test on `src` + `package.json` |
+| Rule                 | Detail                                                                                                                                               |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Allowed runtime deps | React, ReactDOM, `@excalidraw/excalidraw` (browser path only), **ink**, MCP SDK, pure utils inside package                                           |
+| Forbidden imports    | `@atmos/api-types`, `@atmos/api-client`, `@atmos/hub-client`, `@atmos/relay-client`, `@atmos/shared`, `@workspace/ui`, `apps/*` incl. **`apps/cli`** |
+| Forbidden reverse    | No deep imports of `@atmos/pt-design/src/**`                                                                                                         |
+| Types                | IR/Agent DTOs stay in this package                                                                                                                   |
+| CLI ownership        | `bin` in this package only                                                                                                                           |
+| Boundary check       | Extend monorepo boundary script **and/or** package self-test on `src` + `package.json`                                                               |
 
 `packages/AGENTS.md` decision tree row:
 
@@ -117,9 +117,9 @@ export { PT_DESIGN_TOOL_DEFS } from "./agent/tool-defs";
 export type { PersistenceAdapter, HandoffSink, PtTheme } from "./host/adapters";
 ```
 
-| Binary | Role |
-|--------|------|
-| `pt-design` | Ink CLI |
+| Binary          | Role      |
+| --------------- | --------- |
+| `pt-design`     | Ink CLI   |
 | `pt-design-mcp` | MCP stdio |
 
 **Closed names**: binaries as above; design file extension **`.ptdesign.json`**.
@@ -199,10 +199,10 @@ type BBox = { x: number; y: number; w: number; h: number };
 
 #### `applyIR` rules
 
-| Mode | Behavior |
-|------|----------|
-| `merge` | Upsert by `instanceId`; unknown ids create; **does not delete** instances absent from IR; preserve non-`pt` decoration |
-| `replace` | Replace **PT semantic** nodes from IR; **preserve** non-`pt` decoration by default in v1; unknown IR version → error |
+| Mode      | Behavior                                                                                                               |
+| --------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `merge`   | Upsert by `instanceId`; unknown ids create; **does not delete** instances absent from IR; preserve non-`pt` decoration |
+| `replace` | Replace **PT semantic** nodes from IR; **preserve** non-`pt` decoration by default in v1; unknown IR version → error   |
 
 Optional `dryRun?: boolean` on `pt_apply_ir`: return counts/diff, no write.
 
@@ -211,11 +211,11 @@ Optional `dryRun?: boolean` on `pt_apply_ir`: return counts/diff, no write.
 ```ts
 type PtDesignFile = {
   format: "pt-design-file/1";
-  revision: number;              // increments on each successful save
+  revision: number; // increments on each successful save
   catalogVersion: string;
-  excalidrawCompat: string;      // pinned major, e.g. "0.17"
+  excalidrawCompat: string; // pinned major, e.g. "0.17"
   scene: unknown;
-  ir?: DesignIR;                 // non-authoritative cache only
+  ir?: DesignIR; // non-authoritative cache only
 };
 ```
 
@@ -231,23 +231,23 @@ type PtDesignFile = {
 
 Single source: names, JSON Schema, CLI argv mapping, MCP annotations (`readOnlyHint` / `destructiveHint` where SDK allows).
 
-| Tool | CLI | Notes |
-|------|-----|--------|
-| `pt_catalog_list` | `pt-design catalog list` | readOnly |
-| `pt_ir_get` | `pt-design ir get` | `--frame` / `--ids` |
-| `pt_scene_get` | `pt-design scene get` | prefer IR; large |
-| `pt_place` | `pt-design place <type>` | non-idempotent create |
-| `pt_update` | `pt-design update` | by instanceId |
-| `pt_delete` | `pt-design delete` | destructive |
-| `pt_frame_create` | `pt-design frame create` | |
-| `pt_frame_rename` | `pt-design frame rename` | |
-| `pt_frames_list` | `pt-design frame list` | readOnly |
-| `pt_apply_ir` | `pt-design apply-ir` | `mode` + optional `dryRun` |
-| `pt_export` | `pt-design export` | IR default; image opt-in |
-| `pt_handoff` | `pt-design handoff` | scopes below |
-| `pt_doc_init` | `pt-design doc init` | |
-| `pt_doc_open` | `pt-design doc open` | |
-| `pt_doc_save` | `pt-design doc save` | |
+| Tool              | CLI                      | Notes                      |
+| ----------------- | ------------------------ | -------------------------- |
+| `pt_catalog_list` | `pt-design catalog list` | readOnly                   |
+| `pt_ir_get`       | `pt-design ir get`       | `--frame` / `--ids`        |
+| `pt_scene_get`    | `pt-design scene get`    | prefer IR; large           |
+| `pt_place`        | `pt-design place <type>` | non-idempotent create      |
+| `pt_update`       | `pt-design update`       | by instanceId              |
+| `pt_delete`       | `pt-design delete`       | destructive                |
+| `pt_frame_create` | `pt-design frame create` |                            |
+| `pt_frame_rename` | `pt-design frame rename` |                            |
+| `pt_frames_list`  | `pt-design frame list`   | readOnly                   |
+| `pt_apply_ir`     | `pt-design apply-ir`     | `mode` + optional `dryRun` |
+| `pt_export`       | `pt-design export`       | IR default; image opt-in   |
+| `pt_handoff`      | `pt-design handoff`      | scopes below               |
+| `pt_doc_init`     | `pt-design doc init`     |                            |
+| `pt_doc_open`     | `pt-design doc open`     |                            |
+| `pt_doc_save`     | `pt-design doc save`     |                            |
 
 **Internal only** (not tools): `replaceScene`, low-level select for UI.  
 **Headless handoff scopes**: `frame` | `document` | `instanceIds[]`.  
@@ -271,11 +271,11 @@ type HandoffPayload = {
 
 ### Agent workflow (Skill + docs)
 
-1. Ensure design file exists (`doc init` if needed).  
-2. `catalog list` → `ir get` (**get-before-set**).  
-3. Mutate (`place` / `update` / `frame` / …).  
-4. `ir get` again to verify.  
-5. `handoff` or `export` for implement-later.  
+1. Ensure design file exists (`doc init` if needed).
+2. `catalog list` → `ir get` (**get-before-set**).
+3. Mutate (`place` / `update` / `frame` / …).
+4. `ir get` again to verify.
+5. `handoff` or `export` for implement-later.
 6. Never use Atmos Rust `atmos` CLI for PT Design.
 
 ### MCP server (M14)
@@ -314,14 +314,14 @@ type CliJsonErr = { ok: false; error: { code: string; message: string } };
 
 #### Skill required sections (normative)
 
-1. When to use PT Design  
-2. Install / run (`bunx` / monorepo path)  
-3. File workflow (init/open/save, `.ptdesign.json`)  
-4. Full tool ↔ CLI table  
-5. JSON I/O + exit codes  
-6. Get-before-set  
-7. Handoff → implement-later rules (incl. fixed instructions meaning)  
-8. MCP config snippet  
+1. When to use PT Design
+2. Install / run (`bunx` / monorepo path)
+3. File workflow (init/open/save, `.ptdesign.json`)
+4. Full tool ↔ CLI table
+5. JSON I/O + exit codes
+6. Get-before-set
+7. Handoff → implement-later rules (incl. fixed instructions meaning)
+8. MCP config snippet
 9. Non-goals (no live components, no Atmos `atmos` CLI, no codegen)
 
 Prefer generating the command table from `tool-defs` or testing Skill ⊆ tool-defs.
@@ -379,30 +379,30 @@ apps/web/src/app-shell/
 
 <!-- updated 2026-08-17: sidebar is a standalone page; center New stays a workspace tab -->
 
-| Concern | Decision |
-|---------|----------|
-| Entry | Left sidebar **Prototype Design** (i18n), icon + accessible name |
-| Sidebar open | `router.push("/pt-design")` — independent page, `effectiveContextId` null |
-| Center New | `openToolTab(contextId, "pt-design")` + URL `tab=pt-design` |
-| Surface | **Center stage** — not right-rail-only, not modal-only |
-| Close | Standalone: leave `/pt-design`. Workspace tab: standard center tab close |
-| Context | Sidebar: one global design. Workspace tab: one design per `effectiveContextId` |
-| Persist | Host adapter key `pt-design:scene:{contextId}` (`global` for `/pt-design`) |
-| Theme | Pass Atmos light/dark into embed |
-| SSR | `dynamic(..., { ssr: false })` |
-| Desktop | Same web shell in Electron |
+| Concern      | Decision                                                                       |
+| ------------ | ------------------------------------------------------------------------------ |
+| Entry        | Left sidebar **Prototype Design** (i18n), icon + accessible name               |
+| Sidebar open | `router.push("/pt-design")` — independent page, `effectiveContextId` null      |
+| Center New   | `openToolTab(contextId, "pt-design")` + URL `tab=pt-design`                    |
+| Surface      | **Center stage** — not right-rail-only, not modal-only                         |
+| Close        | Standalone: leave `/pt-design`. Workspace tab: standard center tab close       |
+| Context      | Sidebar: one global design. Workspace tab: one design per `effectiveContextId` |
+| Persist      | Host adapter key `pt-design:scene:{contextId}` (`global` for `/pt-design`)     |
+| Theme        | Pass Atmos light/dark into embed                                               |
+| SSR          | `dynamic(..., { ssr: false })`                                                 |
+| Desktop      | Same web shell in Electron                                                     |
 
 Host may depend on `@atmos/pt-design` public API only. No IR types in api-types. No Rust CLI. Copy says **PT Design**, never bare “Canvas.”
 
 ## Transport
 
-| Path | Mechanism |
-|------|-----------|
-| Playground | In-process + localStorage |
+| Path        | Mechanism                                 |
+| ----------- | ----------------------------------------- |
+| Playground  | In-process + localStorage                 |
 | Atmos embed | Center tool tab + host PersistenceAdapter |
-| Agent A | MCP stdio |
-| Agent B | Ink CLI + Skill + file |
-| Core | `PtDesignSession` |
+| Agent A     | MCP stdio                                 |
+| Agent B     | Ink CLI + Skill + file                    |
+| Core        | `PtDesignSession`                         |
 
 No main `/ws` or REST for package core.
 
@@ -417,81 +417,81 @@ No main `/ws` or REST for package core.
 
 ## Rollout plan
 
-1. Package skeleton + **exports map** (browser/headless) + boundary checks + AGENTS.md.  
-2. File document init/open/save + revision + atomic write.  
-3. Session commands + Button template + IR encode + errors.  
-4. `tool-defs` + agent facade.  
-5. Ink CLI Agent mode (`--json`) + Skill draft.  
-6. MCP stdio + parity fixtures + failure tests.  
-7. Excalidraw embed playground + handoff UI.  
-8. **Full basic catalog (M5)** + **variants (M20)** + **Blocks (M19)**.  
-9. Docs / packages AGENTS row.  
-10. **Atmos host (M18)**: center-tool-tabs value, left sidebar entry, center panel, host persistence, i18n.  
+1. Package skeleton + **exports map** (browser/headless) + boundary checks + AGENTS.md.
+2. File document init/open/save + revision + atomic write.
+3. Session commands + Button template + IR encode + errors.
+4. `tool-defs` + agent facade.
+5. Ink CLI Agent mode (`--json`) + Skill draft.
+6. MCP stdio + parity fixtures + failure tests.
+7. Excalidraw embed playground + handoff UI.
+8. **Full basic catalog (M5)** + **variants (M20)** + **Blocks (M19)**.
+9. Docs / packages AGENTS row.
+10. **Atmos host (M18)**: center-tool-tabs value, left sidebar entry, center panel, host persistence, i18n.
 11. Optional Nice (remote MCP, multiplayer, multi-tab designs, deep agent sink).
 
 **Spec done** = steps 1–10. Not package-only.
 
 ## Risks & tradeoffs
 
-- **Headless vs browser**: dual exports + owned templates mitigate Excalidraw Node coupling.  
-- **Single-writer files**: simpler than locks; document clearly.  
-- **IR lossy vs scene**: agents use IR; artists keep freehand in scene.  
-- **Dual Agent entry cost**: mitigated by tool-defs + parity tests.  
-- **Ink not Rust CLI**: independence over monorepo CLI consolidation.  
-- **Center stage crowding**: reuse center tool-tab open/close/focus; one tab value `"pt-design"`.  
+- **Headless vs browser**: dual exports + owned templates mitigate Excalidraw Node coupling.
+- **Single-writer files**: simpler than locks; document clearly.
+- **IR lossy vs scene**: agents use IR; artists keep freehand in scene.
+- **Dual Agent entry cost**: mitigated by tool-defs + parity tests.
+- **Ink not Rust CLI**: independence over monorepo CLI consolidation.
+- **Center stage crowding**: reuse center tool-tab open/close/focus; one tab value `"pt-design"`.
 - **Rollback**: remove package dep + host feature + tab registration; additive only.
 
 ## Dependencies & compatibility
 
-| Depends on | Notes |
-|------------|-------|
-| APP-050 | Isolation |
+| Depends on               | Notes                                         |
+| ------------------------ | --------------------------------------------- |
+| APP-050                  | Isolation                                     |
 | `@excalidraw/excalidraw` | Browser embed; pin major → `excalidrawCompat` |
-| `ink` | CLI |
-| MCP TS SDK | stdio server |
-| React | peer for embed + Ink |
+| `ink`                    | CLI                                           |
+| MCP TS SDK               | stdio server                                  |
+| React                    | peer for embed + Ink                          |
 
-| Does not depend on | |
-|--------------------|--|
-| APP-014, main `/ws`, Hub, Relay, `apps/cli` | |
+| Does not depend on                          |     |
+| ------------------------------------------- | --- |
+| APP-014, main `/ws`, Hub, Relay, `apps/cli` |     |
 
 Retain Excalidraw + Ink MIT notices as required.
 
 ## Open questions (remaining)
 
-- [x] Binaries `pt-design` / `pt-design-mcp`  
-- [x] Extension `.ptdesign.json`  
-- [x] componentType bare ids  
-- [x] Full product includes Atmos embed (M18)  
-- [x] Center tab id `"pt-design"`  
-- [x] Headless handoff scopes  
-- [ ] Exact left-sidebar visual placement (which section among existing tools) — match nearby tool entries  
-- [ ] Host storage: IndexedDB vs existing UI pref hooks — prefer existing host storage patterns  
-- [ ] Playground publish vs dev-only  
-- [ ] Image export library choice (official Excalidraw export utils preferred in browser)  
+- [x] Binaries `pt-design` / `pt-design-mcp`
+- [x] Extension `.ptdesign.json`
+- [x] componentType bare ids
+- [x] Full product includes Atmos embed (M18)
+- [x] Center tab id `"pt-design"`
+- [x] Headless handoff scopes
+- [ ] Exact left-sidebar visual placement (which section among existing tools) — match nearby tool entries
+- [ ] Host storage: IndexedDB vs existing UI pref hooks — prefer existing host storage patterns
+- [ ] Playground publish vs dev-only
+- [ ] Image export library choice (official Excalidraw export utils preferred in browser)
 - [ ] Full shadcn basic id pin snapshot date (freeze in `shadcn-list.ts` at implement time)
 
 ## PRD traceability
 
-| PRD | TECH |
-|-----|------|
-| M1 | Isolation, boundary, exports |
-| M2 | playground/ |
-| M3 | Public embed + headless API |
-| M4 | Excalidraw embed; naming |
-| M5 | Full `shadcn-list` ship gate |
-| M6 | catalog ownership |
-| M7 | customData root + props schema |
-| M8 | IR + scene + image contract |
-| M9 | session + tool-defs + parity |
-| M10 | handoff scopes + instructions |
-| M11 | PtDesignFile + host PersistenceAdapter |
-| M12 | host props |
-| M13 | AGENTS.md |
-| M14 | mcp/* |
-| M15 | cli/* + Skill |
-| M16 | offline package surfaces |
-| M17 | error.code enum |
+| PRD | TECH                                                         |
+| --- | ------------------------------------------------------------ |
+| M1  | Isolation, boundary, exports                                 |
+| M2  | playground/                                                  |
+| M3  | Public embed + headless API                                  |
+| M4  | Excalidraw embed; naming                                     |
+| M5  | Full `shadcn-list` ship gate                                 |
+| M6  | catalog ownership                                            |
+| M7  | customData root + props schema                               |
+| M8  | IR + scene + image contract                                  |
+| M9  | session + tool-defs + parity                                 |
+| M10 | handoff scopes + instructions                                |
+| M11 | PtDesignFile + host PersistenceAdapter                       |
+| M12 | host props                                                   |
+| M13 | AGENTS.md                                                    |
+| M14 | mcp/*                                                        |
+| M15 | cli/* + Skill                                                |
+| M16 | offline package surfaces                                     |
+| M17 | error.code enum                                              |
 | M18 | Atmos `/pt-design` page + optional workspace center tool tab |
-| M19 | block.* templates |
-| M20 | variant templates + update |
+| M19 | block.* templates                                            |
+| M20 | variant templates + update                                   |

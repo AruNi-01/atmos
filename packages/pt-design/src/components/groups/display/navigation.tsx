@@ -20,15 +20,29 @@ function pairOptions(): PtOption[] {
   ];
 }
 
-function sectionItems(id: string, first: { title: string; body: string }, second: { title: string; body: string }): PtNode[] {
+function sectionItems(
+  id: string,
+  first: { title: string; body: string },
+  second: { title: string; body: string },
+): PtNode[] {
   return [
-    ptNode(`${id}-a`, "item", { width: 280, height: 56 }, {
-      props: { title: first.title, label: first.title, description: first.body },
-    }),
-    ptNode(`${id}-b`, "item", { width: 280, height: 56 }, {
-      y: 56,
-      props: { title: second.title, label: second.title, description: second.body },
-    }),
+    ptNode(
+      `${id}-a`,
+      "item",
+      { width: 280, height: 56 },
+      {
+        props: { title: first.title, label: first.title, description: first.body },
+      },
+    ),
+    ptNode(
+      `${id}-b`,
+      "item",
+      { width: 280, height: 56 },
+      {
+        y: 56,
+        props: { title: second.title, label: second.title, description: second.body },
+      },
+    ),
   ];
 }
 
@@ -36,10 +50,19 @@ function sectionsOf(node: PtNode): PtNode[] {
   if ((node.children ?? []).length >= 2) return node.children ?? [];
   const options = node.options && node.options.length >= 2 ? node.options : pairOptions();
   return options.map((option, index) =>
-    ptNode(`${node.id}-${option.value}`, "item", { width: node.width, height: 48 }, {
-      y: index * 48,
-      props: { title: option.label, label: option.label, description: propText(node, "description", "Details") },
-    }),
+    ptNode(
+      `${node.id}-${option.value}`,
+      "item",
+      { width: node.width, height: 48 },
+      {
+        y: index * 48,
+        props: {
+          title: option.label,
+          label: option.label,
+          description: propText(node, "description", "Details"),
+        },
+      },
+    ),
   );
 }
 
@@ -54,13 +77,26 @@ function AccordionLike({
   const openId = node.value || (node.checked === false ? "" : sections[0]?.id);
   return (
     <ControlRoot node={node} mode={mode}>
-      <div style={{ ...FILL, display: "flex", flexDirection: "column", border: `1px solid ${T.border}`, borderRadius: T.radius, overflow: "hidden" }}>
+      <div
+        style={{
+          ...FILL,
+          display: "flex",
+          flexDirection: "column",
+          border: `1px solid ${T.border}`,
+          borderRadius: T.radius,
+          overflow: "hidden",
+        }}
+      >
         {sections.map((section) => {
           const open = section.id === openId;
           const title = propText(section, "title", propText(section, "label", "Section"));
           const body = propText(section, "description", "Details");
           return (
-            <div key={section.id} data-pt-child={section.id} style={{ borderTop: `1px solid ${T.border}` }}>
+            <div
+              key={section.id}
+              data-pt-child={section.id}
+              style={{ borderTop: `1px solid ${T.border}` }}
+            >
               <button
                 type="button"
                 aria-expanded={open}
@@ -92,7 +128,11 @@ function AccordionLike({
                 />
               </button>
               {open ? (
-                <div style={{ padding: "0 12px 12px", fontSize: 13, color: T.muted, lineHeight: 1.45 }}>{body}</div>
+                <div
+                  style={{ padding: "0 12px 12px", fontSize: 13, color: T.muted, lineHeight: 1.45 }}
+                >
+                  {body}
+                </div>
               ) : null}
             </div>
           );
@@ -158,7 +198,10 @@ function BreadcrumbRenderer({ node, mode, onCommit, onAction }: PtRendererProps)
         ];
   return (
     <ControlRoot node={node} mode={mode}>
-      <nav aria-label={propText(node, "title", "Breadcrumb")} style={{ ...FILL, display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+      <nav
+        aria-label={propText(node, "title", "Breadcrumb")}
+        style={{ ...FILL, display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}
+      >
         {crumbs.map((crumb, index) => (
           <span key={crumb.value} style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {index > 0 ? <span style={{ color: T.muted }}>/</span> : null}
@@ -214,7 +257,10 @@ function PaginationRenderer({ node, mode, onCommit, onAction }: PtRendererProps)
           { value: "3", label: "3" },
         ];
   const current = node.value ?? pages[0]?.value ?? "1";
-  const index = Math.max(0, pages.findIndex((page) => page.value === current));
+  const index = Math.max(
+    0,
+    pages.findIndex((page) => page.value === current),
+  );
   const go = (next: string) => emit(node, { value: next }, onCommit, onAction, "change");
   const pageBtn = (active: boolean): CSSProperties => ({
     ...ghostBtn,
@@ -226,7 +272,10 @@ function PaginationRenderer({ node, mode, onCommit, onAction }: PtRendererProps)
   });
   return (
     <ControlRoot node={node} mode={mode}>
-      <nav aria-label="Pagination" style={{ ...FILL, display: "flex", alignItems: "center", gap: 6 }}>
+      <nav
+        aria-label="Pagination"
+        style={{ ...FILL, display: "flex", alignItems: "center", gap: 6 }}
+      >
         <button
           type="button"
           disabled={index <= 0}
@@ -288,12 +337,23 @@ export const paginationModule: PtComponentModule = {
 
 function SidebarRenderer({ node, mode, onCommit, onAction }: PtRendererProps): ReactElement {
   const title = propText(node, "title", "Workspace");
-  const items = (node.children ?? []).length > 0
-    ? node.children ?? []
-    : [
-        ptNode(`${node.id}-home`, "item", { width: 188, height: 40 }, { props: { title: "Home", label: "Home" } }),
-        ptNode(`${node.id}-inbox`, "item", { width: 188, height: 40 }, { props: { title: "Inbox", label: "Inbox" } }),
-      ];
+  const items =
+    (node.children ?? []).length > 0
+      ? (node.children ?? [])
+      : [
+          ptNode(
+            `${node.id}-home`,
+            "item",
+            { width: 188, height: 40 },
+            { props: { title: "Home", label: "Home" } },
+          ),
+          ptNode(
+            `${node.id}-inbox`,
+            "item",
+            { width: 188, height: 40 },
+            { props: { title: "Inbox", label: "Inbox" } },
+          ),
+        ];
   return (
     <ControlRoot node={node} mode={mode}>
       <aside
@@ -335,21 +395,36 @@ export const sidebarModule: PtComponentModule = {
     ptNode(id, "sidebar", sidebarBBox, {
       props: { title: "Workspace" },
       children: [
-        ptNode(`${id}-home`, "item", { width: 196, height: 48 }, {
-          x: 12,
-          y: 44,
-          props: { title: "Home", label: "Home", description: "Overview" },
-        }),
-        ptNode(`${id}-inbox`, "item", { width: 196, height: 48 }, {
-          x: 12,
-          y: 100,
-          props: { title: "Inbox", label: "Inbox", description: "Messages" },
-        }),
-        ptNode(`${id}-settings`, "item", { width: 196, height: 48 }, {
-          x: 12,
-          y: 156,
-          props: { title: "Settings", label: "Settings", description: "Preferences" },
-        }),
+        ptNode(
+          `${id}-home`,
+          "item",
+          { width: 196, height: 48 },
+          {
+            x: 12,
+            y: 44,
+            props: { title: "Home", label: "Home", description: "Overview" },
+          },
+        ),
+        ptNode(
+          `${id}-inbox`,
+          "item",
+          { width: 196, height: 48 },
+          {
+            x: 12,
+            y: 100,
+            props: { title: "Inbox", label: "Inbox", description: "Messages" },
+          },
+        ),
+        ptNode(
+          `${id}-settings`,
+          "item",
+          { width: 196, height: 48 },
+          {
+            x: 12,
+            y: 156,
+            props: { title: "Settings", label: "Settings", description: "Preferences" },
+          },
+        ),
       ],
     }),
   Renderer: SidebarRenderer,
@@ -362,17 +437,26 @@ export const sidebarModule: PtComponentModule = {
 };
 
 function TabsRenderer({ node, mode, onCommit, onAction }: PtRendererProps): ReactElement {
-  const tabs =
-    node.options && node.options.length >= 2
-      ? node.options
-      : pairOptions();
+  const tabs = node.options && node.options.length >= 2 ? node.options : pairOptions();
   const current = node.value ?? tabs[0]?.value ?? "a";
-  const index = Math.max(0, tabs.findIndex((tab) => tab.value === current));
+  const index = Math.max(
+    0,
+    tabs.findIndex((tab) => tab.value === current),
+  );
   const panels = node.children ?? [];
   const panel = panels[index];
   return (
     <ControlRoot node={node} mode={mode}>
-      <div style={{ ...FILL, display: "flex", flexDirection: "column", gap: 8, padding: 8, boxSizing: "border-box" }}>
+      <div
+        style={{
+          ...FILL,
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          padding: 8,
+          boxSizing: "border-box",
+        }}
+      >
         <div
           role="tablist"
           data-pt-tabs-list=""
@@ -431,10 +515,23 @@ function TabsRenderer({ node, mode, onCommit, onAction }: PtRendererProps): Reac
             );
           })}
         </div>
-        <div role="tabpanel" style={{ padding: "4px 2px", flex: 1, minHeight: 0, overflow: "auto", position: "relative" }}>
+        <div
+          role="tabpanel"
+          style={{
+            padding: "4px 2px",
+            flex: 1,
+            minHeight: 0,
+            overflow: "auto",
+            position: "relative",
+          }}
+        >
           {panel ? (
             <div data-pt-child={panel.id} style={{ minHeight: 48 }}>
-              {propText(panel, "description", propText(panel, "title", tabs[index]?.label ?? "Panel"))}
+              {propText(
+                panel,
+                "description",
+                propText(panel, "title", tabs[index]?.label ?? "Panel"),
+              )}
             </div>
           ) : (
             <div>{propText(node, "description", tabs[index]?.label ?? "Panel")}</div>
@@ -457,16 +554,26 @@ export const tabsModule: PtComponentModule = {
         { value: "password", label: "Password" },
       ],
       children: [
-        ptNode(`${id}-account`, "typography", { width: 248, height: 72 }, {
-          x: 16,
-          y: 56,
-          props: { title: "Account", description: "Manage your account details." },
-        }),
-        ptNode(`${id}-password`, "typography", { width: 248, height: 72 }, {
-          x: 16,
-          y: 56,
-          props: { title: "Password", description: "Change your password." },
-        }),
+        ptNode(
+          `${id}-account`,
+          "typography",
+          { width: 248, height: 72 },
+          {
+            x: 16,
+            y: 56,
+            props: { title: "Account", description: "Manage your account details." },
+          },
+        ),
+        ptNode(
+          `${id}-password`,
+          "typography",
+          { width: 248, height: 72 },
+          {
+            x: 16,
+            y: 56,
+            props: { title: "Password", description: "Change your password." },
+          },
+        ),
       ],
     }),
   Renderer: TabsRenderer,
@@ -480,14 +587,28 @@ export const tabsModule: PtComponentModule = {
 };
 
 function CarouselRenderer({ node, mode, onCommit, onAction }: PtRendererProps): ReactElement {
-  const slides = (node.children ?? []).length >= 2
-    ? node.children ?? []
-    : [
-        ptNode(`${node.id}-s1`, "item", { width: node.width, height: node.height }, { props: { title: "Slide 1", label: "Slide 1" } }),
-        ptNode(`${node.id}-s2`, "item", { width: node.width, height: node.height }, { props: { title: "Slide 2", label: "Slide 2" } }),
-      ];
+  const slides =
+    (node.children ?? []).length >= 2
+      ? (node.children ?? [])
+      : [
+          ptNode(
+            `${node.id}-s1`,
+            "item",
+            { width: node.width, height: node.height },
+            { props: { title: "Slide 1", label: "Slide 1" } },
+          ),
+          ptNode(
+            `${node.id}-s2`,
+            "item",
+            { width: node.width, height: node.height },
+            { props: { title: "Slide 2", label: "Slide 2" } },
+          ),
+        ];
   const current = node.value ?? slides[0]?.id ?? "";
-  const index = Math.max(0, slides.findIndex((slide) => slide.id === current));
+  const index = Math.max(
+    0,
+    slides.findIndex((slide) => slide.id === current),
+  );
   const slide = slides[index]!;
   const go = (nextIndex: number) => {
     const next = slides[(nextIndex + slides.length) % slides.length];
@@ -495,14 +616,34 @@ function CarouselRenderer({ node, mode, onCommit, onAction }: PtRendererProps): 
   };
   return (
     <ControlRoot node={node} mode={mode}>
-      <div style={{ ...FILL, display: "flex", alignItems: "center", gap: 8, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: 8 }}>
-        <button type="button" aria-label="Previous slide" onClick={() => go(index - 1)} style={ghostBtn}>
+      <div
+        style={{
+          ...FILL,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          border: `1px solid ${T.border}`,
+          borderRadius: T.radius,
+          padding: 8,
+        }}
+      >
+        <button
+          type="button"
+          aria-label="Previous slide"
+          onClick={() => go(index - 1)}
+          style={ghostBtn}
+        >
           <ChevronLeft size={16} />
         </button>
         <div data-pt-child={slide.id} style={{ flex: 1, textAlign: "center", fontWeight: 500 }}>
           {propText(slide, "title", propText(slide, "label", `Slide ${index + 1}`))}
         </div>
-        <button type="button" aria-label="Next slide" onClick={() => go(index + 1)} style={ghostBtn}>
+        <button
+          type="button"
+          aria-label="Next slide"
+          onClick={() => go(index + 1)}
+          style={ghostBtn}
+        >
           <ChevronRight size={16} />
         </button>
       </div>
@@ -517,16 +658,26 @@ export const carouselModule: PtComponentModule = {
     ptNode(id, "carousel", carouselBBox, {
       value: `${id}-s1`,
       children: [
-        ptNode(`${id}-s1`, "item", { width: 268, height: 80 }, {
-          x: 16,
-          y: 30,
-          props: { title: "Slide 1", label: "Slide 1", description: "First slide" },
-        }),
-        ptNode(`${id}-s2`, "item", { width: 268, height: 80 }, {
-          x: 16,
-          y: 30,
-          props: { title: "Slide 2", label: "Slide 2", description: "Second slide" },
-        }),
+        ptNode(
+          `${id}-s1`,
+          "item",
+          { width: 268, height: 80 },
+          {
+            x: 16,
+            y: 30,
+            props: { title: "Slide 1", label: "Slide 1", description: "First slide" },
+          },
+        ),
+        ptNode(
+          `${id}-s2`,
+          "item",
+          { width: 268, height: 80 },
+          {
+            x: 16,
+            y: 30,
+            props: { title: "Slide 2", label: "Slide 2", description: "Second slide" },
+          },
+        ),
       ],
     }),
   Renderer: CarouselRenderer,

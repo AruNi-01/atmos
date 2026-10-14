@@ -2,12 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  cn,
-} from "@workspace/ui";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger, cn } from "@workspace/ui";
 import {
   AppWindow,
   Bot,
@@ -57,7 +52,7 @@ function placementTitleKey(placement: AgentIndicatorPlacement): string {
 /** 1:1 mock of left-sidebar project/workspace row trailing indicator. */
 function LeftSidebarMockPreview({ styleId }: { styleId: AgentActivityIndicatorId }) {
   return (
-    <div className="flex min-w-0 max-w-[200px] items-center gap-1.5 rounded-md border border-border/60 bg-sidebar px-2 py-1.5">
+    <div className="flex max-w-[200px] min-w-0 items-center gap-1.5 rounded-md border border-border/60 bg-sidebar px-2 py-1.5">
       <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-sidebar-foreground">
         atmos
       </span>
@@ -74,7 +69,7 @@ function LeftSidebarMockPreview({ styleId }: { styleId: AgentActivityIndicatorId
 /** 1:1 mock of center-stage terminal tab content (icon + title + compact indicator). */
 function CenterTerminalMockPreview({ styleId }: { styleId: AgentActivityIndicatorId }) {
   return (
-    <div className="flex min-w-0 max-w-[220px] items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2 py-1.5">
+    <div className="flex max-w-[220px] min-w-0 items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2 py-1.5">
       <Bot className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate text-[13px] font-medium whitespace-nowrap">
         claude
@@ -92,7 +87,7 @@ function CenterTerminalMockPreview({ styleId }: { styleId: AgentActivityIndicato
 /** 1:1 mock of terminal pane toolbar full agent status. */
 function TerminalPanelMockPreview({ styleId }: { styleId: AgentActivityIndicatorId }) {
   return (
-    <div className="flex min-w-0 max-w-[260px] items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5">
+    <div className="flex max-w-[260px] min-w-0 items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5">
       <TerminalIcon className="size-3 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">pane</span>
       <AgentStatusIndicator
@@ -108,12 +103,8 @@ function TerminalPanelMockPreview({ styleId }: { styleId: AgentActivityIndicator
 /** 1:1 mock of footer agent status ticker button. */
 function FooterMockPreview({ styleId }: { styleId: AgentActivityIndicatorId }) {
   return (
-    <div className="flex min-w-0 max-w-[240px] items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 px-2 py-1 text-xs text-muted-foreground">
-      <AgentStatusIndicator
-        state={AGENT_STATE.RUNNING}
-        variant="compact"
-        styleId={styleId}
-      />
+    <div className="flex max-w-[240px] min-w-0 items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 px-2 py-1 text-xs text-muted-foreground">
+      <AgentStatusIndicator state={AGENT_STATE.RUNNING} variant="compact" styleId={styleId} />
       <span className="font-medium whitespace-nowrap text-foreground">
         atmos
         <span className="mx-0.5 text-muted-foreground">-</span>
@@ -200,9 +191,7 @@ function IndicatorStylePicker({
                       styleId={option.id}
                       density="compact"
                       animated={glyphsAnimated}
-                      size={
-                        isOrbIndicatorId(option.id) ? PICKER_ORB_SIZE : undefined
-                      }
+                      size={isOrbIndicatorId(option.id) ? PICKER_ORB_SIZE : undefined}
                     />
                   </span>
                   <span className="max-w-full truncate text-[10px] text-muted-foreground">
@@ -269,9 +258,7 @@ function PlacementRow({
           <p
             className={cn(
               "min-w-0 flex-1 truncate",
-              open
-                ? "text-sm font-medium text-foreground"
-                : settingsCollapsibleTitleClassName,
+              open ? "text-sm font-medium text-foreground" : settingsCollapsibleTitleClassName,
             )}
           >
             {t(placementTitleKey(placement) as never)}

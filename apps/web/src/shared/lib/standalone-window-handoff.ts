@@ -78,9 +78,11 @@ function expectedWindowLabelForKey(key: string): string | null {
 function publishEvent(event: StandaloneSurfaceEvent): void {
   if (!canUseWindow()) return;
 
-  const BroadcastChannelCtor = (window as Window & {
-    BroadcastChannel?: typeof BroadcastChannel;
-  }).BroadcastChannel;
+  const BroadcastChannelCtor = (
+    window as Window & {
+      BroadcastChannel?: typeof BroadcastChannel;
+    }
+  ).BroadcastChannel;
   if (BroadcastChannelCtor) {
     const channel = new BroadcastChannelCtor(CHANNEL_NAME);
     channel.postMessage(event);
@@ -177,9 +179,11 @@ export function subscribeStandaloneSurface(
   window.addEventListener("storage", handleStorage);
 
   let channel: BroadcastChannel | null = null;
-  const BroadcastChannelCtor = (window as Window & {
-    BroadcastChannel?: typeof BroadcastChannel;
-  }).BroadcastChannel;
+  const BroadcastChannelCtor = (
+    window as Window & {
+      BroadcastChannel?: typeof BroadcastChannel;
+    }
+  ).BroadcastChannel;
   if (BroadcastChannelCtor) {
     channel = new BroadcastChannelCtor(CHANNEL_NAME);
     channel.addEventListener("message", (event) => {

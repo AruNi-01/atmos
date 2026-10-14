@@ -1,5 +1,5 @@
-import { highlightingFor, language } from '@codemirror/language';
-import { Chunk } from '@codemirror/merge';
+import { highlightingFor, language } from "@codemirror/language";
+import { Chunk } from "@codemirror/merge";
 import {
   Facet,
   RangeSet,
@@ -10,7 +10,7 @@ import {
   type Extension,
   type Range,
   type Transaction,
-} from '@codemirror/state';
+} from "@codemirror/state";
 import {
   Decoration,
   EditorView,
@@ -22,14 +22,14 @@ import {
   gutterWidgetClass,
   type DecorationSet,
   type ViewUpdate,
-} from '@codemirror/view';
-import { highlightTree } from '@lezer/highlight';
-import { createTranslator } from 'next-intl';
-import { toastManager } from '@workspace/ui';
-import enMessages from '../../../messages/en.json';
-import zhMessages from '../../../messages/zh.json';
-import { currentAppLocale } from '@/shared/lib/current-app-locale';
-import { gitGutterTheme } from '@/shared/lib/codemirror-git-gutter-theme';
+} from "@codemirror/view";
+import { highlightTree } from "@lezer/highlight";
+import { createTranslator } from "next-intl";
+import { toastManager } from "@workspace/ui";
+import enMessages from "../../../messages/en.json";
+import zhMessages from "../../../messages/zh.json";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import { gitGutterTheme } from "@/shared/lib/codemirror-git-gutter-theme";
 import {
   DIFF_CFG,
   chunkDocLineRange,
@@ -39,8 +39,8 @@ import {
   lineBgClassForChunk,
   textFromStringContent,
   type GitChunkKind,
-} from '@/shared/lib/codemirror-git-gutter-utils';
-import { buildUnifiedPatchForChunk, sliceLines } from '@/features/diff/lib/git-chunk-patch';
+} from "@/shared/lib/codemirror-git-gutter-utils";
+import { buildUnifiedPatchForChunk, sliceLines } from "@/features/diff/lib/git-chunk-patch";
 
 export interface GitGutterHost {
   fileRelativePath: string;
@@ -48,7 +48,7 @@ export interface GitGutterHost {
   readonly originalContent: string;
   stagePatch: (patch: string) => Promise<{ ok: boolean; error?: string }>;
   restorePatch: (patch: string) => Promise<{ ok: boolean; error?: string }>;
-  onGitStateChanged?: (kind: 'stage' | 'restore') => void;
+  onGitStateChanged?: (kind: "stage" | "restore") => void;
 }
 
 const gitGutterHostFacet = Facet.define<GitGutterHost, GitGutterHost | null>({
@@ -77,18 +77,18 @@ interface GitGutterState {
 }
 
 const EMPTY_SELECTION: ReadonlySet<number> = new Set();
-let cachedDiffLocale: 'en' | 'zh' | null = null;
+let cachedDiffLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedDiffTranslator: any = null;
 
 function diffT(key: string): string {
-  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedDiffTranslator || cachedDiffLocale !== locale) {
     cachedDiffLocale = locale;
     cachedDiffTranslator = createTranslator({
       locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'Diff.chrome',
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "Diff.chrome",
     });
   }
   return cachedDiffTranslator(key as never);
@@ -114,7 +114,7 @@ class GitChunkBarMarker extends GutterMarker {
     readonly expanded: boolean,
   ) {
     super();
-    this.elementClass = 'cm-git-chunk-bar-wrap';
+    this.elementClass = "cm-git-chunk-bar-wrap";
   }
 
   override eq(other: GutterMarker): boolean {
@@ -127,27 +127,27 @@ class GitChunkBarMarker extends GutterMarker {
   }
 
   override toDOM(view: EditorView): Node {
-    const hit = document.createElement('div');
-    hit.className = `cm-git-gutter-bar-hit${this.expanded ? ' cm-git-active-hunk-target' : ''}`;
+    const hit = document.createElement("div");
+    hit.className = `cm-git-gutter-bar-hit${this.expanded ? " cm-git-active-hunk-target" : ""}`;
 
-    const bar = document.createElement('div');
-    bar.className = `cm-git-gutter-bar cm-git-gutter-${this.kind}${this.expanded ? ' cm-git-gutter-bar-expanded' : ''}`;
+    const bar = document.createElement("div");
+    bar.className = `cm-git-gutter-bar cm-git-gutter-${this.kind}${this.expanded ? " cm-git-gutter-bar-expanded" : ""}`;
 
-    hit.setAttribute('role', 'button');
+    hit.setAttribute("role", "button");
     hit.tabIndex = 0;
-    hit.setAttribute('aria-label', diffT('gitGutter.toggleInlineDiffForThisChange'));
+    hit.setAttribute("aria-label", diffT("gitGutter.toggleInlineDiffForThisChange"));
     hit.appendChild(bar);
 
     const toggle = () => {
       view.dispatch({ effects: toggleGitSelection.of(this.chunkIndex) });
     };
 
-    hit.addEventListener('mousedown', (e) => {
+    hit.addEventListener("mousedown", (e) => {
       e.preventDefault();
       toggle();
     });
-    hit.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
+    hit.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         toggle();
       }
@@ -194,16 +194,16 @@ function appendHighlightedOldRows(
   oldLines: string[],
   changeRangesA: ReadonlyArray<{ from: number; to: number }>,
 ) {
-  const text = oldLines.join('\n');
-  const pre = document.createElement('pre');
-  pre.className = 'cm-git-panel-pre';
+  const text = oldLines.join("\n");
+  const pre = document.createElement("pre");
+  pre.className = "cm-git-panel-pre";
   body.appendChild(pre);
 
   const appendSpan = (from: number, to: number, cls: string) => {
     if (from >= to) return;
     const slice = text.slice(from, to);
     if (cls) {
-      const span = document.createElement('span');
+      const span = document.createElement("span");
       span.className = cls;
       span.textContent = slice;
       pre.appendChild(span);
@@ -235,9 +235,7 @@ function appendHighlightedOldRows(
       const chgFrom = Math.max(pos, cr.from);
       const chgTo = Math.min(to, cr.to);
       if (chgFrom > pos) appendSpan(pos, chgFrom, syntaxCls);
-      const merged = syntaxCls
-        ? `${syntaxCls} cm-git-word-changed-old`
-        : 'cm-git-word-changed-old';
+      const merged = syntaxCls ? `${syntaxCls} cm-git-word-changed-old` : "cm-git-word-changed-old";
       appendSpan(chgFrom, chgTo, merged);
       pos = chgTo;
       // Only advance `i` when the change range is fully consumed by this slice; otherwise the next slice will
@@ -252,18 +250,14 @@ function appendHighlightedOldRows(
   if (lang && text.length <= SYNTAX_HIGHLIGHT_MAX) {
     const tree = lang.parser.parse(text);
     let pos = 0;
-    highlightTree(
-      tree,
-      { style: (tags) => highlightingFor(view.state, tags) },
-      (from, to, cls) => {
-        if (from > pos) append(pos, from, '');
-        append(from, to, cls ?? '');
-        pos = to;
-      },
-    );
-    if (pos < text.length) append(pos, text.length, '');
+    highlightTree(tree, { style: (tags) => highlightingFor(view.state, tags) }, (from, to, cls) => {
+      if (from > pos) append(pos, from, "");
+      append(from, to, cls ?? "");
+      pos = to;
+    });
+    if (pos < text.length) append(pos, text.length, "");
   } else {
-    append(0, text.length, '');
+    append(0, text.length, "");
   }
 }
 
@@ -274,16 +268,14 @@ function fillDiffPanelBody(
   oldLines: string[],
   chunk: Chunk,
 ) {
-  if (kind === 'added') return;
+  if (kind === "added") return;
   // Word-level diff highlight only applies to MODIFIED chunks: for a pure deletion the whole panel is red, so an
   // intra-line "what changed" overlay would be meaningless (everything changed). `chunk.changes` ranges are
   // relative to the chunk start, which equals the start of `oldLines.join('\n')` — no offset needed. Skip pure
   // insertions on the old side (`toA === fromA`): they have no old-side text to highlight.
   const changeRangesA: Array<{ from: number; to: number }> =
-    kind === 'modified'
-      ? chunk.changes
-          .filter((c) => c.toA > c.fromA)
-          .map((c) => ({ from: c.fromA, to: c.toA }))
+    kind === "modified"
+      ? chunk.changes.filter((c) => c.toA > c.fromA).map((c) => ({ from: c.fromA, to: c.toA }))
       : [];
   appendHighlightedOldRows(view, body, oldLines, changeRangesA);
 }
@@ -294,7 +286,7 @@ function fillDiffPanelBody(
 class GitDeletedSeamGutterMarker extends GutterMarker {
   constructor(readonly chunkIndex: number) {
     super();
-    this.elementClass = 'cm-git-deleted-seam-gutter';
+    this.elementClass = "cm-git-deleted-seam-gutter";
   }
 
   override eq(other: GutterMarker): boolean {
@@ -302,27 +294,27 @@ class GitDeletedSeamGutterMarker extends GutterMarker {
   }
 
   override toDOM(view: EditorView): HTMLElement {
-    const hit = document.createElement('div');
-    hit.className = 'cm-git-deleted-seam-inner';
-    hit.setAttribute('role', 'button');
+    const hit = document.createElement("div");
+    hit.className = "cm-git-deleted-seam-inner";
+    hit.setAttribute("role", "button");
     hit.tabIndex = 0;
-    hit.setAttribute('aria-label', diffT('gitGutter.showDeletedLines'));
+    hit.setAttribute("aria-label", diffT("gitGutter.showDeletedLines"));
 
-    const tri = document.createElement('span');
-    tri.className = 'cm-git-deleted-collapsed-triangle';
-    tri.setAttribute('aria-hidden', 'true');
+    const tri = document.createElement("span");
+    tri.className = "cm-git-deleted-collapsed-triangle";
+    tri.setAttribute("aria-hidden", "true");
     hit.appendChild(tri);
 
     const toggle = () => {
       view.dispatch({ effects: toggleGitSelection.of(this.chunkIndex) });
     };
 
-    hit.addEventListener('mousedown', (e) => {
+    hit.addEventListener("mousedown", (e) => {
       e.preventDefault();
       toggle();
     });
-    hit.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
+    hit.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         toggle();
       }
@@ -342,8 +334,8 @@ class DiffPanelWidget extends WidgetType {
   }
 
   override toDOM(view: EditorView): HTMLElement {
-    const wrap = document.createElement('div');
-    wrap.className = 'cm-git-diff-panel';
+    const wrap = document.createElement("div");
+    wrap.className = "cm-git-diff-panel";
     // Tag the panel widget with its chunk index so `gitHunkFloatbarOverlay` can (a) identify which panel the
     // pointer is over for direct panel hovers, and (b) look up the panel's screen rect to position the overlay
     // floatbar (the floatbar lives outside cm-content — see overlay plugin for why).
@@ -357,14 +349,14 @@ class DiffPanelWidget extends WidgetType {
     const original = gs.original;
     const oldLines = sliceLines(original, chunk.fromA, chunk.toA);
 
-    const body = document.createElement('div');
-    body.className = 'cm-git-panel-body';
+    const body = document.createElement("div");
+    body.className = "cm-git-panel-body";
 
     const chunkKind = classifyChunkKind(chunk);
     fillDiffPanelBody(view, body, chunkKind, oldLines, chunk);
 
-    body.setAttribute('contenteditable', 'false');
-    body.addEventListener('mousedown', (e) => {
+    body.setAttribute("contenteditable", "false");
+    body.addEventListener("mousedown", (e) => {
       e.stopPropagation();
     });
 
@@ -379,8 +371,8 @@ class DiffPanelWidget extends WidgetType {
     // require making `.cm-gutters` transparent globally, which then lets horizontally-scrolled code show through
     // the line-number column. Splitting the bg into "wrap (content side) + gutter cell class (gutter side)" keeps
     // the gutters opaque + gives a continuous red strip across the whole row.
-    if (chunkKind !== 'added') {
-      wrap.style.background = 'rgba(239, 68, 68, 0.14)';
+    if (chunkKind !== "added") {
+      wrap.style.background = "rgba(239, 68, 68, 0.14)";
     }
 
     return wrap;
@@ -398,8 +390,8 @@ class DiffPanelWidget extends WidgetType {
  * across chunk changes, or button handlers will dispatch effects against the wrong chunk index.
  */
 function buildFloatbarActions(view: EditorView, chunkIndex: number): HTMLElement {
-  const actions = document.createElement('div');
-  actions.className = 'cm-git-panel-actions';
+  const actions = document.createElement("div");
+  actions.className = "cm-git-panel-actions";
 
   const host = view.state.facet(gitGutterHostFacet);
   const gs = view.state.field(gitGutterStateField);
@@ -410,13 +402,13 @@ function buildFloatbarActions(view: EditorView, chunkIndex: number): HTMLElement
   const doc = view.state.doc;
 
   const mkBtn = (label: string, title: string, onClick: () => void, disabled = false) => {
-    const b = document.createElement('button');
-    b.type = 'button';
+    const b = document.createElement("button");
+    b.type = "button";
     b.textContent = label;
     b.title = title;
     b.disabled = disabled;
-    b.addEventListener('mousedown', (e) => e.preventDefault());
-    b.addEventListener('click', (e) => {
+    b.addEventListener("mousedown", (e) => e.preventDefault());
+    b.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
       onClick();
@@ -424,10 +416,10 @@ function buildFloatbarActions(view: EditorView, chunkIndex: number): HTMLElement
     return b;
   };
 
-  const close = mkBtn('×', diffT('gitGutter.closePanel'), () =>
+  const close = mkBtn("×", diffT("gitGutter.closePanel"), () =>
     view.dispatch({ effects: closeGitSelection.of(chunkIndex) }),
   );
-  close.className = 'cm-git-panel-float-close';
+  close.className = "cm-git-panel-float-close";
 
   /**
    * Jump to a sibling chunk: open it (if not already), then smooth-scroll the editor so the chunk's first doc
@@ -460,8 +452,8 @@ function buildFloatbarActions(view: EditorView, chunkIndex: number): HTMLElement
   };
 
   const prev = mkBtn(
-    '↑',
-    diffT('gitGutter.previousChange'),
+    "↑",
+    diffT("gitGutter.previousChange"),
     () => {
       if (!gs.chunks.length) return;
       const idx = (chunkIndex - 1 + gs.chunks.length) % gs.chunks.length;
@@ -471,8 +463,8 @@ function buildFloatbarActions(view: EditorView, chunkIndex: number): HTMLElement
   );
 
   const next = mkBtn(
-    '↓',
-    diffT('gitGutter.nextChange'),
+    "↓",
+    diffT("gitGutter.nextChange"),
     () => {
       if (!gs.chunks.length) return;
       const idx = (chunkIndex + 1) % gs.chunks.length;
@@ -481,10 +473,10 @@ function buildFloatbarActions(view: EditorView, chunkIndex: number): HTMLElement
     gs.chunks.length <= 1,
   );
 
-  const isUntrackedNew = host.fileStatus === 'A' && original.length === 0;
+  const isUntrackedNew = host.fileStatus === "A" && original.length === 0;
   const isNewFilePatch = isUntrackedNew;
 
-  const runPatch = async (mode: 'stage' | 'restore') => {
+  const runPatch = async (mode: "stage" | "restore") => {
     const patch = buildUnifiedPatchForChunk(
       host.fileRelativePath,
       original,
@@ -492,37 +484,37 @@ function buildFloatbarActions(view: EditorView, chunkIndex: number): HTMLElement
       chunk,
       isNewFilePatch,
     );
-    const fn = mode === 'stage' ? host.stagePatch : host.restorePatch;
+    const fn = mode === "stage" ? host.stagePatch : host.restorePatch;
     const res = await fn(patch);
     if (!res.ok) {
       toastManager.add({
-        type: 'error',
-        title: mode === 'stage' ? diffT('gitGutter.stageFailed') : diffT('gitGutter.restoreFailed'),
-        description: res.error || diffT('gitGutter.gitPatchFailed'),
+        type: "error",
+        title: mode === "stage" ? diffT("gitGutter.stageFailed") : diffT("gitGutter.restoreFailed"),
+        description: res.error || diffT("gitGutter.gitPatchFailed"),
       });
       return;
     }
     host.onGitStateChanged?.(mode);
     toastManager.add({
-      type: 'success',
-      title: mode === 'stage' ? diffT('gitGutter.stagedChunk') : diffT('gitGutter.restoredChunk'),
-      description: diffT('gitGutter.gitStateUpdatedForThisHunk'),
+      type: "success",
+      title: mode === "stage" ? diffT("gitGutter.stagedChunk") : diffT("gitGutter.restoredChunk"),
+      description: diffT("gitGutter.gitStateUpdatedForThisHunk"),
     });
     view.dispatch({ effects: closeGitSelection.of(chunkIndex) });
   };
 
   const stageBtn = mkBtn(
-    diffT('gitGutter.stage'),
-    diffT('gitGutter.stageThisChange'),
-    () => void runPatch('stage'),
+    diffT("gitGutter.stage"),
+    diffT("gitGutter.stageThisChange"),
+    () => void runPatch("stage"),
   );
 
   const restoreBtn = mkBtn(
-    diffT('gitGutter.restore'),
+    diffT("gitGutter.restore"),
     isUntrackedNew
-      ? diffT('gitGutter.cannotRestoreUntrackedFiles')
-      : diffT('gitGutter.discardThisUnstagedHunk'),
-    () => void runPatch('restore'),
+      ? diffT("gitGutter.cannotRestoreUntrackedFiles")
+      : diffT("gitGutter.discardThisUnstagedHunk"),
+    () => void runPatch("restore"),
     isUntrackedNew,
   );
 
@@ -615,7 +607,7 @@ function forEachExpandedGitDiffLine(state: EditorState, fn: (lineFrom: number) =
     if (!gs.selectedIndices.has(i)) continue;
     const ch = gs.chunks[i]!;
     const kind = classifyChunkKind(ch);
-    if (kind !== 'added' && kind !== 'modified') continue;
+    if (kind !== "added" && kind !== "modified") continue;
 
     let pos = ch.fromB;
     const end = ch.toB;
@@ -665,13 +657,13 @@ function buildGitDiffDecorations(state: EditorState): DecorationSet {
       // pass needed. Each change's B-side range is relative to chunk start, so add `ch.fromB`. Skip pure
       // deletions (`toB === fromB` → no new-side text to highlight). The mark layers ON TOP of the line bg, so
       // CSS uses a brighter alpha than `.cm-git-line-bg-added`.
-      if (classifyChunkKind(ch) === 'modified') {
+      if (classifyChunkKind(ch) === "modified") {
         for (const change of ch.changes) {
           if (change.toB <= change.fromB) continue;
           const from = ch.fromB + change.fromB;
           const to = ch.fromB + change.toB;
           if (to > state.doc.length || from < 0 || from >= to) continue;
-          parts.push(Decoration.mark({ class: 'cm-git-word-changed-new' }).range(from, to));
+          parts.push(Decoration.mark({ class: "cm-git-word-changed-new" }).range(from, to));
         }
       }
     }
@@ -723,9 +715,9 @@ const gitHunkFloatbarOverlay = ViewPlugin.fromClass(
     private readonly onScroll: () => void;
 
     constructor(readonly view: EditorView) {
-      this.el = document.createElement('div');
-      this.el.className = 'cm-git-panel-floatbar';
-      this.el.style.display = 'none';
+      this.el = document.createElement("div");
+      this.el.className = "cm-git-panel-floatbar";
+      this.el.style.display = "none";
       // Append to `view.dom` (the .cm-editor root) — NOT scrollDOM. scrollDOM's absolute children scroll along
       // with the content (their coords are inside the scrollable area), so they wouldn't stay pinned to the
       // viewport edge during horizontal scroll. view.dom doesn't scroll → stays put → we just update `top`.
@@ -741,10 +733,10 @@ const gitHunkFloatbarOverlay = ViewPlugin.fromClass(
 
         // Hovering the floatbar itself? Keep the current chunk active so users can move from a line to a button
         // without the bar disappearing on transit.
-        if (el?.closest?.('.cm-git-panel-floatbar')) return;
+        if (el?.closest?.(".cm-git-panel-floatbar")) return;
 
         // 1) Direct panel hover wins.
-        const panelEl = el?.closest?.('.cm-git-diff-panel') as HTMLElement | null;
+        const panelEl = el?.closest?.(".cm-git-diff-panel") as HTMLElement | null;
         if (panelEl?.dataset.chunkIndex != null) {
           const idx = Number(panelEl.dataset.chunkIndex);
           if (Number.isFinite(idx)) {
@@ -778,11 +770,11 @@ const gitHunkFloatbarOverlay = ViewPlugin.fromClass(
       };
       this.onScroll = () => this.reposition();
 
-      view.dom.addEventListener('pointermove', this.onMove);
-      view.dom.addEventListener('pointerleave', this.onLeave);
+      view.dom.addEventListener("pointermove", this.onMove);
+      view.dom.addEventListener("pointerleave", this.onLeave);
       // Vertical scroll moves the panel relative to the editor → re-snap floatbar's `top`. Horizontal scroll
       // doesn't matter (right edge is fixed via CSS) but we listen to the same scroll event for both axes.
-      view.scrollDOM.addEventListener('scroll', this.onScroll, { passive: true });
+      view.scrollDOM.addEventListener("scroll", this.onScroll, { passive: true });
     }
 
     update(u: ViewUpdate) {
@@ -801,7 +793,7 @@ const gitHunkFloatbarOverlay = ViewPlugin.fromClass(
       if (this.currentChunk === idx) return;
       this.currentChunk = idx;
       if (idx === null) {
-        this.el.style.display = 'none';
+        this.el.style.display = "none";
         return;
       }
       // Rebuild content with fresh handlers bound to this chunk index. Buttons capture `chunkIndex` in their
@@ -809,7 +801,7 @@ const gitHunkFloatbarOverlay = ViewPlugin.fromClass(
       // dispatch effects against the wrong index.
       while (this.el.firstChild) this.el.removeChild(this.el.firstChild);
       this.el.appendChild(buildFloatbarActions(this.view, idx));
-      this.el.style.display = '';
+      this.el.style.display = "";
       this.reposition();
     }
 
@@ -819,7 +811,7 @@ const gitHunkFloatbarOverlay = ViewPlugin.fromClass(
         `.cm-git-diff-panel[data-chunk-index="${this.currentChunk}"]`,
       );
       if (!panel) {
-        this.el.style.display = 'none';
+        this.el.style.display = "none";
         return;
       }
       const panelRect = panel.getBoundingClientRect();
@@ -827,10 +819,10 @@ const gitHunkFloatbarOverlay = ViewPlugin.fromClass(
       // Panel fully out of the visible scroller viewport → hide. Avoids a floatbar floating in dead space when
       // the user scrolls the chunk far above / below the editor.
       if (panelRect.bottom < scrollerRect.top || panelRect.top > scrollerRect.bottom) {
-        this.el.style.display = 'none';
+        this.el.style.display = "none";
         return;
       }
-      this.el.style.display = '';
+      this.el.style.display = "";
       // `top` in view.dom coordinates = panel's screen-Y minus editor's screen-Y. Both rects are in viewport
       // space, so the subtraction gives a delta independent of page scroll.
       const editorRect = this.view.dom.getBoundingClientRect();
@@ -838,9 +830,9 @@ const gitHunkFloatbarOverlay = ViewPlugin.fromClass(
     }
 
     destroy() {
-      this.view.dom.removeEventListener('pointermove', this.onMove);
-      this.view.dom.removeEventListener('pointerleave', this.onLeave);
-      this.view.scrollDOM.removeEventListener('scroll', this.onScroll);
+      this.view.dom.removeEventListener("pointermove", this.onMove);
+      this.view.dom.removeEventListener("pointerleave", this.onLeave);
+      this.view.scrollDOM.removeEventListener("scroll", this.onScroll);
       this.el.remove();
     }
   },
@@ -856,7 +848,7 @@ const gitHunkFloatbarOverlay = ViewPlugin.fromClass(
  * Two markers (one per chunk kind) so a single class name carries the chunk tint — CSS-only, no DOM nodes.
  */
 class GitPanelCellBgMarker extends GutterMarker {
-  constructor(readonly chunkKind: 'added' | 'deleted' | 'modified') {
+  constructor(readonly chunkKind: "added" | "deleted" | "modified") {
     super();
     this.elementClass = `cm-git-panel-cell cm-git-panel-cell-${chunkKind}`;
   }
@@ -865,8 +857,8 @@ class GitPanelCellBgMarker extends GutterMarker {
   }
 }
 
-const PANEL_CELL_BG_DELETED = new GitPanelCellBgMarker('deleted');
-const PANEL_CELL_BG_MODIFIED = new GitPanelCellBgMarker('modified');
+const PANEL_CELL_BG_DELETED = new GitPanelCellBgMarker("deleted");
+const PANEL_CELL_BG_MODIFIED = new GitPanelCellBgMarker("modified");
 
 const panelCellBgGutterClass = gutterWidgetClass.of((view, widget) => {
   if (!(widget instanceof DiffPanelWidget)) return null;
@@ -874,12 +866,12 @@ const panelCellBgGutterClass = gutterWidgetClass.of((view, widget) => {
   const ch = gs.chunks[widget.chunkIndex];
   if (!ch) return null;
   const kind = classifyChunkKind(ch);
-  if (kind === 'added') return null;
-  return kind === 'modified' ? PANEL_CELL_BG_MODIFIED : PANEL_CELL_BG_DELETED;
+  if (kind === "added") return null;
+  return kind === "modified" ? PANEL_CELL_BG_MODIFIED : PANEL_CELL_BG_DELETED;
 });
 
 const gitChangeGutter = gutter({
-  class: 'cm-git-change-gutter',
+  class: "cm-git-change-gutter",
   lineMarker(view, line) {
     const host = view.state.facet(gitGutterHostFacet);
     if (!host) return null;
@@ -892,7 +884,7 @@ const gitChangeGutter = gutter({
       if (range && lineNo >= range.from && lineNo <= range.to) {
         const kind = classifyChunkKind(ch);
         const expanded = gs.selectedIndices.has(i);
-        if (kind === 'deleted') {
+        if (kind === "deleted") {
           // Expanded → no per-line seam (the panel widget already paints the deleted content).
           if (expanded) continue;
           return new GitDeletedSeamGutterMarker(i);

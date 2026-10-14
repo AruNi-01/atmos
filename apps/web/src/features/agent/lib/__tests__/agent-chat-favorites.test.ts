@@ -35,9 +35,9 @@ describe("agent chat favorites", () => {
         { agent_id: "claude", model: "opus", label: "Opus 4" },
       ]),
     ).toEqual([{ agentId: "claude", model: "opus", label: "Opus" }]);
-    expect(
-      favoriteModelsToWire([{ agentId: "claude", model: "opus", label: "Opus" }]),
-    ).toEqual([{ agent_id: "claude", model: "opus", label: "Opus" }]);
+    expect(favoriteModelsToWire([{ agentId: "claude", model: "opus", label: "Opus" }])).toEqual([
+      { agent_id: "claude", model: "opus", label: "Opus" },
+    ]);
   });
 
   it("toggles a favorite on and off without disturbing other rows", () => {
@@ -51,9 +51,9 @@ describe("agent chat favorites", () => {
       { agentId: "codex", model: "gpt-5", label: "GPT-5" },
       { agentId: "claude", model: "opus", label: "Opus" },
     ]);
-    expect(
-      toggleFavoriteModel(added, { agentId: "claude", model: "opus", label: "Opus" }),
-    ).toEqual(current);
+    expect(toggleFavoriteModel(added, { agentId: "claude", model: "opus", label: "Opus" })).toEqual(
+      current,
+    );
   });
 
   it("groups favorites by the installed agent order, then leftovers", () => {
@@ -75,17 +75,12 @@ describe("agent chat favorites", () => {
 
   it("prefers a live catalog label over the stored snapshot", () => {
     expect(
-      resolveFavoriteModelLabel(
-        { agentId: "claude", model: "opus", label: "Opus" },
-        [{ id: "opus", label: "Claude Opus 4.1" }],
-      ),
+      resolveFavoriteModelLabel({ agentId: "claude", model: "opus", label: "Opus" }, [
+        { id: "opus", label: "Claude Opus 4.1" },
+      ]),
     ).toBe("Claude Opus 4.1");
     expect(
-      isFavoriteModel(
-        [{ agentId: "claude", model: "opus", label: "Opus" }],
-        "claude",
-        "opus",
-      ),
+      isFavoriteModel([{ agentId: "claude", model: "opus", label: "Opus" }], "claude", "opus"),
     ).toBe(true);
   });
 });

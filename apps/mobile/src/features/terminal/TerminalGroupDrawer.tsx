@@ -27,7 +27,9 @@ export function TerminalGroupDrawer({
       testID="terminal-group-drawer"
     >
       {rows.length === 0 ? (
-        <Text style={{ color: colors.secondaryLabel, fontSize: 15, lineHeight: 20 }}>No sessions</Text>
+        <Text style={{ color: colors.secondaryLabel, fontSize: 15, lineHeight: 20 }}>
+          No sessions
+        </Text>
       ) : (
         <View
           style={{

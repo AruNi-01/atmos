@@ -58,9 +58,7 @@ export async function flushDeviceCredentialStore(): Promise<void> {
 }
 
 export function getDefaultHubUrl(): string {
-  return (
-    process.env.EXPO_PUBLIC_ATMOS_HUB_URL?.trim() || "https://hub.atmos.land"
-  );
+  return process.env.EXPO_PUBLIC_ATMOS_HUB_URL?.trim() || "https://hub.atmos.land";
 }
 
 /** Bootstrap Hub client once for the mobile process. */
@@ -73,10 +71,7 @@ export async function ensureMobileHubConfigured(): Promise<void> {
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as StoredDeviceCredential;
-      if (
-        typeof parsed.device_credential === "string" &&
-        parsed.device_credential.length >= 32
-      ) {
+      if (typeof parsed.device_credential === "string" && parsed.device_credential.length >= 32) {
         store.set({
           device_id: parsed.device_id || "device",
           device_credential: parsed.device_credential,

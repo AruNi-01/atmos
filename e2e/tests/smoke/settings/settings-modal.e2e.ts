@@ -55,7 +55,9 @@ test.describe("smoke settings", () => {
       await expect
         .poll(async () => normalizePathname(new URL(page.url()).pathname))
         .toBe("/settings");
-      await expect(page.getByRole("button", { name: SETTINGS_SIDEBAR_ITEMS[activeSettingTab] })).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: SETTINGS_SIDEBAR_ITEMS[activeSettingTab] }),
+      ).toBeVisible();
     }
 
     await closeSettingsPage(page);

@@ -31,10 +31,7 @@ const largeSizeStyle: UniversalStyle = {
  * `expoUiButtonStretchModifiers` (see `expo-ui-button-modifiers.ts`).
  * Never layer custom fill/stroke on `filled`/`outlined` (double chrome on iOS).
  */
-export function expoUiPrimaryStyle(
-  colors: MobileThemeColors,
-  disabled = false,
-): ExpoUiButtonLook {
+export function expoUiPrimaryStyle(colors: MobileThemeColors, disabled = false): ExpoUiButtonLook {
   return {
     seedColor: disabled ? colors.tertiaryLabel : colors.ctaFill,
     style: largeSizeStyle,
@@ -53,10 +50,7 @@ export function expoUiSecondaryStyle(
   };
 }
 
-export function expoUiDangerStyle(
-  colors: MobileThemeColors,
-  disabled = false,
-): ExpoUiButtonLook {
+export function expoUiDangerStyle(colors: MobileThemeColors, disabled = false): ExpoUiButtonLook {
   return {
     seedColor: disabled ? colors.tertiaryLabel : colors.red,
     style: largeSizeStyle,

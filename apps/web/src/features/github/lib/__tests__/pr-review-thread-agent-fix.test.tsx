@@ -33,10 +33,7 @@ mock.module("@workspace/ui", () => ({
   TabsList: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
     <div {...props}>{children}</div>
   ),
-  TabsTrigger: ({
-    children,
-    ...props
-  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+  TabsTrigger: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button {...props}>{children}</button>
   ),
   TabsSubtle: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
@@ -55,25 +52,12 @@ mock.module("@workspace/ui", () => ({
       {children ?? label}
     </button>
   ),
-  Textarea: (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
-    <textarea {...props} />
-  ),
+  Textarea: (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...props} />,
   Tooltip: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
-  TooltipContent: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  TooltipTrigger: ({ children }: { children?: React.ReactNode }) => (
-    <>{children}</>
-  ),
-  cn: (...values: Array<string | false | null | undefined>) =>
-    values.filter(Boolean).join(" "),
-  getFileIconProps: ({
-    className,
-  }: {
-    className?: string;
-    isDir: boolean;
-    name: string;
-  }) => ({
+  TooltipContent: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  TooltipTrigger: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+  cn: (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" "),
+  getFileIconProps: ({ className }: { className?: string; isDir: boolean; name: string }) => ({
     alt: "",
     className,
     src: "/icons/file.svg",
@@ -149,10 +133,9 @@ mock.module("@/features/diff/components/DiscussionDiffBlock", () => ({
 }));
 
 mock.module("@/shared/components/markdown/MarkdownRenderer", () => ({
-  MarkdownRenderer: ({
-    children,
-    ...props
-  }: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
+  MarkdownRenderer: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+    <div {...props}>{children}</div>
+  ),
 }));
 
 mock.module("@/features/agent-fix/components/AgentFixButton", () => ({

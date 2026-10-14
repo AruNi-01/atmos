@@ -1,7 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  DEFAULT_CENTER_SPACE_ID,
-} from "@/app-shell/center-space/center-space";
+import { DEFAULT_CENTER_SPACE_ID } from "@/app-shell/center-space/center-space";
 import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/lib/terminal-layout-document";
 import type { LiveResourceSessionLocation } from "@/features/terminal/public";
 import {
@@ -10,9 +8,7 @@ import {
   createTerminalPaneLocateStore,
 } from "@/features/terminal/store/terminal-pane-locate-store";
 
-function target(
-  overrides: Partial<LiveResourceSessionLocation> = {},
-): LiveResourceSessionLocation {
+function target(overrides: Partial<LiveResourceSessionLocation> = {}): LiveResourceSessionLocation {
   return {
     hostId: "ws-1",
     spaceId: DEFAULT_CENTER_SPACE_ID,

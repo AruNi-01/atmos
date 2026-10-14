@@ -57,9 +57,7 @@ describe("deliverTerminalAgentLaunch", () => {
 
     deliverTerminalAgentLaunch(terminalRef, "agent --yolo 'fix this'");
 
-    expect(calls).toEqual([
-      { method: "sendText", value: "agent --yolo 'fix this'\r" },
-    ]);
+    expect(calls).toEqual([{ method: "sendText", value: "agent --yolo 'fix this'\r" }]);
   });
 
   it("submits multiline launches as one bracketed-paste write plus Enter", () => {
@@ -87,9 +85,7 @@ describe("deliverTerminalAgentLaunch", () => {
 
     deliverTerminalAgentLaunch(terminalRef, launch);
 
-    expect(calls).toEqual([
-      { method: "sendText", value: `\x1b[200~${launch}\x1b[201~\r` },
-    ]);
+    expect(calls).toEqual([{ method: "sendText", value: `\x1b[200~${launch}\x1b[201~\r` }]);
   });
 
   it("prefills multiline launches with bracketed paste and no Enter", () => {
@@ -108,8 +104,6 @@ describe("deliverTerminalAgentLaunch", () => {
 
 describe("wrapBracketedPaste", () => {
   it("strips ESC bytes so paste mode cannot end early", () => {
-    expect(wrapBracketedPaste("before\x1b[201~after")).toBe(
-      "\x1b[200~before[201~after\x1b[201~",
-    );
+    expect(wrapBracketedPaste("before\x1b[201~after")).toBe("\x1b[200~before[201~after\x1b[201~");
   });
 });

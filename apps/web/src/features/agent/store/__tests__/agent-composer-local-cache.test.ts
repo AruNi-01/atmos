@@ -177,9 +177,7 @@ describe("composer local cache", () => {
   });
 
   it("persists favorited agent+model pairs for paint-ahead", () => {
-    rememberFavoriteModels([
-      { agentId: "claude", model: "opus", label: "Opus" },
-    ]);
+    rememberFavoriteModels([{ agentId: "claude", model: "opus", label: "Opus" }]);
     __resetComposerLocalCacheForTests();
     expect(readComposerLocalCache().favoriteModels).toEqual([
       { agentId: "claude", model: "opus", label: "Opus" },

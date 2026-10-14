@@ -9,7 +9,7 @@ APP-017 / APP-019 already run automations, but **every run is headless**: `tokio
 Users now want the job itself to choose **how** the agent executes:
 
 1. **Headless Spawn** — today’s unattended CLI spawn (keep).
-2. **Terminal Agent** — each run opens a **new terminal tab** in the chosen environment and runs an *interactive* terminal agent.
+2. **Terminal Agent** — each run opens a **new terminal tab** in the chosen environment and runs an _interactive_ terminal agent.
 3. **Agent Chat** — same targeting, but a **new Agent Chat tab**.
 
 Setup UI: above Instructions, an **Execute Agent** control with those three tabs. Headless no longer uses a popover — show the agent list inline, fixed height, scrollable.
@@ -33,17 +33,17 @@ Why it’s hard: creating a **tab** is a UI attach problem; creating a **session
 
 ## What already exists
 
-| Capability | Today |
-|---|---|
-| Headless run | `AutomationService` → `process_runner` (piped stdio). `tmux_*` always `None`. |
-| New workspace per run | `create_automation_workspace` + `created_workspace_guid`. No tab. |
-| Interactive follow-up | `automation_continue_in_terminal` writes `continue_prompt.xml`, returns command; UI navigates / standalone chat. |
-| CLI workspace | `atmos workspace create --project --name --branch` → `workspace_create`. |
-| CLI terminal | `atmos terminal create --workspace [--name --cwd --shell]` → `terminal_session_create` (`detach_after_create: true`). **No launch command. Workspace id required.** |
-| CLI chat | **None.** Server already has `agent_chat_create` + `agent_chat_send`. |
-| CLI automation | **None.** Runs start via WS (`automation_run_now`, scheduler, GitHub). |
-| Tab chrome / pending command | Web: `queuePendingRun` / `queueAgentRun` (Welcome). Not on the CLI. |
-| Chat vs terminal catalogs | Different. Terminal = `resources/terminal-agents`. Chat = APP-067/068 providers. |
+| Capability                   | Today                                                                                                                                                               |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Headless run                 | `AutomationService` → `process_runner` (piped stdio). `tmux_*` always `None`.                                                                                       |
+| New workspace per run        | `create_automation_workspace` + `created_workspace_guid`. No tab.                                                                                                   |
+| Interactive follow-up        | `automation_continue_in_terminal` writes `continue_prompt.xml`, returns command; UI navigates / standalone chat.                                                    |
+| CLI workspace                | `atmos workspace create --project --name --branch` → `workspace_create`.                                                                                            |
+| CLI terminal                 | `atmos terminal create --workspace [--name --cwd --shell]` → `terminal_session_create` (`detach_after_create: true`). **No launch command. Workspace id required.** |
+| CLI chat                     | **None.** Server already has `agent_chat_create` + `agent_chat_send`.                                                                                               |
+| CLI automation               | **None.** Runs start via WS (`automation_run_now`, scheduler, GitHub).                                                                                              |
+| Tab chrome / pending command | Web: `queuePendingRun` / `queueAgentRun` (Welcome). Not on the CLI.                                                                                                 |
+| Chat vs terminal catalogs    | Different. Terminal = `resources/terminal-agents`. Chat = APP-067/068 providers.                                                                                    |
 
 ## Options
 

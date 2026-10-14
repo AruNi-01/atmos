@@ -115,9 +115,7 @@ function buildAtmosBrickPattern(): string[] {
     ATMOS_LETTERS.O,
     ATMOS_LETTERS.S,
   ] as const;
-  return order[0].map((_, rowIndex) =>
-    order.map((letter) => letter[rowIndex]).join(LETTER_GAP),
-  );
+  return order[0].map((_, rowIndex) => order.map((letter) => letter[rowIndex]).join(LETTER_GAP));
 }
 
 /** 9×43 pixel mask that spells ATMOS (7-wide letters, 2-col gaps). */
@@ -132,8 +130,7 @@ export const BALL_SPEED = {
   narrow: { dx: 5.4, dy: -6.1 },
 } as const;
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.max(min, Math.min(max, value));
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 function buildBricks(width: number, height: number): Brick[] {
   const columnCount = ATMOS_BRICK_COLS;
@@ -147,8 +144,7 @@ function buildBricks(width: number, height: number): Brick[] {
     6,
     (availableWidth - gap * Math.max(columnCount - 1, 0)) / Math.max(columnCount, 1),
   );
-  const totalWidth =
-    columnCount * brickSize + Math.max(columnCount - 1, 0) * gap;
+  const totalWidth = columnCount * brickSize + Math.max(columnCount - 1, 0) * gap;
   const startX = (width - totalWidth) / 2;
   const bricks: Brick[] = [];
 
@@ -268,7 +264,12 @@ function drawGame(ctx: CanvasRenderingContext2D, game: Game, darkMode: boolean) 
   for (const brick of game.bricks) {
     if (!brick.active) continue;
     ctx.fillStyle = brickColors[brick.tone] ?? brickColors[0];
-    ctx.fillRect(Math.round(brick.x), Math.round(brick.y), Math.round(brick.width), Math.round(brick.height));
+    ctx.fillRect(
+      Math.round(brick.x),
+      Math.round(brick.y),
+      Math.round(brick.width),
+      Math.round(brick.height),
+    );
   }
 
   ctx.fillStyle = darkMode ? "#303036" : "#dedede";
@@ -513,20 +514,19 @@ export function BreakoutErrorPage({
           "transition-opacity duration-300 ease-out",
           // While the ball is in play, fade copy so bricks stay readable;
           // hovering any action button restores the overlay.
-          isPlaying &&
-            "opacity-[0.18] has-[[data-error-action]:hover]:opacity-100",
+          isPlaying && "opacity-[0.18] has-[[data-error-action]:hover]:opacity-100",
         )}
       >
         <div
           className={cn(
-            "text-[clamp(8rem,18vw,18rem)] font-normal leading-none text-[#ececec] group-hover:text-[#111112] dark:text-[#18181c] dark:group-hover:text-[#f5f5f7]",
+            "text-[clamp(8rem,18vw,18rem)] leading-none font-normal text-[#ececec] group-hover:text-[#111112] dark:text-[#18181c] dark:group-hover:text-[#f5f5f7]",
             "[-webkit-font-smoothing:none] [font-variant-ligatures:none]",
             GeistPixelSquare.className,
           )}
         >
           {code}
         </div>
-        <h1 className="mt-5 max-w-[min(760px,calc(100vw-2rem))] text-[clamp(1rem,1.35vw,1.45rem)] font-normal leading-7 text-[#aaa] group-hover:text-[#111112] dark:text-[#5f5f66] dark:group-hover:text-[#f5f5f7]">
+        <h1 className="mt-5 max-w-[min(760px,calc(100vw-2rem))] text-[clamp(1rem,1.35vw,1.45rem)] leading-7 font-normal text-[#aaa] group-hover:text-[#111112] dark:text-[#5f5f66] dark:group-hover:text-[#f5f5f7]">
           {t(`${kind}.description`)}
         </h1>
         {kind === "server" && errorMessage ? (

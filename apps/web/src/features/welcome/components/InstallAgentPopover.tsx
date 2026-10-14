@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React, { useMemo, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import React, { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   Popover,
@@ -12,15 +12,15 @@ import {
   TabsTrigger,
   TabsContent,
   cn,
-} from '@workspace/ui';
-import { Check, Copy, ExternalLink, SquareTerminal } from 'lucide-react';
-import { PackageInstallTerminalDialog } from '@/features/welcome/components/PackageInstallTerminalDialog';
+} from "@workspace/ui";
+import { Check, Copy, ExternalLink, SquareTerminal } from "lucide-react";
+import { PackageInstallTerminalDialog } from "@/features/welcome/components/PackageInstallTerminalDialog";
 import {
   detectInstallOs,
   preferredAgentInstallCommand,
   TERMINAL_AGENT_INSTALL_GUIDES,
   type InstallOs,
-} from '@/features/welcome/lib/terminal-agent-install-guides';
+} from "@/features/welcome/lib/terminal-agent-install-guides";
 
 export interface InstallAgentPopoverProps {
   agentId: string;
@@ -31,7 +31,7 @@ export interface InstallAgentPopoverProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   triggerClassName?: string;
-  triggerSize?: 'sm' | 'default';
+  triggerSize?: "sm" | "default";
 }
 
 /**
@@ -46,16 +46,14 @@ export function InstallAgentPopover({
   open: controlledOpen,
   onOpenChange,
   triggerClassName,
-  triggerSize = 'sm',
+  triggerSize = "sm",
 }: InstallAgentPopoverProps) {
-  const t = useTranslations('onboarding');
+  const t = useTranslations("onboarding");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const [selectedOs, setSelectedOs] = useState<InstallOs>(() => detectInstallOs());
-  const [selectedTypeByOs, setSelectedTypeByOs] = useState<Partial<Record<InstallOs, string>>>(
-    {},
-  );
+  const [selectedTypeByOs, setSelectedTypeByOs] = useState<Partial<Record<InstallOs, string>>>({});
 
   const isControlled = controlledOpen !== undefined;
   const popoverOpen = isControlled ? controlledOpen : uncontrolledOpen;
@@ -72,13 +70,12 @@ export function InstallAgentPopover({
 
   const activeMethods = guides?.[selectedOs] ?? [];
   const activeType =
-    selectedTypeByOs[selectedOs] ?? activeMethods[0]?.type ?? activeMethods[0]?.label ?? '';
+    selectedTypeByOs[selectedOs] ?? activeMethods[0]?.type ?? activeMethods[0]?.label ?? "";
   const activeMethod =
     activeMethods.find((m) => m.type === activeType || m.label === activeType) ??
     activeMethods[0] ??
     null;
-  const runCommand =
-    activeMethod?.command?.trim() || hostPreferredCommand || null;
+  const runCommand = activeMethod?.command?.trim() || hostPreferredCommand || null;
 
   const handleCopy = (text: string, id: string) => {
     void navigator.clipboard.writeText(text);
@@ -98,13 +95,13 @@ export function InstallAgentPopover({
             variant="outline"
             size={triggerSize}
             className={cn(
-              'cursor-pointer',
-              triggerSize === 'sm' &&
-                'h-7 rounded-full border-border/40 px-3 py-1 text-[11px] font-semibold hover:bg-muted/20 text-foreground',
+              "cursor-pointer",
+              triggerSize === "sm" &&
+                "h-7 rounded-full border-border/40 px-3 py-1 text-[11px] font-semibold text-foreground hover:bg-muted/20",
               triggerClassName,
             )}
           >
-            {t('check.install.button')}
+            {t("check.install.button")}
           </Button>
         </PopoverTrigger>
         <PopoverContent
@@ -114,10 +111,10 @@ export function InstallAgentPopover({
           <div className="space-y-4">
             <div>
               <h4 className="text-sm font-semibold text-foreground">
-                {t('check.install.title', { toolName: agentName })}
+                {t("check.install.title", { toolName: agentName })}
               </h4>
               <p className="mt-1 text-xs text-muted-foreground">
-                {t('agents.install.description')}
+                {t("agents.install.description")}
               </p>
             </div>
 
@@ -131,13 +128,13 @@ export function InstallAgentPopover({
               }}
             >
               <SquareTerminal className="size-3.5" />
-              {t('check.install.runInTerminal')}
+              {t("check.install.runInTerminal")}
             </Button>
 
             <div className="relative">
               <div className="absolute inset-x-0 top-1/2 h-px bg-border/50" />
-              <p className="relative mx-auto w-fit bg-popover px-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-                {t('check.install.orManual')}
+              <p className="relative mx-auto w-fit bg-popover px-2 text-[10px] tracking-wider text-muted-foreground uppercase">
+                {t("check.install.orManual")}
               </p>
             </div>
 
@@ -148,24 +145,24 @@ export function InstallAgentPopover({
             >
               <TabsList className="grid w-full grid-cols-3 rounded-xl bg-muted/40 p-1">
                 <TabsTrigger value="macos" className="cursor-pointer rounded-lg py-1.5 text-xs">
-                  {t('check.install.os.macos')}
+                  {t("check.install.os.macos")}
                 </TabsTrigger>
                 <TabsTrigger value="linux" className="cursor-pointer rounded-lg py-1.5 text-xs">
-                  {t('check.install.os.linux')}
+                  {t("check.install.os.linux")}
                 </TabsTrigger>
                 <TabsTrigger value="windows" className="cursor-pointer rounded-lg py-1.5 text-xs">
-                  {t('check.install.os.windows')}
+                  {t("check.install.os.windows")}
                 </TabsTrigger>
               </TabsList>
 
-              {(['macos', 'linux', 'windows'] as InstallOs[]).map((os) => {
+              {(["macos", "linux", "windows"] as InstallOs[]).map((os) => {
                 const methods = guides[os];
                 const typeValue =
-                  selectedTypeByOs[os] ?? methods[0]?.type ?? methods[0]?.label ?? '';
+                  selectedTypeByOs[os] ?? methods[0]?.type ?? methods[0]?.label ?? "";
                 return (
                   <TabsContent key={os} value={os} className="mt-4 space-y-4">
                     {methods.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">{t('check.install.empty')}</p>
+                      <p className="text-xs text-muted-foreground">{t("check.install.empty")}</p>
                     ) : (
                       <Tabs
                         value={typeValue}
@@ -201,13 +198,13 @@ export function InstallAgentPopover({
                             ) : null}
                             {m.command ? (
                               <div className="group relative">
-                                <pre className="max-h-[160px] overflow-x-auto whitespace-pre-wrap break-all rounded-xl border border-border/40 bg-muted/40 p-3 pr-10 font-mono text-[11px] leading-relaxed text-foreground">
+                                <pre className="max-h-[160px] overflow-x-auto rounded-xl border border-border/40 bg-muted/40 p-3 pr-10 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-foreground">
                                   {m.command}
                                 </pre>
                                 <Button
                                   size="icon"
                                   variant="ghost"
-                                  className="absolute right-2 top-2 h-7 w-7 cursor-pointer rounded-lg text-muted-foreground hover:text-foreground"
+                                  className="absolute top-2 right-2 h-7 w-7 cursor-pointer rounded-lg text-muted-foreground hover:text-foreground"
                                   onClick={() => handleCopy(m.command!, `${os}-${idx}`)}
                                 >
                                   {copiedId === `${os}-${idx}` ? (
@@ -223,10 +220,10 @@ export function InstallAgentPopover({
                                 variant="outline"
                                 size="sm"
                                 className="w-full cursor-pointer rounded-xl text-xs font-medium"
-                                onClick={() => window.open(m.link, '_blank', 'noopener,noreferrer')}
+                                onClick={() => window.open(m.link, "_blank", "noopener,noreferrer")}
                               >
                                 <ExternalLink className="mr-2 size-3.5" />
-                                {t('check.install.download')}
+                                {t("check.install.download")}
                               </Button>
                             ) : null}
                           </TabsContent>

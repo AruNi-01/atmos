@@ -151,9 +151,7 @@ describe("GET /v1/computers app_device_id", () => {
         },
       ],
     });
-    expect(
-      harness.calls.some((c) => c.sql.includes("app_device_id")),
-    ).toBe(true);
+    expect(harness.calls.some((c) => c.sql.includes("app_device_id"))).toBe(true);
   });
 });
 
@@ -186,13 +184,9 @@ describe("POST client_sessions concurrent rows", () => {
         !c.sql.includes("rowid"),
     );
     expect(wipeAll).toBe(false);
+    expect(harness.calls.some((c) => c.sql.includes("INSERT INTO client_sessions"))).toBe(true);
     expect(
-      harness.calls.some((c) => c.sql.includes("INSERT INTO client_sessions")),
-    ).toBe(true);
-    expect(
-      harness.calls.some((c) =>
-        sqlIncludes(c.sql, "DELETE FROM client_sessions WHERE rowid IN"),
-      ),
+      harness.calls.some((c) => sqlIncludes(c.sql, "DELETE FROM client_sessions WHERE rowid IN")),
     ).toBe(false);
   });
 

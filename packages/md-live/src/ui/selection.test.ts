@@ -25,7 +25,9 @@ describe("shouldShowMdLiveSelectionToolbar", () => {
   });
 
   test("hides when the editor is unfocused and the toolbar is not focused", () => {
-    expect(shouldShowMdLiveSelectionToolbar({ ...ready, editorFocused: false, tooltipFocused: false })).toBe(false);
+    expect(
+      shouldShowMdLiveSelectionToolbar({ ...ready, editorFocused: false, tooltipFocused: false }),
+    ).toBe(false);
   });
 });
 

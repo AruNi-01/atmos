@@ -8,28 +8,28 @@ This design implements M1–M7 with no new crate, database table, REST endpoint,
 
 ## Frozen decisions
 
-| Decision | Rule |
-|----------|------|
-| Package boundary | Add modules to `core-engine` and `core-service`; do not create a `resource-monitor` crate. |
-| Source ownership | Server owns host/process attribution. Electron owns shell metrics only. |
-| Composition | `apps/web` combines Server and shell snapshots only for the local Computer. |
-| Transport | Computer metrics use the main WebSocket. Desktop shell metrics use existing Electron invoke IPC. |
-| Live lifecycle | Footer performs an idle snapshot request every 15 seconds; an open popover owns one 2.5-second WS subscription. |
-| Subscription delivery | Send full snapshots only to the subscribing connection; never global-broadcast resource events. |
-| History | No Server ring buffer or persistence. `apps/web` keeps at most 60 Host points from snapshots already requested by the Footer/subscription. |
-| Process types | Resource samples are separate from stop-oriented `ProcessSnapshot`. |
-| PID exposure | Root PIDs stay inside Rust services; wire DTOs contain aggregates only. |
-| Precision | Attribution is best-effort. Shared and unattributed usage remain visible. |
-| CPU meaning | Host `cpu_percent` is the mean of per-core 0–100 samples (machine fullness, 0–100). Process / session / project / desktop group `cpu_percent` uses per-core units: 100% = one full logical core and may exceed 100%. Per-core Host detail rows stay 0–100 of that core. Host pressure/bars use the 0–100 host average. |
-| Memory meaning | On macOS, Host used matches btop: `(active + wired) × page_size` from Mach. Linux/Windows use `total − available`. Process groups use summed RSS/working-set bytes and need not add exactly to Host used. |
-| Terminal navigation | Resolve the live pane by ephemeral `session_id`, then navigate through the owning host, Center Space, Terminal tab, and stable tmux deep link. Never guess when the live pane cannot be resolved. |
-| Locate feedback | Use a short-lived blue terminal locate signal. Do not reuse agent-attention state, colors, persistence, filters, or API events. |
-| Process detail | Emit only Atmos-attributed process-name groups. Never emit PID, start time, command line, executable path, username, environment, or absolute cwd. |
-| Port detail | Join ports from the latest cached all-projects Local Services snapshot by PID + process-name check. Resource sampling never starts `lsof`, `/proc` listener scans, or HTTP probes. |
-| Host detail | Keep headline Host fields and add per-logical-core CPU plus a nested memory breakdown with an explicit accounting enum. Do not expose CPU brand/frequency or host identity. |
-| Metric motion | Animate usage-bar transform and chart updates for less than one 2.5-second sample interval. Disable metric animation under reduced motion; hover fills remain instant. |
-| Dither visualization | Resource pressure charts/meters reuse the Token Usage Dither canvas engine. Host pressure uses the 0–100 host average: low `<60` success, medium `60–79` warning, high `≥80` destructive. |
-| Disk capacity | Sample storage-only mounts through `sysinfo::Disks`, then select one primary system disk (`/` on Unix, system drive on Windows) with a 2.5-second engine cache. Do not expose disk images, secondary APFS views, removable/network/tmpfs mounts, Disk Analyzer, or disk I/O. |
+| Decision              | Rule                                                                                                                                                                                                                                                                                                                   |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Package boundary      | Add modules to `core-engine` and `core-service`; do not create a `resource-monitor` crate.                                                                                                                                                                                                                             |
+| Source ownership      | Server owns host/process attribution. Electron owns shell metrics only.                                                                                                                                                                                                                                                |
+| Composition           | `apps/web` combines Server and shell snapshots only for the local Computer.                                                                                                                                                                                                                                            |
+| Transport             | Computer metrics use the main WebSocket. Desktop shell metrics use existing Electron invoke IPC.                                                                                                                                                                                                                       |
+| Live lifecycle        | Footer performs an idle snapshot request every 15 seconds; an open popover owns one 2.5-second WS subscription.                                                                                                                                                                                                        |
+| Subscription delivery | Send full snapshots only to the subscribing connection; never global-broadcast resource events.                                                                                                                                                                                                                        |
+| History               | No Server ring buffer or persistence. `apps/web` keeps at most 60 Host points from snapshots already requested by the Footer/subscription.                                                                                                                                                                             |
+| Process types         | Resource samples are separate from stop-oriented `ProcessSnapshot`.                                                                                                                                                                                                                                                    |
+| PID exposure          | Root PIDs stay inside Rust services; wire DTOs contain aggregates only.                                                                                                                                                                                                                                                |
+| Precision             | Attribution is best-effort. Shared and unattributed usage remain visible.                                                                                                                                                                                                                                              |
+| CPU meaning           | Host `cpu_percent` is the mean of per-core 0–100 samples (machine fullness, 0–100). Process / session / project / desktop group `cpu_percent` uses per-core units: 100% = one full logical core and may exceed 100%. Per-core Host detail rows stay 0–100 of that core. Host pressure/bars use the 0–100 host average. |
+| Memory meaning        | On macOS, Host used matches btop: `(active + wired) × page_size` from Mach. Linux/Windows use `total − available`. Process groups use summed RSS/working-set bytes and need not add exactly to Host used.                                                                                                              |
+| Terminal navigation   | Resolve the live pane by ephemeral `session_id`, then navigate through the owning host, Center Space, Terminal tab, and stable tmux deep link. Never guess when the live pane cannot be resolved.                                                                                                                      |
+| Locate feedback       | Use a short-lived blue terminal locate signal. Do not reuse agent-attention state, colors, persistence, filters, or API events.                                                                                                                                                                                        |
+| Process detail        | Emit only Atmos-attributed process-name groups. Never emit PID, start time, command line, executable path, username, environment, or absolute cwd.                                                                                                                                                                     |
+| Port detail           | Join ports from the latest cached all-projects Local Services snapshot by PID + process-name check. Resource sampling never starts `lsof`, `/proc` listener scans, or HTTP probes.                                                                                                                                     |
+| Host detail           | Keep headline Host fields and add per-logical-core CPU plus a nested memory breakdown with an explicit accounting enum. Do not expose CPU brand/frequency or host identity.                                                                                                                                            |
+| Metric motion         | Animate usage-bar transform and chart updates for less than one 2.5-second sample interval. Disable metric animation under reduced motion; hover fills remain instant.                                                                                                                                                 |
+| Dither visualization  | Resource pressure charts/meters reuse the Token Usage Dither canvas engine. Host pressure uses the 0–100 host average: low `<60` success, medium `60–79` warning, high `≥80` destructive.                                                                                                                              |
+| Disk capacity         | Sample storage-only mounts through `sysinfo::Disks`, then select one primary system disk (`/` on Unix, system drive on Windows) with a 2.5-second engine cache. Do not expose disk images, secondary APFS views, removable/network/tmpfs mounts, Disk Analyzer, or disk I/O.                                           |
 
 ## Architecture overview
 
@@ -240,13 +240,13 @@ apps/desktop-electron/src/metrics/desktop-shell-metrics.test.ts
 
 The collector accepts an injectable `app.getAppMetrics` reader and logical CPU count. It groups Electron process types:
 
-| Electron type | Atmos group |
-|---------------|-------------|
-| `Browser` | `main` |
-| `Tab` | `renderer` |
-| `GPU` | `gpu` |
-| `Utility` | `utility` |
-| all other values | `other` |
+| Electron type    | Atmos group |
+| ---------------- | ----------- |
+| `Browser`        | `main`      |
+| `Tab`            | `renderer`  |
+| `GPU`            | `gpu`       |
+| `Utility`        | `utility`   |
+| all other values | `other`     |
 
 Rules:
 

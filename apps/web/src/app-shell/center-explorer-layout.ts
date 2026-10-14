@@ -132,10 +132,7 @@ export function regularEditorFilePaths(
 ): string[] {
   if (!openFiles) return [];
   return openFiles
-    .filter(
-      (file) =>
-        !isDiffEditorPath(file.path) && !isConflictResolveEditorPath(file.path),
-    )
+    .filter((file) => !isDiffEditorPath(file.path) && !isConflictResolveEditorPath(file.path))
     .map((file) => file.path);
 }
 
@@ -148,10 +145,7 @@ function isNonFileExplorerCenterTab(tabId: string): boolean {
   if (isChangesExplorerSurfaceTab(tabId)) return true;
   if (tabId === FILES_TAB_VALUE) return false;
   if (FIXED_TABS.has(tabId)) return true;
-  if (
-    tabId === FIXED_TERMINAL_TAB_VALUE ||
-    tabId.startsWith(TERMINAL_TAB_VALUE_PREFIX)
-  ) {
+  if (tabId === FIXED_TERMINAL_TAB_VALUE || tabId.startsWith(TERMINAL_TAB_VALUE_PREFIX)) {
     return true;
   }
   if (isDiffEditorPath(tabId) || isConflictResolveEditorPath(tabId)) return true;
@@ -188,9 +182,7 @@ export function isFileExplorerSurfaceTab(
   return isPendingFileExplorerEditorTab(tabId);
 }
 
-export function isChangesExplorerSurfaceTab(
-  tabId: string | null | undefined,
-): boolean {
+export function isChangesExplorerSurfaceTab(tabId: string | null | undefined): boolean {
   if (!tabId) return false;
   return tabId === CHANGES_TAB_VALUE || isDiffGroupEditorPath(tabId);
 }
@@ -200,9 +192,7 @@ export function isChangesExplorerSurfaceTab(
  * do not share one fold bar across `diff-group://unstaged` vs staged/branch/…
  * Landing `changes` is a separate scope from every DiffGroup tab.
  */
-export function changesExplorerFoldScopeId(
-  tabId: string | null | undefined,
-): string | null {
+export function changesExplorerFoldScopeId(tabId: string | null | undefined): string | null {
   if (!tabId) return null;
   if (tabId === CHANGES_TAB_VALUE) return CHANGES_TAB_VALUE;
   if (isDiffGroupEditorPath(tabId)) return tabId;
@@ -340,10 +330,7 @@ export function explorerSidecarStyle(input: {
   chromeOffset?: number;
 }): CSSProperties {
   const displayWidth = input.takingSpace ? input.width : 0;
-  const chromeOffset = Math.max(
-    0,
-    input.chromeOffset ?? CENTER_EXPLORER_CHROME_OFFSET_PX,
-  );
+  const chromeOffset = Math.max(0, input.chromeOffset ?? CENTER_EXPLORER_CHROME_OFFSET_PX);
   const leftRadius = input.takingSpace ? input.radius : undefined;
   const slot = isUsableExplorerSlotBox(input.box) ? input.box : null;
   // Overlay panels sit in `[data-center-pane-content-slot]` (below the pane tab
@@ -353,8 +340,7 @@ export function explorerSidecarStyle(input: {
   const height = slot ? Math.max(0, slot.height - chromeOffset) : undefined;
   // Prefer right-anchor unless we have a true mosaic slot large enough to dock.
   // Zero/stale boxes previously produced left < 0 or height 0 → "invisible" sidecar.
-  const useMosaic =
-    !input.singlePane && slot != null && (height ?? 0) > 0;
+  const useMosaic = !input.singlePane && slot != null && (height ?? 0) > 0;
   if (!useMosaic) {
     return {
       top,

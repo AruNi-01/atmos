@@ -4,10 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 describe("Token Usage cookie consent prompt", () => {
-  const pageSource = readFileSync(
-    join(import.meta.dirname, "../TokenUsagePage.tsx"),
-    "utf8",
-  );
+  const pageSource = readFileSync(join(import.meta.dirname, "../TokenUsagePage.tsx"), "utf8");
   const bannerSource = readFileSync(
     join(import.meta.dirname, "../TokenUsageCookieConsentBanner.tsx"),
     "utf8",

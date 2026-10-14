@@ -152,7 +152,10 @@ export function selectionPropGroups(node: PtNode): SelectionPropGroup[] {
   return groups;
 }
 
-export function selectionPropPatch(group: SelectionPropGroup, optionId: string): SelectionPropPatch | null {
+export function selectionPropPatch(
+  group: SelectionPropGroup,
+  optionId: string,
+): SelectionPropPatch | null {
   if (group.kind === "variant") return { type: "variant", variant: optionId };
   if (group.kind === "size") return { type: "size", size: optionId };
   if (group.kind === "radius") return { type: "radius", radius: radiusChoiceOf(optionId) };
@@ -185,8 +188,8 @@ export function selectedNodeIdFromBoardSelection(input: {
 }): string | null {
   const live = new Set(input.elements.filter((el) => !el.isDeleted).map((el) => el.id));
   const fromSelection =
-    input.elements.find((el) => input.selectedIds.includes(el.id) && el.customData?.pt?.id)?.customData?.pt
-      ?.id ?? null;
+    input.elements.find((el) => input.selectedIds.includes(el.id) && el.customData?.pt?.id)
+      ?.customData?.pt?.id ?? null;
   if (fromSelection) return fromSelection;
   if (input.selectedIds.some((id) => live.has(id))) return null;
   if (input.selectedIds.length === 0) return null;

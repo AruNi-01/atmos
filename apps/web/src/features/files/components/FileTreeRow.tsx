@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
 /* eslint-disable react-hooks/refs -- Headless Tree exposes registerElement/getProps as render-time row bindings. */
 
-import React from 'react';
-import type { ItemInstance } from '@headless-tree/core';
+import React from "react";
+import type { ItemInstance } from "@headless-tree/core";
 import {
   cn,
   getFileIconProps,
@@ -12,12 +12,12 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@workspace/ui';
-import type { FileTreeItem } from '../lib/file-tree-utils';
+} from "@workspace/ui";
+import type { FileTreeItem } from "../lib/file-tree-utils";
 import {
   getAgentContextMentionPath,
   setAgentContextDragData,
-} from '@/shared/lib/agent-context-drag';
+} from "@/shared/lib/agent-context-drag";
 
 function FileIcon({
   name,
@@ -41,11 +41,7 @@ interface FileTreeRowProps {
   isActive: boolean;
   isContextTarget: boolean;
   isHighlighted: boolean;
-  onClick: (
-    item: FileTreeItem,
-    isFolder: boolean,
-    toggle: () => void | Promise<void>,
-  ) => void;
+  onClick: (item: FileTreeItem, isFolder: boolean, toggle: () => void | Promise<void>) => void;
   onDoubleClick: (item: FileTreeItem, isFolder: boolean) => void;
   onContextMenu: (event: React.MouseEvent<HTMLDivElement>, itemPath: string) => void;
   rootPath?: string | null;
@@ -82,7 +78,7 @@ export function FileTreeRow({
       draggable
       onDragStart={(event) => {
         setAgentContextDragData(event.dataTransfer, {
-          kind: isFolder ? 'directory' : 'file',
+          kind: isFolder ? "directory" : "file",
           path: getAgentContextMentionPath(itemData.path, rootPath),
         });
       }}
@@ -91,36 +87,31 @@ export function FileTreeRow({
       onContextMenu={(event) => onContextMenu(event, itemData.path)}
       data-file-tree-row={itemData.path}
       className={cn(
-        'flex items-center py-1 px-2 cursor-pointer select-none rounded-sm outline-none',
-        'hover:bg-sidebar-accent/50',
-        (isActive || isContextTarget) && 'bg-sidebar-accent text-sidebar-foreground',
+        "flex cursor-pointer items-center rounded-sm px-2 py-1 outline-none select-none",
+        "hover:bg-sidebar-accent/50",
+        (isActive || isContextTarget) && "bg-sidebar-accent text-sidebar-foreground",
         // Flash even when the row is already active (locate current file).
         isHighlighted &&
-          'animate-pulse bg-primary/25 text-sidebar-foreground transition-colors duration-300',
-        itemData.isIgnored && !isActive && 'opacity-40 grayscale-[0.5]',
-        'focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1',
+          "animate-pulse bg-primary/25 text-sidebar-foreground transition-colors duration-300",
+        itemData.isIgnored && !isActive && "opacity-40 grayscale-[0.5]",
+        "focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1",
       )}
       style={{ paddingLeft: `${depth * 12 + 8}px` }}
     >
       {isFolder ? (
         <ChevronRight
           className={cn(
-            'size-3.5 mr-1 text-muted-foreground transition-transform duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
-            isExpanded && 'rotate-90',
+            "mr-1 size-3.5 text-muted-foreground transition-transform duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            isExpanded && "rotate-90",
           )}
         />
       ) : (
         <span className="w-[18px]" />
       )}
       <span className="mr-2 shrink-0">
-        <FileIcon
-          name={itemData.name}
-          isDir={isFolder}
-          isOpen={isExpanded}
-          className="size-4"
-        />
+        <FileIcon name={itemData.name} isDir={isFolder} isOpen={isExpanded} className="size-4" />
       </span>
-      <span className="text-[13px] truncate flex-1">{itemData.name}</span>
+      <span className="flex-1 truncate text-[13px]">{itemData.name}</span>
       {itemData.isSymlink && (
         <span className="ml-1 shrink-0" onClick={(event) => event.stopPropagation()}>
           <Tooltip delayDuration={0}>
@@ -130,7 +121,7 @@ export function FileTreeRow({
             <TooltipContent side="right" className="max-w-[300px] break-all">
               <p className="text-[11px] leading-tight">
                 <span className="mr-1">Points to:</span>
-                {itemData.symlinkTarget || 'Unknown'}
+                {itemData.symlinkTarget || "Unknown"}
               </p>
             </TooltipContent>
           </Tooltip>

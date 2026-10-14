@@ -56,6 +56,7 @@ No external dependencies change. No new background jobs, no Redis surface.
 ### crates/core-engine
 
 No new capability. Reuse:
+
 - `GitEngine::get_default_branch(repo_path)` — for the `target_branch` legacy fallback (PRD M2).
 - `GitEngine::get_changed_files(repo_path, base_branch, false)` — same call shape as the workspace flow today; `repo_path` is just `project.main_file_path` for project scope.
 
@@ -373,12 +374,12 @@ pub struct CreateReviewSessionInput {
 ```ts
 // apps/web/src/api/ws-api.ts
 export type ReviewTarget =
-  | { kind: 'workspace'; workspaceId: string }
-  | { kind: 'project';   projectId: string };
+  | { kind: "workspace"; workspaceId: string }
+  | { kind: "project"; projectId: string };
 
 export interface ReviewSessionDto {
   // existing fields unchanged
-  workspace_guid: string | null;   // CHANGED: was string
+  workspace_guid: string | null; // CHANGED: was string
   project_guid: string;
   repo_path: string;
   // ...

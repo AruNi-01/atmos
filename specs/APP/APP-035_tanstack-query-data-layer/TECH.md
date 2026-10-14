@@ -10,34 +10,34 @@ This design changes no Rust crate, database schema, API route, or WebSocket acti
 
 ## Decisions
 
-| Fork | Decision | Rationale |
-|------|----------|-----------|
-| Coverage | Migrate cacheable server state, not every API function | Query models snapshots and mutations; streams and client state need different ownership |
-| Transport | Support REST and WebSocket request/response query functions | Cache semantics do not depend on HTTP |
-| Rollout | Foundation → pilot → domain migrations → cleanup | Prevents a long-lived big-bang branch and isolates regressions |
+| Fork           | Decision                                                                                                                                             | Rationale                                                                                        |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Coverage       | Migrate cacheable server state, not every API function                                                                                               | Query models snapshots and mutations; streams and client state need different ownership          |
+| Transport      | Support REST and WebSocket request/response query functions                                                                                          | Cache semantics do not depend on HTTP                                                            |
+| Rollout        | Foundation → pilot → domain migrations → cleanup                                                                                                     | Prevents a long-lived big-bang branch and isolates regressions                                   |
 | Cache identity | Computer root uses active instance id, connection epoch, and Relay session revision; Relay control-plane root uses normalized URL plus auth revision | Prevents cross-target, cross-session, and cross-credential reuse without putting secrets in keys |
-| Target switch | Cancel and remove all Computer-scoped queries before loading the new target | Correctness and privacy take priority over instant return to an old target |
-| Reconnect | Keep same-target cache, then selectively invalidate stale domains after reconnect | Avoids empty flashes and blanket refetch storms |
-| Push events | Patch cache only when an event carries a complete authoritative value; otherwise invalidate | Prevents partial payloads from becoming false snapshots |
-| Zustand | Keep client state and orchestration; do not mirror Query snapshots into Zustand | One server-state owner per domain |
-| Mutations | Optimistic only when rollback is deterministic; otherwise invalidate after success | Avoids speculative state for destructive or multi-step workflows |
-| Persistence | Memory-only Query cache | Avoids stale or sensitive snapshots in browser storage |
+| Target switch  | Cancel and remove all Computer-scoped queries before loading the new target                                                                          | Correctness and privacy take priority over instant return to an old target                       |
+| Reconnect      | Keep same-target cache, then selectively invalidate stale domains after reconnect                                                                    | Avoids empty flashes and blanket refetch storms                                                  |
+| Push events    | Patch cache only when an event carries a complete authoritative value; otherwise invalidate                                                          | Prevents partial payloads from becoming false snapshots                                          |
+| Zustand        | Keep client state and orchestration; do not mirror Query snapshots into Zustand                                                                      | One server-state owner per domain                                                                |
+| Mutations      | Optimistic only when rollback is deterministic; otherwise invalidate after success                                                                   | Avoids speculative state for destructive or multi-step workflows                                 |
+| Persistence    | Memory-only Query cache                                                                                                                              | Avoids stale or sensitive snapshots in browser storage                                           |
 
 ## PRD traceability
 
-| Requirement | Technical coverage |
-|-------------|--------------------|
-| M1 | Server-state ownership contract, typed operation inventory, migration matrix |
-| M2 | QueryClient defaults, resource keys, QueryObserver-compatible options, retained-data behavior |
-| M3 | Mutation lifecycle and per-domain invalidation |
-| M4 | `ServerStateEventBridge` and event policy table |
-| M5 | Computer/Relay/session scopes, identity lifecycle, target cleanup, legacy reset registry |
-| M6 | Transport-specific enablement, reconnect invalidation registry, single reconnect owner |
-| M7 | Error/loading/refresh behavior contract |
-| M8 | Compatibility/cutover states, legacy reset safety, rollout plan |
-| M9 | Existing transport adapters and no protocol changes |
-| M10 | Typed operation inventory and migration status matrix |
-| M11 | Per-domain before/after evidence recorded during rollout |
+| Requirement | Technical coverage                                                                            |
+| ----------- | --------------------------------------------------------------------------------------------- |
+| M1          | Server-state ownership contract, typed operation inventory, migration matrix                  |
+| M2          | QueryClient defaults, resource keys, QueryObserver-compatible options, retained-data behavior |
+| M3          | Mutation lifecycle and per-domain invalidation                                                |
+| M4          | `ServerStateEventBridge` and event policy table                                               |
+| M5          | Computer/Relay/session scopes, identity lifecycle, target cleanup, legacy reset registry      |
+| M6          | Transport-specific enablement, reconnect invalidation registry, single reconnect owner        |
+| M7          | Error/loading/refresh behavior contract                                                       |
+| M8          | Compatibility/cutover states, legacy reset safety, rollout plan                               |
+| M9          | Existing transport adapters and no protocol changes                                           |
+| M10         | Typed operation inventory and migration status matrix                                         |
+| M11         | Per-domain before/after evidence recorded during rollout                                      |
 
 ## Architecture overview
 
@@ -168,8 +168,7 @@ const queryKeys = {
         scope.connectionEpoch,
         scope.relaySessionRevision,
       ] as const,
-    system: (scope: ComputerQueryScope) =>
-      [...queryKeys.computer.root(scope), "system"] as const,
+    system: (scope: ComputerQueryScope) => [...queryKeys.computer.root(scope), "system"] as const,
     settingsBootstrap: (scope: ComputerQueryScope) =>
       [...queryKeys.computer.root(scope), "settings", "bootstrap"] as const,
     projectBootstrap: (scope: ComputerQueryScope) =>
@@ -241,13 +240,11 @@ export async function applyIdentityBearingComputerSettings(
   patch: Pick<AtmosComputerData, "relayUrl" | "relaySecretKey" | "accessToken">,
 ): Promise<void>;
 
-export async function applyRelaySessionTransport(
-  session: {
-    relayWebSocketUrl: string | null;
-    relayGatewayHttpBase: string | null;
-    relayClientToken: string | null;
-  },
-): Promise<void>;
+export async function applyRelaySessionTransport(session: {
+  relayWebSocketUrl: string | null;
+  relayGatewayHttpBase: string | null;
+  relayClientToken: string | null;
+}): Promise<void>;
 
 export async function clearQueryStateForLogout(): Promise<void>;
 ```
@@ -376,20 +373,20 @@ Each migrated domain exports one idempotent subscription function. The function 
 
 Initial event map:
 
-| Event | Query action | Non-query state |
-|-------|--------------|-----------------|
-| `workspace_setup_progress` | Invalidate affected workspace/project snapshot at completion or identity change | Keep incremental setup progress in orchestration state |
-| `workspace_delete_progress` | Invalidate Project bootstrap when deletion completes | Keep toast/progress lifecycle |
-| `workspace_gitignore_sync_failed` | Invalidate gitignore settings if needed | Keep error feedback |
-| `usage_overview_updated` | `setQueryData` when payload is complete | None |
-| `token_usage_updated` | Invalidate token usage overview | None |
-| `local_model_state_changed` | Invalidate model list/status | Keep download progress event handling if incremental |
-| `automation_definition_updated` | Patch or invalidate automation definition/list | None |
-| `automation_run_updated` | Patch run detail and invalidate run list | None |
-| `automation_run_output` | No Query append | Keep stream buffer |
-| `llm_provider_test_chunk` | No Query action | Keep mutation-local stream buffer |
-| `git_commit_message_chunk` | No Query action | Keep generation stream buffer |
-| `canvas_agent_dispatch` | No Query action | Keep bridge lifecycle |
+| Event                             | Query action                                                                    | Non-query state                                        |
+| --------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `workspace_setup_progress`        | Invalidate affected workspace/project snapshot at completion or identity change | Keep incremental setup progress in orchestration state |
+| `workspace_delete_progress`       | Invalidate Project bootstrap when deletion completes                            | Keep toast/progress lifecycle                          |
+| `workspace_gitignore_sync_failed` | Invalidate gitignore settings if needed                                         | Keep error feedback                                    |
+| `usage_overview_updated`          | `setQueryData` when payload is complete                                         | None                                                   |
+| `token_usage_updated`             | Invalidate token usage overview                                                 | None                                                   |
+| `local_model_state_changed`       | Invalidate model list/status                                                    | Keep download progress event handling if incremental   |
+| `automation_definition_updated`   | Patch or invalidate automation definition/list                                  | None                                                   |
+| `automation_run_updated`          | Patch run detail and invalidate run list                                        | None                                                   |
+| `automation_run_output`           | No Query append                                                                 | Keep stream buffer                                     |
+| `llm_provider_test_chunk`         | No Query action                                                                 | Keep mutation-local stream buffer                      |
+| `git_commit_message_chunk`        | No Query action                                                                 | Keep generation stream buffer                          |
+| `canvas_agent_dispatch`           | No Query action                                                                 | Keep bridge lifecycle                                  |
 
 ## Data model and transport
 
@@ -398,13 +395,7 @@ No server-side data model or protocol changes.
 Frontend-only concepts:
 
 ```ts
-type ApiOperationClass =
-  | "query"
-  | "mutation"
-  | "event"
-  | "stream"
-  | "client-state"
-  | "deferred";
+type ApiOperationClass = "query" | "mutation" | "event" | "stream" | "client-state" | "deferred";
 
 interface ApiMigrationEntry {
   domain: string;
@@ -450,29 +441,29 @@ export const apiOperationInventory = [
 
 The typed inventory expands each grouped row to individual exported operations before cutover.
 
-| Domain / operation group | Class | Legacy owner | Target owner | Invalidated by / freshness source | Phase | Status |
-|--------------------------|-------|--------------|--------------|-----------------------------------|-------|--------|
-| Tmux, runtime, GH CLI status, terminal overview, WS connections | Query | Hook/component local state | System query hooks | reconnect; explicit user refresh | Pilot | complete |
-| Canvas default board load/save | Query + mutation | `use-canvas-board` and mixed REST/WS callers | Canvas query hooks after one transport is chosen | successful save | Deferred decision | deferred |
-| Settings bootstrap and function settings | Query + mutation | `settingsBootstrapCache` + Zustand | Settings bootstrap query + selectors/mutations | mutation success; reconnect | Pilot | complete |
-| Usage overview | Query + mutation + event | `Footer`, `UsagePopover`, synthetic event | Usage query hooks + single event bridge | `usage_overview_updated`; mutation success; reconnect | Pilot | complete |
-| Token usage | Query + event | `TokenUsageDialog` local state | Token usage query hook | `token_usage_updated` | Extended | complete |
-| ACP session list | Infinite query | `use-acp-session-list` refs/state | Agent session infinite query | session create/logout; explicit refresh | Extended | deferred |
-| Project/Workspace bootstrap and CRUD | Query + mutations + events | `useProjectStore` | Project/Workspace queries; thin UI selection store | workspace progress completion; CRUD | Core | complete — bootstrap Query-owned; CRUD patches Query cache |
-| Git status, changed files, diffs, branches | Queries + mutations | `useGitStore`, `useGitInfoStore` | Git query hooks; orchestration-only store | Git mutations; reconnect; workspace changes | Core | complete — status/changedFiles/branches/fileDiff(on-demand) Query-owned; ChangesCodeView batch path still imperative |
-| Files, tree, search | Queries + mutations | `useFileTreeStore`, editor callers | Filesystem queries; editor buffer remains Zustand | filesystem mutations; workspace changes | Core | complete — tree Query-owned; editor buffers excluded; volatile search deferred |
-| GitHub PR/CI/actions | Queries + mutations + polling | Hook-local state + `github-pr-cache` | GitHub query hooks + consolidated WS API | GitHub mutations; terminal CI polling rule | Extended | complete — PR list queries own all consumers; `github-pr-cache` Maps removed; `welcome-page-helpers.prListCache` removed; CI/actions polling deferred (no server push event; out of scope for this branch) |
-| Review sessions/files/comments | Queries + mutations | `use-review-context` | Review queries + thin workflow orchestration | review mutations | Extended | partial — **sessions list Query-owned** by primary consumer `use-review-context` via `useReviewSessionsQuery` (mutations invalidate / create patches cache); nested revision file snapshots travel with the session DTO; **comments remain local `useState`** (optimistic create/reply merge); **`sessionDisplay` stays in `useReviewSnapshotStore`** (UI chrome only). Full comments Query cutover deferred — optimistic UX + ~15 mutation callbacks still orchestrate via `loadComments()` |
-| Skills | Queries + mutations | Component local state | Skills query hooks | install/enable/delete/sync | Extended | complete |
-| Automations definitions/runs | Queries + mutations + events/stream | Hook-local state + WS sync | Automation queries/event bridge; output stream local | `automation_definition_updated`; `automation_run_updated` | Extended | complete |
-| Local models/services | Queries + mutations + events | Zustand stores | Query hooks; progress events local | `local_model_state_changed`; scan/stop | Extended | complete — `LocalServicesPreviewPanel` and `LocalServicesFooterItem` cut over to `useLocalServicesScanQuery`; Zustand store snapshot state removed; `legacy-server-state-reset` entry removed |
-| Agent registry/custom agents | Queries + mutations | Agent manager hook state | Agent registry query hooks | install/remove/config mutations | Extended | complete — `use-agent-manager` local `registryAgents`/`customAgents`/`loading`/`refreshing` state replaced with `useAgentRegistryListQuery` + `useCustomAgentListQuery`; mutations invalidate via `useInvalidateAgentRegistry` |
-| Terminal layout persistence | Mixed query/mutation + client runtime | `useTerminalStore` | Requires separate layout/runtime design | Existing save/load lifecycle | Deferred | deferred |
-| Agent Hooks sessions/status | Query + mutations + events | `useAgentHooksStore` | Requires separate live-lifecycle design | `agent_hook_state_changed`; sessions cleared | Deferred | deferred |
-| Connection/client-session/token hydration | Orchestration | Connection stores/libs | Existing imperative lifecycle | identity/session transition actions | Excluded | excluded |
-| Terminal PTY, Agent Chat, output chunks | Streams | Dedicated sockets/event buffers | Existing owners | Dedicated transport events | Excluded | excluded |
-| Editor buffers, layout, navigation, terminal DOM cache | Client state | Zustand/React/DOM | Existing owners | Client actions | Excluded | excluded |
-| OS open commands and Preview Next routes | Command/local HTTP | API helpers | Existing owners unless separately justified | Explicit command | Excluded | excluded |
+| Domain / operation group                                        | Class                                 | Legacy owner                                 | Target owner                                         | Invalidated by / freshness source                         | Phase             | Status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --------------------------------------------------------------- | ------------------------------------- | -------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tmux, runtime, GH CLI status, terminal overview, WS connections | Query                                 | Hook/component local state                   | System query hooks                                   | reconnect; explicit user refresh                          | Pilot             | complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Canvas default board load/save                                  | Query + mutation                      | `use-canvas-board` and mixed REST/WS callers | Canvas query hooks after one transport is chosen     | successful save                                           | Deferred decision | deferred                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Settings bootstrap and function settings                        | Query + mutation                      | `settingsBootstrapCache` + Zustand           | Settings bootstrap query + selectors/mutations       | mutation success; reconnect                               | Pilot             | complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Usage overview                                                  | Query + mutation + event              | `Footer`, `UsagePopover`, synthetic event    | Usage query hooks + single event bridge              | `usage_overview_updated`; mutation success; reconnect     | Pilot             | complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Token usage                                                     | Query + event                         | `TokenUsageDialog` local state               | Token usage query hook                               | `token_usage_updated`                                     | Extended          | complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ACP session list                                                | Infinite query                        | `use-acp-session-list` refs/state            | Agent session infinite query                         | session create/logout; explicit refresh                   | Extended          | deferred                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Project/Workspace bootstrap and CRUD                            | Query + mutations + events            | `useProjectStore`                            | Project/Workspace queries; thin UI selection store   | workspace progress completion; CRUD                       | Core              | complete — bootstrap Query-owned; CRUD patches Query cache                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Git status, changed files, diffs, branches                      | Queries + mutations                   | `useGitStore`, `useGitInfoStore`             | Git query hooks; orchestration-only store            | Git mutations; reconnect; workspace changes               | Core              | complete — status/changedFiles/branches/fileDiff(on-demand) Query-owned; ChangesCodeView batch path still imperative                                                                                                                                                                                                                                                                                                                                                                         |
+| Files, tree, search                                             | Queries + mutations                   | `useFileTreeStore`, editor callers           | Filesystem queries; editor buffer remains Zustand    | filesystem mutations; workspace changes                   | Core              | complete — tree Query-owned; editor buffers excluded; volatile search deferred                                                                                                                                                                                                                                                                                                                                                                                                               |
+| GitHub PR/CI/actions                                            | Queries + mutations + polling         | Hook-local state + `github-pr-cache`         | GitHub query hooks + consolidated WS API             | GitHub mutations; terminal CI polling rule                | Extended          | complete — PR list queries own all consumers; `github-pr-cache` Maps removed; `welcome-page-helpers.prListCache` removed; CI/actions polling deferred (no server push event; out of scope for this branch)                                                                                                                                                                                                                                                                                   |
+| Review sessions/files/comments                                  | Queries + mutations                   | `use-review-context`                         | Review queries + thin workflow orchestration         | review mutations                                          | Extended          | partial — **sessions list Query-owned** by primary consumer `use-review-context` via `useReviewSessionsQuery` (mutations invalidate / create patches cache); nested revision file snapshots travel with the session DTO; **comments remain local `useState`** (optimistic create/reply merge); **`sessionDisplay` stays in `useReviewSnapshotStore`** (UI chrome only). Full comments Query cutover deferred — optimistic UX + ~15 mutation callbacks still orchestrate via `loadComments()` |
+| Skills                                                          | Queries + mutations                   | Component local state                        | Skills query hooks                                   | install/enable/delete/sync                                | Extended          | complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Automations definitions/runs                                    | Queries + mutations + events/stream   | Hook-local state + WS sync                   | Automation queries/event bridge; output stream local | `automation_definition_updated`; `automation_run_updated` | Extended          | complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Local models/services                                           | Queries + mutations + events          | Zustand stores                               | Query hooks; progress events local                   | `local_model_state_changed`; scan/stop                    | Extended          | complete — `LocalServicesPreviewPanel` and `LocalServicesFooterItem` cut over to `useLocalServicesScanQuery`; Zustand store snapshot state removed; `legacy-server-state-reset` entry removed                                                                                                                                                                                                                                                                                                |
+| Agent registry/custom agents                                    | Queries + mutations                   | Agent manager hook state                     | Agent registry query hooks                           | install/remove/config mutations                           | Extended          | complete — `use-agent-manager` local `registryAgents`/`customAgents`/`loading`/`refreshing` state replaced with `useAgentRegistryListQuery` + `useCustomAgentListQuery`; mutations invalidate via `useInvalidateAgentRegistry`                                                                                                                                                                                                                                                               |
+| Terminal layout persistence                                     | Mixed query/mutation + client runtime | `useTerminalStore`                           | Requires separate layout/runtime design              | Existing save/load lifecycle                              | Deferred          | deferred                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Agent Hooks sessions/status                                     | Query + mutations + events            | `useAgentHooksStore`                         | Requires separate live-lifecycle design              | `agent_hook_state_changed`; sessions cleared              | Deferred          | deferred                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Connection/client-session/token hydration                       | Orchestration                         | Connection stores/libs                       | Existing imperative lifecycle                        | identity/session transition actions                       | Excluded          | excluded                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Terminal PTY, Agent Chat, output chunks                         | Streams                               | Dedicated sockets/event buffers              | Existing owners                                      | Dedicated transport events                                | Excluded          | excluded                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Editor buffers, layout, navigation, terminal DOM cache          | Client state                          | Zustand/React/DOM                            | Existing owners                                      | Client actions                                            | Excluded          | excluded                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| OS open commands and Preview Next routes                        | Command/local HTTP                    | API helpers                                  | Existing owners unless separately justified          | Explicit command                                          | Excluded          | excluded                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 Before a domain moves from `planned` to `complete`, its implementation review must enumerate every exported operation in that domain and assign one row/classification. Unused operations may remain deferred; they must not receive empty Query wrappers for coverage statistics.
 

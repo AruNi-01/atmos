@@ -127,8 +127,7 @@ export async function desktopUseCaptureInProcess(
 ): Promise<DesktopUseCaptureResult> {
   const warnings: string[] = [];
   const selfNames =
-    options.selfAppNames ??
-    new Set(["Atmos", "Atmos Electron", "Atmos Desktop", "Electron"]);
+    options.selfAppNames ?? new Set(["Atmos", "Atmos Electron", "Atmos Desktop", "Electron"]);
 
   let frontmost: DesktopUseFrontmost;
   try {
@@ -145,9 +144,7 @@ export async function desktopUseCaptureInProcess(
       width: null,
       height: null,
     };
-    warnings.push(
-      `frontmost_identity_failed: ${e instanceof Error ? e.message : String(e)}`,
-    );
+    warnings.push(`frontmost_identity_failed: ${e instanceof Error ? e.message : String(e)}`);
   }
 
   // Capturing Atmos itself is a valid AppShot target — no self-frontmost warning.
@@ -217,9 +214,7 @@ async function captureScreenshotPng(
         warnings.push("fell_back_to_full_display_capture");
       }
     } else {
-      warnings.push(
-        "Unable to determine the focused window bounds; capturing full display.",
-      );
+      warnings.push("Unable to determine the focused window bounds; capturing full display.");
       await execFileAsync("screencapture", ["-x", out], { timeout: 8_000 });
     }
 
@@ -230,9 +225,7 @@ async function captureScreenshotPng(
     const buf = readFileSync(out);
     return buf.length > 0 ? buf : null;
   } catch (e) {
-    warnings.push(
-      `screencapture failed: ${e instanceof Error ? e.message : String(e)}`,
-    );
+    warnings.push(`screencapture failed: ${e instanceof Error ? e.message : String(e)}`);
     return null;
   } finally {
     try {
@@ -257,9 +250,7 @@ export function buildAppshotContextMarkdown(
     frontmost.width != null &&
     frontmost.height != null
   ) {
-    lines.push(
-      `- Bounds: ${frontmost.x},${frontmost.y} ${frontmost.width}×${frontmost.height}`,
-    );
+    lines.push(`- Bounds: ${frontmost.x},${frontmost.y} ${frontmost.width}×${frontmost.height}`);
   }
   if (warnings.length) {
     lines.push("", "## Warnings");
@@ -278,10 +269,7 @@ export function parseFrontmostScriptOutput(stdout: string): DesktopUseFrontmost 
   const [x, y, width, height] = bounds;
   // Treat AppleScript sentinels (-1) and thin chrome strips as "no bounds".
   const validSize =
-    Number.isFinite(width) &&
-    Number.isFinite(height) &&
-    width >= 64 &&
-    height >= 64;
+    Number.isFinite(width) && Number.isFinite(height) && width >= 64 && height >= 64;
   return {
     appName,
     windowTitle,

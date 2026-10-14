@@ -4,15 +4,15 @@
 
 ## Scope
 
-| Area | Change |
-|------|--------|
-| Specs | APP-053 browser + webview + host selection |
-| **Browser Use (embedded)** | Host control plane + `atmos browser-use --backend embedded` (see APP-052 §5.2) — CDP/DOM via guest WebContents, **not** user-Chrome `browser_prepare` |
-| `apps/desktop-electron/src/browser` | webviewTag, attach policy, surface manager without in-panel WebContentsView, `browser_bridge_*` |
-| `apps/web/src/features/browser` | mount `<webview>` for transport `desktop`; host selection UI; delete APP-029; rename symbols |
-| `packages/shared/browser` | `browser-runtime.js`; protocol `atmos-browser:*`; host toolbar path (`showSelectionToolbar: false` product) |
-| `extension` | runtime rename + protocol rename (same-origin of protocol with desktop) |
-| i18n | feature keys under `browser.*` only |
+| Area                                | Change                                                                                                                                                |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Specs                               | APP-053 browser + webview + host selection                                                                                                            |
+| **Browser Use (embedded)**          | Host control plane + `atmos browser-use --backend embedded` (see APP-052 §5.2) — CDP/DOM via guest WebContents, **not** user-Chrome `browser_prepare` |
+| `apps/desktop-electron/src/browser` | webviewTag, attach policy, surface manager without in-panel WebContentsView, `browser_bridge_*`                                                       |
+| `apps/web/src/features/browser`     | mount `<webview>` for transport `desktop`; host selection UI; delete APP-029; rename symbols                                                          |
+| `packages/shared/browser`           | `browser-runtime.js`; protocol `atmos-browser:*`; host toolbar path (`showSelectionToolbar: false` product)                                           |
+| `extension`                         | runtime rename + protocol rename (same-origin of protocol with desktop)                                                                               |
+| i18n                                | feature keys under `browser.*` only                                                                                                                   |
 
 **No compat:** drop old product tokens (no dual stack / re-export shims):
 
@@ -30,21 +30,21 @@ Electron prefers WebContentsView over `<webview>`. Accepted: lose official prefe
 
 ## Naming map (shipped)
 
-| Old | New |
-|-----|-----|
-| `features/run-preview` | `features/browser` |
-| `desktop-electron/src/preview` | `desktop-electron/src/browser` |
-| `packages/shared/preview/preview-runtime.js` | `packages/shared/browser/browser-runtime.js` |
-| `preview_bridge_*` | `browser_bridge_*` |
-| `atmos-preview:*` | `atmos-browser:*` |
-| `desktop-preview:*` | `desktop-browser:*` |
-| `persist:atmos-preview` | `persist:atmos-browser` |
-| transport `desktop-native` | `desktop` |
-| `PreviewSurfaceManager` | `BrowserSurfaceManager` |
-| `__ATMOS_PREVIEW_*` | `__ATMOS_BROWSER_*` |
-| `open_preview_browser_window` / `preview/` route | `open_browser_window` / `browser/` route |
-| window label `preview-browser` | `browser` |
-| i18n `preview.toolbar` etc. | `browser.toolbar` etc. (flatten former `browser.preview.*`) |
+| Old                                              | New                                                         |
+| ------------------------------------------------ | ----------------------------------------------------------- |
+| `features/run-preview`                           | `features/browser`                                          |
+| `desktop-electron/src/preview`                   | `desktop-electron/src/browser`                              |
+| `packages/shared/preview/preview-runtime.js`     | `packages/shared/browser/browser-runtime.js`                |
+| `preview_bridge_*`                               | `browser_bridge_*`                                          |
+| `atmos-preview:*`                                | `atmos-browser:*`                                           |
+| `desktop-preview:*`                              | `desktop-browser:*`                                         |
+| `persist:atmos-preview`                          | `persist:atmos-browser`                                     |
+| transport `desktop-native`                       | `desktop`                                                   |
+| `PreviewSurfaceManager`                          | `BrowserSurfaceManager`                                     |
+| `__ATMOS_PREVIEW_*`                              | `__ATMOS_BROWSER_*`                                         |
+| `open_preview_browser_window` / `preview/` route | `open_browser_window` / `browser/` route                    |
+| window label `preview-browser`                   | `browser`                                                   |
+| i18n `preview.toolbar` etc.                      | `browser.toolbar` etc. (flatten former `browser.preview.*`) |
 
 ## Architecture
 
@@ -95,17 +95,17 @@ Hybrid: guest preload → `browser_bridge_event` → gate/remap → `desktop-bro
 
 ### HC5 Capability matrix
 
-| Capability | Mechanism | Verify |
-|------------|-----------|--------|
-| Partition | `persist:atmos-browser` | open returns partition; cookie import session |
-| Preload | absolute `file://` + will-attach force path | unit `toPreloadFileUrl` |
-| Runtime inject | executeJS browser-runtime on load | ready event path / inject helper |
-| Pick + annotate | enterPickMode + host SelectionPopover | unit + structural host UI |
-| DevTools | guest.openDevTools + policy | unit/policy |
-| Nav/title/favicon | main listeners → desktop-browser:* | event-remap tests |
-| Zoom | setZoomFactor on guest | unit when bound |
-| Detach | BrowserWindow + same partition | structural |
-| probe_url | IPC validate http(s) | unit/smoke |
+| Capability        | Mechanism                                   | Verify                                        |
+| ----------------- | ------------------------------------------- | --------------------------------------------- |
+| Partition         | `persist:atmos-browser`                     | open returns partition; cookie import session |
+| Preload           | absolute `file://` + will-attach force path | unit `toPreloadFileUrl`                       |
+| Runtime inject    | executeJS browser-runtime on load           | ready event path / inject helper              |
+| Pick + annotate   | enterPickMode + host SelectionPopover       | unit + structural host UI                     |
+| DevTools          | guest.openDevTools + policy                 | unit/policy                                   |
+| Nav/title/favicon | main listeners → desktop-browser:*          | event-remap tests                             |
+| Zoom              | setZoomFactor on guest                      | unit when bound                               |
+| Detach            | BrowserWindow + same partition              | structural                                    |
+| probe_url         | IPC validate http(s)                        | unit/smoke                                    |
 
 ## Surface manager rewrite
 
@@ -117,14 +117,14 @@ Hybrid: guest preload → `browser_bridge_event` → gate/remap → `desktop-bro
 
 ## Web feature
 
-| Piece | Change |
-|-------|--------|
-| `DesktopBrowserWebview` | Electron-only `<webview>`; layout-before-src; blur before hide |
-| desktop transport | `browser_bridge_open` without bounds geometry; no show/hide/updateViewport |
-| Preview* components | rename toward Browser* where product-facing; fix imports |
-| lifecycle effects | drop bounds ResizeObserver / double-rAF / 320ms show |
-| delete | `use-native-preview-occlusion` + tests |
-| types | transport mode `desktop` \| `same-origin` \| `extension` |
+| Piece                   | Change                                                                     |
+| ----------------------- | -------------------------------------------------------------------------- |
+| `DesktopBrowserWebview` | Electron-only `<webview>`; layout-before-src; blur before hide             |
+| desktop transport       | `browser_bridge_open` without bounds geometry; no show/hide/updateViewport |
+| Preview* components     | rename toward Browser* where product-facing; fix imports                   |
+| lifecycle effects       | drop bounds ResizeObserver / double-rAF / 320ms show                       |
+| delete                  | `use-native-preview-occlusion` + tests                                     |
+| types                   | transport mode `desktop` \| `same-origin` \| `extension`                   |
 
 ## i18n
 
@@ -140,9 +140,9 @@ Merge top-level `preview` keys into `browser`. Flatten former `browser.preview.*
 
 ## Risks
 
-| Risk | Mitigation |
-|------|------------|
-| Webview churn | upgrade checklist |
+| Risk             | Mitigation                                   |
+| ---------------- | -------------------------------------------- |
+| Webview churn    | upgrade checklist                            |
 | Packaged preload | file URL + exists check; CJS sandbox preload |
-| Rename miss | product-path grep gate |
-| Capability gap | stop and report |
+| Rename miss      | product-path grep gate                       |
+| Capability gap   | stop and report                              |

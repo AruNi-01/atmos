@@ -100,7 +100,11 @@ export function composerOptionsAreUsable(
   snapshot: AgentOptionsSnapshot | null | undefined,
 ): snapshot is AgentOptionsSnapshot {
   if (!snapshot?.agent_id.trim()) return false;
-  if (snapshot.status === "probing" && snapshot.models.length === 0 && snapshot.modes.length === 0) {
+  if (
+    snapshot.status === "probing" &&
+    snapshot.models.length === 0 &&
+    snapshot.modes.length === 0
+  ) {
     return false;
   }
   return snapshot.models.length > 0 || snapshot.modes.length > 0;
@@ -116,11 +120,11 @@ export function shouldRetainExistingOptions(
   if (incoming.status !== "ok") return true;
   if (!composerOptionsAreUsable(incoming)) return true;
   return (
-    (existing.models.length > 0 && incoming.models.length === 0)
-    || (existing.modes.length > 0 && incoming.modes.length === 0)
-    || ((existing.permission_modes?.length ?? 0) > 0
-      && (incoming.permission_modes?.length ?? 0) === 0)
-    || ((existing.commands?.length ?? 0) > 0 && (incoming.commands?.length ?? 0) === 0)
+    (existing.models.length > 0 && incoming.models.length === 0) ||
+    (existing.modes.length > 0 && incoming.modes.length === 0) ||
+    ((existing.permission_modes?.length ?? 0) > 0 &&
+      (incoming.permission_modes?.length ?? 0) === 0) ||
+    ((existing.commands?.length ?? 0) > 0 && (incoming.commands?.length ?? 0) === 0)
   );
 }
 
@@ -169,8 +173,7 @@ function parseChromeByInstance(value: unknown): Record<string, ComposerChromeDra
 function parseCache(value: unknown): ComposerLocalCache {
   if (!isRecord(value)) return { ...EMPTY_CACHE };
   return {
-    lastRegistryId:
-      typeof value.lastRegistryId === "string" ? value.lastRegistryId.trim() : "",
+    lastRegistryId: typeof value.lastRegistryId === "string" ? value.lastRegistryId.trim() : "",
     lastNewChatConfigs: parseConfigs(value.lastNewChatConfigs),
     optionsByAgent: parseOptionsByAgent(value.optionsByAgent),
     chromeByInstance: parseChromeByInstance(value.chromeByInstance),
@@ -220,9 +223,7 @@ export function rememberLastRegistryId(registryId: string | null | undefined) {
   mutateCache({ lastRegistryId: next });
 }
 
-export function rememberLastNewChatConfigs(
-  configs: Record<string, Record<string, string>>,
-) {
+export function rememberLastNewChatConfigs(configs: Record<string, Record<string, string>>) {
   mutateCache({ lastNewChatConfigs: parseConfigs(configs) });
 }
 
@@ -334,10 +335,7 @@ export function seedNewChatComposer(input: {
     filterLast: stored.filterLast,
     installedAgentIds: installedIds,
     defaultRegistryId:
-      cache.lastRegistryId ||
-      readDefaultAgentRegistryId() ||
-      installedAgents[0]?.id ||
-      "",
+      cache.lastRegistryId || readDefaultAgentRegistryId() || installedAgents[0]?.id || "",
   });
   const instanceDraft = input.instanceKey?.trim()
     ? cache.chromeByInstance[input.instanceKey.trim()]
@@ -353,8 +351,8 @@ export function seedNewChatComposer(input: {
     cache.lastRegistryId ||
     "";
   const storedPreferred = preferredConfigFromDefault(
-    lastNewChatConfigForAgent(cache.lastNewChatConfigs, providerId)
-      ?? installedAgents.find((agent) => agent.id === providerId)?.default_config,
+    lastNewChatConfigForAgent(cache.lastNewChatConfigs, providerId) ??
+      installedAgents.find((agent) => agent.id === providerId)?.default_config,
   );
   const preferred: PreferredNewChatConfig = instanceDraft
     ? {
@@ -366,9 +364,7 @@ export function seedNewChatComposer(input: {
         contextId: instanceDraft.context || storedPreferred.contextId,
       }
     : storedPreferred;
-  const catalog = providerId
-    ? cache.optionsByAgent[providerId] ?? null
-    : null;
+  const catalog = providerId ? (cache.optionsByAgent[providerId] ?? null) : null;
   return {
     providerId,
     preferred,

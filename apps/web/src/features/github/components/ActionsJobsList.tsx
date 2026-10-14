@@ -12,10 +12,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { AgentFixButton } from "@/features/agent-fix/components/AgentFixButton";
-import type {
-  AgentFixContextRef,
-  AgentFixPromptSource,
-} from "@/features/agent-fix/types";
+import type { AgentFixContextRef, AgentFixPromptSource } from "@/features/agent-fix/types";
 import {
   formatActionDuration,
   formatActionTimestamp,
@@ -61,17 +58,12 @@ export function ActionsJobsList({
   runId: number | null | undefined;
 }) {
   const t = useTranslations("github.actionsJobsList");
-  const [expandedJobIds, setExpandedJobIds] = React.useState<Set<string>>(
-    () => new Set(),
-  );
-  const [expandedStepKeys, setExpandedStepKeys] = React.useState<Set<string>>(
-    () => new Set(),
-  );
-  const [openAgentFixSettingsSourceId, setOpenAgentFixSettingsSourceId] =
-    React.useState<string | null>(null);
-  const [highlightedJobKey, setHighlightedJobKey] = React.useState<string | null>(
-    null,
-  );
+  const [expandedJobIds, setExpandedJobIds] = React.useState<Set<string>>(() => new Set());
+  const [expandedStepKeys, setExpandedStepKeys] = React.useState<Set<string>>(() => new Set());
+  const [openAgentFixSettingsSourceId, setOpenAgentFixSettingsSourceId] = React.useState<
+    string | null
+  >(null);
+  const [highlightedJobKey, setHighlightedJobKey] = React.useState<string | null>(null);
 
   const toggleJob = React.useCallback((jobKey: string) => {
     setExpandedJobIds((prev) => {
@@ -156,16 +148,12 @@ export function ActionsJobsList({
     setHighlightedJobKey(primaryKey);
 
     const scrollTimer = window.setTimeout(() => {
-      const el = document.querySelector(
-        `[data-actions-job-key="${CSS.escape(primaryKey)}"]`,
-      );
+      const el = document.querySelector(`[data-actions-job-key="${CSS.escape(primaryKey)}"]`);
       el?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 80);
 
     const clearHighlight = window.setTimeout(() => {
-      setHighlightedJobKey((current) =>
-        current === primaryKey ? null : current,
-      );
+      setHighlightedJobKey((current) => (current === primaryKey ? null : current));
     }, 1800);
 
     return () => {
@@ -182,9 +170,7 @@ export function ActionsJobsList({
         family: "ci_job" as const,
         context: agentFixContext,
         label: t("agentFix.label", { jobName }),
-        disabledReason: agentFixContext
-          ? null
-          : t("agentFix.disabledReason"),
+        disabledReason: agentFixContext ? null : t("agentFix.disabledReason"),
         getPrompt: () => ({
           prompt: buildGithubActionsJobFixPrompt({
             owner,
@@ -202,10 +188,10 @@ export function ActionsJobsList({
 
   return (
     <div className="flex flex-col gap-3">
-      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+      <h4 className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
         <Box className="size-3.5" /> {t("sectionTitle")}
       </h4>
-      <div className="border rounded-xl flex flex-col divide-y divide-border overflow-hidden bg-background">
+      <div className="flex flex-col divide-y divide-border overflow-hidden rounded-xl border bg-background">
         {detailLoading ? (
           <ActionsJobsSkeleton />
         ) : jobs.length > 0 ? (
@@ -213,12 +199,9 @@ export function ActionsJobsList({
             const jobKey = getActionJobKey(job, jobIndex);
             const steps = Array.isArray(job.steps) ? job.steps : [];
             const jobFailure = job.conclusion === "failure";
-            const agentFixSource = jobFailure
-              ? buildJobAgentFixSource(job)
-              : null;
+            const agentFixSource = jobFailure ? buildJobAgentFixSource(job) : null;
             const agentFixSettingsOpen =
-              !!agentFixSource &&
-              openAgentFixSettingsSourceId === agentFixSource.id;
+              !!agentFixSource && openAgentFixSettingsSourceId === agentFixSource.id;
 
             return (
               <ActionJobRow
@@ -244,8 +227,8 @@ export function ActionsJobsList({
             );
           })
         ) : (
-          <div className="py-8 text-center text-xs text-muted-foreground/60 flex flex-col items-center">
-            <Box className="size-8 opacity-20 mb-2" />
+          <div className="flex flex-col items-center py-8 text-center text-xs text-muted-foreground/60">
+            <Box className="mb-2 size-8 opacity-20" />
             {t("empty")}
           </div>
         )}
@@ -262,24 +245,21 @@ function ActionsJobsSkeleton() {
           key={`skel-job-${index}`}
           className="flex flex-col border-b border-border/50 last:border-0"
         >
-          <div className="px-4 py-3 flex items-center gap-3">
-            <div className="shrink-0 flex items-center justify-center">
+          <div className="flex items-center gap-3 px-4 py-3">
+            <div className="flex shrink-0 items-center justify-center">
               <Skeleton className="size-4 rounded-full bg-muted-foreground/20" />
             </div>
-            <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               <Skeleton className="h-4 w-28 rounded-md bg-muted-foreground/20" />
             </div>
-            <Skeleton className="h-3 w-12 rounded-md hidden sm:block bg-muted-foreground/20" />
+            <Skeleton className="hidden h-3 w-12 rounded-md bg-muted-foreground/20 sm:block" />
             <Skeleton className="h-3 w-24 rounded-md bg-muted-foreground/20" />
           </div>
 
-          <div className="pl-11 pr-4 pb-4 flex flex-col gap-2">
+          <div className="flex flex-col gap-2 pr-4 pb-4 pl-11">
             {[1, 2, 3, 4, 5].map((stepIndex) => (
-              <div
-                key={`skel-step-${index}-${stepIndex}`}
-                className="flex items-center gap-2"
-              >
-                <Skeleton className="size-3.5 rounded-full bg-muted-foreground/10 shrink-0" />
+              <div key={`skel-step-${index}-${stepIndex}`} className="flex items-center gap-2">
+                <Skeleton className="size-3.5 shrink-0 rounded-full bg-muted-foreground/10" />
                 <Skeleton
                   className={cn(
                     "h-3 rounded-md bg-muted-foreground/10",
@@ -329,9 +309,7 @@ function ActionJobRow({
   isExpanded: boolean;
   job: ActionJob;
   jobKey: string;
-  onAgentFixSettingsSourceChange: React.Dispatch<
-    React.SetStateAction<string | null>
-  >;
+  onAgentFixSettingsSourceChange: React.Dispatch<React.SetStateAction<string | null>>;
   openAgentFixSettingsSourceId: string | null;
   onToggleStep: (stepKey: string) => void;
   onToggleJob: (jobKey: string) => void;
@@ -354,8 +332,8 @@ function ActionJobRow({
   return (
     <div
       className={cn(
-        "flex flex-col scroll-mt-24",
-        highlighted && "ring-2 ring-primary/40 ring-inset bg-primary/5",
+        "flex scroll-mt-24 flex-col",
+        highlighted && "bg-primary/5 ring-2 ring-primary/40 ring-inset",
       )}
       data-actions-job-key={jobKey}
     >
@@ -374,7 +352,7 @@ function ActionJobRow({
         }}
         aria-expanded={canExpand ? isExpanded : undefined}
         className={cn(
-          "group px-4 py-3 flex w-full items-center gap-3 text-left",
+          "group flex w-full items-center gap-3 px-4 py-3 text-left",
           canExpand ? "cursor-pointer hover:bg-muted/30" : "cursor-default",
           isExpanded && "bg-muted/20",
         )}
@@ -386,7 +364,7 @@ function ActionJobRow({
             !canExpand && "opacity-0",
           )}
         />
-        <div className="shrink-0 flex items-center justify-center">
+        <div className="flex shrink-0 items-center justify-center">
           <ActionJobStatusIcon
             completed={jobCompleted}
             failure={jobFailure}
@@ -394,17 +372,17 @@ function ActionJobRow({
             success={jobSuccess}
           />
         </div>
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className="font-semibold text-sm truncate">{job.name}</span>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="truncate text-sm font-semibold">{job.name}</span>
           {jobSkipped && (
-            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm shrink-0">
+            <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
               {t("states.skipped")}
             </span>
           )}
         </div>
 
         {steps.length > 0 && (
-          <div className="hidden sm:flex text-[11px] text-muted-foreground/70 shrink-0 gap-1 opacity-70">
+          <div className="hidden shrink-0 gap-1 text-[11px] text-muted-foreground/70 opacity-70 sm:flex">
             <span>{t("stepsCount", { count: steps.length })}</span>
           </div>
         )}
@@ -449,12 +427,7 @@ function ActionJobRow({
                   isExpanded={isExpanded}
                 />
               ) : jobFailure ? (
-                <FailedJobLogsFallback
-                  enabled={isExpanded}
-                  job={job}
-                  owner={owner}
-                  repo={repo}
-                />
+                <FailedJobLogsFallback enabled={isExpanded} job={job} owner={owner} repo={repo} />
               ) : null}
             </div>
           </div>
@@ -512,8 +485,12 @@ function FailedJobLogsFallback({
   repo: string;
 }) {
   const t = useTranslations("github.actionsJobsList");
-  const { data, isLoading, isError, error, refetch, isFetching } =
-    useFailedJobStepLogs({ enabled, job, owner, repo });
+  const { data, isLoading, isError, error, refetch, isFetching } = useFailedJobStepLogs({
+    enabled,
+    job,
+    owner,
+    repo,
+  });
   const fallback = data?.steps?.[0];
 
   return (
@@ -528,17 +505,14 @@ function FailedJobLogsFallback({
       text={fallback?.text}
       isLoading={isLoading || (isFetching && !data)}
       isError={isError}
-      errorMessage={
-        error instanceof Error ? error.message : t("logs.errorFallback")
-      }
+      errorMessage={error instanceof Error ? error.message : t("logs.errorFallback")}
       onRetry={() => void refetch()}
     />
   );
 }
 
 /** GitHub Actions log line prefix: `2026-07-07T11:32:03.1269970Z `. */
-const GITHUB_LOG_TIMESTAMP_PREFIX =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\s/;
+const GITHUB_LOG_TIMESTAMP_PREFIX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\s/;
 
 function stripGithubLogTimestamp(line: string): string {
   return line.replace(GITHUB_LOG_TIMESTAMP_PREFIX, "");
@@ -586,10 +560,7 @@ function StepLogPanel({
 }) {
   const t = useTranslations("github.actionsJobsList");
   const scrollRef = React.useRef<HTMLDivElement>(null);
-  const lines = React.useMemo(
-    () => (text ? formatStepLogLines(text) : []),
-    [text],
-  );
+  const lines = React.useMemo(() => (text ? formatStepLogLines(text) : []), [text]);
   const lineNumberWidth = Math.max(2, String(lines.length || 1).length);
 
   // Default to bottom so the failure / exit-code lines are visible first.
@@ -606,9 +577,7 @@ function StepLogPanel({
       onKeyDown={(event) => event.stopPropagation()}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-medium text-muted-foreground">
-          {title}
-        </span>
+        <span className="text-[11px] font-medium text-muted-foreground">{title}</span>
         {isError && (
           <button
             type="button"
@@ -642,11 +611,7 @@ function StepLogPanel({
             {t("logs.error", { message: errorMessage })}
           </div>
         ) : lines.length > 0 ? (
-          <div
-            className="py-2 font-mono text-[11px] leading-relaxed"
-            role="log"
-            aria-label={title}
-          >
+          <div className="py-2 font-mono text-[11px] leading-relaxed" role="log" aria-label={title}>
             {lines.map((line, index) => {
               const isError = isErrorLogLine(line);
               const content = displayLogLine(line);
@@ -655,14 +620,12 @@ function StepLogPanel({
                   key={index}
                   className={cn(
                     "flex gap-0",
-                    isError
-                      ? "bg-red-500/15 text-red-400"
-                      : "text-zinc-100 hover:bg-white/5",
+                    isError ? "bg-red-500/15 text-red-400" : "text-zinc-100 hover:bg-white/5",
                   )}
                 >
                   <span
                     className={cn(
-                      "sticky left-0 shrink-0 select-none border-r px-2 text-right",
+                      "sticky left-0 shrink-0 border-r px-2 text-right select-none",
                       isError
                         ? "border-red-500/20 bg-red-950/40 text-red-400/70"
                         : "border-white/10 bg-zinc-950/95 text-zinc-500 dark:bg-black/60",
@@ -673,7 +636,7 @@ function StepLogPanel({
                   </span>
                   <span
                     className={cn(
-                      "min-w-0 flex-1 whitespace-pre-wrap break-words px-2",
+                      "min-w-0 flex-1 px-2 break-words whitespace-pre-wrap",
                       isError && "font-medium",
                     )}
                   >
@@ -702,16 +665,12 @@ function ActionJobTrailingMeta({
   agentFixSource: AgentFixPromptSource | null;
   jobFailure: boolean;
   jobStartedAtTimeAgo: string;
-  onAgentFixSettingsSourceChange: React.Dispatch<
-    React.SetStateAction<string | null>
-  >;
+  onAgentFixSettingsSourceChange: React.Dispatch<React.SetStateAction<string | null>>;
 }) {
   if (!jobFailure) {
     return (
       <div className="shrink-0 whitespace-nowrap tabular-nums">
-        <span className="text-[11px] text-muted-foreground/80">
-          {jobStartedAtTimeAgo}
-        </span>
+        <span className="text-[11px] text-muted-foreground/80">{jobStartedAtTimeAgo}</span>
       </div>
     );
   }
@@ -730,11 +689,10 @@ function ActionJobTrailingMeta({
         </span>
         <span
           className={cn(
-            "invisible pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 opacity-0",
-            "group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100",
-            "group-focus-visible:visible group-focus-visible:pointer-events-auto group-focus-visible:opacity-100",
-            agentFixSettingsOpen &&
-              "!visible !pointer-events-auto !opacity-100",
+            "pointer-events-none invisible absolute top-1/2 right-0 -translate-y-1/2 opacity-0",
+            "group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100",
+            "group-focus-visible:pointer-events-auto group-focus-visible:visible group-focus-visible:opacity-100",
+            agentFixSettingsOpen && "!pointer-events-auto !visible !opacity-100",
           )}
           data-agent-fix-action-host="true"
           style={agentFixSettingsOpen ? { opacity: 1 } : undefined}
@@ -781,9 +739,7 @@ function ActionStepsListInner({
   job: ActionJob;
   jobExpanded: boolean;
   jobKey: string;
-  onAgentFixSettingsSourceChange: React.Dispatch<
-    React.SetStateAction<string | null>
-  >;
+  onAgentFixSettingsSourceChange: React.Dispatch<React.SetStateAction<string | null>>;
   onToggleStep: (stepKey: string) => void;
   openAgentFixSettingsSourceId: string | null;
   owner: string;
@@ -821,9 +777,7 @@ function ActionStepsListInner({
         family: "ci_job",
         context: agentFixContext,
         label: t("agentFix.label", { jobName: stepName }),
-        disabledReason: agentFixContext
-          ? null
-          : t("agentFix.disabledReason"),
+        disabledReason: agentFixContext ? null : t("agentFix.disabledReason"),
         getPrompt: () => ({
           prompt: buildGithubActionsJobFixPrompt({
             owner,
@@ -844,25 +798,16 @@ function ActionStepsListInner({
       {steps.map((step, stepIndex) => {
         const stepKey = getActionStepKey(jobKey, step, stepIndex);
         const isSelected = expandedStepKeys.has(stepKey);
-        const stepStatus = formatGithubActionState(
-          step.conclusion || step.status || "unknown",
-          t,
-        );
+        const stepStatus = formatGithubActionState(step.conclusion || step.status || "unknown", t);
         const stepStartedAt = getStartedAt(step);
         const stepCompletedAt = getCompletedAt(step);
         const stepStartedLabel = formatActionTimestamp(stepStartedAt);
         const stepCompletedLabel = formatActionTimestamp(stepCompletedAt);
-        const stepDuration = formatActionDuration(
-          stepStartedAt,
-          stepCompletedAt,
-        );
+        const stepDuration = formatActionDuration(stepStartedAt, stepCompletedAt);
         const stepFailure = isFailedStepConclusion(step.conclusion);
-        const agentFixSource = stepFailure
-          ? buildStepAgentFixSource(step, stepIndex)
-          : null;
+        const agentFixSource = stepFailure ? buildStepAgentFixSource(step, stepIndex) : null;
         const agentFixSettingsOpen =
-          !!agentFixSource &&
-          openAgentFixSettingsSourceId === agentFixSource.id;
+          !!agentFixSource && openAgentFixSettingsSourceId === agentFixSource.id;
         const stepLog =
           stepLogMap.get(stepLogKey(step, stepIndex)) ??
           (step.name ? stepLogMap.get(`name:${step.name}`) : undefined);
@@ -887,36 +832,30 @@ function ActionStepsListInner({
             )}
           >
             <div className="mt-0.5 shrink-0">
-              <StepStatusIcon
-                status={step.status}
-                conclusion={step.conclusion}
-              />
+              <StepStatusIcon status={step.status} conclusion={step.conclusion} />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-3">
                 <span
                   className={cn(
                     "min-w-0 truncate font-medium",
-                    step.conclusion === "failure"
-                      ? "text-red-500"
-                      : "text-foreground/90",
+                    step.conclusion === "failure" ? "text-red-500" : "text-foreground/90",
                   )}
                 >
                   {step.name || t("stepFallback", { index: stepIndex + 1 })}
                 </span>
                 <div className="relative flex shrink-0 items-center justify-end">
                   {stepDuration && (
-                    <span className="hidden font-mono text-[10px] text-muted-foreground/70 transition-opacity duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] sm:inline group-hover/step:opacity-0 group-focus-within/step:opacity-0">
+                    <span className="hidden font-mono text-[10px] text-muted-foreground/70 transition-opacity duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] group-focus-within/step:opacity-0 group-hover/step:opacity-0 sm:inline">
                       {stepDuration}
                     </span>
                   )}
                   <span
                     className={cn(
-                      "invisible pointer-events-none absolute right-0 flex items-center gap-1 opacity-0 transition-opacity duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                      "group-hover/step:visible group-hover/step:pointer-events-auto group-hover/step:opacity-100",
-                      "group-focus-within/step:visible group-focus-within/step:pointer-events-auto group-focus-within/step:opacity-100",
-                      agentFixSettingsOpen &&
-                        "!visible !pointer-events-auto !opacity-100",
+                      "pointer-events-none invisible absolute right-0 flex items-center gap-1 opacity-0 transition-opacity duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                      "group-hover/step:pointer-events-auto group-hover/step:visible group-hover/step:opacity-100",
+                      "group-focus-within/step:pointer-events-auto group-focus-within/step:visible group-focus-within/step:opacity-100",
+                      agentFixSettingsOpen && "!pointer-events-auto !visible !opacity-100",
                     )}
                     onClick={(event) => event.stopPropagation()}
                     onKeyDown={(event) => event.stopPropagation()}
@@ -945,15 +884,9 @@ function ActionStepsListInner({
                       }}
                       onClick={(event) => {
                         event.stopPropagation();
-                        openActionStepInGitHub(
-                          owner,
-                          repo,
-                          runId,
-                          job,
-                          step,
-                        );
+                        openActionStepInGitHub(owner, repo, runId, job, step);
                       }}
-                      className="flex size-6 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                      className="flex size-6 items-center justify-center rounded-md text-muted-foreground/60 hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
                     >
                       <ExternalLink className="size-3" />
                     </button>
@@ -964,23 +897,15 @@ function ActionStepsListInner({
             <div
               className={cn(
                 "grid basis-full overflow-hidden transition-[grid-template-rows,opacity] duration-240 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-                isSelected
-                  ? "mt-2 grid-rows-[1fr] opacity-100"
-                  : "mt-0 grid-rows-[0fr] opacity-0",
+                isSelected ? "mt-2 grid-rows-[1fr] opacity-100" : "mt-0 grid-rows-[0fr] opacity-0",
               )}
             >
               <div className="min-h-0 overflow-hidden">
                 <div className="grid grid-cols-1 gap-1.5 rounded-md border border-border/40 bg-muted/20 p-2 sm:grid-cols-2">
                   <StepMeta label={t("meta.status")} value={stepStatus} />
                   <StepMeta label={t("meta.duration")} value={stepDuration ?? "-"} />
-                  <StepMeta
-                    label={t("meta.started")}
-                    value={stepStartedLabel ?? "-"}
-                  />
-                  <StepMeta
-                    label={t("meta.completed")}
-                    value={stepCompletedLabel ?? "-"}
-                  />
+                  <StepMeta label={t("meta.started")} value={stepStartedLabel ?? "-"} />
+                  <StepMeta label={t("meta.completed")} value={stepCompletedLabel ?? "-"} />
                 </div>
                 {stepFailure && isSelected && (
                   <StepLogPanel
@@ -992,14 +917,10 @@ function ActionStepsListInner({
                         : t("logs.stepTitle")
                     }
                     text={stepLog?.text}
-                    isLoading={
-                      (logsLoading || (logsFetching && !jobLogs)) && !stepLog
-                    }
+                    isLoading={(logsLoading || (logsFetching && !jobLogs)) && !stepLog}
                     isError={logsError && !stepLog}
                     errorMessage={
-                      logsErr instanceof Error
-                        ? logsErr.message
-                        : t("logs.errorFallback")
+                      logsErr instanceof Error ? logsErr.message : t("logs.errorFallback")
                     }
                     onRetry={() => void refetchLogs()}
                   />
@@ -1017,19 +938,12 @@ function getStartedAt(value: { startedAt?: string; started_at?: string }) {
   return value.startedAt ?? value.started_at ?? null;
 }
 
-function getCompletedAt(value: {
-  completedAt?: string;
-  completed_at?: string;
-}) {
+function getCompletedAt(value: { completedAt?: string; completed_at?: string }) {
   return value.completedAt ?? value.completed_at ?? null;
 }
 
 function isFailedJobConclusion(conclusion?: string | null): boolean {
-  return (
-    conclusion === "failure" ||
-    conclusion === "timed_out" ||
-    conclusion === "startup_failure"
-  );
+  return conclusion === "failure" || conclusion === "timed_out" || conclusion === "startup_failure";
 }
 
 function isFailedStepConclusion(conclusion?: string | null): boolean {
@@ -1058,15 +972,13 @@ function openActionStepInGitHub(
 ) {
   const jobId = job.databaseId ?? job.id;
   const rawJobUrl =
-    job.html_url ??
-    (job.url && !job.url.includes("api.github.com") ? job.url : undefined);
+    job.html_url ?? (job.url && !job.url.includes("api.github.com") ? job.url : undefined);
   const jobUrl =
     rawJobUrl ??
     (jobId
       ? `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}`
       : `https://github.com/${owner}/${repo}/actions/runs/${runId}`);
-  const href =
-    jobId && step.number ? `${jobUrl}#step:${step.number}:1` : jobUrl;
+  const href = jobId && step.number ? `${jobUrl}#step:${step.number}:1` : jobUrl;
   window.open(href, "_blank", "noopener,noreferrer");
 }
 
@@ -1092,19 +1004,13 @@ function ActionJobStatusIcon({
   }
   if (skipped) {
     return (
-      <div className="size-4 rounded-full border-2 border-muted-foreground/40 flex items-center justify-center" />
+      <div className="flex size-4 items-center justify-center rounded-full border-2 border-muted-foreground/40" />
     );
   }
   return <HelpCircle className="size-4 text-muted-foreground" />;
 }
 
-function StepStatusIcon({
-  status,
-  conclusion,
-}: {
-  status?: string;
-  conclusion?: string;
-}) {
+function StepStatusIcon({ status, conclusion }: { status?: string; conclusion?: string }) {
   if (conclusion === "success") {
     return <CheckCircle2 className="size-3.5 text-emerald-500" />;
   }
@@ -1112,9 +1018,7 @@ function StepStatusIcon({
     return <XCircle className="size-3.5 text-red-500" />;
   }
   if (conclusion === "skipped") {
-    return (
-      <div className="size-3.5 rounded-full border-2 border-muted-foreground/40" />
-    );
+    return <div className="size-3.5 rounded-full border-2 border-muted-foreground/40" />;
   }
   if (status === "in_progress") {
     return <Loader2 className="size-3.5 animate-spin text-blue-500" />;
@@ -1135,9 +1039,7 @@ function StepStatusIcon({
 function StepMeta({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex min-w-0 items-center justify-between gap-3">
-      <span className="shrink-0 text-[10px] font-semibold text-muted-foreground/70">
-        {label}
-      </span>
+      <span className="shrink-0 text-[10px] font-semibold text-muted-foreground/70">{label}</span>
       <span className="min-w-0 truncate text-right font-mono text-[10px] text-foreground/80">
         {value}
       </span>

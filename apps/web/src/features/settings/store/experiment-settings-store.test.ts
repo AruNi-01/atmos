@@ -142,10 +142,7 @@ describe("experiment settings load across computer switch", () => {
   });
 
   it("persists reorder to localStorage and ~/.atmos function_settings", async () => {
-    await useExperimentSettingsStore.getState().reorderLaunchpadItems(
-      "automations",
-      "skills",
-    );
+    await useExperimentSettingsStore.getState().reorderLaunchpadItems("automations", "skills");
 
     expect(writeJsonMock).toHaveBeenCalled();
     const written = writeJsonMock.mock.calls.at(-1)?.[1] as {
@@ -154,11 +151,7 @@ describe("experiment settings load across computer switch", () => {
     };
     expect(written.automations.order).toBeLessThan(written.skills.order);
 
-    expect(updateMock).toHaveBeenCalledWith(
-      "experiments",
-      "launchpad_items",
-      written,
-    );
+    expect(updateMock).toHaveBeenCalledWith("experiments", "launchpad_items", written);
   });
 
   it("clears the local Launchpad cache when switching computers", () => {

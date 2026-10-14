@@ -84,8 +84,7 @@ function ChangesScopeMenu({
   });
   const label =
     scope === "commit"
-      ? formatCommitScopeLabel(selectedCommitHash) ??
-        t("changes.scope.commit")
+      ? (formatCommitScopeLabel(selectedCommitHash) ?? t("changes.scope.commit"))
       : scope === "branch"
         ? t("changes.scope.branch")
         : scope === "staged"
@@ -96,7 +95,7 @@ function ChangesScopeMenu({
     checked ? <Check className="size-3.5 shrink-0" /> : null;
   const renderCountBadge = (count: number) =>
     count > 0 ? (
-      <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+      <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground tabular-nums">
         {count}
       </span>
     ) : null;
@@ -124,26 +123,20 @@ function ChangesScopeMenu({
           size="xs"
           title={t("changes.selectScope")}
           aria-label={t("changes.selectScope")}
-          className="min-w-0 max-w-[45%] justify-start gap-1 rounded-md px-2 text-xs text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-foreground"
+          className="max-w-[45%] min-w-0 justify-start gap-1 rounded-md px-2 text-xs text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-foreground"
         >
           <span className="truncate">{label}</span>
           <ChevronDown className="size-3 shrink-0" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-48">
-        <DropdownMenuItem
-          className="cursor-pointer"
-          onSelect={() => onSelectScope("unstaged")}
-        >
+        <DropdownMenuItem className="cursor-pointer" onSelect={() => onSelectScope("unstaged")}>
           <span>{t("changes.scope.unstaged")}</span>
           {renderCountBadge(unstagedCount + untrackedCount)}
           <span className="flex-1" />
           {renderTrailingCheck(scope === "unstaged")}
         </DropdownMenuItem>
-        <DropdownMenuItem
-          className="cursor-pointer"
-          onSelect={() => onSelectScope("staged")}
-        >
+        <DropdownMenuItem className="cursor-pointer" onSelect={() => onSelectScope("staged")}>
           <span>{t("changes.scope.staged")}</span>
           {renderCountBadge(stagedCount)}
           <span className="flex-1" />
@@ -168,13 +161,9 @@ function ChangesScopeMenu({
               onScroll={handleCommitListScroll}
             >
               {commitLog.isLoading && commitLog.commits.length === 0 ? (
-                <DropdownMenuItem disabled>
-                  {t("changes.loadingCommits")}
-                </DropdownMenuItem>
+                <DropdownMenuItem disabled>{t("changes.loadingCommits")}</DropdownMenuItem>
               ) : commitLog.commits.length === 0 ? (
-                <DropdownMenuItem disabled>
-                  {t("changes.noCommitsOnBranch")}
-                </DropdownMenuItem>
+                <DropdownMenuItem disabled>{t("changes.noCommitsOnBranch")}</DropdownMenuItem>
               ) : (
                 <>
                   {commitLog.commits.map((commit) => (
@@ -187,19 +176,13 @@ function ChangesScopeMenu({
                           <span className="w-14 shrink-0 font-mono text-[11px] text-muted-foreground">
                             {commit.short_hash}
                           </span>
-                          <span className="min-w-0 flex-1 truncate">
-                            {commit.subject}
-                          </span>
+                          <span className="min-w-0 flex-1 truncate">{commit.subject}</span>
                           {renderTrailingCheck(
-                            scope === "commit" &&
-                              selectedCommitHash === commit.hash,
+                            scope === "commit" && selectedCommitHash === commit.hash,
                           )}
                         </DropdownMenuItem>
                       </TooltipTrigger>
-                      <TooltipContent
-                        side="left"
-                        className="z-100 max-w-sm break-words text-xs"
-                      >
+                      <TooltipContent side="left" className="z-100 max-w-sm text-xs break-words">
                         {`${commit.short_hash}  ${commit.subject}`}
                       </TooltipContent>
                     </Tooltip>
@@ -215,10 +198,7 @@ function ChangesScopeMenu({
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         ) : null}
-        <DropdownMenuItem
-          className="cursor-pointer"
-          onSelect={() => onSelectScope("branch")}
-        >
+        <DropdownMenuItem className="cursor-pointer" onSelect={() => onSelectScope("branch")}>
           <span className="flex-1">{t("changes.scope.branch")}</span>
           {renderTrailingCheck(scope === "branch")}
         </DropdownMenuItem>
@@ -256,27 +236,18 @@ export function ChangesToolbar({
   const [sidebarUi, setSidebarUi] = useSidebarUiPrefs();
   const viewMode = sidebarUi.changesFileViewMode;
   const [isRunningAction, setIsRunningAction] = React.useState(false);
-  const [confirmingActionKey, setConfirmingActionKey] = React.useState<string | null>(
-    null,
-  );
+  const [confirmingActionKey, setConfirmingActionKey] = React.useState<string | null>(null);
   const actionsBusy = isBusy || isRunningAction;
   const confirmingTrash = confirmingActionKey === "toolbar-bulk-trash";
   const canStageAll =
-    scope === "unstaged" &&
-    unstagedCount + untrackedCount > 0 &&
-    Boolean(onStageAll);
-  const canUnstageAll =
-    scope === "staged" && stagedCount > 0 && Boolean(onUnstageAll);
-  const canDiscardTracked =
-    scope === "unstaged" && unstagedCount > 0 && Boolean(onDiscardTracked);
-  const canTrashUntracked =
-    scope === "unstaged" && untrackedCount > 0 && Boolean(onTrashUntracked);
+    scope === "unstaged" && unstagedCount + untrackedCount > 0 && Boolean(onStageAll);
+  const canUnstageAll = scope === "staged" && stagedCount > 0 && Boolean(onUnstageAll);
+  const canDiscardTracked = scope === "unstaged" && unstagedCount > 0 && Boolean(onDiscardTracked);
+  const canTrashUntracked = scope === "unstaged" && untrackedCount > 0 && Boolean(onTrashUntracked);
   const primaryAction = scope === "staged" ? onUnstageAll : onStageAll;
   const primaryEnabled = scope === "staged" ? canUnstageAll : canStageAll;
   const primaryLabel =
-    scope === "staged"
-      ? t("changes.actions.unstageAll")
-      : t("changes.actions.stageAll");
+    scope === "staged" ? t("changes.actions.unstageAll") : t("changes.actions.stageAll");
 
   const runAction = React.useCallback(
     async (action: (() => Promise<void> | void) | undefined) => {
@@ -289,9 +260,7 @@ export function ChangesToolbar({
         toastManager.add({
           title: t("changes.actions.failedTitle"),
           description:
-            error instanceof Error
-              ? error.message
-              : t("changes.actions.failedDescription"),
+            error instanceof Error ? error.message : t("changes.actions.failedDescription"),
           type: "error",
         });
       } finally {

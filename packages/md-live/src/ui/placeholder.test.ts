@@ -20,14 +20,17 @@ describe("mdLivePlaceholderCopyKey", () => {
     expect(mdLivePlaceholderCopyKey(node("details_summary"), null)).toBe("slashToggle");
     expect(mdLivePlaceholderCopyKey(node("code_block"), null)).toBe("slashCode");
     expect(mdLivePlaceholderCopyKey(node("paragraph"), node("blockquote"))).toBe("slashQuote");
-    expect(mdLivePlaceholderCopyKey(node("paragraph"), node("list_item", { listType: "bullet" }))).toBe(
-      "slashBulletList",
-    );
-    expect(mdLivePlaceholderCopyKey(node("paragraph"), node("list_item", { listType: "ordered" }))).toBe(
-      "slashOrderedList",
-    );
     expect(
-      mdLivePlaceholderCopyKey(node("paragraph"), node("list_item", { taskMarker: " ", checked: false })),
+      mdLivePlaceholderCopyKey(node("paragraph"), node("list_item", { listType: "bullet" })),
+    ).toBe("slashBulletList");
+    expect(
+      mdLivePlaceholderCopyKey(node("paragraph"), node("list_item", { listType: "ordered" })),
+    ).toBe("slashOrderedList");
+    expect(
+      mdLivePlaceholderCopyKey(
+        node("paragraph"),
+        node("list_item", { taskMarker: " ", checked: false }),
+      ),
     ).toBe("slashTaskList");
     expect(mdLivePlaceholderCopyKey(node("paragraph"), node("table_cell"))).toBe("slashTable");
   });

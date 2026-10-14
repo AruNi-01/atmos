@@ -1,9 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-  ATMOS_OPEN_HREF,
-  findAtmosUrlInArgv,
-  isAtmosProtocolUrl,
-} from "./deep-link.ts";
+import { ATMOS_OPEN_HREF, findAtmosUrlInArgv, isAtmosProtocolUrl } from "./deep-link.ts";
 
 describe("desktop atmos deep link", () => {
   it("recognizes atmos://open and other atmos URLs", () => {

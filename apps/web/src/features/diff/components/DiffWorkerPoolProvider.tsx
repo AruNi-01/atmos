@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
 import {
   useWorkerPool,
   WorkerPoolContextProvider,
   type WorkerInitializationRenderOptions,
   type WorkerPoolOptions,
-} from '@pierre/diffs/react';
-import { useCallback, useSyncExternalStore, type ReactNode } from 'react';
-import { ATMOS_DIFF_THEME } from '@/features/diff/lib/diff-view-constants';
-import { installPierreDiffHunksRendererGuard } from '@/features/diff/lib/pierre-diff-hunks-guard';
-import { pierreWorkerFactory } from '@/shared/lib/pierre-worker-factory';
+} from "@pierre/diffs/react";
+import { useCallback, useSyncExternalStore, type ReactNode } from "react";
+import { ATMOS_DIFF_THEME } from "@/features/diff/lib/diff-view-constants";
+import { installPierreDiffHunksRendererGuard } from "@/features/diff/lib/pierre-diff-hunks-guard";
+import { pierreWorkerFactory } from "@/shared/lib/pierre-worker-factory";
 
 installPierreDiffHunksRendererGuard();
 
@@ -26,30 +26,27 @@ const poolOptions: WorkerPoolOptions = {
 
 const highlighterOptions: WorkerInitializationRenderOptions = {
   theme: ATMOS_DIFF_THEME,
-  preferredHighlighter: 'shiki-wasm',
+  preferredHighlighter: "shiki-wasm",
   langs: [
-    'cpp',
-    'css',
-    'go',
-    'python',
-    'rust',
-    'sh',
-    'swift',
-    'tsx',
-    'typescript',
-    'javascript',
-    'json',
-    'yaml',
-    'markdown',
+    "cpp",
+    "css",
+    "go",
+    "python",
+    "rust",
+    "sh",
+    "swift",
+    "tsx",
+    "typescript",
+    "javascript",
+    "json",
+    "yaml",
+    "markdown",
   ],
 };
 
 export function DiffWorkerPoolProvider({ children }: { children: ReactNode }) {
   return (
-    <WorkerPoolContextProvider
-      poolOptions={poolOptions}
-      highlighterOptions={highlighterOptions}
-    >
+    <WorkerPoolContextProvider poolOptions={poolOptions} highlighterOptions={highlighterOptions}>
       {children}
     </WorkerPoolContextProvider>
   );
@@ -62,10 +59,7 @@ export function useDiffWorkerPoolReady(): boolean {
     (onStoreChange: () => void) => workerPool?.subscribeToStatChanges(onStoreChange) ?? (() => {}),
     [workerPool],
   );
-  const getSnapshot = useCallback(
-    () => workerPool?.isInitialized() ?? true,
-    [workerPool],
-  );
+  const getSnapshot = useCallback(() => workerPool?.isInitialized() ?? true, [workerPool]);
 
   return useSyncExternalStore(subscribe, getSnapshot, () => true);
 }

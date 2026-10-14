@@ -1,4 +1,4 @@
-import { DiffHunksRenderer, type FileDiffMetadata } from '@pierre/diffs';
+import { DiffHunksRenderer, type FileDiffMetadata } from "@pierre/diffs";
 
 /**
  * @pierre/diffs throws (and console.error's) when the hunk walk's line
@@ -11,9 +11,9 @@ import { DiffHunksRenderer, type FileDiffMetadata } from '@pierre/diffs';
  * stale render cache, and let the next paint recompute a matching AST.
  */
 const PIERRE_NULL_LINE_ERROR =
-  'DiffHunksRenderer.processDiffResult: deletionLine and additionLine are null';
+  "DiffHunksRenderer.processDiffResult: deletionLine and additionLine are null";
 
-const GUARD_MARK = '__atmosPierreNullLineGuard';
+const GUARD_MARK = "__atmosPierreNullLineGuard";
 
 type GuardedPrototype = {
   processDiffResult: (this: GuardedPrototype, ...args: unknown[]) => unknown;
@@ -28,14 +28,11 @@ function isPierreNullLineError(error: unknown): boolean {
 }
 
 function isPierreNullLineConsoleArg(value: unknown): boolean {
-  return typeof value === 'string' && value.includes(PIERRE_NULL_LINE_ERROR);
+  return typeof value === "string" && value.includes(PIERRE_NULL_LINE_ERROR);
 }
 
 export function primePierreFileDiff(
-  pool:
-    | { primeDiffHighlightCache: (diff: FileDiffMetadata) => Promise<void> }
-    | null
-    | undefined,
+  pool: { primeDiffHighlightCache: (diff: FileDiffMetadata) => Promise<void> } | null | undefined,
   fileDiff: FileDiffMetadata,
 ): void {
   if (pool == null || fileDiff.cacheKey == null) return;
@@ -61,7 +58,7 @@ export function installPierreDiffHunksRendererGuard(): void {
       if (!isPierreNullLineError(error)) throw error;
       this.clearRenderCache();
       const notify = this.onRenderUpdate;
-      if (typeof notify === 'function') {
+      if (typeof notify === "function") {
         queueMicrotask(() => notify());
       }
       return undefined;

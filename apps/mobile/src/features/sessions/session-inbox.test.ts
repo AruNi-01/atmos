@@ -131,7 +131,9 @@ describe("session inbox", () => {
 
   test("a shell that never became an agent session is omitted", () => {
     const inbox = buildSessionInbox({
-      candidates: [candidate({ id: "never", workspaceId: "ws", label: "Never", tmuxWindowName: "never" })],
+      candidates: [
+        candidate({ id: "never", workspaceId: "ws", label: "Never", tmuxWindowName: "never" }),
+      ],
       snapshots: [],
     });
 
@@ -170,7 +172,12 @@ describe("session inbox", () => {
 
     expect(inbox.rows).toHaveLength(2);
     expect(inbox.rows.map((row) => row.title).sort()).toEqual(["Editor", "Shell"]);
-    expect(inbox.rows.every((row) => row.projectName === "Atmos" && row.workspaceName === "api" && row.branch === "main")).toBe(true);
+    expect(
+      inbox.rows.every(
+        (row) =>
+          row.projectName === "Atmos" && row.workspaceName === "api" && row.branch === "main",
+      ),
+    ).toBe(true);
   });
 
   test("uses the server session title instead of a tmux index", () => {
@@ -238,7 +245,9 @@ describe("session inbox", () => {
       bucket: "running",
       title: "Side chat",
     });
-    expect(inbox.rows.some((row) => row.id === "preview:1" || row.archiveSessionId === "preview:1")).toBe(false);
+    expect(
+      inbox.rows.some((row) => row.id === "preview:1" || row.archiveSessionId === "preview:1"),
+    ).toBe(false);
   });
 
   test("a chat without a loaded title stays blank instead of Chat", () => {
@@ -377,10 +386,9 @@ describe("session inbox", () => {
       projects: [{ id: "proj", name: "Atmos" }],
     });
 
-    expect(sortSessionRowsByRecency(filterSessionRows(inbox.rows, "done")).map((row) => row.title)).toEqual([
-      "New",
-      "Old",
-    ]);
+    expect(
+      sortSessionRowsByRecency(filterSessionRows(inbox.rows, "done")).map((row) => row.title),
+    ).toEqual(["New", "Old"]);
   });
 
   test("omits a snapshot whose workspace is archived", () => {
@@ -401,10 +409,8 @@ describe("session inbox", () => {
 
   test("pinned ids stay in saved order ahead of the rest", () => {
     const rows = [{ id: "a" }, { id: "b" }, { id: "c" }];
-    expect(orderPinnedRows(rows, ["c", "a", "missing"], (row) => row.id).map((row) => row.id)).toEqual([
-      "c",
-      "a",
-      "b",
-    ]);
+    expect(
+      orderPinnedRows(rows, ["c", "a", "missing"], (row) => row.id).map((row) => row.id),
+    ).toEqual(["c", "a", "b"]);
   });
 });

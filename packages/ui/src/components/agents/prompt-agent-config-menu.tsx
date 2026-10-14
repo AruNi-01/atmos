@@ -1,26 +1,9 @@
 "use client";
 
-import {
-  Check,
-  ChevronRight,
-  LoaderCircle,
-  RefreshCw,
-  Search,
-  Star,
-  X,
-} from "lucide-react";
+import { Check, ChevronRight, LoaderCircle, RefreshCw, Search, Star, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import {
-  type ReactNode,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import {
-  MorphPopover,
-  MorphPopoverContent,
-  MorphPopoverTrigger,
-} from "../motion/popover-morph";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { MorphPopover, MorphPopoverContent, MorphPopoverTrigger } from "../motion/popover-morph";
 import {
   Tabs as MotionTabs,
   TabsList as MotionTabsList,
@@ -28,11 +11,7 @@ import {
 } from "../motion/tabs";
 import { RangeSlider } from "../motion/range-slider";
 import { Switch } from "../ui/switch";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "../ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { SPRING_PRESS, SPRING_SWAP } from "../../lib/ease";
 import { cn } from "../../lib/utils";
 import {
@@ -143,9 +122,10 @@ export function PromptAgentConfigMenu({
   const showThinking = thinkingLevels.length > 1;
   const showContext = contextLevels.length > 1;
   const currentThinking = thinkingLevels.find((level) => level.value === thinking);
-  const currentContext = contextLevels.find((level) => level.value === context)
-    ?? contextLevels.find((level) => level.value === contextLevels[0]?.value)
-    ?? contextLevels[0];
+  const currentContext =
+    contextLevels.find((level) => level.value === context) ??
+    contextLevels.find((level) => level.value === contextLevels[0]?.value) ??
+    contextLevels[0];
   const thinkingLabel = showThinking
     ? titleCaseLabel(optionLabelText(currentThinking ?? thinkingLevels[0]))
     : "";
@@ -154,13 +134,15 @@ export function PromptAgentConfigMenu({
   const showEffortControls = showThinking || fastAvailable || showContext;
   const showExtraArgs = Boolean(onExtraArgsChange);
   const showEffortChip = showEffortControls || showExtraArgs;
-  const effortLabel = modelEffortTriggerLabel({
-    thinkingLabel,
-    fastAvailable,
-    fastEnabled,
-    fastLabel: labels.fastChip,
-  }) || contextLabel;
-  const effortChipLabel = effortLabel || (showExtraArgs ? extraArgsLabel : "") || labels.thinkingEffort;
+  const effortLabel =
+    modelEffortTriggerLabel({
+      thinkingLabel,
+      fastAvailable,
+      fastEnabled,
+      fastLabel: labels.fastChip,
+    }) || contextLabel;
+  const effortChipLabel =
+    effortLabel || (showExtraArgs ? extraArgsLabel : "") || labels.thinkingEffort;
   const triggerText = agentConfigTriggerText({
     modelLabel: optionName(currentModel),
     contextLabel: contextSuffix,
@@ -174,10 +156,7 @@ export function PromptAgentConfigMenu({
     if (!q) return listedModels;
     return listedModels.filter((option) => optionSearchText(option).toLowerCase().includes(q));
   }, [listedModels, search]);
-  const groupedModels = useMemo(
-    () => groupedPromptModelRows(filteredModels),
-    [filteredModels],
-  );
+  const groupedModels = useMemo(() => groupedPromptModelRows(filteredModels), [filteredModels]);
   const selectedAgent = agent || agents[0]?.value || "";
 
   useEffect(() => {
@@ -246,257 +225,260 @@ export function PromptAgentConfigMenu({
     ) : null;
 
   const panel = (
+    <div
+      className={cn(
+        "flex max-h-[min(24rem,calc(100dvh-1rem))] overflow-hidden",
+        menuInline
+          ? "w-full rounded-lg border border-border bg-muted/30"
+          : "rounded-2xl border border-border bg-popover shadow-[0_10px_18px_rgba(0,0,0,0.14)]",
+        menuInline && className,
+      )}
+    >
+      {agentTablist !== undefined ? (
+        agentTablist ? (
+          <div className="flex min-h-0 shrink-0 items-stretch self-stretch p-1.5 pr-1">
+            {agentTablist}
+          </div>
+        ) : null
+      ) : skipAgentList ? null : (
         <div
           className={cn(
-            "flex max-h-[min(24rem,calc(100dvh-1rem))] overflow-hidden",
-            menuInline
-              ? "w-full rounded-lg border border-border bg-muted/30"
-              : "rounded-2xl border border-border bg-popover shadow-[0_10px_18px_rgba(0,0,0,0.14)]",
-            menuInline && className,
+            "flex min-h-0 shrink-0 items-stretch self-stretch p-1.5 pr-1",
+            agentLocked && "opacity-40",
           )}
         >
-          {agentTablist !== undefined ? (
-            agentTablist ? (
-              <div className="flex min-h-0 shrink-0 items-stretch self-stretch p-1.5 pr-1">
-                {agentTablist}
-              </div>
-            ) : null
-          ) : skipAgentList ? null : (
-            <div
-              className={cn(
-                "flex min-h-0 shrink-0 items-stretch self-stretch p-1.5 pr-1",
-                agentLocked && "opacity-40",
-              )}
-            >
-              <MotionTabs
-                value={selectedAgent}
-                variant="pill"
-                orientation="vertical"
-                className="flex h-full min-h-0 min-w-0 flex-col items-stretch"
-                onValueChange={
-                  agentLocked
-                    ? undefined
-                    : (value) => {
-                        const next = agents.find((option) => option.value === value);
-                        if (next?.disabled) return;
-                        onAgentChange?.(value);
-                        setSearch("");
-                        setEffortOpen(false);
-                      }
-                }
-              >
-                <MotionTabsList
-                  className="flex h-full w-11 min-h-0 max-h-full flex-col items-center justify-start overflow-y-auto bg-[color-mix(in_oklab,var(--popover),black_10%)] p-1"
-                  indicatorClassName="bg-active"
-                >
-                  {agents.map((option) => {
-                    const label = optionLabelText(option);
-                    const reason = option.disabledReason?.trim() || "";
-                    const hint = reason || (agentLocked ? labels.agentLocked : "");
-                    return (
-                      <Tooltip key={option.value}>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex">
-                            <MotionTabsTrigger
-                              value={option.value}
-                              disabled={option.disabled || agentLocked}
-                              aria-label={label}
-                              title={hint || label}
-                              className="pointer-events-auto group size-9 shrink-0 px-0 text-xs aria-selected:!text-foreground"
-                            >
-                              {option.icon ?? (
-                                <span className="text-[10px] font-medium">{label.slice(0, 1)}</span>
-                              )}
-                            </MotionTabsTrigger>
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="left" className="z-[10000]">
-                          {hint ? (
-                            hint
-                          ) : (
-                            <span className="flex items-center gap-1.5">
-                              {label}
-                              {option.trailing}
-                            </span>
-                          )}
-                        </TooltipContent>
-                      </Tooltip>
-                    );
-                  })}
-                </MotionTabsList>
-              </MotionTabs>
-            </div>
-          )}
-          <div
-            className={cn(
-              "flex min-h-0 min-w-0 flex-1 flex-col",
-              menuInline ? "w-auto" : "w-[16.5rem]",
-            )}
+          <MotionTabs
+            value={selectedAgent}
+            variant="pill"
+            orientation="vertical"
+            className="flex h-full min-h-0 min-w-0 flex-col items-stretch"
+            onValueChange={
+              agentLocked
+                ? undefined
+                : (value) => {
+                    const next = agents.find((option) => option.value === value);
+                    if (next?.disabled) return;
+                    onAgentChange?.(value);
+                    setSearch("");
+                    setEffortOpen(false);
+                  }
+            }
           >
-            {listedModels.length > 0 ? (
-              <div className="flex min-w-0 items-center gap-1 px-2 pt-1.5 pb-1">
-                <div className="min-w-0 flex-1">
-                  <SelectSearch
-                    value={search}
-                    onChange={setSearch}
-                    placeholder={labels.searchModels}
-                    padded={false}
-                  />
-                </div>
-                {onLoadModels && !favoritesOpen ? (
-                  <Tooltip>
+            <MotionTabsList
+              className="flex h-full max-h-full min-h-0 w-11 flex-col items-center justify-start overflow-y-auto bg-[color-mix(in_oklab,var(--popover),black_10%)] p-1"
+              indicatorClassName="bg-active"
+            >
+              {agents.map((option) => {
+                const label = optionLabelText(option);
+                const reason = option.disabledReason?.trim() || "";
+                const hint = reason || (agentLocked ? labels.agentLocked : "");
+                return (
+                  <Tooltip key={option.value}>
                     <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label={labels.reloadModels}
-                        disabled={disabled || modelsReloading}
-                        onClick={() => onLoadModels()}
-                        className="grid size-7 shrink-0 place-items-center rounded-xl text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50"
-                      >
-                        {modelsReloading ? (
-                          <LoaderCircle className="size-3.5 animate-spin" />
-                        ) : (
-                          <RefreshCw className="size-3.5" />
-                        )}
-                      </button>
+                      <span className="inline-flex">
+                        <MotionTabsTrigger
+                          value={option.value}
+                          disabled={option.disabled || agentLocked}
+                          aria-label={label}
+                          title={hint || label}
+                          className="group pointer-events-auto size-9 shrink-0 px-0 text-xs aria-selected:!text-foreground"
+                        >
+                          {option.icon ?? (
+                            <span className="text-[10px] font-medium">{label.slice(0, 1)}</span>
+                          )}
+                        </MotionTabsTrigger>
+                      </span>
                     </TooltipTrigger>
-                    <TooltipContent side="top" className="z-[10000]">
-                      {labels.reloadModels}
+                    <TooltipContent side="left" className="z-[10000]">
+                      {hint ? (
+                        hint
+                      ) : (
+                        <span className="flex items-center gap-1.5">
+                          {label}
+                          {option.trailing}
+                        </span>
+                      )}
                     </TooltipContent>
                   </Tooltip>
-                ) : null}
-              </div>
-            ) : null}
-            <div
-              className={cn(
-                "min-h-0 flex-1 overflow-y-auto p-1.5",
-                listedModels.length > 0 && "pt-0",
-              )}
-            >
-              {Boolean(modelsLoading) && listedModels.length === 0 && !favoritesOpen ? (
-                <div
-                  className="flex items-center gap-2 px-2.5 py-3 text-xs text-muted-foreground"
-                  aria-busy="true"
-                  aria-live="polite"
-                >
-                  <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
-                  <span>{labels.loadingModels}</span>
-                </div>
-              ) : listedModels.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 px-2.5 py-3">
-                  <div className="text-center text-xs text-muted-foreground">
-                    {favoritesOpen ? labels.noFavorites : labels.noResults}
-                  </div>
-                  {onLoadModels && !favoritesOpen ? (
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => onLoadModels()}
-                      className="inline-flex h-7 items-center rounded-lg border border-border px-2.5 text-xs text-foreground outline-none hover:bg-muted focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50"
-                    >
-                      {labels.loadModels}
-                    </button>
-                  ) : null}
-                  {showExtraArgs && !showThinking ? renderEffortPopover() : null}
-                </div>
-              ) : filteredModels.length === 0 ? (
-                <div className="px-2.5 py-3 text-center text-xs text-muted-foreground">
-                  {labels.noResults}
-                </div>
-              ) : (
-                groupedModels.map((row, index) => {
-                  if (row.type === "header") {
-                    const following = groupedModels[index + 1];
-                    const groupIcon =
-                      following?.type === "option" ? following.option.groupIcon : undefined;
-                    return (
-                      <div
-                        key={`group:${index}:${row.label}`}
-                        className="flex items-center gap-1.5 px-2.5 pt-2 pb-0.5 text-xs text-muted-foreground"
-                      >
-                        {groupIcon ? (
-                          <span className="inline-flex size-3.5 shrink-0 items-center justify-center [&_img]:size-3.5 [&_svg]:size-3.5">
-                            {groupIcon}
-                          </span>
-                        ) : null}
-                        {row.label}
-                      </div>
-                    );
-                  }
-                  const option = row.option;
-                  const isSelected = option.selected ?? option.value === model;
-                  const warning = isSelected && option.tone === "warning";
-                  const fullLabel = modelLabelWithContext(optionName(option), isSelected ? contextSuffix : "");
-                  const rowDisabled = Boolean(option.disabled || modelsLocked);
-                  const rowHint = modelsLocked
-                    ? labels.modelLocked
-                    : option.disabledReason?.trim() || fullLabel;
-                  const modelButton = (
-                    <button
-                      type="button"
-                      disabled={rowDisabled}
-                      title={option.disabledReason?.trim() || undefined}
-                      onClick={() => {
-                        if (rowDisabled) return;
-                        selectPromptModel(option.value, option, onModelChange);
-                      }}
-                      className={cn(
-                        "flex min-w-0 flex-1 gap-2 py-2 text-left text-sm outline-none",
-                        (option.group ?? "").trim() ? "pl-4 pr-2.5" : "px-2.5",
-                        option.description ? "items-start" : "items-center",
-                        "disabled:pointer-events-none disabled:opacity-50",
-                      )}
-                    >
-                      <span className="min-w-0 flex-1">
-                        <OptionRow
-                          option={
-                            isSelected && contextSuffix
-                              ? { ...option, label: modelLabelWithContext(optionName(option), contextSuffix) }
-                              : option
-                          }
-                        />
-                      </span>
-                    </button>
-                  );
-                  return (
-                    <div
-                      key={promptModelRowKey(option)}
-                      className={cn(
-                        "group/model flex w-full items-center gap-1 rounded-lg",
-                        warning
-                          ? "bg-muted text-warning"
-                          : isSelected
-                            ? "bg-muted text-foreground"
-                            : "text-foreground hover:bg-muted/70",
-                      )}
-                    >
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          {rowDisabled ? (
-                            <span className="inline-flex min-w-0 flex-1">{modelButton}</span>
-                          ) : (
-                            modelButton
-                          )}
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="z-[10000] max-w-xs">
-                          {rowHint}
-                        </TooltipContent>
-                      </Tooltip>
-                      {isSelected && showEffortChip ? renderEffortPopover() : null}
-                      <ModelFavoriteMark
-                        option={option}
-                        selected={isSelected}
-                        addLabel={labels.addFavorite}
-                        removeLabel={labels.removeFavorite}
-                        onToggle={onToggleFavorite}
-                      />
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
+                );
+              })}
+            </MotionTabsList>
+          </MotionTabs>
         </div>
+      )}
+      <div
+        className={cn(
+          "flex min-h-0 min-w-0 flex-1 flex-col",
+          menuInline ? "w-auto" : "w-[16.5rem]",
+        )}
+      >
+        {listedModels.length > 0 ? (
+          <div className="flex min-w-0 items-center gap-1 px-2 pt-1.5 pb-1">
+            <div className="min-w-0 flex-1">
+              <SelectSearch
+                value={search}
+                onChange={setSearch}
+                placeholder={labels.searchModels}
+                padded={false}
+              />
+            </div>
+            {onLoadModels && !favoritesOpen ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={labels.reloadModels}
+                    disabled={disabled || modelsReloading}
+                    onClick={() => onLoadModels()}
+                    className="grid size-7 shrink-0 place-items-center rounded-xl text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    {modelsReloading ? (
+                      <LoaderCircle className="size-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="size-3.5" />
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="z-[10000]">
+                  {labels.reloadModels}
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
+          </div>
+        ) : null}
+        <div
+          className={cn("min-h-0 flex-1 overflow-y-auto p-1.5", listedModels.length > 0 && "pt-0")}
+        >
+          {Boolean(modelsLoading) && listedModels.length === 0 && !favoritesOpen ? (
+            <div
+              className="flex items-center gap-2 px-2.5 py-3 text-xs text-muted-foreground"
+              aria-busy="true"
+              aria-live="polite"
+            >
+              <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
+              <span>{labels.loadingModels}</span>
+            </div>
+          ) : listedModels.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 px-2.5 py-3">
+              <div className="text-center text-xs text-muted-foreground">
+                {favoritesOpen ? labels.noFavorites : labels.noResults}
+              </div>
+              {onLoadModels && !favoritesOpen ? (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onLoadModels()}
+                  className="inline-flex h-7 items-center rounded-lg border border-border px-2.5 text-xs text-foreground outline-none hover:bg-muted focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50"
+                >
+                  {labels.loadModels}
+                </button>
+              ) : null}
+              {showExtraArgs && !showThinking ? renderEffortPopover() : null}
+            </div>
+          ) : filteredModels.length === 0 ? (
+            <div className="px-2.5 py-3 text-center text-xs text-muted-foreground">
+              {labels.noResults}
+            </div>
+          ) : (
+            groupedModels.map((row, index) => {
+              if (row.type === "header") {
+                const following = groupedModels[index + 1];
+                const groupIcon =
+                  following?.type === "option" ? following.option.groupIcon : undefined;
+                return (
+                  <div
+                    key={`group:${index}:${row.label}`}
+                    className="flex items-center gap-1.5 px-2.5 pt-2 pb-0.5 text-xs text-muted-foreground"
+                  >
+                    {groupIcon ? (
+                      <span className="inline-flex size-3.5 shrink-0 items-center justify-center [&_img]:size-3.5 [&_svg]:size-3.5">
+                        {groupIcon}
+                      </span>
+                    ) : null}
+                    {row.label}
+                  </div>
+                );
+              }
+              const option = row.option;
+              const isSelected = option.selected ?? option.value === model;
+              const warning = isSelected && option.tone === "warning";
+              const fullLabel = modelLabelWithContext(
+                optionName(option),
+                isSelected ? contextSuffix : "",
+              );
+              const rowDisabled = Boolean(option.disabled || modelsLocked);
+              const rowHint = modelsLocked
+                ? labels.modelLocked
+                : option.disabledReason?.trim() || fullLabel;
+              const modelButton = (
+                <button
+                  type="button"
+                  disabled={rowDisabled}
+                  title={option.disabledReason?.trim() || undefined}
+                  onClick={() => {
+                    if (rowDisabled) return;
+                    selectPromptModel(option.value, option, onModelChange);
+                  }}
+                  className={cn(
+                    "flex min-w-0 flex-1 gap-2 py-2 text-left text-sm outline-none",
+                    (option.group ?? "").trim() ? "pr-2.5 pl-4" : "px-2.5",
+                    option.description ? "items-start" : "items-center",
+                    "disabled:pointer-events-none disabled:opacity-50",
+                  )}
+                >
+                  <span className="min-w-0 flex-1">
+                    <OptionRow
+                      option={
+                        isSelected && contextSuffix
+                          ? {
+                              ...option,
+                              label: modelLabelWithContext(optionName(option), contextSuffix),
+                            }
+                          : option
+                      }
+                    />
+                  </span>
+                </button>
+              );
+              return (
+                <div
+                  key={promptModelRowKey(option)}
+                  className={cn(
+                    "group/model flex w-full items-center gap-1 rounded-lg",
+                    warning
+                      ? "bg-muted text-warning"
+                      : isSelected
+                        ? "bg-muted text-foreground"
+                        : "text-foreground hover:bg-muted/70",
+                  )}
+                >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      {rowDisabled ? (
+                        <span className="inline-flex min-w-0 flex-1">{modelButton}</span>
+                      ) : (
+                        modelButton
+                      )}
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="z-[10000] max-w-xs">
+                      {rowHint}
+                    </TooltipContent>
+                  </Tooltip>
+                  {isSelected && showEffortChip ? renderEffortPopover() : null}
+                  <ModelFavoriteMark
+                    option={option}
+                    selected={isSelected}
+                    addLabel={labels.addFavorite}
+                    removeLabel={labels.removeFavorite}
+                    onToggle={onToggleFavorite}
+                  />
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
   );
 
   if (menuInline) {
@@ -649,15 +631,11 @@ export function PromptEffortPopoverBody({
                       }}
                       className={cn(
                         "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm outline-none",
-                        selected
-                          ? "bg-muted text-foreground"
-                          : "text-foreground hover:bg-muted/70",
+                        selected ? "bg-muted text-foreground" : "text-foreground hover:bg-muted/70",
                         "disabled:pointer-events-none disabled:opacity-50",
                       )}
                     >
-                      <span className="min-w-0 flex-1 truncate">
-                        {optionLabelText(level)}
-                      </span>
+                      <span className="min-w-0 flex-1 truncate">{optionLabelText(level)}</span>
                       {selected ? (
                         <Check className="size-3.5 shrink-0" />
                       ) : (
@@ -685,9 +663,7 @@ export function PromptEffortPopoverBody({
       {fastAvailable ? (
         <div className="px-1">
           <div className="flex h-9 w-full items-center gap-3 px-2.5">
-            <span className="shrink-0 text-sm font-medium text-foreground">
-              {labels.fastMode}
-            </span>
+            <span className="shrink-0 text-sm font-medium text-foreground">{labels.fastMode}</span>
             <span className="min-w-0 flex-1" />
             <Switch
               checked={Boolean(fastEnabled)}
@@ -700,9 +676,7 @@ export function PromptEffortPopoverBody({
       ) : null}
       {onExtraArgsChange ? (
         <div className="px-3.5 pt-1 pb-1.5">
-          <label className="mb-1 block text-xs font-medium text-foreground">
-            {extraArgsLabel}
-          </label>
+          <label className="mb-1 block text-xs font-medium text-foreground">{extraArgsLabel}</label>
           <input
             value={extraArgsText ?? ""}
             placeholder={extraArgsPlaceholder}
@@ -747,9 +721,7 @@ export function ConfigFlyoutList({
   return (
     <>
       {heading ? (
-        <div className="px-3.5 pt-2.5 pb-0.5 text-[11px] text-muted-foreground">
-          {heading}
-        </div>
+        <div className="px-3.5 pt-2.5 pb-0.5 text-[11px] text-muted-foreground">{heading}</div>
       ) : null}
       {showSearch ? (
         <SelectSearch
@@ -758,7 +730,9 @@ export function ConfigFlyoutList({
           placeholder={searchPlaceholder}
         />
       ) : null}
-      <div className={cn("min-h-0 flex-1 overflow-y-auto p-1.5", (showSearch || heading) && "pt-0")}>
+      <div
+        className={cn("min-h-0 flex-1 overflow-y-auto p-1.5", (showSearch || heading) && "pt-0")}
+      >
         {loading ? (
           <div
             className="flex items-center gap-2 px-2.5 py-3 text-xs text-muted-foreground"
@@ -769,9 +743,7 @@ export function ConfigFlyoutList({
             <span>{loadingLabel}</span>
           </div>
         ) : options.length === 0 ? (
-          <div className="px-2.5 py-3 text-center text-xs text-muted-foreground">
-            {emptyLabel}
-          </div>
+          <div className="px-2.5 py-3 text-center text-xs text-muted-foreground">{emptyLabel}</div>
         ) : (
           options.map((option) => {
             const isSelected = option.value === selected;
@@ -783,7 +755,7 @@ export function ConfigFlyoutList({
                 disabled={option.disabled}
                 onClick={() => onSelect(option.value)}
                 className={cn(
-                  "flex w-full gap-2 rounded-lg px-2.5 py-2 text-left text-sm outline-none transition-colors",
+                  "flex w-full gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors outline-none",
                   option.description ? "items-start" : "items-center",
                   warning
                     ? "bg-muted text-warning"
@@ -797,7 +769,9 @@ export function ConfigFlyoutList({
                   <OptionRow option={option} />
                 </span>
                 {isSelected ? (
-                  <Check className={cn("size-3.5 shrink-0 text-current", option.description && "mt-0.5")} />
+                  <Check
+                    className={cn("size-3.5 shrink-0 text-current", option.description && "mt-0.5")}
+                  />
                 ) : (
                   <span className={cn("size-3.5 shrink-0", option.description && "mt-0.5")} />
                 )}
@@ -986,20 +960,14 @@ function OptionRow({ option }: { option: PromptModel }) {
       ) : null}
       <span className="min-w-0">
         <span className="flex min-w-0 items-center gap-1.5">
-          <span className="min-w-0 truncate text-sm">
-            {option.label}
-          </span>
+          <span className="min-w-0 truncate text-sm">{option.label}</span>
           {multiplier ? (
             <span className="shrink-0 text-sm text-muted-foreground">{multiplier}</span>
           ) : null}
-          {option.trailing ? (
-            <span className="shrink-0">{option.trailing}</span>
-          ) : null}
+          {option.trailing ? <span className="shrink-0">{option.trailing}</span> : null}
         </span>
         {option.description ? (
-          <span className="mt-0.5 block text-xs leading-4 opacity-70">
-            {option.description}
-          </span>
+          <span className="mt-0.5 block text-xs leading-4 opacity-70">{option.description}</span>
         ) : null}
       </span>
     </span>
@@ -1029,9 +997,7 @@ function ModelFavoriteMark({
         aria-hidden
         className={cn(
           "mr-2 size-3.5 shrink-0 rounded-full border",
-          selected
-            ? "border-foreground bg-foreground"
-            : "border-muted-foreground/35",
+          selected ? "border-foreground bg-foreground" : "border-muted-foreground/35",
         )}
       />
     );
@@ -1052,10 +1018,8 @@ function ModelFavoriteMark({
         aria-hidden
         className={cn(
           "pointer-events-none size-3.5 rounded-full border transition-opacity",
-          selected
-            ? "border-foreground bg-foreground"
-            : "border-muted-foreground/35",
-          option.favorited || "group-hover/model:opacity-0 group-focus-within/model:opacity-0",
+          selected ? "border-foreground bg-foreground" : "border-muted-foreground/35",
+          option.favorited || "group-focus-within/model:opacity-0 group-hover/model:opacity-0",
           option.favorited && "opacity-0",
         )}
       />
@@ -1065,7 +1029,7 @@ function ModelFavoriteMark({
           "pointer-events-none absolute size-3.5 transition-opacity",
           option.favorited
             ? "fill-favorite text-favorite opacity-100"
-            : "opacity-0 group-hover/model:opacity-100 group-focus-within/model:opacity-100",
+            : "opacity-0 group-focus-within/model:opacity-100 group-hover/model:opacity-100",
         )}
       />
     </button>

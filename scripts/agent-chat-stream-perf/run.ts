@@ -57,14 +57,20 @@ async function measure(url: string, mode: "main" | "branch") {
   try {
     const page = await browser.newPage({ viewport: { width: 1080, height: 800 } });
     await page.goto(`${url}/?mode=${mode}`, { waitUntil: "networkidle" });
-    await page.waitForFunction(() => Boolean((window as unknown as { __ATMOS_STREAM_BENCH?: unknown }).__ATMOS_STREAM_BENCH));
+    await page.waitForFunction(() =>
+      Boolean((window as unknown as { __ATMOS_STREAM_BENCH?: unknown }).__ATMOS_STREAM_BENCH),
+    );
     await page.waitForTimeout(400);
     const scroll = await page.evaluate(async () => {
-      const bench = (window as unknown as { __ATMOS_STREAM_BENCH: { runScroll: () => Promise<unknown> } }).__ATMOS_STREAM_BENCH;
+      const bench = (
+        window as unknown as { __ATMOS_STREAM_BENCH: { runScroll: () => Promise<unknown> } }
+      ).__ATMOS_STREAM_BENCH;
       return bench.runScroll();
     });
     const tokens = await page.evaluate(async () => {
-      const bench = (window as unknown as { __ATMOS_STREAM_BENCH: { runTokens: () => Promise<unknown> } }).__ATMOS_STREAM_BENCH;
+      const bench = (
+        window as unknown as { __ATMOS_STREAM_BENCH: { runTokens: () => Promise<unknown> } }
+      ).__ATMOS_STREAM_BENCH;
       return bench.runTokens();
     });
     const userAgent = await page.evaluate(() => navigator.userAgent);

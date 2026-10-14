@@ -10,12 +10,13 @@
 
 ACP 协议中存在两代配置选项 API：
 
-| 版本 | API | 说明 |
-|------|-----|------|
-| **新版** | `configOptions` / `session/set_config_option` | 统一的配置选项体系，支持 mode、model、thought_level 等任意选项 |
-| **旧版** | `modes` + `models` / `session/set_mode` + `session/set_model` | 独立的 mode 和 model 选择 API |
+| 版本     | API                                                           | 说明                                                           |
+| -------- | ------------------------------------------------------------- | -------------------------------------------------------------- |
+| **新版** | `configOptions` / `session/set_config_option`                 | 统一的配置选项体系，支持 mode、model、thought_level 等任意选项 |
+| **旧版** | `modes` + `models` / `session/set_mode` + `session/set_model` | 独立的 mode 和 model 选择 API                                  |
 
 不同 ACP Agent 实现的协议版本不同：
+
 - **Claude Code**：使用新版 `configOptions`，在 `new_session` 响应中返回
 - **opencode** 等：仍使用旧版 `modes` / `models`，不返回 `configOptions`
 
@@ -113,6 +114,7 @@ SetConfigOption(config_id, value):
 **问题**: 收到 `config_options_update` 消息时直接全量替换 `configOptions` 状态。旧版 `CurrentModeUpdate` 只包含 currentValue 和空的 options 列表，会清空下拉选项。
 
 **修复**: 改为按 `id` 智能合并：
+
 - 如果 incoming 的 options 列表非空 → 完整替换该项
 - 如果 incoming 的 options 列表为空 → 仅更新 currentValue，保留已有选项
 - 新的 id 且有 options → 追加
@@ -191,11 +193,11 @@ Agent                          Atmos Backend (转换层)            Frontend
 
 ## 涉及文件
 
-| 文件 | 变更类型 |
-|------|----------|
-| `crates/agent/Cargo.toml` | 启用 `unstable_session_model` feature |
-| `crates/agent/src/acp_client/runner.rs` | 新增 `map_modes_to_config_option`、`map_models_to_config_option`、`emit_session_config`；legacy 路由逻辑 |
-| `crates/agent/src/acp_client/client.rs` | 新增 `ConfigOptionUpdate`、`CurrentModeUpdate` 通知处理 |
-| `apps/api/src/main.rs` | tracing filter 增加 `agent=debug` |
-| `apps/web/src/components/agent/AgentChatPanel.tsx` | 移除硬编码过滤；auto-resume 时恢复 registryId |
-| `apps/web/src/hooks/use-agent-session.ts` | config options 智能合并逻辑 |
+| 文件                                               | 变更类型                                                                                                 |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `crates/agent/Cargo.toml`                          | 启用 `unstable_session_model` feature                                                                    |
+| `crates/agent/src/acp_client/runner.rs`            | 新增 `map_modes_to_config_option`、`map_models_to_config_option`、`emit_session_config`；legacy 路由逻辑 |
+| `crates/agent/src/acp_client/client.rs`            | 新增 `ConfigOptionUpdate`、`CurrentModeUpdate` 通知处理                                                  |
+| `apps/api/src/main.rs`                             | tracing filter 增加 `agent=debug`                                                                        |
+| `apps/web/src/components/agent/AgentChatPanel.tsx` | 移除硬编码过滤；auto-resume 时恢复 registryId                                                            |
+| `apps/web/src/hooks/use-agent-session.ts`          | config options 智能合并逻辑                                                                              |

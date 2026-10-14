@@ -26,15 +26,7 @@ import {
   TabsSubtleItem,
   cn,
 } from "@workspace/ui";
-import {
-  ArrowUpDown,
-  CircleDot,
-  GitPullRequest,
-  Plus,
-  RefreshCw,
-  Search,
-  X,
-} from "lucide-react";
+import { ArrowUpDown, CircleDot, GitPullRequest, Plus, RefreshCw, Search, X } from "lucide-react";
 import type { Project } from "@/shared/types/domain";
 import {
   type GithubLinkedRefPayload,
@@ -65,10 +57,7 @@ import {
   TaskGithubDrawerHost,
   type TaskGithubDrawerController,
 } from "@/features/task/components/task-github-drawer/TaskGithubDrawerHost";
-import {
-  issueDrawerKey,
-  prDrawerKey,
-} from "@/features/task/components/task-github-drawer/types";
+import { issueDrawerKey, prDrawerKey } from "@/features/task/components/task-github-drawer/types";
 import { openTaskWorkspaceCreate } from "@/features/task/lib/open-task-workspace-create";
 import {
   TASK_GITHUB_PAGE_SIZE,
@@ -133,12 +122,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
         taskGhAssignees: urlState.taskGhAssignees,
         taskGhLabels: urlState.taskGhLabels,
       }),
-    [
-      urlState.taskGhAssignees,
-      urlState.taskGhLabels,
-      urlState.taskGhRepos,
-      urlState.taskGhState,
-    ],
+    [urlState.taskGhAssignees, urlState.taskGhLabels, urlState.taskGhRepos, urlState.taskGhState],
   );
 
   /** Committed query applied to the API (URL-backed). */
@@ -242,14 +226,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
     if (normalized === queryApplied) return;
     setQueryDraft(normalized);
     void setUrlState({ taskGhQ: normalized });
-  }, [
-    filters.assignees,
-    filters.labels,
-    filters.state,
-    queryApplied,
-    setUrlState,
-    sort,
-  ]);
+  }, [filters.assignees, filters.labels, filters.state, queryApplied, setUrlState, sort]);
 
   const searchQuery = useQuery(
     wsQueryOptions({
@@ -257,7 +234,10 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
       connectionState,
       queryKey: queryKeys.computer.githubSearch(scope, {
         kind: kind === "issues" ? "issue" : "pr",
-        repos: searchRepos.map((r) => `${r.owner}/${r.repo}`).sort().join(","),
+        repos: searchRepos
+          .map((r) => `${r.owner}/${r.repo}`)
+          .sort()
+          .join(","),
         state: filters.state,
         assignees: [...filters.assignees].sort().join(","),
         labels: [...filters.labels].sort().join(","),
@@ -289,10 +269,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
   const loading =
     (reposLoading && repos.length === 0) ||
     (searchEnabled && searchQuery.isLoading && !searchQuery.data);
-  const refreshing =
-    searchEnabled &&
-    searchQuery.isFetching &&
-    Boolean(searchQuery.data);
+  const refreshing = searchEnabled && searchQuery.isFetching && Boolean(searchQuery.data);
 
   const handleRefresh = useCallback(() => {
     void searchQuery.refetch();
@@ -303,8 +280,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
       void searchQuery.refetch();
       // Open the new issue in the task drawer when we have a number.
       if (result.number != null) {
-        const projectId =
-          repoByFullName.get(`${result.owner}/${result.repo}`)?.projectId ?? null;
+        const projectId = repoByFullName.get(`${result.owner}/${result.repo}`)?.projectId ?? null;
         drawerControllerRef.current?.openIssue({
           kind: "issue",
           key: issueDrawerKey(result.owner, result.repo, result.number),
@@ -644,13 +620,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
         },
       });
     },
-    [
-      handleEnterWorkspace,
-      kind,
-      projectIdForItem,
-      resolveLinkedWorkspace,
-      setNewWorkspace,
-    ],
+    [handleEnterWorkspace, kind, projectIdForItem, resolveLinkedWorkspace, setNewWorkspace],
   );
 
   const openCreateIssueForProject = useCallback((projectId: string) => {
@@ -753,7 +723,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
           </div>
 
           <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={queryDraft}
               onChange={(e) => setQueryDraft(e.target.value)}
@@ -768,12 +738,12 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
               }}
               placeholder={t("search.placeholder")}
               aria-label={t("search.label")}
-              className="h-8 border-border/70 bg-background pl-8 pr-8 font-mono text-[12px] shadow-none"
+              className="h-8 border-border/70 bg-background pr-8 pl-8 font-mono text-[12px] shadow-none"
             />
             {queryDraft || queryApplied ? (
               <button
                 type="button"
-                className="absolute right-1.5 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="absolute top-1/2 right-1.5 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={clearQuery}
                 title={t("search.clear")}
@@ -824,8 +794,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
               items={items}
               kind={kind}
               bodyState={
-                (reposLoading && repos.length === 0) ||
-                (loading && items.length === 0)
+                (reposLoading && repos.length === 0) || (loading && items.length === 0)
                   ? "loading"
                   : repos.length === 0
                     ? "empty"

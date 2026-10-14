@@ -1,7 +1,13 @@
 import { useCallback, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { AppScreen, EmptyState, InlineError, ListLoadMoreFooter, Section } from "@/ui/layout/app-screen";
+import {
+  AppScreen,
+  EmptyState,
+  InlineError,
+  ListLoadMoreFooter,
+  Section,
+} from "@/ui/layout/app-screen";
 import { ListSkeleton } from "@/ui/primitives/list-skeleton";
 import { radii } from "@/theme/radii";
 import { spacing } from "@/theme/spacing";
@@ -45,7 +51,7 @@ export function SessionHomeScreen() {
   }
 
   return (
-      <AppScreen onRefresh={onRefresh} refreshing={refreshing}>
+    <AppScreen onRefresh={onRefresh} refreshing={refreshing}>
       <SessionCardGrid
         cards={inbox.cards}
         onPress={(bucket) =>
@@ -61,7 +67,11 @@ export function SessionHomeScreen() {
         </Section>
       ) : inbox.recent.length === 0 && inbox.pinnedIds.length === 0 ? (
         <Section>
-          <EmptyState layout="section" message="Sessions from your workspaces show up here." title="No sessions" />
+          <EmptyState
+            layout="section"
+            message="Sessions from your workspaces show up here."
+            title="No sessions"
+          />
         </Section>
       ) : (
         <SessionHomeLists
@@ -101,7 +111,8 @@ export function SessionBucketScreen({ bucket }: { bucket: string | undefined }) 
   }
 
   const bucketCount = parsed ? (inbox.cards.find((card) => card.bucket === parsed)?.count ?? 0) : 0;
-  const fillWhenShort = rows.length < bucketCount && inbox.hasNextPage && !inbox.fetchNextPageFailed;
+  const fillWhenShort =
+    rows.length < bucketCount && inbox.hasNextPage && !inbox.fetchNextPageFailed;
 
   return (
     <AppScreen

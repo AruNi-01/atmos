@@ -16,20 +16,14 @@ import {
   type PreviewBrowserContextPrefs,
   type PreviewBrowserPrefs,
 } from "../lib/browser-labels";
-import {
-  clearBrowserContextUrlFocus,
-  hasBrowserContextUrlFocus,
-} from "../lib/browser-url-focus";
+import { clearBrowserContextUrlFocus, hasBrowserContextUrlFocus } from "../lib/browser-url-focus";
 import { canonicalizeUrl } from "../lib/browser-utils";
 import { useBrowserTabCommandsStore } from "../store/use-browser-tab-commands";
 
 const MAX_PREVIEW_BROWSER_TABS = 10;
 
 function readPreviewBrowserPrefs(instanceId: ConnectionInstanceId): PreviewBrowserPrefs {
-  return readJson(
-    instKey(instanceId, "previewBrowser"),
-    DEFAULT_PREVIEW_BROWSER_PREFS,
-  );
+  return readJson(instKey(instanceId, "previewBrowser"), DEFAULT_PREVIEW_BROWSER_PREFS);
 }
 
 function getFiniteAccessedAt(value: unknown, fallback: number): number {
@@ -41,9 +35,7 @@ function touchTab(
   tabId: string,
   lastAccessedAt = Date.now(),
 ): PreviewBrowserTab[] {
-  return tabs.map((tab) =>
-    tab.id === tabId ? { ...tab, lastAccessedAt } : tab,
-  );
+  return tabs.map((tab) => (tab.id === tabId ? { ...tab, lastAccessedAt } : tab));
 }
 
 function pruneLeastRecentlyAccessed(
@@ -111,11 +103,9 @@ function normalizeBrowserContext(
           }))
       : [];
 
-  const normalizedTabs =
-    tabs.length > 0 ? tabs : [createPreviewBrowserTab(fallbackUrl, now)];
+  const normalizedTabs = tabs.length > 0 ? tabs : [createPreviewBrowserTab(fallbackUrl, now)];
   const activeTabId =
-    value?.activeTabId &&
-    normalizedTabs.some((tab) => tab.id === value.activeTabId)
+    value?.activeTabId && normalizedTabs.some((tab) => tab.id === value.activeTabId)
       ? value.activeTabId
       : normalizedTabs[0].id;
 
@@ -143,14 +133,11 @@ export function useBrowserState({
   syncUrlQueryParam = true,
 }: UsePreviewBrowserStateOptions) {
   const instanceId = useConnectionStore((state) => state.activeInstanceId);
-  const [queryPreviewUrl, setCommittedPreviewUrl] = useQueryState(
-    "pvUrl",
-    previewUrlParams.pvUrl,
-  );
+  const [queryPreviewUrl, setCommittedPreviewUrl] = useQueryState("pvUrl", previewUrlParams.pvUrl);
   const committedPreviewUrl = syncUrlQueryParam ? queryPreviewUrl : "";
   const browserContextId = browserContextIdOverride || workspaceId || projectId || "default";
-  const [browserState, setBrowserState] = useState<PreviewBrowserContextPrefs>(
-    () => normalizeBrowserContext(undefined, committedPreviewUrl),
+  const [browserState, setBrowserState] = useState<PreviewBrowserContextPrefs>(() =>
+    normalizeBrowserContext(undefined, committedPreviewUrl),
   );
   const [urlFocusTabId, setUrlFocusTabId] = useState<string | null>(null);
   const browserStateRef = useRef(browserState);
@@ -163,29 +150,28 @@ export function useBrowserState({
 
   const activeBrowserTab = useMemo(
     () =>
-      browserState.tabs.find((tab) => tab.id === browserState.activeTabId) ??
-      browserState.tabs[0],
+      browserState.tabs.find((tab) => tab.id === browserState.activeTabId) ?? browserState.tabs[0],
     [browserState.activeTabId, browserState.tabs],
   );
-  const previewTabsToRender = useMemo(
-    () => browserState.tabs,
-    [browserState.tabs],
-  );
+  const previewTabsToRender = useMemo(() => browserState.tabs, [browserState.tabs]);
 
-  const persistBrowserState = useCallback((nextBrowserState?: PreviewBrowserContextPrefs) => {
-    const raw = nextBrowserState ?? browserStateRef.current;
-    const stateToPersist: PreviewBrowserContextPrefs = {
-      activeTabId: raw.activeTabId,
-      tabs: raw.tabs.map(({ sessionId: _sessionId, ...tab }) => tab),
-    };
-    const all = readPreviewBrowserPrefs(instanceId);
-    useUiPrefStore.getState().writeSlice(instanceId, "previewBrowser", {
-      byContext: {
-        ...all.byContext,
-        [browserContextId]: stateToPersist,
-      },
-    });
-  }, [browserContextId, instanceId]);
+  const persistBrowserState = useCallback(
+    (nextBrowserState?: PreviewBrowserContextPrefs) => {
+      const raw = nextBrowserState ?? browserStateRef.current;
+      const stateToPersist: PreviewBrowserContextPrefs = {
+        activeTabId: raw.activeTabId,
+        tabs: raw.tabs.map(({ sessionId: _sessionId, ...tab }) => tab),
+      };
+      const all = readPreviewBrowserPrefs(instanceId);
+      useUiPrefStore.getState().writeSlice(instanceId, "previewBrowser", {
+        byContext: {
+          ...all.byContext,
+          [browserContextId]: stateToPersist,
+        },
+      });
+    },
+    [browserContextId, instanceId],
+  );
 
   const reloadBrowserStateFromPrefs = useCallback(() => {
     const all = readPreviewBrowserPrefs(instanceId);
@@ -427,11 +413,7 @@ export function useBrowserState({
       const activeIndex = touchedTabs.findIndex((tab) => tab.id === current.activeTabId);
       const insertIndex = activeIndex >= 0 ? activeIndex + 1 : touchedTabs.length;
       const next = pruneLeastRecentlyAccessed({
-        tabs: [
-          ...touchedTabs.slice(0, insertIndex),
-          nextTab,
-          ...touchedTabs.slice(insertIndex),
-        ],
+        tabs: [...touchedTabs.slice(0, insertIndex), nextTab, ...touchedTabs.slice(insertIndex)],
         activeTabId: nextTab.id,
       });
       evictedSessionIds = current.tabs
@@ -485,10 +467,7 @@ export function useBrowserState({
           : current.activeTabId;
 
       return {
-        tabs:
-          current.activeTabId === tabId
-            ? touchTab(nextTabs, nextActiveTabId)
-            : nextTabs,
+        tabs: current.activeTabId === tabId ? touchTab(nextTabs, nextActiveTabId) : nextTabs,
         activeTabId: nextActiveTabId,
       };
     });
@@ -577,12 +556,15 @@ export function useBrowserState({
     resolveCommand,
   ]);
 
-  const resetBrowserState = useCallback((url = "") => {
-    const next = createInitialBrowserContext(url);
-    setBrowserState(next);
-    persistBrowserState(next);
-    return next;
-  }, [persistBrowserState]);
+  const resetBrowserState = useCallback(
+    (url = "") => {
+      const next = createInitialBrowserContext(url);
+      setBrowserState(next);
+      persistBrowserState(next);
+      return next;
+    },
+    [persistBrowserState],
+  );
 
   return {
     activeBrowserTab,

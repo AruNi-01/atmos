@@ -8,36 +8,36 @@
 
 ## How to use this file
 
-| Rule | Detail |
-|------|--------|
+| Rule            | Detail                                                                                                                           |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | **When to add** | After fixing a user-reported bug, reliability issue, quality regression, agent ergonomics gap, or deliberate product parity gap. |
-| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-006**). |
-| **Status** | `open` → `mitigated` → `closed` (or `wont-fix` with reason). |
-| **Do not** | Duplicate full TECH sections; link to TECH/PRD and paste only deltas. |
-| **Versions** | If agent-facing behavior changes, note the relevant Skill / CLI / runtime version in the entry. |
+| **Entry id**    | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-006**).                                                             |
+| **Status**      | `open` → `mitigated` → `closed` (or `wont-fix` with reason).                                                                     |
+| **Do not**      | Duplicate full TECH sections; link to TECH/PRD and paste only deltas.                                                            |
+| **Versions**    | If agent-facing behavior changes, note the relevant Skill / CLI / runtime version in the entry.                                  |
 
 ---
 
 ## Index
 
-| Id | Title | Status | Date |
-|----|-------|--------|------|
-| IMP-001 | Restore welcome-composer automation setup | mitigated | 2026-05-28 |
-| IMP-002 | Fill headless defaults for Kilo and Kimi | mitigated | 2026-05-28 |
-| IMP-003 | Expose schedule timezone in trigger composer | mitigated | 2026-05-28 |
-| IMP-004 | Scope automations composer commands to automation context | mitigated | 2026-05-29 |
+| Id      | Title                                                        | Status    | Date       |
+| ------- | ------------------------------------------------------------ | --------- | ---------- |
+| IMP-001 | Restore welcome-composer automation setup                    | mitigated | 2026-05-28 |
+| IMP-002 | Fill headless defaults for Kilo and Kimi                     | mitigated | 2026-05-28 |
+| IMP-003 | Expose schedule timezone in trigger composer                 | mitigated | 2026-05-28 |
+| IMP-004 | Scope automations composer commands to automation context    | mitigated | 2026-05-29 |
 | IMP-005 | Replace terminal-backed runs with background agent processes | mitigated | 2026-05-31 |
 
 ---
 
 ## IMP-001 · Restore welcome-composer automation setup
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-05-28 |
-| **Status** | mitigated |
-| **Reported by** | user |
-| **Severity** | ergonomics |
+| Field           | Value      |
+| --------------- | ---------- |
+| **Date**        | 2026-05-28 |
+| **Status**      | mitigated  |
+| **Reported by** | user       |
+| **Severity**    | ergonomics |
 
 ### Problem
 
@@ -78,12 +78,12 @@ Mitigated in the web UI. The create/edit automation setup now uses the welcome-s
 
 ## IMP-002 · Fill headless defaults for Kilo and Kimi
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-05-28 |
-| **Status** | mitigated |
-| **Reported by** | user |
-| **Severity** | integration correctness |
+| Field           | Value                   |
+| --------------- | ----------------------- |
+| **Date**        | 2026-05-28              |
+| **Status**      | mitigated               |
+| **Reported by** | user                    |
+| **Severity**    | integration correctness |
 
 ### Problem
 
@@ -105,12 +105,12 @@ Kilo and Kimi now have non-empty headless defaults in the shared manifest. Insta
 
 ## IMP-003 · Expose schedule timezone in trigger composer
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-05-28 |
-| **Status** | mitigated |
-| **Reported by** | user |
-| **Severity** | scheduling ergonomics |
+| Field           | Value                 |
+| --------------- | --------------------- |
+| **Date**        | 2026-05-28            |
+| **Status**      | mitigated             |
+| **Reported by** | user                  |
+| **Severity**    | scheduling ergonomics |
 
 ### Problem
 
@@ -132,12 +132,12 @@ Users can now switch the schedule timezone in place while configuring the trigge
 
 ## IMP-004 · Scope automations composer commands to automation context
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-05-29 |
-| **Status** | mitigated |
-| **Reported by** | user |
-| **Severity** | integration correctness |
+| Field           | Value                   |
+| --------------- | ----------------------- |
+| **Date**        | 2026-05-29              |
+| **Status**      | mitigated               |
+| **Reported by** | user                    |
+| **Severity**    | integration correctness |
 
 ### Problem
 
@@ -171,12 +171,12 @@ Automations create/edit now behaves like an automation-scoped composer instead o
 
 ## IMP-005 · Replace terminal-backed runs with background agent processes
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-05-31 |
-| **Status** | mitigated |
-| **Reported by** | user |
-| **Severity** | reliability / resource usage |
+| Field                     | Value                                                                                                                                                 |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Date**                  | 2026-05-31                                                                                                                                            |
+| **Status**                | mitigated                                                                                                                                             |
+| **Reported by**           | user                                                                                                                                                  |
+| **Severity**              | reliability / resource usage                                                                                                                          |
 | **Agent-facing versions** | Built-in terminal-agent manifest as of 2026-05-31; current CommandCode `cmd --print`, Codex `codex exec`, Claude `claude --print` style headless CLIs |
 
 ### Problem

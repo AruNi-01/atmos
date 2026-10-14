@@ -13,7 +13,7 @@
 
 ## Resolved decisions (brainstorm → carry into PRD/TECH)
 
-- **Agent discoverability**: use a **bundled Skill** (Cursor/Claude plugin skill or repo-local `SKILL.md` / agent instructions) **plus** the **`atmos canvas` CLI** as the contract surface. Terminal agents learn *when* and *how* to operate Canvas from the Skill; they *execute* via stable CLI verbs and flags (and optional `--json` I/O). **MCP** is explicitly **out of scope for M1** as the primary path (optional later thin-wrapper for MCP-native hosts only).
+- **Agent discoverability**: use a **bundled Skill** (Cursor/Claude plugin skill or repo-local `SKILL.md` / agent instructions) **plus** the **`atmos canvas` CLI** as the contract surface. Terminal agents learn _when_ and _how_ to operate Canvas from the Skill; they _execute_ via stable CLI verbs and flags (and optional `--json` I/O). **MCP** is explicitly **out of scope for M1** as the primary path (optional later thin-wrapper for MCP-native hosts only).
 - **Skill distribution (product)** — canonical path matches other Atmos system skills: source in **`skills/<skill-id>/`**, synced on API startup to **`~/.atmos/skills/.system/<skill-id>/`** via **`system_skill_sync`** + **`skills/system-skills-manifest.json`** (see `crates/infra/src/utils/system_skill_sync.rs`). **`npx skills add` / skills.sh** is **not** required for Atmos users in M1; optional marketplace mirror tracked as PRD **N6**.
 - **Skill discoverability (product)** — disk sync ≠ agent context. **PRD M19**: Canvas **must** expose a control (e.g. “Copy agent instructions”) that copies a **short prompt + skill install directory**; CLI **must** expose **`atmos canvas skill-dir`** or equivalent (**`skill-path`** may alias the same output). Agents read **`SKILL.md` inside that directory** on their own; clipboard does **not** embed the full skill. Does **not** require auto-injection into Codex/etc. (**out of scope** for M1).
 - **`@tldraw/driver` role**: it is an **implementation detail inside the web layer** (`CanvasView` / adapter), **not** a 1:1 “every driver primitive → shell subcommand” surface. The CLI exposes **intent-level** commands only; mapping to `editor.*` vs `@tldraw/driver` is decided per verb in TECH to avoid brittle, version-leaky APIs.
@@ -23,7 +23,7 @@
 
 Terminal agents **do not** learn `@tldraw/driver` or tldraw store internals. Their **only** stable, discoverable surface is:
 
-1. **Skill** — *what* Canvas can do in product terms (create note, frame, terminal card, layout, query state), *when* to use it (e.g. Canvas open), example invocations, and “not supported” guidance.
+1. **Skill** — _what_ Canvas can do in product terms (create note, frame, terminal card, layout, query state), _when_ to use it (e.g. Canvas open), example invocations, and “not supported” guidance.
 2. **`atmos canvas --help`** (and documented subcommands / optional `--json`) — the **intent-level contract**: a deliberately small vocabulary of verbs and flags.
 
 Inside `CanvasView`, the **Canvas Command Bus** maps each intent to `editor.*` APIs and optionally `@tldraw/driver`. That mapping is **invisible to agents** — same separation as agents using `git merge` without knowing libgit2.
@@ -83,13 +83,13 @@ Optional **server → CLI** live push (**not M1**) would require **SSE / WS / po
 
 **Secondary / optimizations (TECH may add later)**
 
-- **Desktop (Tauri)**: optional **native IPC shortcut** CLI → shell when both are local *if* measurable win; same semantic contract as relay path.
+- **Desktop (Tauri)**: optional **native IPC shortcut** CLI → shell when both are local _if_ measurable win; same semantic contract as relay path.
 - **Dev-only loopback**: only if relay adds painful iteration — must not become the only production path.
 
 **Explicit non-choice for primary**
 
 - Full **offline JSON file drop** or **stdout scraping** from the agent as the main protocol (Skill + CLI stays the contract).
-- **Second standalone localhost-only bridge binary** as the *only* path (acceptable only as embedded in `apps/api` / shared crate, not a separate moving part users must install).
+- **Second standalone localhost-only bridge binary** as the _only_ path (acceptable only as embedded in `apps/api` / shared crate, not a separate moving part users must install).
 
 ### Option B — Parse structured output from the terminal stream
 
@@ -143,12 +143,12 @@ The following are observation anchors for later `TECH.md`; they are **not** fina
 
 The **[Agent starter kit](https://tldraw.dev/starter-kits/agent)** (`npm create tldraw@latest -- --template agent`) is the right mental model for **how smart an AI “could” manipulate tldraw** — but its **architecture is not the same** as ours.
 
-| Aspect | Official starter kit | Atmos APP-015 (terminal agent + CLI) |
-|--------|---------------------|--------------------------------------|
-| Where the model runs | In-app chat; **same JS context as `editor`** ([`prompt()`](https://tldraw.dev/starter-kits/agent), streamed actions) | User’s terminal code agent (**no** embedding); calls `atmos canvas …` |
-| What the model emits | Structured **`AgentAction` objects** (`_type`, Zod schemas) → **`AgentActionUtil.applyAction`** → `editor.*` ([docs](https://tldraw.dev/starter-kits/agent)) | **Intent CLI** (+ Skill); relay to **`CanvasView` command bus** → same style of `editor` work |
-| Coverage | Defaults include **create / update / delete shapes**, pen strokes, **align / distribute / stack / reorder**, viewport moves, todos, screenshots + simplified viewport shapes ([capabilities list](https://tldraw.dev/starter-kits/agent)) | We converge by **matching capability classes**, not by copying npm template |
-| Driver | Not the primary contract; starter kit stresses **schema + utils** applying to **`editor`** | Same: **`@tldraw/driver`** is optional inside the bus |
+| Aspect               | Official starter kit                                                                                                                                                                                                                      | Atmos APP-015 (terminal agent + CLI)                                                          |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Where the model runs | In-app chat; **same JS context as `editor`** ([`prompt()`](https://tldraw.dev/starter-kits/agent), streamed actions)                                                                                                                      | User’s terminal code agent (**no** embedding); calls `atmos canvas …`                         |
+| What the model emits | Structured **`AgentAction` objects** (`_type`, Zod schemas) → **`AgentActionUtil.applyAction`** → `editor.*` ([docs](https://tldraw.dev/starter-kits/agent))                                                                              | **Intent CLI** (+ Skill); relay to **`CanvasView` command bus** → same style of `editor` work |
+| Coverage             | Defaults include **create / update / delete shapes**, pen strokes, **align / distribute / stack / reorder**, viewport moves, todos, screenshots + simplified viewport shapes ([capabilities list](https://tldraw.dev/starter-kits/agent)) | We converge by **matching capability classes**, not by copying npm template                   |
+| Driver               | Not the primary contract; starter kit stresses **schema + utils** applying to **`editor`**                                                                                                                                                | Same: **`@tldraw/driver`** is optional inside the bus                                         |
 
 **Takeaway**: the screenshot you shared (titles, stickers, emoji, styled fills, grids) aligns with **rich create + update-shape props + layout helpers** — starter kit achieves that via **many small action schemas**, not `@tldraw/driver` verbatim. Our CLI can expose the **same verbs** either as named subcommands **or** as a documented JSON batch (`apply`) whose payload follows an **internal action registry** designed to mirror starter-kit semantics where possible (TECH decision).
 
@@ -160,74 +160,74 @@ Agents need enough surface to **author a simple diagram**, not only metadata car
 
 ### Diagnostics & read model
 
-| CLI (illustrative) | Intent |
-|--------------------|--------|
-| `canvas status` | Bridge connected / eligible client / ambiguity errors. |
+| CLI (illustrative) | Intent                                                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `canvas status`    | Bridge connected / eligible client / ambiguity errors.                                                                             |
 | `canvas get-state` | Current page, viewport summary, selection, simplified inventory of shapes (type, id, bounds, terminal-card fields where relevant). |
 
 ### Content: notes, frames, text
 
-| CLI (illustrative) | Intent |
-|--------------------|--------|
-| `canvas create-note` | Sticky/note with text (position optional or viewport-relative). |
-| `canvas create-frame` | Bounding frame with optional title/size. |
-| `canvas create-text` | Plain text shape (distinct from sticky when product needs minimal body styling). |
+| CLI (illustrative)    | Intent                                                                           |
+| --------------------- | -------------------------------------------------------------------------------- |
+| `canvas create-note`  | Sticky/note with text (position optional or viewport-relative).                  |
+| `canvas create-frame` | Bounding frame with optional title/size.                                         |
+| `canvas create-text`  | Plain text shape (distinct from sticky when product needs minimal body styling). |
 
-*TECH may collapse `create-text` into `create-note` if sticky is the single text primitive in v1.*
+_TECH may collapse `create-text` into `create-note` if sticky is the single text primitive in v1._
 
 ### Content: geometric shapes (“图形”)
 
-| CLI (illustrative) | Intent |
-|--------------------|--------|
-| `canvas create-geo` | `--kind rectangle|ellipse|triangle|diamond|...` (enumeration tracks **supported** default geo kinds in lockstep with tldraw). Size, fill/stroke/size props as optional flags. |
+| CLI (illustrative)  | Intent            |
+| ------------------- | ----------------- |
+| `canvas create-geo` | `--kind rectangle | ellipse | triangle | diamond | ...` (enumeration tracks **supported** default geo kinds in lockstep with tldraw). Size, fill/stroke/size props as optional flags. |
 
 Keeps one command instead of ten sub-subcommands while remaining discoverable via `--help` and Skill tables.
 
 ### Content: arrows / connectors
 
-| CLI (illustrative) | Intent |
-|--------------------|--------|
+| CLI (illustrative)    | Intent                                                            |
+| --------------------- | ----------------------------------------------------------------- |
 | `canvas create-arrow` | Start/end in **page coordinates** (or attach to shape ids later). |
 
 ### Content: pen & freehand (“笔 / 手绘”)
 
-| CLI (illustrative) | Intent |
-|--------------------|--------|
+| CLI (illustrative)   | Intent                                                                                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `canvas create-draw` | Stroke from a **compact point list or path payload** (e.g. JSON file or stdin) + optional `--color`/`--size`. Equivalent to dropping a finished `draw` shape, **not** live pointer replay. |
 
 **Pen** is modeled as styling on `draw` (or default draw props), not “switch tool and synthesize gestures.”
 
 ### Layout (narrow helpers, not generic animation)
 
-| CLI (illustrative) | Intent |
-|--------------------|--------|
-| `canvas layout-row` | Selected shapes (or `--ids`) in a horizontal row with optional gap. |
-| `canvas layout-column` | Vertical stack. |
-| `canvas layout-grid` | Rows × cols with optional spacing (strict bounds on counts to avoid abuse). |
+| CLI (illustrative)     | Intent                                                                      |
+| ---------------------- | --------------------------------------------------------------------------- |
+| `canvas layout-row`    | Selected shapes (or `--ids`) in a horizontal row with optional gap.         |
+| `canvas layout-column` | Vertical stack.                                                             |
+| `canvas layout-grid`   | Rows × cols with optional spacing (strict bounds on counts to avoid abuse). |
 
 Optional later: alignment helpers (`align-left`, `distribute-horizontal`) — only if UX research shows Agent demand.
 
 **Parity with starter-kit capabilities** (consider for M1 or early M2 — matches “介绍 tldraw” style canvases):
 
-| CLI / mechanism (illustrative) | Intent |
-|-------------------------------|--------|
-| `canvas update-shape` | Patch props for existing ids (`color`, fill, stroke, size, font, emoji/text body, geo kind, bounds) — the missing piece when agents “style” badges like your screenshot’s 2×2 grid. |
-| `canvas viewport` | Pan/zoom/`centerOnBounds` analogue so agents **frame their work** without pointer replay (starter kit exposes viewport moves explicitly). |
-| `canvas align` / `canvas distribute` / `canvas stack` | Same high-level bundles as starter kit’s multi-shape ops; implement by delegating to tldraw layout helpers inside the bus. |
-| `canvas apply --file|-` (**optional**) | Submit a **single JSON payload** carrying one or more **typed actions** (same spirit as streamed `AgentAction`), for batch diagrams from agents that generate JSON scripts; validates against shared schema. Keeps ergonomics closer to upstream template **without** abandoning `_type` sanitization rules. |
+| CLI / mechanism (illustrative)                        | Intent                                                                                                                                                                              |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `canvas update-shape`                                 | Patch props for existing ids (`color`, fill, stroke, size, font, emoji/text body, geo kind, bounds) — the missing piece when agents “style” badges like your screenshot’s 2×2 grid. |
+| `canvas viewport`                                     | Pan/zoom/`centerOnBounds` analogue so agents **frame their work** without pointer replay (starter kit exposes viewport moves explicitly).                                           |
+| `canvas align` / `canvas distribute` / `canvas stack` | Same high-level bundles as starter kit’s multi-shape ops; implement by delegating to tldraw layout helpers inside the bus.                                                          |
+| `canvas apply --file                                  | -` (**optional**)                                                                                                                                                                   | Submit a **single JSON payload** carrying one or more **typed actions** (same spirit as streamed `AgentAction`), for batch diagrams from agents that generate JSON scripts; validates against shared schema. Keeps ergonomics closer to upstream template **without** abandoning `_type` sanitization rules. |
 
 ### Structural edits (already required)
 
-| CLI (illustrative) | Intent |
-|--------------------|--------|
-| `canvas select` / `canvas clear-selection` | Selection model for chaining layout/delete. |
-| `canvas move` | Move shapes by id(s) to coords or delta. |
-| `canvas delete` | Delete by id(s); gated with **`--confirm` or Skill-only destructive flows**. |
+| CLI (illustrative)                         | Intent                                                                       |
+| ------------------------------------------ | ---------------------------------------------------------------------------- |
+| `canvas select` / `canvas clear-selection` | Selection model for chaining layout/delete.                                  |
+| `canvas move`                              | Move shapes by id(s) to coords or delta.                                     |
+| `canvas delete`                            | Delete by id(s); gated with **`--confirm` or Skill-only destructive flows**. |
 
 ### Terminal bridge (product-specific, can trail diagram commands)
 
-| CLI (illustrative) | Intent |
-|--------------------|--------|
+| CLI (illustrative)    | Intent                                                                                                                  |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `canvas add-terminal` | Add/ref `canvas-terminal` shape — `TerminalPaneAgent` / cwd / scope as in existing pin flow (`APP-014` open questions). |
 
 ### Explicit defer (unchanged principle)

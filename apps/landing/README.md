@@ -7,6 +7,7 @@
 ## 🎯 Purpose
 
 Marketing-focused landing page for ATMOS with:
+
 - Hero section with CTA
 - Feature showcase
 - Tech stack highlights
@@ -77,13 +78,13 @@ apps/landing/
 
 All landing page sections are in `src/components/sections/`:
 
-| Component | Purpose |
-|-----------|---------|
-| `hero-section.tsx` | Main hero with headline and CTA |
-| `features-section.tsx` | Feature cards/grid |
-| `tech-stack-section.tsx` | Technology stack showcase |
-| `cta-section.tsx` | Call-to-action section |
-| `footer.tsx` | Footer with links |
+| Component                | Purpose                         |
+| ------------------------ | ------------------------------- |
+| `hero-section.tsx`       | Main hero with headline and CTA |
+| `features-section.tsx`   | Feature cards/grid              |
+| `tech-stack-section.tsx` | Technology stack showcase       |
+| `cta-section.tsx`        | Call-to-action section          |
+| `footer.tsx`             | Footer with links               |
 
 ---
 
@@ -92,6 +93,7 @@ All landing page sections are in `src/components/sections/`:
 Landing page content is fully internationalized using next-intl.
 
 Translation files in `messages/`:
+
 ```json
 // messages/en.json
 {

@@ -10,22 +10,22 @@
 
 ## Index
 
-| Id | Severity | Area | Title | Status |
-|----|----------|------|-------|--------|
-| REV-001 | P2 | frontend | Slash commands and @ mentions are not on the phone composer | fixed |
-| REV-002 | P2 | frontend | Transcript markdown is fenced text, not the web markdown renderer | fixed |
-| REV-003 | P3 | frontend | Message jump sheet and rename/delete are not shipped | fixed |
-| REV-004 | P2 | test | Live web-vs-phone transcript was not compared | open |
+| Id      | Severity | Area     | Title                                                             | Status |
+| ------- | -------- | -------- | ----------------------------------------------------------------- | ------ |
+| REV-001 | P2       | frontend | Slash commands and @ mentions are not on the phone composer       | fixed  |
+| REV-002 | P2       | frontend | Transcript markdown is fenced text, not the web markdown renderer | fixed  |
+| REV-003 | P3       | frontend | Message jump sheet and rename/delete are not shipped              | fixed  |
+| REV-004 | P2       | test     | Live web-vs-phone transcript was not compared                     | open   |
 
 ## REV-001 · Slash commands and @ mentions are not on the phone composer
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -50,13 +50,13 @@ Store `available_commands_updated` and show a native sheet when the draft starts
 
 ## REV-002 · Transcript markdown is fenced text
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P2              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -80,13 +80,13 @@ Add an MIT/BSD markdown renderer and use it for text parts, still leaving mermai
 
 ## REV-003 · Message jump and rename/delete
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P3 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | fixed           |
+| **Severity**    | P3              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -112,13 +112,13 @@ Ship only if N1/N2 are pulled into the must-have bar.
 
 ## REV-004 · No live side-by-side
 
-| Field | Value |
-|-------|--------|
-| **Status** | open |
-| **Severity** | P2 |
-| **Area** | test |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | open            |
+| **Severity**    | P2              |
+| **Area**        | test            |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 

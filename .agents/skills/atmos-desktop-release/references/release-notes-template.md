@@ -61,15 +61,19 @@ Additional inputs in that case:
 Short one-paragraph summary of the release.
 
 ## New Features
+
 - ...
 
 ## Bug Fixes
+
 - ...
 
 ## Improvements
+
 - ...
 
 ## Other Changes
+
 - ...
 
 <!-- atmos-desktop-download -->
@@ -173,15 +177,19 @@ Start from the latest RC/beta file, strip pre-release framing, merge in any late
 Short one-paragraph product summary of what this release ships for users. No beta/RC genealogy.
 
 ## New Features
+
 - ...inherited from the pre-release line, polished...
 
 ## Bug Fixes
+
 - ...inherited from the pre-release line + any late fixes merged in...
 
 ## Improvements
+
 - ...
 
 ## Other Changes
+
 - ...
 
 <!-- Download section for the stable version — see above -->

@@ -3,10 +3,7 @@ import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
 import { motion, useAnimate } from "motion/react";
 
 const KeyboardIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
-  (
-    { size = 40, className = "", strokeWidth = 2, color = "currentColor" },
-    ref,
-  ) => {
+  ({ size = 40, className = "", strokeWidth = 2, color = "currentColor" }, ref) => {
     const [scope, animate] = useAnimate();
 
     const start = async () => {
@@ -24,11 +21,7 @@ const KeyboardIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     };
 
     const stop = async () => {
-      animate(
-        ".k1,.k2,.k3,.k4,.k5,.k6,.k7,.k8",
-        { opacity: 1 },
-        { duration: 0.15 },
-      );
+      animate(".k1,.k2,.k3,.k4,.k5,.k6,.k7,.k8", { opacity: 1 }, { duration: 0.15 });
     };
 
     useImperativeHandle(ref, () => {

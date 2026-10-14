@@ -36,17 +36,17 @@
 
 ## Decisions Since TECH
 
-| ID | Decision | Why | Source update |
-|----|----------|-----|---------------|
-| D1 | None yet | TECH is the source of truth | — |
+| ID  | Decision | Why                         | Source update |
+| --- | -------- | --------------------------- | ------------- |
+| D1  | None yet | TECH is the source of truth | —             |
 
 ## Verification Status
 
-| Area | Command / Method | Last result | Notes |
-|------|------------------|-------------|-------|
-| Mobile unit | `cd apps/mobile && bun test src/features/agent-chat` | not_run | S0 |
-| Mobile typecheck | `cd apps/mobile && bun run typecheck` | not_run | after slices |
-| Simulator | iOS simulator screenshots vs web | not_run | after UI |
+| Area             | Command / Method                                     | Last result | Notes        |
+| ---------------- | ---------------------------------------------------- | ----------- | ------------ |
+| Mobile unit      | `cd apps/mobile && bun test src/features/agent-chat` | not_run     | S0           |
+| Mobile typecheck | `cd apps/mobile && bun run typecheck`                | not_run     | after slices |
+| Simulator        | iOS simulator screenshots vs web                     | not_run     | after UI     |
 
 ## Known Blockers
 
@@ -78,13 +78,13 @@ Collect S0, review it, then dispatch S1–S3 in parallel.
 
 > Orchestration board for `atmos-long-task-impl`. Not a requirements source.
 
-| ID | Wave | Owns | Forbids | Depends | Status | Impl | Review | Verify |
-|----|------|------|---------|---------|--------|------|--------|--------|
-| S0 | 0 | chat contract, helpers, hooks | web, crates, screens | — | done | ok | pass | bun test agent-chat + typecheck pass |
-| S1 | 1 | inbox + workspace index + session list screen | S0 files, terminal feature, thread/composer | S0 | in_progress | running | — | bun test sessions + typecheck |
-| S2 | 1 | thread route + transcript + tool cards | S0 files, composer files, inbox | S0 | in_progress | running | — | typecheck |
-| S3 | 1 | new-chat route + composer + option sheet | S0 files, transcript, inbox | S0 | in_progress | running | — | typecheck |
-| S4 | 2 | `apps/mobile/AGENTS.md`, `apps/mobile/package.json` only if markdown still missing | feature screens | S1 S2 S3 | planned | — | — | typecheck |
+| ID  | Wave | Owns                                                                               | Forbids                                     | Depends  | Status      | Impl    | Review | Verify                               |
+| --- | ---- | ---------------------------------------------------------------------------------- | ------------------------------------------- | -------- | ----------- | ------- | ------ | ------------------------------------ |
+| S0  | 0    | chat contract, helpers, hooks                                                      | web, crates, screens                        | —        | done        | ok      | pass   | bun test agent-chat + typecheck pass |
+| S1  | 1    | inbox + workspace index + session list screen                                      | S0 files, terminal feature, thread/composer | S0       | in_progress | running | —      | bun test sessions + typecheck        |
+| S2  | 1    | thread route + transcript + tool cards                                             | S0 files, composer files, inbox             | S0       | in_progress | running | —      | typecheck                            |
+| S3  | 1    | new-chat route + composer + option sheet                                           | S0 files, transcript, inbox                 | S0       | in_progress | running | —      | typecheck                            |
+| S4  | 2    | `apps/mobile/AGENTS.md`, `apps/mobile/package.json` only if markdown still missing | feature screens                             | S1 S2 S3 | planned     | —       | —      | typecheck                            |
 
 **Status**: `planned` · `ready` · `in_progress` · `blocked` · `in_review` · `rework` · `done`
 

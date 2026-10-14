@@ -64,9 +64,7 @@ export function consumeTokenUsageShareQuery(): TokenUsageShareTab | null {
   }
 }
 
-export function markTokenUsageShareResume(
-  tab: TokenUsageShareTab = "publish",
-): void {
+export function markTokenUsageShareResume(tab: TokenUsageShareTab = "publish"): void {
   const payload: ResumePayload = { tab, at: Date.now() };
   memoryResume = payload;
   try {
@@ -103,8 +101,6 @@ export function __resetTokenUsageShareResumeForTests(): void {
   clearTokenUsageShareResume();
 }
 
-export function __seedTokenUsageShareResumeForTests(
-  payload: ResumePayload,
-): void {
+export function __seedTokenUsageShareResumeForTests(payload: ResumePayload): void {
   memoryResume = payload;
 }

@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  ActivityIndicator,
-  ActivityIndicatorGroup,
-} from "@workspace/ui";
+import { ActivityIndicator, ActivityIndicatorGroup } from "@workspace/ui";
 import {
   RANDOM_UNICODE_ID,
   type AgentActivityIndicatorId,

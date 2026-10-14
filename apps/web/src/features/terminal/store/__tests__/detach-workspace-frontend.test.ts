@@ -5,10 +5,7 @@ import {
   evictTerminalWorkspaceRuntimeState,
   getTerminalWorkspaceScopeKey,
 } from "../terminal-store-helpers";
-import {
-  FIXED_TERMINAL_TAB_VALUE,
-  useTerminalStore,
-} from "../use-terminal-store";
+import { FIXED_TERMINAL_TAB_VALUE, useTerminalStore } from "../use-terminal-store";
 
 const initialState = useTerminalStore.getInitialState();
 
@@ -85,9 +82,7 @@ describe("detachWorkspaceFrontend vs evictWorkspaceRuntime", () => {
     expect(after.workspaceTerminalTabs[workspaceId]).toEqual(
       before.workspaceTerminalTabs[workspaceId],
     );
-    expect(after.workspaceActiveTerminalTabIds[workspaceId]).toBe(
-      FIXED_TERMINAL_TAB_VALUE,
-    );
+    expect(after.workspaceActiveTerminalTabIds[workspaceId]).toBe(FIXED_TERMINAL_TAB_VALUE);
     expect(after.workspacePanes[workspaceId]).toEqual(before.workspacePanes[workspaceId]);
     expect(after.workspaceLayouts[workspaceId]).toEqual(before.workspaceLayouts[workspaceId]);
     expect(

@@ -32,9 +32,7 @@ export async function createGroup(name: string): Promise<Group> {
   await cancelProjectBootstrapQuery(scope);
   patchProjectBootstrapSnapshotAt(scope, (current) => ({
     ...current,
-    groups: [...(current.groups ?? []), group].sort(
-      (a, b) => a.sidebarOrder - b.sidebarOrder,
-    ),
+    groups: [...(current.groups ?? []), group].sort((a, b) => a.sidebarOrder - b.sidebarOrder),
   }));
   return group;
 }
@@ -53,9 +51,7 @@ export async function renameGroup(groupId: string, name: string): Promise<void> 
 }
 
 /** Persist group sidebar order (0-based indices after user reorder). */
-export async function reorderGroups(
-  orderedGroupIds: string[],
-): Promise<void> {
+export async function reorderGroups(orderedGroupIds: string[]): Promise<void> {
   const scope = getComputerQueryScope();
   await waitForConnection();
   const orders = orderedGroupIds.map((guid, index) => ({ guid, order: index }));
@@ -103,10 +99,7 @@ export async function setGroupMember(params: {
       ...group,
       members: group.members.filter(
         (existing) =>
-          !(
-            existing.memberType === params.memberType &&
-            existing.memberId === params.memberId
-          ),
+          !(existing.memberType === params.memberType && existing.memberId === params.memberId),
       ),
     }));
     return {
@@ -115,9 +108,7 @@ export async function setGroupMember(params: {
         group.id === params.groupId
           ? {
               ...group,
-              members: [...group.members, member].sort(
-                (a, b) => a.sortOrder - b.sortOrder,
-              ),
+              members: [...group.members, member].sort((a, b) => a.sortOrder - b.sortOrder),
             }
           : group,
       ),
@@ -143,10 +134,7 @@ export async function removeGroupMember(params: {
       ...group,
       members: group.members.filter(
         (existing) =>
-          !(
-            existing.memberType === params.memberType &&
-            existing.memberId === params.memberId
-          ),
+          !(existing.memberType === params.memberType && existing.memberId === params.memberId),
       ),
     })),
   }));

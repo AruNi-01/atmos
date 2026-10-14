@@ -107,8 +107,8 @@ export function resolvePaneLocalCloseFallback(input: {
     neighbor && !closed.includes(neighbor.activeTabId) ? neighbor.activeTabId : null;
   const next =
     (neighborActive && input.openTabValues.has(neighborActive) ? neighborActive : null) ??
-    (neighbor?.tabIds.find((id) => !closed.includes(id) && input.openTabValues.has(id)) ??
-      null);
+    neighbor?.tabIds.find((id) => !closed.includes(id) && input.openTabValues.has(id)) ??
+    null;
   return { nextTabId: next, ...noAttach };
 }
 
@@ -123,10 +123,7 @@ function firstOwningPaneId(
   return null;
 }
 
-function pickMruAmong(
-  mruOrder: readonly string[],
-  allowed: ReadonlySet<string>,
-): string | null {
+function pickMruAmong(mruOrder: readonly string[], allowed: ReadonlySet<string>): string | null {
   for (const id of mruOrder) {
     if (allowed.has(id)) return id;
   }

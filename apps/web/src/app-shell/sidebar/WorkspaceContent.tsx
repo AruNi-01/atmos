@@ -91,7 +91,10 @@ export interface WorkspaceContentProps {
   onUpdatePriority?: (workspaceId: string, priority: WorkspacePriority) => void;
   availableLabels?: WorkspaceLabel[];
   onCreateLabel?: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
-  onUpdateLabel?: (labelId: string, data: { name: string; color: string }) => Promise<WorkspaceLabel>;
+  onUpdateLabel?: (
+    labelId: string,
+    data: { name: string; color: string },
+  ) => Promise<WorkspaceLabel>;
   onUpdateLabels?: (workspaceId: string, labels: WorkspaceLabel[]) => Promise<void>;
   /** APP-044: groups for workspace membership switcher in the info popover. */
   groups?: Group[];
@@ -142,14 +145,20 @@ function WorkspaceMetadataValue({
           <TooltipTrigger asChild>
             <span
               className={cn(
-                "inline-block max-w-full truncate whitespace-nowrap align-top text-foreground",
+                "inline-block max-w-full truncate align-top whitespace-nowrap text-foreground",
                 valueClassName,
               )}
             >
               {value}
             </span>
           </TooltipTrigger>
-          <TooltipContent side="right" align="center" sideOffset={8} avoidCollisions={false} className={cn("max-w-sm break-all", tooltipClassName)}>
+          <TooltipContent
+            side="right"
+            align="center"
+            sideOffset={8}
+            avoidCollisions={false}
+            className={cn("max-w-sm break-all", tooltipClassName)}
+          >
             {value}
           </TooltipContent>
         </Tooltip>
@@ -195,8 +204,8 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [showGitWarningDialog, setShowGitWarningDialog] = useState(false);
-  const [gitWarningMessage, setGitWarningMessage] = useState('');
-  const [pendingOperation, setPendingOperation] = useState<'archive' | 'delete' | null>(null);
+  const [gitWarningMessage, setGitWarningMessage] = useState("");
+  const [pendingOperation, setPendingOperation] = useState<"archive" | "delete" | null>(null);
   const [isCheckingGit, setIsCheckingGit] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editableName, setEditableName] = useState("");
@@ -222,21 +231,20 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
     () => new Intl.ListFormat(locale, { style: "long", type: "conjunction" }),
     [locale],
   );
-  
 
-  const enterInfoPopover = React.useCallback((
-    trigger: HTMLElement,
-    options?: { immediate?: boolean },
-  ) => {
-    if (suppressInfoPopover || isDragging || isPlaceholder) {
-      workspaceInfoHoverSession.suppress(hoverInstanceId);
-      return;
-    }
-    workspaceInfoHoverSession.enter(workspace.id, trigger, {
-      ...options,
-      instanceId: hoverInstanceId,
-    });
-  }, [hoverInstanceId, isDragging, isPlaceholder, suppressInfoPopover, workspace.id]);
+  const enterInfoPopover = React.useCallback(
+    (trigger: HTMLElement, options?: { immediate?: boolean }) => {
+      if (suppressInfoPopover || isDragging || isPlaceholder) {
+        workspaceInfoHoverSession.suppress(hoverInstanceId);
+        return;
+      }
+      workspaceInfoHoverSession.enter(workspace.id, trigger, {
+        ...options,
+        instanceId: hoverInstanceId,
+      });
+    },
+    [hoverInstanceId, isDragging, isPlaceholder, suppressInfoPopover, workspace.id],
+  );
 
   React.useEffect(() => {
     if (suppressInfoPopover || isDragging || isPlaceholder) {
@@ -262,15 +270,18 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
     router.push(jobGuid ? standaloneJobHref(jobGuid) : `/workspace?id=${workspace.id}`);
   };
 
-  const handleTouchStart = React.useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    if (!isInfoPopoverOpen) {
-      ignoreNextClickRef.current = true;
-      enterInfoPopover(event.currentTarget, { immediate: true });
-      window.setTimeout(() => {
-        ignoreNextClickRef.current = false;
-      }, 500);
-    }
-  }, [enterInfoPopover, isInfoPopoverOpen]);
+  const handleTouchStart = React.useCallback(
+    (event: React.TouchEvent<HTMLDivElement>) => {
+      if (!isInfoPopoverOpen) {
+        ignoreNextClickRef.current = true;
+        enterInfoPopover(event.currentTarget, { immediate: true });
+        window.setTimeout(() => {
+          ignoreNextClickRef.current = false;
+        }, 500);
+      }
+    },
+    [enterInfoPopover, isInfoPopoverOpen],
+  );
 
   const handlePinClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -284,7 +295,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const performArchive = () => {
     onArchive?.(workspace.id);
     if (isActive) {
-      router.replace('/');
+      router.replace("/");
     }
   };
 
@@ -301,10 +312,10 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
     }
   };
 
-  const checkGitStatusAndProceed = async (operation: 'archive' | 'delete') => {
+  const checkGitStatusAndProceed = async (operation: "archive" | "delete") => {
     const workspacePath = workspace.localPath;
     if (!workspacePath) {
-      if (operation === 'archive') {
+      if (operation === "archive") {
         requestArchive();
       } else {
         requestDelete();
@@ -336,15 +347,15 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
         setPendingOperation(operation);
         setShowGitWarningDialog(true);
       } else {
-        if (operation === 'archive') {
+        if (operation === "archive") {
           requestArchive();
         } else {
           requestDelete();
         }
       }
     } catch (error) {
-      console.error('Failed to check git status:', error);
-      if (operation === 'archive') {
+      console.error("Failed to check git status:", error);
+      if (operation === "archive") {
         requestArchive();
       } else {
         requestDelete();
@@ -356,19 +367,19 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
 
   const handleArchiveClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    await checkGitStatusAndProceed('archive');
+    await checkGitStatusAndProceed("archive");
   };
 
   const handleDeleteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    await checkGitStatusAndProceed('delete');
+    await checkGitStatusAndProceed("delete");
   };
 
   const handleForceOperation = () => {
     setShowGitWarningDialog(false);
-    if (pendingOperation === 'archive') {
+    if (pendingOperation === "archive") {
       requestArchive();
-    } else if (pendingOperation === 'delete') {
+    } else if (pendingOperation === "delete") {
       requestDelete();
     }
     setPendingOperation(null);
@@ -376,7 +387,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
 
   const confirmDelete = () => {
     if (isActive) {
-      router.replace('/');
+      router.replace("/");
     }
     onDelete?.(workspace.id);
     setShowDeleteDialog(false);
@@ -439,13 +450,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
       });
     }
     workspaceInfoHoverSession.dismiss();
-  }, [
-    managedPr,
-    openActionRunTab,
-    openPullRequestTab,
-    workspace.branch,
-    workspace.id,
-  ]);
+  }, [managedPr, openActionRunTab, openPullRequestTab, workspace.branch, workspace.id]);
 
   React.useEffect(() => {
     setEditableName(rawDisplayName);
@@ -474,321 +479,345 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
 
   return (
     <>
+      <div
+        {...attributes}
+        {...listeners}
+        onClick={handleClick}
+        // Do NOT open the info popover on focus: a click focuses the row first,
+        // which previously mounted popover chrome and competed with navigation.
+        onMouseEnter={(event) => {
+          setIsRowHovered(true);
+          enterInfoPopover(event.currentTarget);
+        }}
+        onMouseLeave={(event) => {
+          setIsRowHovered(false);
+          if (isWorkspaceInfoHoverKeepAliveTarget(event.relatedTarget)) {
+            workspaceInfoHoverSession.hold();
+          }
+          workspaceInfoHoverSession.leave(hoverInstanceId);
+        }}
+        onTouchStart={handleTouchStart}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            handleClick();
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        data-ws-row=""
+        {...{ [SIDEBAR_SHORTCUT_TARGET_ATTR]: workspaceShortcutKey }}
+        className={cn(
+          // Instant hover fill — match settings SidebarMenuButton (no color fade).
+          "group/ws relative flex w-full min-w-0 cursor-pointer items-center rounded-md border border-transparent px-3 py-1.5 hover:bg-sidebar-accent",
+          isActive
+            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+            : "text-muted-foreground hover:text-sidebar-accent-foreground",
+          isPlaceholder && "opacity-20",
+          isDragging &&
+            "scale-[1.02] border-sidebar-border bg-sidebar-accent text-sidebar-foreground shadow-xl",
+        )}
+      >
+        <div className="relative flex w-full min-w-0 items-center gap-1">
+          <div className="absolute -left-1 flex size-5 items-center justify-center rounded-sm">
+            {workspace.isPinned ? (
+              <button
+                onClick={handlePinClick}
+                className={cn(
+                  "absolute inset-0 z-10 flex items-center justify-center rounded-sm hover:cursor-pointer hover:bg-sidebar-border/50",
+                  isActive || isDragging ? "text-sidebar-foreground" : "text-muted-foreground",
+                  "hover:text-foreground",
+                )}
+                title={t("common.unpin")}
+              >
+                <Pin className="size-3.5" />
+              </button>
+            ) : (
+              <>
+                {isAutomation ? (
+                  <AutomationChip compact className="group-hover/ws:hidden" />
+                ) : managedPr ? (
+                  <WorkspacePrLifecycleIcon
+                    state={managedPr.state}
+                    checksTone={managedPr.checksTone}
+                    className="block group-hover/ws:hidden"
+                    fallbackClassName={leadingFallbackClass}
+                  />
+                ) : (
+                  <GitBranch
+                    className={cn("block size-3.5 group-hover/ws:hidden", leadingFallbackClass)}
+                  />
+                )}
+                <button
+                  onClick={handlePinClick}
+                  className={cn(
+                    "absolute inset-0 z-10 hidden items-center justify-center rounded-sm hover:cursor-pointer hover:bg-sidebar-border/50",
+                    "text-muted-foreground group-hover/ws:flex hover:text-foreground",
+                  )}
+                  title={t("common.pin")}
+                >
+                  <Pin className="size-3.5 rotate-45" />
+                </button>
+              </>
+            )}
+          </div>
+          {/* Title takes remaining width and ellipsizes — no absolute overlays / frosted plates. */}
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 pl-5">
+            <span className="min-w-0 truncate text-[13px] font-medium">
+              {primaryLabel}
+              {showProjectName && projectName && (
+                <span className="ml-1 font-normal text-muted-foreground/50">/ {projectName}</span>
+              )}
+            </span>
+            <WorkspaceAgentStatusMark contextId={workspace.id} />
+          </div>
+          {/* Trailing slot stays in flow so cmd+shift badges can overlay without growing the row. */}
           <div
-            {...attributes}
-            {...listeners}
-            onClick={handleClick}
-            // Do NOT open the info popover on focus: a click focuses the row first,
-            // which previously mounted popover chrome and competed with navigation.
-            onMouseEnter={(event) => {
-              setIsRowHovered(true);
-              enterInfoPopover(event.currentTarget);
-            }}
-            onMouseLeave={(event) => {
-              setIsRowHovered(false);
-              if (isWorkspaceInfoHoverKeepAliveTarget(event.relatedTarget)) {
-                workspaceInfoHoverSession.hold();
-              }
-              workspaceInfoHoverSession.leave(hoverInstanceId);
-            }}
-            onTouchStart={handleTouchStart}
-            onKeyDown={(event) => {
-              if (event.target !== event.currentTarget) return;
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                handleClick();
-              }
-            }}
-            role="button"
-            tabIndex={0}
-            data-ws-row=""
-            {...{ [SIDEBAR_SHORTCUT_TARGET_ATTR]: workspaceShortcutKey }}
             className={cn(
-              // Instant hover fill — match settings SidebarMenuButton (no color fade).
-              "relative flex w-full min-w-0 items-center px-3 py-1.5 rounded-md cursor-pointer border border-transparent hover:bg-sidebar-accent group/ws",
-              isActive
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-muted-foreground hover:text-sidebar-accent-foreground",
-              isPlaceholder && "opacity-20",
-              isDragging && "bg-sidebar-accent shadow-xl scale-[1.02] border-sidebar-border text-sidebar-foreground"
+              "flex shrink-0 items-center justify-end",
+              shortcutDigit != null && "invisible",
             )}
           >
-            <div className="relative flex min-w-0 w-full items-center gap-1">
-              <div className="absolute -left-1 flex size-5 items-center justify-center rounded-sm">
-                {workspace.isPinned ? (
-                  <button
-                    onClick={handlePinClick}
-                    className={cn(
-                      "absolute inset-0 z-10 flex items-center justify-center rounded-sm hover:cursor-pointer hover:bg-sidebar-border/50",
-                      isActive || isDragging ? "text-sidebar-foreground" : "text-muted-foreground",
-                      "hover:text-foreground",
-                    )}
-                    title={t("common.unpin")}
-                  >
-                    <Pin className="size-3.5" />
-                  </button>
-                ) : (
-                  <>
-                    {isAutomation ? (
-                      <AutomationChip compact className="group-hover/ws:hidden" />
-                    ) : managedPr ? (
-                      <WorkspacePrLifecycleIcon
-                        state={managedPr.state}
-                        checksTone={managedPr.checksTone}
-                        className="block group-hover/ws:hidden"
-                        fallbackClassName={leadingFallbackClass}
-                      />
-                    ) : (
-                      <GitBranch
-                        className={cn(
-                          "block size-3.5 group-hover/ws:hidden",
-                          leadingFallbackClass,
-                        )}
-                      />
-                    )}
-                    <button
-                      onClick={handlePinClick}
-                      className={cn(
-                        "absolute inset-0 z-10 hidden items-center justify-center rounded-sm hover:cursor-pointer hover:bg-sidebar-border/50",
-                        "group-hover/ws:flex text-muted-foreground hover:text-foreground",
-                      )}
-                      title={t("common.pin")}
-                    >
-                      <Pin className="size-3.5 rotate-45" />
-                    </button>
-                  </>
-                )}
+            {rightContext ? (
+              <div className="flex items-center text-[11px] text-muted-foreground group-hover/ws:hidden">
+                {rightContext}
               </div>
-              {/* Title takes remaining width and ellipsizes — no absolute overlays / frosted plates. */}
-              <div className="flex min-w-0 flex-1 items-center gap-1.5 pl-5">
-                <span className="min-w-0 truncate text-[13px] font-medium">
-                  {primaryLabel}
-                  {showProjectName && projectName && (
-                    <span className="ml-1 font-normal text-muted-foreground/50">/ {projectName}</span>
-                  )}
-                </span>
-                <WorkspaceAgentStatusMark contextId={workspace.id} />
-              </div>
-              {/* Trailing slot stays in flow so cmd+shift badges can overlay without growing the row. */}
-              <div
-                className={cn(
-                  "flex shrink-0 items-center justify-end",
-                  shortcutDigit != null && "invisible",
-                )}
-              >
-                {rightContext ? (
-                  <div className="flex items-center text-[11px] text-muted-foreground group-hover/ws:hidden">
-                    {rightContext}
-                  </div>
-                ) : null}
-                <div className="hidden items-center gap-1 group-hover/ws:flex">
-                  <span className="text-[11px] text-muted-foreground">{timeAgo}</span>
-                  <button
-                    onClick={handleArchiveClick}
-                    className="flex size-4 items-center justify-center rounded text-muted-foreground hover:cursor-pointer hover:text-foreground"
-                    title={t("common.archive")}
-                    disabled={isCheckingGit}
-                  >
-                    <Archive className="size-3" />
-                  </button>
-                </div>
-              </div>
-              {shortcutDigit != null ? (
-                <div className="pointer-events-none absolute right-0 top-1/2 z-10 -translate-y-1/2">
-                  <SidebarHeldShortcutBadge targetKey={workspaceShortcutKey} />
-                </div>
-              ) : null}
-            </div>
-          </div>
-        {!isDragging && !isPlaceholder && infoPopoverPortalEl
-          ? createPortal(
-            <>
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <WorkspacePrioritySelect
-                  value={workspace.priority}
-                  onChange={onUpdatePriority ? (value) => onUpdatePriority(workspace.id, value) : undefined}
-                  onOpenChange={(open) => workspaceInfoHoverSession.setLock("priority", open)}
-                  surface
-                />
-                <WorkspaceStatusSelect
-                  value={workspace.workflowStatus}
-                  onChange={onUpdateWorkflowStatus ? (value) => onUpdateWorkflowStatus(workspace.id, value) : undefined}
-                  onOpenChange={(open) => workspaceInfoHoverSession.setLock("status", open)}
-                  surface
-                />
-                {onSetWorkspaceGroup || groups.length > 0 || onCreateGroup ? (
-                  <WorkspaceGroupSelect
-                    value={workspaceGroupId}
-                    groups={groups}
-                    onChange={
-                      onSetWorkspaceGroup
-                        ? (groupId) => onSetWorkspaceGroup(workspace.id, groupId)
-                        : undefined
-                    }
-                    onCreateGroup={onCreateGroup}
-                    onOpenChange={(open) => workspaceInfoHoverSession.setLock("group", open)}
-                    surface
-                  />
-                ) : null}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-1.5">
-                <WorkspaceLabelBadges labels={workspace.labels} className="contents" />
-                {onUpdateLabels ? (
-                  <WorkspaceLabelPicker
-                    labels={workspace.labels}
-                    availableLabels={availableLabels}
-                    onChange={(nextLabels) => onUpdateLabels(workspace.id, nextLabels)}
-                    onCreateLabel={onCreateLabel}
-                    onUpdateLabel={onUpdateLabel}
-                    onOpenChange={(open) => workspaceInfoHoverSession.setLock("labels", open)}
-                    surface
-                  />
-                ) : null}
-              </div>
-
-              {managedPr ? (
-                <WorkspacePrSummary
-                  presentation={managedPr}
-                  onOpenPr={openManagedPullRequest}
-                  onOpenChecks={openManagedChecks}
-                  className="-mx-1"
-                />
-              ) : null}
-
-              {(workspace.linearLinks?.length ?? 0) > 0 ? (
-                <WorkspaceLinearSummary
-                  links={workspace.linearLinks!}
-                  className="-mx-1"
-                />
-              ) : null}
-            </div>
-            <div className="space-y-2 text-xs text-muted-foreground">
-              <div className="flex items-center gap-3">
-                <span className="shrink-0 whitespace-nowrap">{t("workspaceContent.displayName")}</span>
-                <div className="group/display relative min-w-0 flex-1 text-right">
-                  <TooltipProvider delayDuration={250}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-block max-w-full truncate whitespace-nowrap align-top text-foreground">
-                          {rawDisplayName || t("workspaceContent.notSet")}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" align="center" sideOffset={8} avoidCollisions={false} className="max-w-sm break-all">
-                        {rawDisplayName || t("workspaceContent.notSet")}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  {onUpdateName ? (
-                    <Popover
-                      open={isEditingName}
-                      onOpenChange={(open) => {
-                        if (open) {
-                          setEditableName(rawDisplayName);
-                        }
-                        setIsEditingName(open);
-                        workspaceInfoHoverSession.setLock("edit-name", open);
-                      }}
-                    >
-                      <PopoverTrigger asChild>
-                        <button
-                          type="button"
-                          className="absolute right-0 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded border border-border/60 bg-background/85 text-muted-foreground opacity-0 shadow-sm backdrop-blur-sm transition-[opacity,transform] hover:bg-muted hover:text-foreground group-hover/display:opacity-100"
-                          title={t("workspaceContent.editDisplayName")}
-                        >
-                          <Pencil className="size-2.5" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        data-workspace-popover-surface="true"
-                        side="right"
-                        align="start"
-                        className="w-56 p-2"
-                        onMouseEnter={() => workspaceInfoHoverSession.hold()}
-                        onMouseLeave={() => workspaceInfoHoverSession.unhold()}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={editableName}
-                            onChange={(e) => setEditableName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                void handleSaveName();
-                              }
-                              if (e.key === "Escape") {
-                                setIsEditingName(false);
-                                workspaceInfoHoverSession.setLock("edit-name", false);
-                              }
-                            }}
-                            className="h-7 flex-1 text-xs"
-                            autoFocus
-                          />
-                          <Button
-                            size="sm"
-                            className="h-7 px-2 text-xs"
-                            disabled={isSavingName || editableName.trim() === rawDisplayName}
-                            onClick={() => void handleSaveName()}
-                          >
-                            {t("common.save")}
-                          </Button>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  ) : null}
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="shrink-0 whitespace-nowrap">{t("workspaceContent.workspaceName")}</span>
-                <WorkspaceMetadataValue value={workspace.name} />
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="shrink-0 whitespace-nowrap">{t("workspaceContent.currentBranch")}</span>
-                <WorkspaceMetadataValue value={workspace.branch} valueClassName="font-semibold text-foreground" />
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="shrink-0 whitespace-nowrap">{t("workspaceContent.baseBranch")}</span>
-                <WorkspaceMetadataValue value={workspace.baseBranch} />
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="shrink-0 whitespace-nowrap">{t("workspaceContent.lastActive")}</span>
-                <span className="min-w-0 flex-1 truncate whitespace-nowrap text-right text-foreground">{timeAgo}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="shrink-0 whitespace-nowrap">{t("workspaceContent.path")}</span>
-                <WorkspaceMetadataValue
-                  value={workspace.localPath}
-                  valueClassName="rounded-md bg-muted/60 px-2 py-1 text-left [direction:rtl]"
-                  tooltipClassName="max-w-md text-xs"
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-1 border-t border-border/60 pt-2">
+            ) : null}
+            <div className="hidden items-center gap-1 group-hover/ws:flex">
+              <span className="text-[11px] text-muted-foreground">{timeAgo}</span>
               <button
-                type="button"
                 onClick={handleArchiveClick}
+                className="flex size-4 items-center justify-center rounded text-muted-foreground hover:cursor-pointer hover:text-foreground"
+                title={t("common.archive")}
                 disabled={isCheckingGit}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 <Archive className="size-3" />
-                <span>{t("common.archive")}</span>
               </button>
-              {onDelete && (
+            </div>
+          </div>
+          {shortcutDigit != null ? (
+            <div className="pointer-events-none absolute top-1/2 right-0 z-10 -translate-y-1/2">
+              <SidebarHeldShortcutBadge targetKey={workspaceShortcutKey} />
+            </div>
+          ) : null}
+        </div>
+      </div>
+      {!isDragging && !isPlaceholder && infoPopoverPortalEl
+        ? createPortal(
+            <>
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <WorkspacePrioritySelect
+                    value={workspace.priority}
+                    onChange={
+                      onUpdatePriority
+                        ? (value) => onUpdatePriority(workspace.id, value)
+                        : undefined
+                    }
+                    onOpenChange={(open) => workspaceInfoHoverSession.setLock("priority", open)}
+                    surface
+                  />
+                  <WorkspaceStatusSelect
+                    value={workspace.workflowStatus}
+                    onChange={
+                      onUpdateWorkflowStatus
+                        ? (value) => onUpdateWorkflowStatus(workspace.id, value)
+                        : undefined
+                    }
+                    onOpenChange={(open) => workspaceInfoHoverSession.setLock("status", open)}
+                    surface
+                  />
+                  {onSetWorkspaceGroup || groups.length > 0 || onCreateGroup ? (
+                    <WorkspaceGroupSelect
+                      value={workspaceGroupId}
+                      groups={groups}
+                      onChange={
+                        onSetWorkspaceGroup
+                          ? (groupId) => onSetWorkspaceGroup(workspace.id, groupId)
+                          : undefined
+                      }
+                      onCreateGroup={onCreateGroup}
+                      onOpenChange={(open) => workspaceInfoHoverSession.setLock("group", open)}
+                      surface
+                    />
+                  ) : null}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <WorkspaceLabelBadges labels={workspace.labels} className="contents" />
+                  {onUpdateLabels ? (
+                    <WorkspaceLabelPicker
+                      labels={workspace.labels}
+                      availableLabels={availableLabels}
+                      onChange={(nextLabels) => onUpdateLabels(workspace.id, nextLabels)}
+                      onCreateLabel={onCreateLabel}
+                      onUpdateLabel={onUpdateLabel}
+                      onOpenChange={(open) => workspaceInfoHoverSession.setLock("labels", open)}
+                      surface
+                    />
+                  ) : null}
+                </div>
+
+                {managedPr ? (
+                  <WorkspacePrSummary
+                    presentation={managedPr}
+                    onOpenPr={openManagedPullRequest}
+                    onOpenChecks={openManagedChecks}
+                    className="-mx-1"
+                  />
+                ) : null}
+
+                {(workspace.linearLinks?.length ?? 0) > 0 ? (
+                  <WorkspaceLinearSummary links={workspace.linearLinks!} className="-mx-1" />
+                ) : null}
+              </div>
+              <div className="space-y-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-3">
+                  <span className="shrink-0 whitespace-nowrap">
+                    {t("workspaceContent.displayName")}
+                  </span>
+                  <div className="group/display relative min-w-0 flex-1 text-right">
+                    <TooltipProvider delayDuration={250}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-block max-w-full truncate align-top whitespace-nowrap text-foreground">
+                            {rawDisplayName || t("workspaceContent.notSet")}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="right"
+                          align="center"
+                          sideOffset={8}
+                          avoidCollisions={false}
+                          className="max-w-sm break-all"
+                        >
+                          {rawDisplayName || t("workspaceContent.notSet")}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    {onUpdateName ? (
+                      <Popover
+                        open={isEditingName}
+                        onOpenChange={(open) => {
+                          if (open) {
+                            setEditableName(rawDisplayName);
+                          }
+                          setIsEditingName(open);
+                          workspaceInfoHoverSession.setLock("edit-name", open);
+                        }}
+                      >
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="absolute top-1/2 right-0 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded border border-border/60 bg-background/85 text-muted-foreground opacity-0 shadow-sm backdrop-blur-sm transition-[opacity,transform] group-hover/display:opacity-100 hover:bg-muted hover:text-foreground"
+                            title={t("workspaceContent.editDisplayName")}
+                          >
+                            <Pencil className="size-2.5" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          data-workspace-popover-surface="true"
+                          side="right"
+                          align="start"
+                          className="w-56 p-2"
+                          onMouseEnter={() => workspaceInfoHoverSession.hold()}
+                          onMouseLeave={() => workspaceInfoHoverSession.unhold()}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={editableName}
+                              onChange={(e) => setEditableName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  void handleSaveName();
+                                }
+                                if (e.key === "Escape") {
+                                  setIsEditingName(false);
+                                  workspaceInfoHoverSession.setLock("edit-name", false);
+                                }
+                              }}
+                              className="h-7 flex-1 text-xs"
+                              autoFocus
+                            />
+                            <Button
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              disabled={isSavingName || editableName.trim() === rawDisplayName}
+                              onClick={() => void handleSaveName()}
+                            >
+                              {t("common.save")}
+                            </Button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="shrink-0 whitespace-nowrap">
+                    {t("workspaceContent.workspaceName")}
+                  </span>
+                  <WorkspaceMetadataValue value={workspace.name} />
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="shrink-0 whitespace-nowrap">
+                    {t("workspaceContent.currentBranch")}
+                  </span>
+                  <WorkspaceMetadataValue
+                    value={workspace.branch}
+                    valueClassName="font-semibold text-foreground"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="shrink-0 whitespace-nowrap">
+                    {t("workspaceContent.baseBranch")}
+                  </span>
+                  <WorkspaceMetadataValue value={workspace.baseBranch} />
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="shrink-0 whitespace-nowrap">
+                    {t("workspaceContent.lastActive")}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-right whitespace-nowrap text-foreground">
+                    {timeAgo}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="shrink-0 whitespace-nowrap">{t("workspaceContent.path")}</span>
+                  <WorkspaceMetadataValue
+                    value={workspace.localPath}
+                    valueClassName="rounded-md bg-muted/60 px-2 py-1 text-left [direction:rtl]"
+                    tooltipClassName="max-w-md text-xs"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-1 border-t border-border/60 pt-2">
                 <button
                   type="button"
-                  onClick={handleDeleteClick}
+                  onClick={handleArchiveClick}
                   disabled={isCheckingGit}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-destructive hover:bg-destructive/10"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
-                  <Trash2 className="size-3" />
-                  <span>{t("common.delete")}</span>
+                  <Archive className="size-3" />
+                  <span>{t("common.archive")}</span>
                 </button>
-              )}
-            </div>
+                {onDelete && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteClick}
+                    disabled={isCheckingGit}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="size-3" />
+                    <span>{t("common.delete")}</span>
+                  </button>
+                )}
+              </div>
             </>,
             infoPopoverPortalEl,
           )
-          : null}
+        : null}
 
       <Dialog open={showGitWarningDialog} onOpenChange={setShowGitWarningDialog}>
         <DialogContent showCloseButton={false}>
@@ -811,7 +840,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
               {t("common.cancel")}
             </Button>
             <Button variant="destructive" onClick={handleForceOperation}>
-              {pendingOperation === 'archive'
+              {pendingOperation === "archive"
                 ? t("workspaceContent.gitWarning.archiveAnyway")
                 : t("workspaceContent.gitWarning.continueToDelete")}
             </Button>

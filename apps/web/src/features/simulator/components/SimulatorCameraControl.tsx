@@ -61,9 +61,7 @@ export function SimulatorCameraControl({
       }
       try {
         const png_base64 = await readPngBase64(file);
-        await run("inject", () =>
-          simulatorApi.cameraInject(workspaceId, lens, { png_base64 }),
-        );
+        await run("inject", () => simulatorApi.cameraInject(workspaceId, lens, { png_base64 }));
       } catch (err) {
         setErrorReason(parseSimulatorError(err));
         setError(simulatorErrorText(err));

@@ -8,9 +8,7 @@ export function currentAppLocale(fallback: string | null = defaultLocale): strin
     return fallback;
   }
 
-  const firstPathSegment = window.location.pathname
-    .split("/")
-    .filter(Boolean)[0];
+  const firstPathSegment = window.location.pathname.split("/").filter(Boolean)[0];
   if (isLocaleSegment(firstPathSegment)) {
     return firstPathSegment;
   }

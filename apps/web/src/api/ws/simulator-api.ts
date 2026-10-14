@@ -29,15 +29,16 @@ export type {
 
 export const simulatorApi = {
   probe: () => wsRequest("simulator_probe"),
-  start: (
-    workspaceId: string,
-    opts?: { udid?: string; platform?: SimulatorDevicePlatform },
-  ) =>
-    wsRequest("simulator_start", {
-      workspace_id: workspaceId,
-      udid: opts?.udid,
-      platform: opts?.platform,
-    }, 600_000),
+  start: (workspaceId: string, opts?: { udid?: string; platform?: SimulatorDevicePlatform }) =>
+    wsRequest(
+      "simulator_start",
+      {
+        workspace_id: workspaceId,
+        udid: opts?.udid,
+        platform: opts?.platform,
+      },
+      600_000,
+    ),
   stop: (workspaceId: string) =>
     wsRequest("simulator_stop", {
       workspace_id: workspaceId,
@@ -66,31 +67,19 @@ export const simulatorApi = {
       runtime: input.runtime,
       name: input.name,
     }),
-  boot: (
-    workspaceId: string,
-    udid: string,
-    platform: SimulatorDevicePlatform,
-  ) =>
+  boot: (workspaceId: string, udid: string, platform: SimulatorDevicePlatform) =>
     wsRequest("simulator_boot", {
       workspace_id: workspaceId,
       udid,
       platform,
     }),
-  shutdown: (
-    workspaceId: string,
-    udid: string,
-    platform: SimulatorDevicePlatform,
-  ) =>
+  shutdown: (workspaceId: string, udid: string, platform: SimulatorDevicePlatform) =>
     wsRequest("simulator_shutdown", {
       workspace_id: workspaceId,
       udid,
       platform,
     }),
-  delete: (
-    workspaceId: string,
-    udid: string,
-    platform: SimulatorDevicePlatform,
-  ) =>
+  delete: (workspaceId: string, udid: string, platform: SimulatorDevicePlatform) =>
     wsRequest("simulator_delete", {
       workspace_id: workspaceId,
       udid,
@@ -146,21 +135,15 @@ export const simulatorApi = {
 export function listenSimulatorDownload(
   handler: (payload: SimulatorDownloadProgress) => void,
 ): () => void {
-  return useWebSocketStore.getState().onEvent(
-    "simulator_download_progress",
-    (data: unknown) => {
-      handler(data as SimulatorDownloadProgress);
-    },
-  );
+  return useWebSocketStore.getState().onEvent("simulator_download_progress", (data: unknown) => {
+    handler(data as SimulatorDownloadProgress);
+  });
 }
 
 export function listenSimulatorDevicesChanged(
   handler: (payload: SimulatorDevicesChanged) => void,
 ): () => void {
-  return useWebSocketStore.getState().onEvent(
-    "simulator_devices_changed",
-    (data: unknown) => {
-      handler(data as SimulatorDevicesChanged);
-    },
-  );
+  return useWebSocketStore.getState().onEvent("simulator_devices_changed", (data: unknown) => {
+    handler(data as SimulatorDevicesChanged);
+  });
 }

@@ -28,7 +28,13 @@ function ChartRenderer({ node, mode }: PtRendererProps): ReactElement {
   });
   return (
     <ControlRoot node={node} mode={mode}>
-      <svg viewBox={`0 0 ${w} ${h}`} width="100%" height="100%" role="img" aria-label={propText(node, "title", "Chart")}>
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        width="100%"
+        height="100%"
+        role="img"
+        aria-label={propText(node, "title", "Chart")}
+      >
         <rect x="0" y="0" width={w} height={h} fill={T.bg} rx={T.radius} />
         {values.map((value, i) => {
           const x = pad + i * ((w - pad * 2) / values.length);
@@ -98,7 +104,15 @@ function AttachmentRenderer({ node, mode, onCommit, onAction }: PtRendererProps)
         }}
       >
         {variant === "image" ? (
-          <span style={{ width: 40, height: 40, borderRadius: T.radius, background: T.mutedBg, flexShrink: 0 }} />
+          <span
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: T.radius,
+              background: T.mutedBg,
+              flexShrink: 0,
+            }}
+          />
         ) : variant === "uploading" ? (
           <Paperclip size={18} />
         ) : (
@@ -211,7 +225,12 @@ export const messageModule: PtComponentModule = {
   inspectorFields: TITLE_FIELDS.concat([{ key: "variant", kind: "text" }]),
 };
 
-function MessageScrollerRenderer({ node, mode, onCommit, onAction }: PtRendererProps): ReactElement {
+function MessageScrollerRenderer({
+  node,
+  mode,
+  onCommit,
+  onAction,
+}: PtRendererProps): ReactElement {
   return (
     <ControlRoot node={node} mode={mode}>
       <div
@@ -224,8 +243,19 @@ function MessageScrollerRenderer({ node, mode, onCommit, onAction }: PtRendererP
           overflow: "hidden",
         }}
       >
-        <div style={{ fontSize: 11, color: T.muted, textAlign: "center", padding: "8px 0" }}>Today</div>
-        <div style={{ flex: 1, overflow: "auto", padding: "0 8px 8px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ fontSize: 11, color: T.muted, textAlign: "center", padding: "8px 0" }}>
+          Today
+        </div>
+        <div
+          style={{
+            flex: 1,
+            overflow: "auto",
+            padding: "0 8px 8px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
           {renderFlowChildren(node, mode, onCommit, onAction)}
         </div>
       </div>
@@ -239,16 +269,26 @@ export const messageScrollerModule: PtComponentModule = {
   defaultNode: (id) =>
     ptNode(id, "message-scroller", scrollerBBox, {
       children: [
-        ptNode(`${id}-m1`, "bubble", { width: 200, height: 48 }, {
-          x: 12,
-          y: 32,
-          props: { label: "Can you review this?", variant: "received" },
-        }),
-        ptNode(`${id}-m2`, "bubble", { width: 200, height: 48 }, {
-          x: 88,
-          y: 92,
-          props: { label: "On it.", variant: "sent" },
-        }),
+        ptNode(
+          `${id}-m1`,
+          "bubble",
+          { width: 200, height: 48 },
+          {
+            x: 12,
+            y: 32,
+            props: { label: "Can you review this?", variant: "received" },
+          },
+        ),
+        ptNode(
+          `${id}-m2`,
+          "bubble",
+          { width: 200, height: 48 },
+          {
+            x: 88,
+            y: 92,
+            props: { label: "On it.", variant: "sent" },
+          },
+        ),
       ],
     }),
   Renderer: MessageScrollerRenderer,

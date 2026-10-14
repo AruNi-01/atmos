@@ -155,7 +155,9 @@ export function getAvailableSideChatRecords(records: LocalSideChatRecord[]): Loc
   return records.filter((record) => !isSideChatClosing(record.status));
 }
 
-export function getFirstOpenSideChatRecord(records: LocalSideChatRecord[]): LocalSideChatRecord | undefined {
+export function getFirstOpenSideChatRecord(
+  records: LocalSideChatRecord[],
+): LocalSideChatRecord | undefined {
   return records.find((record) => isSideChatOpen(record.status));
 }
 
@@ -352,7 +354,11 @@ function buildSideChatContextMetadata(
     `Captured lines: ${capture.captured_lines}`,
     `Captured bytes: ${capture.captured_bytes}/${capture.prompt_budget_bytes}`,
   ];
-  if (capture.omitted_older_bytes > 0 || capture.omitted_middle_bytes > 0 || capture.truncated_bytes) {
+  if (
+    capture.omitted_older_bytes > 0 ||
+    capture.omitted_middle_bytes > 0 ||
+    capture.truncated_bytes
+  ) {
     metadata.push("Capture was bounded; omitted content may exist outside this excerpt.");
   }
   return metadata;
@@ -418,6 +424,10 @@ function hslToHex(h: number, s: number, l: number) {
               ? [x, 0, c]
               : [c, 0, x];
   return `#${[r, g, b]
-    .map((value) => Math.round((value + m) * 255).toString(16).padStart(2, "0"))
+    .map((value) =>
+      Math.round((value + m) * 255)
+        .toString(16)
+        .padStart(2, "0"),
+    )
     .join("")}`;
 }

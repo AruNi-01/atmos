@@ -170,10 +170,7 @@ async function restoreMacDockOnce(hard: boolean): Promise<void> {
  */
 export async function setOverlayVisibleOnAllWorkspaces(
   win: {
-    setVisibleOnAllWorkspaces: (
-      v: boolean,
-      opts?: { visibleOnFullScreen?: boolean },
-    ) => void;
+    setVisibleOnAllWorkspaces: (v: boolean, opts?: { visibleOnFullScreen?: boolean }) => void;
   },
   visible: boolean,
 ): Promise<void> {

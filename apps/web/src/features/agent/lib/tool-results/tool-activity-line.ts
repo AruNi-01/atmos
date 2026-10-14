@@ -46,16 +46,14 @@ function formatDiffStatsSuffix(additions: number, deletions: number): string {
  * Plain-text stand-in for a tool row's one-line header (verb + file/query +
  * diff stats), used by the transcript activity indicator.
  */
-export function formatAgentToolActivityLine(
-  part: AgentToolCallPart,
-  kindLabel: string,
-): string {
+export function formatAgentToolActivityLine(part: AgentToolCallPart, kindLabel: string): string {
   const path = pathFromToolPart(part);
   const file = path ? fileNameFromToolPath(path) : "";
   const command = part.params?.type === "execute" ? part.params.command.trim() : "";
-  const query = part.params?.type === "search" || part.params?.type === "web_search"
-    ? part.params.query.trim()
-    : "";
+  const query =
+    part.params?.type === "search" || part.params?.type === "web_search"
+      ? part.params.query.trim()
+      : "";
   const url = part.params?.type === "fetch" ? part.params.url.trim() : "";
   const skill = part.params?.type === "skill" ? part.params.skill.trim() : "";
   const rawTitle = (part.title || "").trim();

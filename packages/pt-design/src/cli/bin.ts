@@ -107,12 +107,16 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
   } catch (error) {
     if (error instanceof PtDesignError) {
       process.stderr.write(`${error.code}: ${error.message}\n`);
-      process.stdout.write(`${JSON.stringify({ ok: false, error: { code: error.code, message: error.message } })}\n`);
+      process.stdout.write(
+        `${JSON.stringify({ ok: false, error: { code: error.code, message: error.message } })}\n`,
+      );
       return cliExitCode(error.code);
     }
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${message}\n`);
-    process.stdout.write(`${JSON.stringify({ ok: false, error: { code: "unknown_tool", message } })}\n`);
+    process.stdout.write(
+      `${JSON.stringify({ ok: false, error: { code: "unknown_tool", message } })}\n`,
+    );
     return 4;
   }
 }

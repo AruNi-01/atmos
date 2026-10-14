@@ -29,18 +29,9 @@ export type AgentIndicatorPlacement =
 /** Special id: pick a random unicode spinner per mount (legacy full-indicator behavior). */
 export const RANDOM_UNICODE_ID = "random" as const;
 
-export type AgentActivityIndicatorId =
-  | UnicodeSpinnerId
-  | typeof RANDOM_UNICODE_ID
-  | OrbVariant;
+export type AgentActivityIndicatorId = UnicodeSpinnerId | typeof RANDOM_UNICODE_ID | OrbVariant;
 
-export type IndicatorFamily =
-  | "unicode"
-  | "lattice"
-  | "lens"
-  | "ring"
-  | "helix"
-  | "morph";
+export type IndicatorFamily = "unicode" | "lattice" | "lens" | "ring" | "helix" | "morph";
 
 export interface IndicatorStyleOption {
   id: AgentActivityIndicatorId;
@@ -51,13 +42,11 @@ export interface IndicatorStyleOption {
 
 export const UNICODE_STYLE_OPTIONS: readonly IndicatorStyleOption[] = [
   { id: RANDOM_UNICODE_ID, family: "unicode", label: "Random" },
-  ...UNICODE_SPINNER_IDS.map(
-    (id): IndicatorStyleOption => ({
-      id,
-      family: "unicode",
-      label: id,
-    }),
-  ),
+  ...UNICODE_SPINNER_IDS.map((id): IndicatorStyleOption => ({
+    id,
+    family: "unicode",
+    label: id,
+  })),
 ];
 
 function orbFamily(id: OrbVariant): IndicatorFamily {
@@ -76,13 +65,11 @@ function orbFamily(id: OrbVariant): IndicatorFamily {
   return "morph";
 }
 
-export const ORB_STYLE_OPTIONS: readonly IndicatorStyleOption[] = ORB_VARIANT_IDS.map(
-  (id) => ({
-    id,
-    family: orbFamily(id),
-    label: id,
-  }),
-);
+export const ORB_STYLE_OPTIONS: readonly IndicatorStyleOption[] = ORB_VARIANT_IDS.map((id) => ({
+  id,
+  family: orbFamily(id),
+  label: id,
+}));
 
 /** All selectable styles, unicode first then orbs by family order. */
 export const ALL_INDICATOR_STYLE_OPTIONS: readonly IndicatorStyleOption[] = [
@@ -117,13 +104,9 @@ export const INDICATOR_STYLE_GROUPS: ReadonlyArray<{
   },
 ];
 
-const VALID_IDS = new Set<string>(
-  ALL_INDICATOR_STYLE_OPTIONS.map((o) => o.id),
-);
+const VALID_IDS = new Set<string>(ALL_INDICATOR_STYLE_OPTIONS.map((o) => o.id));
 
-export function isAgentActivityIndicatorId(
-  value: unknown,
-): value is AgentActivityIndicatorId {
+export function isAgentActivityIndicatorId(value: unknown): value is AgentActivityIndicatorId {
   return typeof value === "string" && VALID_IDS.has(value);
 }
 
@@ -167,7 +150,5 @@ export function resolveIndicatorId(
   value: unknown,
   placement: AgentIndicatorPlacement,
 ): AgentActivityIndicatorId {
-  return isAgentActivityIndicatorId(value)
-    ? value
-    : DEFAULT_INDICATOR_BY_PLACEMENT[placement];
+  return isAgentActivityIndicatorId(value) ? value : DEFAULT_INDICATOR_BY_PLACEMENT[placement];
 }

@@ -25,10 +25,7 @@ interface FileTreePanelProps {
   contextMenuAnchor?: "fixed" | "local";
   onRefresh?: () => Promise<void> | void;
   onShowHiddenChange?: (show: boolean) => void;
-  onOpenFile?: (
-    path: string,
-    options: { preview: boolean },
-  ) => Promise<void> | void;
+  onOpenFile?: (path: string, options: { preview: boolean }) => Promise<void> | void;
 }
 
 export const FileTreePanel: React.FC<FileTreePanelProps> = ({
@@ -50,17 +47,14 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
   const storeRootPath = useFileTreeStore((s) => s.rootPath);
   const storeShowHidden = useFileTreeStore((s) => s.showHidden);
   const setStoreShowHidden = useFileTreeStore((s) => s.setShowHidden);
-  const storeActiveFilePath = useEditorStore((s) =>
-    s.getActiveFilePath(contextId || undefined),
-  );
+  const storeActiveFilePath = useEditorStore((s) => s.getActiveFilePath(contextId || undefined));
   const requestFileTreeReveal = useEditorStore((s) => s.requestFileTreeReveal);
   const activeFilePath = activeFilePathProp ?? storeActiveFilePath;
   const projectRoot = currentProjectPath ?? rootPath ?? storeRootPath;
   const canLocateActiveFile = Boolean(
     activeFilePath &&
-      projectRoot &&
-      (activeFilePath === projectRoot ||
-        activeFilePath.startsWith(`${projectRoot}/`)),
+    projectRoot &&
+    (activeFilePath === projectRoot || activeFilePath.startsWith(`${projectRoot}/`)),
   );
 
   const effectiveRootPath = rootPath ?? storeRootPath;
@@ -85,19 +79,17 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
 
   if (!effectiveRootPath) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50">
-        <Folder className="size-8 opacity-20 mb-2" />
-        <span className="text-xs text-center">
-          {t("fileTreePanel.empty.selectWorkspace")}
-        </span>
+      <div className="flex h-full flex-col items-center justify-center text-muted-foreground/50">
+        <Folder className="mb-2 size-8 opacity-20" />
+        <span className="text-center text-xs">{t("fileTreePanel.empty.selectWorkspace")}</span>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex h-full min-h-0 flex-col">
       {projectName && (
-        <div className="flex items-center justify-between gap-1 px-3 py-1.5 shrink-0">
+        <div className="flex shrink-0 items-center justify-between gap-1 px-3 py-1.5">
           <div className="flex min-w-0 items-center gap-0.5">
             <span className="truncate text-[12px] font-medium text-muted-foreground">
               {projectName}
@@ -125,9 +117,9 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
               type="button"
               onClick={() => handleShowHiddenChange(!effectiveShowHidden)}
               className={cn(
-                "p-1 hover:bg-sidebar-accent rounded-sm",
+                "rounded-sm p-1 hover:bg-sidebar-accent",
                 effectiveShowHidden
-                  ? "text-sidebar-foreground bg-sidebar-accent"
+                  ? "bg-sidebar-accent text-sidebar-foreground"
                   : "text-muted-foreground",
               )}
               title={
@@ -136,24 +128,20 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
                   : t("fileTreePanel.actions.showHiddenFiles")
               }
             >
-              {effectiveShowHidden ? (
-                <Eye className="size-3.5" />
-              ) : (
-                <EyeOff className="size-3.5" />
-              )}
+              {effectiveShowHidden ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
             </button>
             <button
               type="button"
               onClick={() => {
                 void effectiveRefresh();
               }}
-              className="p-1 hover:bg-sidebar-accent rounded-sm"
+              className="rounded-sm p-1 hover:bg-sidebar-accent"
               title={t("fileTreePanel.actions.refreshFiles")}
               disabled={effectiveIsLoading || isRefreshInFlight}
               aria-busy={effectiveIsLoading || isRefreshInFlight}
             >
               {effectiveIsLoading || isRefreshInFlight ? (
-                <LoaderCircle className="size-3.5 text-muted-foreground animate-spin" />
+                <LoaderCircle className="size-3.5 animate-spin text-muted-foreground" />
               ) : (
                 <RotateCcw className="size-3.5 text-muted-foreground" />
               )}
@@ -163,22 +151,22 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
       )}
       <div className="min-h-0 flex-1" data-file-tree-scroll="">
         <ScrollArea scrollFade className="h-full" viewportClassName="pt-1.5">
-        <FileTree
-          // Remount when root or eye-toggle changes so headless-tree does not keep
-          // a truthy empty children cache (`[]`) from the previous visibility mode.
-          key={`${effectiveRootPath}:${effectiveShowHidden ? "h" : "v"}`}
-          data={effectiveData}
-          rootPath={effectiveRootPath}
-          showHidden={effectiveShowHidden}
-          isLoading={effectiveIsLoading}
-          onRefresh={effectiveRefresh}
-          contextId={contextId}
-          activeFilePath={activeFilePath}
-          currentProjectPath={currentProjectPath}
-          revealEnabled={revealEnabled}
-          contextMenuAnchor={contextMenuAnchor}
-          onOpenFile={onOpenFile}
-        />
+          <FileTree
+            // Remount when root or eye-toggle changes so headless-tree does not keep
+            // a truthy empty children cache (`[]`) from the previous visibility mode.
+            key={`${effectiveRootPath}:${effectiveShowHidden ? "h" : "v"}`}
+            data={effectiveData}
+            rootPath={effectiveRootPath}
+            showHidden={effectiveShowHidden}
+            isLoading={effectiveIsLoading}
+            onRefresh={effectiveRefresh}
+            contextId={contextId}
+            activeFilePath={activeFilePath}
+            currentProjectPath={currentProjectPath}
+            revealEnabled={revealEnabled}
+            contextMenuAnchor={contextMenuAnchor}
+            onOpenFile={onOpenFile}
+          />
         </ScrollArea>
       </div>
     </div>

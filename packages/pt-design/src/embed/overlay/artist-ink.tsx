@@ -74,14 +74,22 @@ export function isTransparentColor(color: string): boolean {
 }
 
 function visibleEdge(edge: BorderEdge): boolean {
-  return edge.width >= 0.5 && edge.style !== "none" && edge.style !== "hidden" && !isTransparentColor(edge.color);
+  return (
+    edge.width >= 0.5 &&
+    edge.style !== "none" &&
+    edge.style !== "hidden" &&
+    !isTransparentColor(edge.color)
+  );
 }
 
 function isDashed(style: string): boolean {
   return style === "dashed" || style === "dotted";
 }
 
-function isFullBleed(box: { x: number; y: number; w: number; h: number }, root: { w: number; h: number }): boolean {
+function isFullBleed(
+  box: { x: number; y: number; w: number; h: number },
+  root: { w: number; h: number },
+): boolean {
   return box.x <= 2 && box.y <= 2 && box.w >= root.w - 4 && box.h >= root.h - 4;
 }
 
@@ -90,7 +98,10 @@ function isPillOrCircle(box: { w: number; h: number; radius: number }): boolean 
   return cap > 0.5 && box.radius >= cap - 0.5;
 }
 
-function tokenRadiusOrPill(box: { w: number; h: number; radius: number }, tokenRadius: number): number {
+function tokenRadiusOrPill(
+  box: { w: number; h: number; radius: number },
+  tokenRadius: number,
+): number {
   return isPillOrCircle(box) ? box.radius : tokenRadius;
 }
 
@@ -131,7 +142,13 @@ export function sampleSegment(
   return pts;
 }
 
-function sampleArc(cx: number, cy: number, r: number, a0: number, a1: number): Array<[number, number]> {
+function sampleArc(
+  cx: number,
+  cy: number,
+  r: number,
+  a0: number,
+  a1: number,
+): Array<[number, number]> {
   const len = Math.abs(a1 - a0) * r;
   const n = Math.max(2, Math.ceil(len / ARTIST_SAMPLE_PX));
   const pts: Array<[number, number]> = [];
@@ -142,7 +159,13 @@ function sampleArc(cx: number, cy: number, r: number, a0: number, a1: number): A
   return pts;
 }
 
-function sampleRoundedRect(x: number, y: number, w: number, h: number, r: number): Array<[number, number]> {
+function sampleRoundedRect(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): Array<[number, number]> {
   const radius = Math.min(Math.max(0, r), w / 2, h / 2);
   if (radius <= 0.5) {
     return [
@@ -182,7 +205,10 @@ export function pathForMark(mark: InkMark): string {
     return polylinePath(sampleSegment(mark.x, mark.y, mark.x + mark.w, mark.y + mark.h));
   }
   if (mark.kind === "ellipse") {
-    return polylinePath(sampleEllipse(mark.x + mark.w / 2, mark.y + mark.h / 2, mark.w / 2, mark.h / 2), true);
+    return polylinePath(
+      sampleEllipse(mark.x + mark.w / 2, mark.y + mark.h / 2, mark.w / 2, mark.h / 2),
+      true,
+    );
   }
   return polylinePath(sampleRoundedRect(mark.x, mark.y, mark.w, mark.h, mark.radius ?? 0), true);
 }
@@ -274,7 +300,8 @@ export function marksForBox(box: BoxInk, root: { w: number; h: number }): InkMar
   }
 
   const marks: InkMark[] = [];
-  const dash = isDashed(top.style) || isDashed(right.style) || isDashed(bottom.style) || isDashed(left.style);
+  const dash =
+    isDashed(top.style) || isDashed(right.style) || isDashed(bottom.style) || isDashed(left.style);
   if (visibleEdge(top)) {
     marks.push({
       kind: "line",
@@ -322,10 +349,15 @@ export function marksForBox(box: BoxInk, root: { w: number; h: number }): InkMar
   return marks;
 }
 
-export function planForBox(box: BoxInk, root: { w: number; h: number }): { hide: boolean; marks: InkMark[] } {
+export function planForBox(
+  box: BoxInk,
+  root: { w: number; h: number },
+): { hide: boolean; marks: InkMark[] } {
   const marks = marksForBox(box, root);
   if (marks.length > 0) return { hide: true, marks };
-  const vis = [box.borders.top, box.borders.right, box.borders.bottom, box.borders.left].filter(visibleEdge);
+  const vis = [box.borders.top, box.borders.right, box.borders.bottom, box.borders.left].filter(
+    visibleEdge,
+  );
   if (vis.length > 0) return { hide: true, marks: [] };
   return { hide: false, marks: [] };
 }
@@ -523,7 +555,10 @@ function cssPx(el: HTMLElement, name: string, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function collectMarks(host: HTMLElement): { marks: InkMark[]; inked: Array<{ el: HTMLElement; kind: InkKind }> } {
+function collectMarks(host: HTMLElement): {
+  marks: InkMark[];
+  inked: Array<{ el: HTMLElement; kind: InkKind }>;
+} {
   const root = { w: host.offsetWidth, h: host.offsetHeight };
   const innerRadius = cssPx(host, "--pt-radius", 3);
   const handleRadius = cssPx(host, "--pt-handle-radius", HANDLE_ROUNDNESS.value);
@@ -569,7 +604,11 @@ function collectMarks(host: HTMLElement): { marks: InkMark[]; inked: Array<{ el:
   return { marks, inked };
 }
 
-export function attachArtistInk(svg: SVGSVGElement, host: HTMLElement, seedKey: string): () => void {
+export function attachArtistInk(
+  svg: SVGSVGElement,
+  host: HTMLElement,
+  seedKey: string,
+): () => void {
   const tagged: HTMLElement[] = [];
   let painting = false;
   const draw = () => {
@@ -619,10 +658,16 @@ export function attachArtistInk(svg: SVGSVGElement, host: HTMLElement, seedKey: 
   const overlayLayer = host.closest("[data-pt-overlay-id]");
   const overlayRoot = host.closest("[data-pt-overlay]");
   if (overlayLayer) {
-    radiusMo?.observe(overlayLayer, { attributes: true, attributeFilter: ["data-pt-radius", "style"] });
+    radiusMo?.observe(overlayLayer, {
+      attributes: true,
+      attributeFilter: ["data-pt-radius", "style"],
+    });
   }
   if (overlayRoot && overlayRoot !== overlayLayer) {
-    radiusMo?.observe(overlayRoot, { attributes: true, attributeFilter: ["data-pt-global-radius", "style"] });
+    radiusMo?.observe(overlayRoot, {
+      attributes: true,
+      attributeFilter: ["data-pt-global-radius", "style"],
+    });
   }
   const onChange = () => draw();
   const onClick = () => {
@@ -687,7 +732,14 @@ export function ArtistInkHost({
       <div
         ref={hostRef}
         data-pt-artist-host=""
-        style={{ position: "relative", width: "100%", height: "100%", minWidth: 0, minHeight: 0, zIndex: 0 }}
+        style={{
+          position: "relative",
+          width: "100%",
+          height: "100%",
+          minWidth: 0,
+          minHeight: 0,
+          zIndex: 0,
+        }}
       >
         {children}
       </div>

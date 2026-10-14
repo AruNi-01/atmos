@@ -25,9 +25,7 @@ export function BrowserSettingsSection() {
 
   return (
     <div className="space-y-4">
-      <SettingsExperimentalNotice>
-        {t("developmentWarning")}
-      </SettingsExperimentalNotice>
+      <SettingsExperimentalNotice>{t("developmentWarning")}</SettingsExperimentalNotice>
 
       <SettingsGroupCard
         open={agentOpen}

@@ -50,7 +50,7 @@ const HardDriveIcon = forwardRef<HardDriveIconHandle, HardDriveIconProps>(
           controls.start("animate");
         }
       },
-      [controls, onMouseEnter]
+      [controls, onMouseEnter],
     );
 
     const handleMouseLeave = useCallback(
@@ -61,7 +61,7 @@ const HardDriveIcon = forwardRef<HardDriveIconHandle, HardDriveIconProps>(
           controls.start("normal");
         }
       },
-      [controls, onMouseLeave]
+      [controls, onMouseLeave],
     );
 
     return (
@@ -101,7 +101,7 @@ const HardDriveIcon = forwardRef<HardDriveIconHandle, HardDriveIconProps>(
         </svg>
       </div>
     );
-  }
+  },
 );
 
 HardDriveIcon.displayName = "HardDriveIcon";

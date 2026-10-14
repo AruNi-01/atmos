@@ -29,7 +29,9 @@ export function WorkspacePriorityIcon({
           width: size,
         }}
       >
-        <Text style={{ color: "#ffffff", fontSize: size * 0.7, fontWeight: "700", lineHeight: size }}>
+        <Text
+          style={{ color: "#ffffff", fontSize: size * 0.7, fontWeight: "700", lineHeight: size }}
+        >
           !
         </Text>
       </View>
@@ -40,7 +42,9 @@ export function WorkspacePriorityIcon({
     const activeBars = priority === "high" ? 3 : priority === "medium" ? 2 : 1;
     const color = PRIORITY_COLOR[priority];
     return (
-      <View style={{ alignItems: "flex-end", flexDirection: "row", gap: 2, height: size, width: size }}>
+      <View
+        style={{ alignItems: "flex-end", flexDirection: "row", gap: 2, height: size, width: size }}
+      >
         {[1, 2, 3].map((bar) => (
           <View
             key={bar}
@@ -58,7 +62,9 @@ export function WorkspacePriorityIcon({
   }
 
   return (
-    <View style={{ alignItems: "center", gap: 3, height: size, justifyContent: "center", width: size }}>
+    <View
+      style={{ alignItems: "center", gap: 3, height: size, justifyContent: "center", width: size }}
+    >
       {[0, 1, 2].map((line) => (
         <View
           key={line}

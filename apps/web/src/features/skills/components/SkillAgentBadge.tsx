@@ -1,29 +1,29 @@
 "use client";
 
-import React from 'react';
-import { cn, Bot, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@workspace/ui';
-import { AgentIcon } from '@/features/agent/components/AgentIcon';
-import { getAgentConfig, getAgentRegistryId } from '../lib/constants';
+import React from "react";
+import { cn, Bot, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@workspace/ui";
+import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { getAgentConfig, getAgentRegistryId } from "../lib/constants";
 
 interface SkillAgentBadgeProps {
   agent: string;
-  status?: 'enabled' | 'disabled' | 'partial';
+  status?: "enabled" | "disabled" | "partial";
   tooltip?: string;
 }
 
 export const SkillAgentBadge: React.FC<SkillAgentBadgeProps> = ({ agent, status, tooltip }) => {
   const config = getAgentConfig(agent);
   const registryId = getAgentRegistryId(agent);
-  const isUnified = agent === 'unified';
-  const isAtmos = agent === 'atmos';
-  const isDisabled = status === 'disabled';
+  const isUnified = agent === "unified";
+  const isAtmos = agent === "atmos";
+  const isDisabled = status === "disabled";
 
   const badge = (
     <span
       className={cn(
-        "shrink-0 inline-flex items-center transition-opacity",
+        "inline-flex shrink-0 items-center transition-opacity",
         // Disabled: grayed-out agent icon only (no EyeOff). Enabled: full brightness.
-        isDisabled ? 'opacity-35 grayscale' : 'opacity-100',
+        isDisabled ? "opacity-35 grayscale" : "opacity-100",
       )}
     >
       {isUnified || isAtmos ? (
@@ -33,8 +33,8 @@ export const SkillAgentBadge: React.FC<SkillAgentBadgeProps> = ({ agent, status,
       ) : (
         <span
           className={cn(
-            "text-[10px] font-medium px-1 py-0.5 rounded",
-            isDisabled ? "text-muted-foreground bg-muted" : "text-foreground bg-muted",
+            "rounded px-1 py-0.5 text-[10px] font-medium",
+            isDisabled ? "bg-muted text-muted-foreground" : "bg-muted text-foreground",
           )}
         >
           {config.name}
@@ -51,7 +51,7 @@ export const SkillAgentBadge: React.FC<SkillAgentBadgeProps> = ({ agent, status,
           <TooltipContent side="top">
             <div className="flex items-center gap-1.5">
               {isUnified && (
-                <span className="text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+                <span className="rounded bg-muted px-1 py-0.5 text-[10px] font-medium text-muted-foreground">
                   Unified
                 </span>
               )}

@@ -70,7 +70,11 @@
           "type": "string",
           "description": "Unique identifier for this catalog item, using dot notation for hierarchy",
           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(\\.[a-z0-9]+(-[a-z0-9]+)*)*$",
-          "examples": ["getting-started", "getting-started.quick-start", "deep-dive.infra.websocket"]
+          "examples": [
+            "getting-started",
+            "getting-started.quick-start",
+            "deep-dive.infra.websocket"
+          ]
         },
         "title": {
           "type": "string",
@@ -82,7 +86,11 @@
           "type": "string",
           "description": "File path relative to .atmos/wiki/ directory",
           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(/[a-z0-9]+(-[a-z0-9]+)*)*$",
-          "examples": ["getting-started", "getting-started/quick-start", "deep-dive/infra/websocket"]
+          "examples": [
+            "getting-started",
+            "getting-started/quick-start",
+            "deep-dive/infra/websocket"
+          ]
         },
         "order": {
           "type": "integer",

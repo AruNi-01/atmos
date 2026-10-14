@@ -9,28 +9,28 @@ description: 从终端参与 Review 工作流。
 
 ## 命令
 
-| 命令 | 用途 |
-|------|------|
-| `session-list` | 按 `--workspace` 或 `--project` 列出 session；需要时加 `--include-archived` |
-| `session-show` | 通过 `--session` 查看一个 session |
-| `comment-list` | 按 `--session` 和可选 `--revision` 列出评论 |
-| `comment-context` | 获取 `--comment` 周围上下文 |
-| `reply-comment` | 回复评论 |
-| `update-comment-status` | 设置评论状态 |
-| `create-comment` | 在文件和 revision 上创建行内评论 |
-| `create-agent-run` | 为 session 和 base revision 启动 review agent run |
-| `summarize-run` | 写入或更新 run summary |
-| `finalize-run` | 用可选 title 和 summary 完成 review run |
-| `set-status` | 把 run 状态设置为 `running`、`succeeded` 或 `failed` |
+| 命令                    | 用途                                                                        |
+| ----------------------- | --------------------------------------------------------------------------- |
+| `session-list`          | 按 `--workspace` 或 `--project` 列出 session；需要时加 `--include-archived` |
+| `session-show`          | 通过 `--session` 查看一个 session                                           |
+| `comment-list`          | 按 `--session` 和可选 `--revision` 列出评论                                 |
+| `comment-context`       | 获取 `--comment` 周围上下文                                                 |
+| `reply-comment`         | 回复评论                                                                    |
+| `update-comment-status` | 设置评论状态                                                                |
+| `create-comment`        | 在文件和 revision 上创建行内评论                                            |
+| `create-agent-run`      | 为 session 和 base revision 启动 review agent run                           |
+| `summarize-run`         | 写入或更新 run summary                                                      |
+| `finalize-run`          | 用可选 title 和 summary 完成 review run                                     |
+| `set-status`            | 把 run 状态设置为 `running`、`succeeded` 或 `failed`                        |
 
 ## 文本输入
 
 需要评论或总结正文的命令支持 inline、file 或 stdin 输入：
 
-| 用途 | 参数 |
-|------|------|
-| 评论或回复正文 | `--body`、`--body-file`、`--body-stdin` |
-| 最终 summary | `--summary`、`--summary-file`、`--summary-stdin` |
+| 用途           | 参数                                             |
+| -------------- | ------------------------------------------------ |
+| 评论或回复正文 | `--body`、`--body-file`、`--body-stdin`          |
+| 最终 summary   | `--summary`、`--summary-file`、`--summary-stdin` |
 
 ## 典型流程
 

@@ -28,8 +28,7 @@ export const WORKSPACE_INFO_HOVER_KEEP_ALIVE_SELECTOR = [
 
 export function isWorkspaceInfoHoverKeepAliveTarget(target: EventTarget | null): boolean {
   return (
-    target instanceof Element &&
-    Boolean(target.closest(WORKSPACE_INFO_HOVER_KEEP_ALIVE_SELECTOR))
+    target instanceof Element && Boolean(target.closest(WORKSPACE_INFO_HOVER_KEEP_ALIVE_SELECTOR))
   );
 }
 
@@ -37,7 +36,9 @@ export function isWorkspaceInfoHoverKeepAliveHovered(): boolean {
   if (typeof document === "undefined") return false;
   return Boolean(
     document.querySelector(
-      WORKSPACE_INFO_HOVER_KEEP_ALIVE_SELECTOR.split(",").map((selector) => `${selector}:hover`).join(","),
+      WORKSPACE_INFO_HOVER_KEEP_ALIVE_SELECTOR.split(",")
+        .map((selector) => `${selector}:hover`)
+        .join(","),
     ),
   );
 }
@@ -91,14 +92,11 @@ export function createWorkspaceInfoHoverSession(clock: Clock = DEFAULT_CLOCK) {
   // readers without replacing this object, or the host re-renders, React 19
   // re-runs the slot ref, and the popover never stays open.
   const syncHostSnapshot = () => {
-    const trigger = openInstanceId ? triggers.get(openInstanceId) ?? null : null;
+    const trigger = openInstanceId ? (triggers.get(openInstanceId) ?? null) : null;
     if (hostSnapshot.openId === openId && hostSnapshot.trigger === trigger) {
       return false;
     }
-    hostSnapshot =
-      openId == null && trigger == null
-        ? EMPTY_HOST_SNAPSHOT
-        : { openId, trigger };
+    hostSnapshot = openId == null && trigger == null ? EMPTY_HOST_SNAPSHOT : { openId, trigger };
     return true;
   };
 
@@ -119,8 +117,7 @@ export function createWorkspaceInfoHoverSession(clock: Clock = DEFAULT_CLOCK) {
     closeTimer = null;
   };
 
-  const canClose = () =>
-    hoveredInstanceId == null && !holding && locks.size === 0;
+  const canClose = () => hoveredInstanceId == null && !holding && locks.size === 0;
 
   const scheduleClose = () => {
     clearCloseTimer();
@@ -161,10 +158,8 @@ export function createWorkspaceInfoHoverSession(clock: Clock = DEFAULT_CLOCK) {
     getOpenId: () => openId,
     getOpenInstanceId: () => openInstanceId,
     getSlotEl: () => slotEl,
-    getPortalElForInstance: (instanceId: string) =>
-      openInstanceId === instanceId ? slotEl : null,
-    shouldIgnoreRootDismiss: () =>
-      holding || locks.size > 0 || hoveredInstanceId != null,
+    getPortalElForInstance: (instanceId: string) => (openInstanceId === instanceId ? slotEl : null),
+    shouldIgnoreRootDismiss: () => holding || locks.size > 0 || hoveredInstanceId != null,
 
     enter(id: string, trigger: HTMLElement, options?: WorkspaceInfoHoverEnterOptions) {
       const instanceId = options?.instanceId ?? id;

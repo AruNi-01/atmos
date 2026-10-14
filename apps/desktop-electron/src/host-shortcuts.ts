@@ -86,9 +86,7 @@ function nativeDylibPath(): string | null {
   const candidates: string[] = [];
   if (typeof process.resourcesPath === "string" && process.resourcesPath) {
     candidates.push(join(process.resourcesPath, "bin", name));
-    candidates.push(
-      join(process.resourcesPath, "app.asar.unpacked", "resources", "bin", name),
-    );
+    candidates.push(join(process.resourcesPath, "app.asar.unpacked", "resources", "bin", name));
   }
   candidates.push(join(__dirname, "../resources/bin", name));
   candidates.push(join(process.cwd(), "apps/desktop-electron/resources/bin", name));
@@ -106,19 +104,15 @@ function loadNative(): HostShortcutNative | null {
   try {
     const koffi = nodeRequire("koffi") as {
       load: (path: string) => {
-        func: (
-          name: string,
-          result: string,
-          args: string[],
-        ) => (...fnArgs: never[]) => unknown;
+        func: (name: string, result: string, args: string[]) => (...fnArgs: never[]) => unknown;
       };
     };
     const lib = koffi.load(dylib);
     const start = lib.func("atmos_host_shortcuts_start", "int", []) as () => number;
     const stop = lib.func("atmos_host_shortcuts_stop", "void", []) as () => void;
-    const setEnabled = lib.func("atmos_host_shortcuts_set_enabled", "void", [
-      "int",
-    ]) as (enabled: number) => void;
+    const setEnabled = lib.func("atmos_host_shortcuts_set_enabled", "void", ["int"]) as (
+      enabled: number,
+    ) => void;
     const takeDigit = lib.func("atmos_host_shortcuts_take_digit", "int", []) as () => number;
     const takeAxNudge = lib.func("atmos_host_shortcuts_take_ax_nudge", "int", []) as () => number;
     const status = lib.func("atmos_host_shortcuts_status", "int", []) as () => number;
@@ -131,10 +125,7 @@ function loadNative(): HostShortcutNative | null {
     // 2 = tap ready, 4 = observer running without AX. Keep the native so we
     // can detect the first screenshot steal and retry the tap after grant.
     if (st !== 2 && st !== 4 && !tap) {
-      mainLog(
-        `[host-shortcuts] electron tap unavailable rc=${rc} status=${st} ax=${ax}`,
-        "warn",
-      );
+      mainLog(`[host-shortcuts] electron tap unavailable rc=${rc} status=${st} ax=${ax}`, "warn");
       try {
         stop();
       } catch {
@@ -251,9 +242,7 @@ async function pgrepExact(name: string): Promise<boolean> {
 }
 
 async function screenshotUiRunning(): Promise<boolean> {
-  return (
-    (await pgrepExact("screencaptureui")) || (await pgrepExact("Screenshot"))
-  );
+  return (await pgrepExact("screencaptureui")) || (await pgrepExact("Screenshot"));
 }
 
 function stopScreenshotStealWatch(): void {
@@ -271,12 +260,7 @@ function startScreenshotStealWatch(api: ElectronApi): void {
   let inFlight = false;
   const deadline = Date.now() + SCREENSHOT_STEAL_WATCH_MS;
   screenshotWatch = setInterval(() => {
-    if (
-      tornDown ||
-      tapIsReady() ||
-      hostShortcutAxGrantStarted ||
-      Date.now() >= deadline
-    ) {
+    if (tornDown || tapIsReady() || hostShortcutAxGrantStarted || Date.now() >= deadline) {
       stopScreenshotStealWatch();
       return;
     }
@@ -323,17 +307,13 @@ async function presentHostShortcutAxGrant(api: ElectronApi): Promise<void> {
   hostShortcutAxGrantInFlight = true;
   stopScreenshotStealWatch();
   try {
-    const { grantAtmosAppPermission, leftSidebarGrantOrigin } = await import(
-      "./macos-app-permissions.js"
-    );
+    const { grantAtmosAppPermission, leftSidebarGrantOrigin } =
+      await import("./macos-app-permissions.js");
     const { grantPanelHeight } = await import("./desktop-use/grant-overlay.js");
-    const locale =
-      typeof api.app.getLocale === "function" ? api.app.getLocale() : undefined;
+    const locale = typeof api.app.getLocale === "function" ? api.app.getLocale() : undefined;
     const win =
       api.BrowserWindow.getFocusedWindow() ??
-      api.BrowserWindow.getAllWindows().find(
-        (w) => !w.isDestroyed() && w.isVisible(),
-      ) ??
+      api.BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.isVisible()) ??
       null;
     let sourceOrigin: { x: number; y: number } | undefined;
     try {
@@ -362,9 +342,7 @@ async function presentHostShortcutAxGrant(api: ElectronApi): Promise<void> {
       ensureElectronTap(api);
       if (tapIsReady()) {
         try {
-          const { closeAccessibilityGrantOverlay } = await import(
-            "./desktop-use/grant-overlay.js"
-          );
+          const { closeAccessibilityGrantOverlay } = await import("./desktop-use/grant-overlay.js");
           closeAccessibilityGrantOverlay();
         } catch {
           /* overlay optional */

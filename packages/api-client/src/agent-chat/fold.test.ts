@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { applyPartClosed, applyTextChunk, applyToolCall, byteLength, createPartStore, mergeToolCallState, mergeToolStatus } from "./fold";
+import {
+  applyPartClosed,
+  applyTextChunk,
+  applyToolCall,
+  byteLength,
+  createPartStore,
+  mergeToolCallState,
+  mergeToolStatus,
+} from "./fold";
 import type { TextChunk } from "./types";
 
 function chunk(

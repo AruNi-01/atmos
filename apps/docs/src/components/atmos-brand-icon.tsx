@@ -1,18 +1,18 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const ICON_CANDIDATES = [
-  join(process.cwd(), 'src/app/icon.png'),
-  join(process.cwd(), 'apps/docs/src/app/icon.png'),
+  join(process.cwd(), "src/app/icon.png"),
+  join(process.cwd(), "apps/docs/src/app/icon.png"),
 ];
 
 function iconDataUrl(): string {
   for (const path of ICON_CANDIDATES) {
     if (existsSync(path)) {
-      return `data:image/png;base64,${readFileSync(path).toString('base64')}`;
+      return `data:image/png;base64,${readFileSync(path).toString("base64")}`;
     }
   }
-  throw new Error('Atmos docs icon.png is missing');
+  throw new Error("Atmos docs icon.png is missing");
 }
 
 /**

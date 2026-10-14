@@ -20,9 +20,7 @@ describe("useAppRouter workspace deep-link contract", () => {
     const commitAt = src.indexOf("commitWorkspaceNavigation");
     const interceptorAt = src.indexOf("interceptor?.({ path, kind })");
     const guardAt = src.indexOf("runRegisteredAppNavigationGuard({ path, kind })");
-    const prepareAt = src.indexOf(
-      "prepareAndPrimeWorkspaceNavigation(nextPath, currentHref)",
-    );
+    const prepareAt = src.indexOf("prepareAndPrimeWorkspaceNavigation(nextPath, currentHref)");
     expect(commitAt).toBeGreaterThan(0);
     expect(interceptorAt).toBeGreaterThan(commitAt);
     expect(guardAt).toBeGreaterThan(interceptorAt);

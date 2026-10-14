@@ -41,10 +41,14 @@ export function selectionToolbarHandle<T>(
   end: T | null,
   edge: "start" | "end",
 ): T | null {
-  return edge === "end" ? end ?? start : start ?? end;
+  return edge === "end" ? (end ?? start) : (start ?? end);
 }
 
-export function pointerMovedFarEnough(dx: number, dy: number, threshold = TERMINAL_DRAG_THRESHOLD_PX): boolean {
+export function pointerMovedFarEnough(
+  dx: number,
+  dy: number,
+  threshold = TERMINAL_DRAG_THRESHOLD_PX,
+): boolean {
   return dx * dx + dy * dy >= threshold * threshold;
 }
 
@@ -64,9 +68,18 @@ export function terminalCellFromPoint(input: {
   rows: number;
   viewportY: number;
 }): [number, number] | null {
-  if (input.cellWidth <= 0 || input.cellHeight <= 0 || input.cols <= 0 || input.rows <= 0) return null;
-  const col = clamp(Math.floor((input.clientX - input.originX) / input.cellWidth), 0, input.cols - 1);
-  const row = clamp(Math.floor((input.clientY - input.originY) / input.cellHeight), 0, input.rows - 1);
+  if (input.cellWidth <= 0 || input.cellHeight <= 0 || input.cols <= 0 || input.rows <= 0)
+    return null;
+  const col = clamp(
+    Math.floor((input.clientX - input.originX) / input.cellWidth),
+    0,
+    input.cols - 1,
+  );
+  const row = clamp(
+    Math.floor((input.clientY - input.originY) / input.cellHeight),
+    0,
+    input.rows - 1,
+  );
   return [col, row + input.viewportY];
 }
 

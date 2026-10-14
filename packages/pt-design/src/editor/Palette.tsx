@@ -46,7 +46,11 @@ export function catalogLabel(type: string): string {
 }
 
 export function normalizeCatalogQuery(query: string): string {
-  return query.toLowerCase().replace(/[-_.]+/g, " ").replace(/\s+/g, " ").trim();
+  return query
+    .toLowerCase()
+    .replace(/[-_.]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function textMatches(haystack: string, needle: string): boolean {
@@ -178,15 +182,30 @@ function typeToItem(
   };
 }
 
-export function Palette({ onInsert, types, groups: menuGroups, rootLabel: rootLabelProp }: PaletteProps): ReactElement {
-  const list = types ?? (menuGroups ? menuGroups.flatMap((group) => group.items.map((item) => item.type)) : listComponentTypes());
+export function Palette({
+  onInsert,
+  types,
+  groups: menuGroups,
+  rootLabel: rootLabelProp,
+}: PaletteProps): ReactElement {
+  const list =
+    types ??
+    (menuGroups
+      ? menuGroups.flatMap((group) => group.items.map((item) => item.type))
+      : listComponentTypes());
   const [query, setQuery] = useState("");
   const menuItems = useMemo(
-    () => (menuGroups ? buildGroupedMenuItems(menuGroups, onInsert) : buildPaletteMenuItems(list, onInsert)),
+    () =>
+      menuGroups
+        ? buildGroupedMenuItems(menuGroups, onInsert)
+        : buildPaletteMenuItems(list, onInsert),
     [list, menuGroups, onInsert],
   );
   const groups = useMemo(
-    () => (menuGroups ? searchGroupedPaletteEntries(menuGroups, query) : searchPaletteEntries(list, query)),
+    () =>
+      menuGroups
+        ? searchGroupedPaletteEntries(menuGroups, query)
+        : searchPaletteEntries(list, query),
     [list, menuGroups, query],
   );
   const searching = query.trim().length > 0;
@@ -265,7 +284,11 @@ function CatalogSearchResults({
     );
   }
   return (
-    <div role="list" data-testid="pt-design-catalog-search-results" className="pt-design-catalog-results">
+    <div
+      role="list"
+      data-testid="pt-design-catalog-search-results"
+      className="pt-design-catalog-results"
+    >
       {groups.map((group) => {
         const headerClickable = group.parentMatched || group.variants.length === 0;
         return (
@@ -285,7 +308,9 @@ function CatalogSearchResults({
               <span className="pt-design-catalog-row__icon">
                 <CatalogTypeIcon componentType={group.type} size={18} />
               </span>
-              <span className="pt-design-catalog-row__label">{group.label ?? catalogLabel(group.type)}</span>
+              <span className="pt-design-catalog-row__label">
+                {group.label ?? catalogLabel(group.type)}
+              </span>
             </button>
             {group.variants.map((variant) => (
               <button

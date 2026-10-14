@@ -73,8 +73,7 @@ export const GITHUB_REST_ISSUE_EVENT_TYPES = [
   "user_blocked",
 ] as const;
 
-export type GithubRestIssueEventType =
-  (typeof GITHUB_REST_ISSUE_EVENT_TYPES)[number];
+export type GithubRestIssueEventType = (typeof GITHUB_REST_ISSUE_EVENT_TYPES)[number];
 
 /**
  * Extra `event` values on OpenAPI `timeline-issue-events` (GET
@@ -333,12 +332,7 @@ export function normalizeTimelineEventName(event?: string | null): string {
 }
 
 function actorLogin(item: TimelineItemLike): string {
-  return (
-    item.actor?.login ||
-    item.author?.login ||
-    item.user?.login ||
-    ""
-  );
+  return item.actor?.login || item.author?.login || item.user?.login || "";
 }
 
 function commitSha(item: TimelineItemLike): string {
@@ -351,10 +345,7 @@ function commitSubject(item: TimelineItemLike): string {
 
 function requestedReviewerLogin(item: TimelineItemLike): string {
   return (
-    item.requested_reviewer?.login ||
-    item.requested_team?.name ||
-    item.requested_team?.slug ||
-    ""
+    item.requested_reviewer?.login || item.requested_team?.name || item.requested_team?.slug || ""
   );
 }
 
@@ -379,13 +370,9 @@ function fillBaseRefChange(extras: TimelineEventExtras, item: TimelineItemLike) 
   extras.baseRefTo = to;
 }
 
-function fillProjectCard(
-  extras: TimelineEventExtras,
-  item: TimelineItemLike,
-) {
+function fillProjectCard(extras: TimelineEventExtras, item: TimelineItemLike) {
   extras.projectColumn = item.project_card?.column_name ?? undefined;
-  extras.projectPreviousColumn =
-    item.project_card?.previous_column_name ?? undefined;
+  extras.projectPreviousColumn = item.project_card?.previous_column_name ?? undefined;
   extras.projectId = item.project_card?.project_id ?? undefined;
 }
 
@@ -477,28 +464,14 @@ export function mapTimelineEvent(
         extras.assigneeLogin && extras.assigneeLogin === actorLogin(item),
       );
       if (canonicalEvent === "assigned") {
-        return mapped(
-          "activity",
-          extras.isSelfAssignment ? "selfAssigned" : "assigned",
-          "user",
-        );
+        return mapped("activity", extras.isSelfAssignment ? "selfAssigned" : "assigned", "user");
       }
-      return mapped(
-        "activity",
-        extras.isSelfAssignment ? "unassignedSelf" : "unassigned",
-        "user",
-      );
+      return mapped("activity", extras.isSelfAssignment ? "unassignedSelf" : "unassigned", "user");
     }
     case "labeled":
     case "unlabeled":
-      extras.label = item.label
-        ? { name: item.label.name, color: item.label.color }
-        : undefined;
-      return mapped(
-        "activity",
-        canonicalEvent === "labeled" ? "labeled" : "unlabeled",
-        "tag",
-      );
+      extras.label = item.label ? { name: item.label.name, color: item.label.color } : undefined;
+      return mapped("activity", canonicalEvent === "labeled" ? "labeled" : "unlabeled", "tag");
     case "referenced":
       extras.commitSha = commitSha(item);
       extras.commitSubject = commitSubject(item);
@@ -517,11 +490,7 @@ export function mapTimelineEvent(
       return mapped("activity", "renamed", "edit");
     case "locked": {
       extras.lockReason = item.lock_reason ?? undefined;
-      return mapped(
-        "activity",
-        extras.lockReason ? "lockedWithReason" : "locked",
-        "lock",
-      );
+      return mapped("activity", extras.lockReason ? "lockedWithReason" : "locked", "lock");
     }
     case "unlocked":
       extras.lockReason = item.lock_reason ?? undefined;
@@ -555,27 +524,21 @@ export function mapTimelineEvent(
       extras.requestedReviewerLogin = requestedReviewerLogin(item);
       return mapped(
         "activity",
-        canonicalEvent === "review_requested"
-          ? "reviewRequested"
-          : "reviewRequestRemoved",
+        canonicalEvent === "review_requested" ? "reviewRequested" : "reviewRequestRemoved",
         "eye",
       );
     case "review_dismissed":
       extras.dismissedReviewState = item.dismissed_review?.state ?? undefined;
-      extras.dismissedReviewMessage =
-        item.dismissed_review?.dismissal_message ?? undefined;
-      extras.commitSha =
-        item.dismissed_review?.dismissal_commit_id || commitSha(item) || "";
+      extras.dismissedReviewMessage = item.dismissed_review?.dismissal_message ?? undefined;
+      extras.commitSha = item.dismissed_review?.dismissal_commit_id || commitSha(item) || "";
       return mapped("activity", "reviewDismissed", "eye");
     case "deployed":
-      extras.environment =
-        item.deployment?.environment || item.environment || "";
+      extras.environment = item.deployment?.environment || item.environment || "";
       extras.deploymentUrl = item.deployment_status?.target_url ?? undefined;
       extras.commitSha = commitSha(item);
       return mapped("activity", "deployed", "rocket");
     case "deployment_environment_changed":
-      extras.environment =
-        item.deployment?.environment || item.environment || "";
+      extras.environment = item.deployment?.environment || item.environment || "";
       extras.deploymentUrl = item.deployment_status?.target_url ?? undefined;
       return mapped("activity", "deploymentEnvironmentChanged", "rocket");
     case "marked_as_duplicate":
@@ -589,8 +552,7 @@ export function mapTimelineEvent(
     case "unpinned":
       return mapped("activity", "unpinned", "pin");
     case "transferred":
-      extras.transferredRepo =
-        item.repository?.full_name || item.repository?.name || "";
+      extras.transferredRepo = item.repository?.full_name || item.repository?.name || "";
       return mapped("activity", "transferred", "transfer");
     case "converted_to_discussion":
       return mapped("activity", "convertedToDiscussion", "discussion");
@@ -602,8 +564,7 @@ export function mapTimelineEvent(
       extras.prevIssueTypeName = item.prev_issue_type?.name ?? "";
       return mapped("activity", "issueTypeChanged", "tag");
     case "issue_type_removed":
-      extras.issueTypeName =
-        item.prev_issue_type?.name || item.issue_type?.name || "";
+      extras.issueTypeName = item.prev_issue_type?.name || item.issue_type?.name || "";
       return mapped("activity", "issueTypeRemoved", "tag");
     case "sub_issue_added":
       extras.relatedIssue = parseRelatedIssue(item.sub_issue, owner, repo);
@@ -663,9 +624,7 @@ export function isOmittedTimelineEvent(item: TimelineItemLike): boolean {
   return mapTimelineEvent(item).classification === "omit";
 }
 
-export function retainVisibleTimelineItems<T extends TimelineItemLike>(
-  items: T[],
-): T[] {
+export function retainVisibleTimelineItems<T extends TimelineItemLike>(items: T[]): T[] {
   return items.filter((item) => !isOmittedTimelineEvent(item));
 }
 

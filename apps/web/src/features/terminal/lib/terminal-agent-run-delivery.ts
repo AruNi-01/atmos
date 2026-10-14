@@ -112,9 +112,7 @@ export function deliverTerminalAgentLaunch(
   // long raw keystroke streams get partially dropped by interactive shells
   // (ZLE/plugin per-key processing). Paste + Enter go in one write so
   // remount/cleanup cannot cancel a pending timer and leave an empty prompt.
-  terminalRef.sendText(
-    execute ? `${wrapBracketedPaste(trimmed)}\r` : wrapBracketedPaste(trimmed),
-  );
+  terminalRef.sendText(execute ? `${wrapBracketedPaste(trimmed)}\r` : wrapBracketedPaste(trimmed));
   if (execute) onSubmitted?.();
   return () => {};
 }

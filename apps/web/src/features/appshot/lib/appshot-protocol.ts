@@ -17,10 +17,7 @@ let cachedAppshotLibLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedAppshotLibTranslator: any = null;
 
-function appshotLibT(
-  key: string,
-  values?: Record<string, string | number>,
-): string {
+function appshotLibT(key: string, values?: Record<string, string | number>): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedAppshotLibTranslator || cachedAppshotLibLocale !== locale) {
     cachedAppshotLibLocale = locale;
@@ -96,9 +93,10 @@ export function summarizeAppshotRecord(record: AppshotRecordDetail): AppshotReco
 
 export function formatAppshotTimestamp(value: string): string {
   const fromIso = new Date(value);
-  const date = Number.isNaN(fromIso.getTime()) && isValidAppshotTimestamp(value)
-    ? new Date(Number(value))
-    : fromIso;
+  const date =
+    Number.isNaN(fromIso.getTime()) && isValidAppshotTimestamp(value)
+      ? new Date(Number(value))
+      : fromIso;
 
   if (Number.isNaN(date.getTime())) {
     return value;

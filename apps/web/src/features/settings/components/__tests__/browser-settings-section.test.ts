@@ -19,10 +19,7 @@ describe("APP-059 Browser settings wiring", () => {
   });
 
   it("includes browser in SettingsModalTab enum list", () => {
-    const params = readFileSync(
-      join(root, "apps/web/src/shared/lib/nuqs/searchParams.ts"),
-      "utf8",
-    );
+    const params = readFileSync(join(root, "apps/web/src/shared/lib/nuqs/searchParams.ts"), "utf8");
     expect(params).toContain('"browser"');
     expect(params).not.toContain('"apps"');
   });

@@ -56,19 +56,14 @@ export function measureStickyFadeInsets(
     if (item.stickyLeft != null && isStuck(item.left, view.left + item.stickyLeft)) {
       insets.left = Math.max(insets.left, item.right - view.left);
     }
-    if (
-      item.stickyRight != null &&
-      isStuck(item.right, view.right - item.stickyRight)
-    ) {
+    if (item.stickyRight != null && isStuck(item.right, view.right - item.stickyRight)) {
       insets.right = Math.max(insets.right, view.right - item.left);
     }
   }
   return insets;
 }
 
-export function stickyFadeItemFromElement(
-  element: HTMLElement,
-): StickyFadeItem | null {
+export function stickyFadeItemFromElement(element: HTMLElement): StickyFadeItem | null {
   const style = getComputedStyle(element);
   if (style.display === "none" || style.visibility === "hidden") return null;
   const rect = element.getBoundingClientRect();
@@ -78,8 +73,7 @@ export function stickyFadeItemFromElement(
     bottom: rect.bottom,
     left: rect.left,
     right: rect.right,
-    stickyTop:
-      parseStickyOffset(style.top) ?? (style.position === "sticky" ? 0 : null),
+    stickyTop: parseStickyOffset(style.top) ?? (style.position === "sticky" ? 0 : null),
     stickyBottom: parseStickyOffset(style.bottom),
     stickyLeft: parseStickyOffset(style.left),
     stickyRight: parseStickyOffset(style.right),

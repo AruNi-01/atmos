@@ -47,7 +47,9 @@ export function AgentActivityStatusText({
   const label = activity.trail === "none" ? activity.label : `${activity.label}...`;
   const reduced = Boolean(useReducedMotion());
   return (
-    <span className={cn("relative inline-flex h-5 min-w-0 items-center overflow-hidden", className)}>
+    <span
+      className={cn("relative inline-flex h-5 min-w-0 items-center overflow-hidden", className)}
+    >
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.span
           key={label}
@@ -55,7 +57,7 @@ export function AgentActivityStatusText({
           animate={{ y: 0, opacity: 1 }}
           exit={reduced ? { opacity: 0 } : { y: -12, opacity: 0 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="inline-flex min-w-0 max-w-full items-center overflow-hidden"
+          className="inline-flex max-w-full min-w-0 items-center overflow-hidden"
         >
           <TextShimmer
             as="span"
@@ -70,13 +72,7 @@ export function AgentActivityStatusText({
   );
 }
 
-function WorkDurationClock({
-  elapsedMs,
-  reduced,
-}: {
-  elapsedMs: number;
-  reduced: boolean;
-}) {
+function WorkDurationClock({ elapsedMs, reduced }: { elapsedMs: number; reduced: boolean }) {
   const label = formatWorkDuration(elapsedMs);
   if (reduced) {
     return (
@@ -109,12 +105,9 @@ export function AgentActivityIndicator({
   const glyphStyle = thinking ? "stars" : streamStyle;
 
   return (
-    <div className="inline-flex min-w-0 max-w-full items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground">
+    <div className="inline-flex max-w-full min-w-0 items-center gap-2 py-0.5 text-left text-sm leading-5 text-muted-foreground">
       <span className="flex size-4 shrink-0 items-center justify-center overflow-visible">
-        <ActivityIndicator
-          style={glyphStyle}
-          size={GLYPH_SIZE}
-        />
+        <ActivityIndicator style={glyphStyle} size={GLYPH_SIZE} />
       </span>
       <AgentActivityStatusText activity={activity} />
       <WorkDurationClock elapsedMs={elapsedMs} reduced={reduced} />

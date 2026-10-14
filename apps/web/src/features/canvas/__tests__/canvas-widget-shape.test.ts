@@ -20,10 +20,7 @@ import {
   removeCanvasCenterTab,
   upsertCanvasCenterTab,
 } from "../lib/canvas-center-tabs";
-import {
-  ADDABLE_CANVAS_WIDGET_TYPES,
-  CANVAS_WIDGET_REGISTRY,
-} from "../lib/canvas-widget-registry";
+import { ADDABLE_CANVAS_WIDGET_TYPES, CANVAS_WIDGET_REGISTRY } from "../lib/canvas-widget-registry";
 
 const context: CanvasContextRef = {
   contextScope: "workspace",

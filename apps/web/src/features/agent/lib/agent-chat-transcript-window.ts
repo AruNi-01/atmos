@@ -119,9 +119,7 @@ export function shouldAdjustTranscriptScrollOnItemSizeChange(input: {
   if (input.firstMeasure) {
     return input.itemStart < input.scrollOffset;
   }
-  return (
-    input.itemStart + input.itemSize <= input.scrollOffset && !input.scrollingBackward
-  );
+  return input.itemStart + input.itemSize <= input.scrollOffset && !input.scrollingBackward;
 }
 
 export function isTranscriptScrolledToEnd(
@@ -191,7 +189,8 @@ export function mergeIndexKeepAliveRange(
 ): number[] {
   if (keepIndexes.length === 0) return [...base];
   const seen = new Set(base);
-  const extra = keepIndexes.filter((index) => Number.isInteger(index) && index >= 0 && !seen.has(index));
+  const extra = keepIndexes.filter(
+    (index) => Number.isInteger(index) && index >= 0 && !seen.has(index),
+  );
   return extra.length === 0 ? [...base] : [...base, ...extra].sort((a, b) => a - b);
 }
-

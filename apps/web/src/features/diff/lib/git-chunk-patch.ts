@@ -1,9 +1,9 @@
-import type { Chunk } from '@codemirror/merge';
-import type { Text } from '@codemirror/state';
+import type { Chunk } from "@codemirror/merge";
+import type { Text } from "@codemirror/state";
 
 /** Normalize to forward slashes for unified diff paths. */
 export function normalizeGitFilePath(filePath: string): string {
-  return filePath.replace(/\\/g, '/').replace(/^\/+/, '');
+  return filePath.replace(/\\/g, "/").replace(/^\/+/, "");
 }
 
 /** Lines fully covered by [from, to) in CodeMirror Text coordinates. */
@@ -21,12 +21,12 @@ export function sliceLines(text: Text, from: number, to: number): string[] {
   return out;
 }
 
-function classifyChunk(chunk: Chunk): 'insert' | 'delete' | 'modify' {
+function classifyChunk(chunk: Chunk): "insert" | "delete" | "modify" {
   const oldEmpty = chunk.fromA === chunk.toA;
   const newEmpty = chunk.fromB === chunk.toB;
-  if (oldEmpty && !newEmpty) return 'insert';
-  if (!oldEmpty && newEmpty) return 'delete';
-  return 'modify';
+  if (oldEmpty && !newEmpty) return "insert";
+  if (!oldEmpty && newEmpty) return "delete";
+  return "modify";
 }
 
 /**
@@ -48,12 +48,12 @@ export function buildUnifiedPatchForChunk(
   const lines: string[] = [`diff --git a/${path} b/${path}`];
 
   if (isNewFile) {
-    lines.push('new file mode 100644');
-    lines.push('--- /dev/null');
+    lines.push("new file mode 100644");
+    lines.push("--- /dev/null");
     lines.push(`+++ b/${path}`);
     lines.push(`@@ -0,0 +1,${newLines.length} @@`);
     for (const l of newLines) lines.push(`+${l}`);
-    return `${lines.join('\n')}\n`;
+    return `${lines.join("\n")}\n`;
   }
 
   lines.push(`--- a/${path}`);
@@ -64,12 +64,12 @@ export function buildUnifiedPatchForChunk(
   let newStart: number;
   let newCount: number;
 
-  if (kind === 'insert') {
+  if (kind === "insert") {
     oldCount = 0;
     oldStart = chunk.fromA === 0 ? 0 : original.lineAt(chunk.fromA).number - 1;
     newCount = newLines.length;
     newStart = chunk.fromB === 0 ? 1 : current.lineAt(chunk.fromB).number;
-  } else if (kind === 'delete') {
+  } else if (kind === "delete") {
     oldCount = oldLines.length;
     oldStart = oldLines.length === 0 ? 0 : original.lineAt(chunk.fromA).number;
     newCount = 0;
@@ -89,5 +89,5 @@ export function buildUnifiedPatchForChunk(
   for (const l of oldLines) lines.push(`-${l}`);
   for (const l of newLines) lines.push(`+${l}`);
 
-  return `${lines.join('\n')}\n`;
+  return `${lines.join("\n")}\n`;
 }

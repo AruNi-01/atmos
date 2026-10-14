@@ -33,8 +33,7 @@ import type {
   TimelineActivityIconId,
 } from "@/features/github/lib/timeline-event-map";
 
-const timelineIconRailClass =
-  "z-10 flex w-8 shrink-0 items-center justify-center";
+const timelineIconRailClass = "z-10 flex w-8 shrink-0 items-center justify-center";
 const timelineIconShellClass =
   "flex size-5 items-center justify-center rounded-full border border-border/50 bg-muted ring-4 ring-background";
 const timelineIconClass = "size-3 text-muted-foreground";
@@ -42,12 +41,7 @@ const timelineIconClass = "size-3 text-muted-foreground";
 /** GitHub `git-branch` octicon, the timeline mark for a base-branch change. */
 function GithubGitBranchIcon({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 16 16"
-      aria-hidden="true"
-      fill="currentColor"
-      className={className}
-    >
+    <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor" className={className}>
       <path d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.493 2.493 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Zm-6 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm8.25-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM4.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z" />
     </svg>
   );
@@ -57,7 +51,7 @@ function BranchRefChip({ name }: { name: string }) {
   return (
     <span
       title={name}
-      className="inline-block min-w-0 max-w-full truncate rounded-md bg-sky-500/15 px-1.5 py-px align-middle font-mono text-[11px] leading-4 text-sky-800 dark:bg-sky-400/15 dark:text-sky-200"
+      className="inline-block max-w-full min-w-0 truncate rounded-md bg-sky-500/15 px-1.5 py-px align-middle font-mono text-[11px] leading-4 text-sky-800 dark:bg-sky-400/15 dark:text-sky-200"
     >
       {name}
     </span>
@@ -313,11 +307,7 @@ export function TimelineActivityEvent({
   locale: Locale;
   createdAt?: string;
   baseRefName?: string;
-  onCommitClick?: (payload: {
-    sha: string;
-    subject: string;
-    authorName: string;
-  }) => void;
+  onCommitClick?: (payload: { sha: string; subject: string; authorName: string }) => void;
   footer?: React.ReactNode;
 }) {
   const t = useTranslations("github.timeline");
@@ -335,14 +325,15 @@ export function TimelineActivityEvent({
   const sha = extras.commitSha;
   const shortSha = sha ? sha.slice(0, 7) : "";
   const login = actorLogin || t("unknownUser");
-  const openCommit = sha && onCommitClick
-    ? () =>
-        onCommitClick({
-          sha,
-          subject: extras.commitSubject || shortSha,
-          authorName: login,
-        })
-    : undefined;
+  const openCommit =
+    sha && onCommitClick
+      ? () =>
+          onCommitClick({
+            sha,
+            subject: extras.commitSubject || shortSha,
+            authorName: login,
+          })
+      : undefined;
   const duplicate = extras.duplicate ?? extras.relatedIssue;
 
   return (
@@ -369,7 +360,7 @@ export function TimelineActivityEvent({
             labelClassName="font-semibold text-foreground/90"
           />
           {isBot ? (
-            <span className="flex h-3.5 shrink-0 items-center rounded-sm border border-border bg-muted/50 px-1 text-[9px] font-medium leading-none text-muted-foreground">
+            <span className="flex h-3.5 shrink-0 items-center rounded-sm border border-border bg-muted/50 px-1 text-[9px] leading-none font-medium text-muted-foreground">
               {t("bot")}
             </span>
           ) : null}
@@ -390,9 +381,7 @@ export function TimelineActivityEvent({
                 backgroundColor: extras.label.color
                   ? `#${extras.label.color.replace(/^#/, "")}20`
                   : undefined,
-                color: extras.label.color
-                  ? `#${extras.label.color.replace(/^#/, "")}`
-                  : undefined,
+                color: extras.label.color ? `#${extras.label.color.replace(/^#/, "")}` : undefined,
                 border: extras.label.color
                   ? `1px solid #${extras.label.color.replace(/^#/, "")}40`
                   : "1px solid var(--border)",
@@ -402,9 +391,7 @@ export function TimelineActivityEvent({
             </span>
           ) : null}
           {extras.environment ? (
-            <span className="shrink-0 font-bold text-foreground/80">
-              {extras.environment}
-            </span>
+            <span className="shrink-0 font-bold text-foreground/80">{extras.environment}</span>
           ) : null}
           {copyId === "merged" && baseRefName ? (
             <span className="shrink-0 text-muted-foreground">
@@ -425,7 +412,7 @@ export function TimelineActivityEvent({
             <button
               type="button"
               onClick={openCommit}
-              className="min-w-0 max-w-[280px] truncate text-left font-medium text-foreground/70 hover:text-foreground hover:underline hover:underline-offset-2"
+              className="max-w-[280px] min-w-0 truncate text-left font-medium text-foreground/70 hover:text-foreground hover:underline hover:underline-offset-2"
             >
               {extras.commitSubject}
             </button>
@@ -441,9 +428,7 @@ export function TimelineActivityEvent({
             </a>
           ) : null}
           {time ? (
-            <span className="ml-auto whitespace-nowrap text-muted-foreground/60">
-              {time}
-            </span>
+            <span className="ml-auto whitespace-nowrap text-muted-foreground/60">{time}</span>
           ) : null}
         </div>
       </div>

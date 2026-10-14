@@ -38,14 +38,14 @@ Details: [`references/cli.md`](references/cli.md).
    run `/device-preview`. Do **not** auto-boot.
 5. Then screenshot → tap/swipe/type/press **with `--udid`**.
 
-| Intent | Command |
-|--------|---------|
-| Ready / inventory | `list` then `status` |
-| Capture | `screenshot --udid …` |
+| Intent                     | Command                                              |
+| -------------------------- | ---------------------------------------------------- |
+| Ready / inventory          | `list` then `status`                                 |
+| Capture                    | `screenshot --udid …`                                |
 | Tap / swipe / type / press | `tap` / `swipe` / `type` / `press` **with `--udid`** |
-| Probe / start / stop | only if the user asked to open or close preview |
-| macOS desktop GUI | **other skill** — `atmos-desktop-use` |
-| Page DOM | **other skill** — `atmos-browser-use` |
+| Probe / start / stop       | only if the user asked to open or close preview      |
+| macOS desktop GUI          | **other skill** — `atmos-desktop-use`                |
+| Page DOM                   | **other skill** — `atmos-browser-use`                |
 
 ## Critical rules (read this — most failures are here)
 
@@ -110,18 +110,18 @@ Always JSON stdout. Do not pass `--json`. Do not teach `atmos call simulator_*`.
 
 ## Errors
 
-| Code | Recovery |
-|------|----------|
-| `NO_CLAIM` | Ask user to Start Simulator / Agent / `/device-preview`. Do not auto-start. |
-| `DEVICE_UNKNOWN` | Re-`list`; use a udid from the table |
-| `CLAIMED_BY_OTHER_WORKSPACE` | Stop. Ask which workspace; do not drive that udid from here |
-| `PLATFORM_MISMATCH` | Stay on this claim; do not switch devices |
-| `UNSUPPORTED_ON_PLATFORM` | iOS `back`/`recents` — do not retry as Android |
-| `INVALID_COORDS` | Recompute `px/width`, `py/height` from the latest PNG size |
-| `HELPER_UNREACHABLE` | Report; do not curl a port |
-| `CONTEXT_REQUIRED` | `atmos context set --workspace <id>` or pass `--workspace` |
-| `AMBIGUOUS_DEVICE` | `list` and ask which `udid` |
-| `EMPTY_TEXT` | Pass `--text` |
+| Code                         | Recovery                                                                    |
+| ---------------------------- | --------------------------------------------------------------------------- |
+| `NO_CLAIM`                   | Ask user to Start Simulator / Agent / `/device-preview`. Do not auto-start. |
+| `DEVICE_UNKNOWN`             | Re-`list`; use a udid from the table                                        |
+| `CLAIMED_BY_OTHER_WORKSPACE` | Stop. Ask which workspace; do not drive that udid from here                 |
+| `PLATFORM_MISMATCH`          | Stay on this claim; do not switch devices                                   |
+| `UNSUPPORTED_ON_PLATFORM`    | iOS `back`/`recents` — do not retry as Android                              |
+| `INVALID_COORDS`             | Recompute `px/width`, `py/height` from the latest PNG size                  |
+| `HELPER_UNREACHABLE`         | Report; do not curl a port                                                  |
+| `CONTEXT_REQUIRED`           | `atmos context set --workspace <id>` or pass `--workspace`                  |
+| `AMBIGUOUS_DEVICE`           | `list` and ask which `udid`                                                 |
+| `EMPTY_TEXT`                 | Pass `--text`                                                               |
 
 Branch on `error.code`. Follow `fix` / `next_actions` when present.
 

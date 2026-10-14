@@ -1,10 +1,7 @@
 "use client";
 
 import React from "react";
-import {
-  codeAgentCustomApi,
-  type CodeAgentCustomEntry,
-} from "@/api/ws-api";
+import { codeAgentCustomApi, type CodeAgentCustomEntry } from "@/api/ws-api";
 import { AGENT_OPTIONS, getInteractiveAgentParams } from "@/features/wiki/components/AgentSelect";
 import type { AgentMenuOption } from "@/features/welcome/lib/welcome-page-helpers";
 import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
@@ -43,9 +40,10 @@ export function useWelcomeAgentOptions() {
               agent.enabled !== false,
           ),
         );
-        const savedAgentId = typeof saved?.center_fix_terminal_default_agent === "string"
-          ? saved.center_fix_terminal_default_agent
-          : null;
+        const savedAgentId =
+          typeof saved?.center_fix_terminal_default_agent === "string"
+            ? saved.center_fix_terminal_default_agent
+            : null;
         if (savedAgentId) {
           setSelectedAgentId(savedAgentId);
         }

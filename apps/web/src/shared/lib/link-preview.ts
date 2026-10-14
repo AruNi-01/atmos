@@ -4,8 +4,7 @@ export const LINK_OG_CARD_HEIGHT = 268;
 export const HTTP_TEXT_LINK_DECORATION_CLASSNAME =
   "break-all text-foreground underline decoration-dashed decoration-foreground/40 underline-offset-4";
 
-export const HTTP_TEXT_LINK_CLASSNAME =
-  `cursor-pointer rounded-sm px-0.5 -mx-0.5 ${HTTP_TEXT_LINK_DECORATION_CLASSNAME} hover:bg-muted hover:decoration-foreground`;
+export const HTTP_TEXT_LINK_CLASSNAME = `cursor-pointer rounded-sm px-0.5 -mx-0.5 ${HTTP_TEXT_LINK_DECORATION_CLASSNAME} hover:bg-muted hover:decoration-foreground`;
 
 export const COMPOSER_HTTP_TEXT_CLASSNAME = `cursor-text ${HTTP_TEXT_LINK_DECORATION_CLASSNAME}`;
 
@@ -29,9 +28,7 @@ export type LinkPreviewPayload = {
   site_name: string | null;
 };
 
-export type TextOrUrlSegment =
-  | { type: "text"; value: string }
-  | { type: "url"; url: string };
+export type TextOrUrlSegment = { type: "text"; value: string } | { type: "url"; url: string };
 
 export function isHttpUrl(value: string | null | undefined): boolean {
   return Boolean(normalizeHttpUrl(value));
@@ -134,9 +131,7 @@ export function displayTextWithUrlTokens(expandedText: string): string {
   return URL_DISPLAYS.get(hashDisplayText(expandedText)) ?? expandedText;
 }
 
-export type UrlDisplaySegment =
-  | { type: "text"; value: string }
-  | { type: "url-chip"; url: string };
+export type UrlDisplaySegment = { type: "text"; value: string } | { type: "url-chip"; url: string };
 
 export function splitTextWithUrlTokens(text: string): UrlDisplaySegment[] {
   const segments: UrlDisplaySegment[] = [];

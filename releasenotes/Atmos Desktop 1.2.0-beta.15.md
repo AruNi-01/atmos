@@ -9,6 +9,7 @@
 - **Code Quality Cleanup** — Included a set of follow-up quality fixes from the daily stability pass to stabilize related preview and agent-facing flows.
 
 ---
+
 > **Beta release.** Beta.14 supersedes beta.13. It carries all beta.13 content plus the mobile app MVP, GitHub Issue automation, local service management, and the fixes below. Please report any issues you encounter so we can land them before the stable release.
 
 ## Changes Since 1.2.0-beta.13

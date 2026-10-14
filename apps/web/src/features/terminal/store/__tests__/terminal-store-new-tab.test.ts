@@ -59,7 +59,9 @@ describe("createTerminalTabWithInitialPane", () => {
     expect(loadCalls).toEqual([{ workspaceId: "project-1", isProjectContext: true }]);
     expect(created?.tab.id.startsWith(TERMINAL_TAB_VALUE_PREFIX)).toBe(true);
     expect(created?.pane.tmuxWindowName).toBe("1");
-    expect(useTerminalStore.getState().workspaceActiveTerminalTabIds["project-1"]).toBe(created?.tab.id);
+    expect(useTerminalStore.getState().workspaceActiveTerminalTabIds["project-1"]).toBe(
+      created?.tab.id,
+    );
     expect(saveContexts).toEqual([{ workspaceId: "project-1", isProjectContext: true }]);
   });
 
@@ -147,7 +149,9 @@ describe("createTerminalTabWithInitialPane", () => {
     expect(loadCalls).toEqual([{ workspaceId: contextId, isProjectContext: true }]);
     expect(state.loadedWorkspaces.has(workspaceScopeKey)).toBe(false);
     expect(state.loadedWorkspaces.has(projectScopeKey)).toBe(true);
-    expect(Object.prototype.hasOwnProperty.call(state.persistedTerminalLayouts, workspaceScopeKey)).toBe(false);
+    expect(
+      Object.prototype.hasOwnProperty.call(state.persistedTerminalLayouts, workspaceScopeKey),
+    ).toBe(false);
     expect(state.workspaceContexts[contextId]).toBe(true);
     expect(saveContexts).toEqual([true]);
   });
@@ -172,9 +176,7 @@ describe("createTerminalTabWithInitialPane", () => {
         "workspace-1": FIXED_TERMINAL_TAB_VALUE,
       },
       tmuxWindowsCache: {
-        [getTerminalWorkspaceScopeKey("workspace-1", false)]: [
-          { index: 1, name: "1" },
-        ],
+        [getTerminalWorkspaceScopeKey("workspace-1", false)]: [{ index: 1, name: "1" }],
       },
       saveToBackend: (workspaceId) => {
         saveCalls.push(workspaceId);
@@ -186,7 +188,9 @@ describe("createTerminalTabWithInitialPane", () => {
     expect(useTerminalStore.getState().workspaceTerminalTabs["workspace-1"]).toEqual([]);
     expect(useTerminalStore.getState().workspaceActiveTerminalTabIds["workspace-1"]).toBe("");
     expect(
-      useTerminalStore.getState().tmuxWindowsCache[getTerminalWorkspaceScopeKey("workspace-1", false)],
+      useTerminalStore.getState().tmuxWindowsCache[
+        getTerminalWorkspaceScopeKey("workspace-1", false)
+      ],
     ).toBeUndefined();
 
     const recreated = useTerminalStore.getState().createTerminalTab("workspace-1");

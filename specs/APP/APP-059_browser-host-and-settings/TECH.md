@@ -6,13 +6,13 @@
 
 ## Scope
 
-| Area | Change |
-|------|--------|
+| Area                       | Change                                                                                                            |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | CLI + `crates/browser-use` | Unified `state` envelope; `capability_flags` on every success; bind-mode no longer the empty-`state` success path |
-| Embedded control plane | `/v1/state` without target snapshots last-active / unique guest; zero guests → renderer ensure |
-| Renderer | `ensureSurface`; pick marks last-active + asks host to refresh snapshot cache |
-| Skill | One loop; no `prepare`-first; no `user_picks` workflow |
-| Settings | `browser` tab + store; move Layout Browser row |
+| Embedded control plane     | `/v1/state` without target snapshots last-active / unique guest; zero guests → renderer ensure                    |
+| Renderer                   | `ensureSurface`; pick marks last-active + asks host to refresh snapshot cache                                     |
+| Skill                      | One loop; no `prepare`-first; no `user_picks` workflow                                                            |
+| Settings                   | `browser` tab + store; move Layout Browser row                                                                    |
 
 ## Locked decisions
 
@@ -168,13 +168,13 @@ Do not ship Settings/ensure without U/F/P — that is the failure mode of the fi
 
 ## Risks
 
-| Risk | Mitigation |
-|------|------------|
-| Snapshot-now on the wrong tab | Only last-active or unique guest; else ambiguous |
-| Ensure in the wrong window | Ensure only at zero hosts; otherwise last-active host |
-| Models still call `prepare` | Skill + CLI help; `prepare` remains harmless |
-| Old clients read `user_picks` | Keep alias one release |
-| Center ensure spawns many tabs | Reuse last center Browser per workspace |
+| Risk                           | Mitigation                                            |
+| ------------------------------ | ----------------------------------------------------- |
+| Snapshot-now on the wrong tab  | Only last-active or unique guest; else ambiguous      |
+| Ensure in the wrong window     | Ensure only at zero hosts; otherwise last-active host |
+| Models still call `prepare`    | Skill + CLI help; `prepare` remains harmless          |
+| Old clients read `user_picks`  | Keep alias one release                                |
+| Center ensure spawns many tabs | Reuse last center Browser per workspace               |
 
 ## Non-goals (tech)
 

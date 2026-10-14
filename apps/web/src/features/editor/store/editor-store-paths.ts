@@ -1,40 +1,40 @@
-import { detectCodeLanguage } from '@/shared/lib/code-language';
-import { getDiffGroupTabLabel, isDiffGroupEditorPath } from '@/features/diff/lib/diff-editor-paths';
-import { createTranslator } from 'next-intl';
-import enMessages from '../../../../messages/en.json';
-import zhMessages from '../../../../messages/zh.json';
-import { currentAppLocale } from '@/shared/lib/current-app-locale';
+import { detectCodeLanguage } from "@/shared/lib/code-language";
+import { getDiffGroupTabLabel, isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
+import { createTranslator } from "next-intl";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 /** @deprecated Per-file diff tabs — use `diff-group://` instead */
-export const EDITOR_DIFF_PREFIX = 'diff://';
-export const EDITOR_REVIEW_DIFF_PREFIX = 'review-diff://';
-export const EDITOR_REVIEW_GROUP_PREFIX = 'review-group://';
-export const EDITOR_CONFLICT_RESOLVE_PREFIX = 'git-conflict-resolve://';
+export const EDITOR_DIFF_PREFIX = "diff://";
+export const EDITOR_REVIEW_DIFF_PREFIX = "review-diff://";
+export const EDITOR_REVIEW_GROUP_PREFIX = "review-group://";
+export const EDITOR_CONFLICT_RESOLVE_PREFIX = "git-conflict-resolve://";
 export const EDITOR_CONFLICT_RESOLVE_ALL_PATH = `${EDITOR_CONFLICT_RESOLVE_PREFIX}merge-conflicts`;
 /** Read-only conflict viewer (no accept/reject), e.g. PR Checks for a non-local PR. */
-export const EDITOR_CONFLICT_RESOLVE_READONLY_SEGMENT = 'ro';
+export const EDITOR_CONFLICT_RESOLVE_READONLY_SEGMENT = "ro";
 export const EDITOR_CONFLICT_RESOLVE_READONLY_ALL_PATH = `${EDITOR_CONFLICT_RESOLVE_PREFIX}${EDITOR_CONFLICT_RESOLVE_READONLY_SEGMENT}/merge-conflicts`;
 
-type EditorPathSuffixKind = 'diff' | 'review' | 'conflict';
+type EditorPathSuffixKind = "diff" | "review" | "conflict";
 
 const EDITOR_PATH_SUFFIXES: Record<EditorPathSuffixKind, string[]> = {
-  diff: [' (Diff)', '（对比）'],
-  review: [' (Review)', '（审查）'],
-  conflict: [' (Conflict)', '（冲突）'],
+  diff: [" (Diff)", "（对比）"],
+  review: [" (Review)", "（审查）"],
+  conflict: [" (Conflict)", "（冲突）"],
 };
 
-let cachedEditorPathsLocale: 'en' | 'zh' | null = null;
+let cachedEditorPathsLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedEditorPathsTranslator: any = null;
 
 function editorPathsT(key: string): string {
-  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedEditorPathsTranslator || cachedEditorPathsLocale !== locale) {
     cachedEditorPathsLocale = locale;
     cachedEditorPathsTranslator = createTranslator({
       locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'Editor.chrome.paths',
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "Editor.chrome.paths",
     });
   }
   return cachedEditorPathsTranslator(key as never);
@@ -89,10 +89,10 @@ export type ConflictResolvePrRef = {
 
 /** Build a conflict-resolve editor path (optional read-only, optional single file, optional PR context). */
 export function buildConflictResolveEditorPath(
-  sourcePath: string = 'merge-conflicts',
+  sourcePath: string = "merge-conflicts",
   options?: { readOnly?: boolean; pr?: ConflictResolvePrRef },
 ): string {
-  const normalized = sourcePath.replace(/^\/+/, '') || 'merge-conflicts';
+  const normalized = sourcePath.replace(/^\/+/, "") || "merge-conflicts";
   if (options?.pr) {
     const { owner, repo, prNumber } = options.pr;
     // git-conflict-resolve://ro/pr/{owner}/{repo}/{n}/[file path | merge-conflicts]
@@ -116,21 +116,21 @@ export function parseConflictResolvePrRef(
   if (rest.startsWith(`${EDITOR_CONFLICT_RESOLVE_READONLY_SEGMENT}/`)) {
     rest = rest.slice(EDITOR_CONFLICT_RESOLVE_READONLY_SEGMENT.length + 1);
   }
-  if (!rest.startsWith('pr/')) return null;
-  const parts = rest.slice(3).split('/');
+  if (!rest.startsWith("pr/")) return null;
+  const parts = rest.slice(3).split("/");
   // owner / repo / prNumber / ...file
   if (parts.length < 4) return null;
   const [owner, repo, prStr, ...fileParts] = parts;
   const prNumber = Number(prStr);
   if (!owner || !repo || !Number.isFinite(prNumber) || prNumber <= 0) return null;
-  const filePath = fileParts.join('/') || 'merge-conflicts';
+  const filePath = fileParts.join("/") || "merge-conflicts";
   return { owner, repo, prNumber, filePath };
 }
 
 /** UI-facing path (tab tooltip / labels). Strips virtual schemes like `untitled:`. */
 export function getEditorDisplayPath(path: string): string {
-  if (path.startsWith('untitled:')) {
-    return path.slice('untitled:'.length) || 'Untitled.md';
+  if (path.startsWith("untitled:")) {
+    return path.slice("untitled:".length) || "Untitled.md";
   }
   return getEditorSourcePath(path);
 }
@@ -142,7 +142,7 @@ export function getEditorSourcePath(path: string): string {
 
   if (path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) {
     const rest = path.slice(EDITOR_REVIEW_DIFF_PREFIX.length);
-    const slashIdx = rest.indexOf('/');
+    const slashIdx = rest.indexOf("/");
     return slashIdx >= 0 ? rest.slice(slashIdx + 1) : rest;
   }
 
@@ -169,7 +169,7 @@ export function getEditorSourcePath(path: string): string {
 export function getReviewDiffSnapshotGuid(path: string): string | null {
   if (!path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) return null;
   const rest = path.slice(EDITOR_REVIEW_DIFF_PREFIX.length);
-  const slashIdx = rest.indexOf('/');
+  const slashIdx = rest.indexOf("/");
   return slashIdx >= 0 ? rest.slice(0, slashIdx) : null;
 }
 
@@ -184,25 +184,46 @@ export function getLanguageFromPath(path: string): string {
 }
 
 export function isBinaryFile(path: string): boolean {
-    const ext = getEditorSourcePath(path).split('.').pop()?.toLowerCase();
-    const binaryExts = [
-        'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp', 'tiff',
-        'pdf',
-        'mp4', 'webm', 'ogg', 'mp3', 'wav',
-        'zip', 'tar', 'gz', '7z', 'rar',
-        // Office docs often need special handling, treat as binary for now
-        'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'
-    ];
-    return ext ? binaryExts.includes(ext) : false;
+  const ext = getEditorSourcePath(path).split(".").pop()?.toLowerCase();
+  const binaryExts = [
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "svg",
+    "webp",
+    "ico",
+    "bmp",
+    "tiff",
+    "pdf",
+    "mp4",
+    "webm",
+    "ogg",
+    "mp3",
+    "wav",
+    "zip",
+    "tar",
+    "gz",
+    "7z",
+    "rar",
+    // Office docs often need special handling, treat as binary for now
+    "doc",
+    "docx",
+    "xls",
+    "xlsx",
+    "ppt",
+    "pptx",
+  ];
+  return ext ? binaryExts.includes(ext) : false;
 }
 
 export function getFileNameFromPath(path: string): string {
-  if (path.startsWith('untitled:')) {
-    return path.slice('untitled:'.length) || 'Untitled.md';
+  if (path.startsWith("untitled:")) {
+    return path.slice("untitled:".length) || "Untitled.md";
   }
 
   if (isReviewGroupEditorPath(path)) {
-    return editorPathsT('review');
+    return editorPathsT("review");
   }
 
   if (isDiffGroupEditorPath(path)) {
@@ -210,33 +231,33 @@ export function getFileNameFromPath(path: string): string {
   }
 
   const sourcePath = getEditorSourcePath(path);
-  const baseName = sourcePath.split('/').pop() || sourcePath;
+  const baseName = sourcePath.split("/").pop() || sourcePath;
 
   if (path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) {
-    return ensureEditorPathSuffix(baseName, 'review');
+    return ensureEditorPathSuffix(baseName, "review");
   }
 
   if (isConflictResolveEditorPath(path)) {
-    if (sourcePath === 'merge-conflicts') {
-      return editorPathsT('mergeConflicts');
+    if (sourcePath === "merge-conflicts") {
+      return editorPathsT("mergeConflicts");
     }
-    return ensureEditorPathSuffix(baseName, 'conflict');
+    return ensureEditorPathSuffix(baseName, "conflict");
   }
 
   return baseName;
 }
 
 function getDiffTabName(name: string): string {
-  return ensureEditorPathSuffix(name, 'diff');
+  return ensureEditorPathSuffix(name, "diff");
 }
 
 function getReviewDiffTabName(name: string): string {
-  return ensureEditorPathSuffix(name, 'review');
+  return ensureEditorPathSuffix(name, "review");
 }
 
 export function getSpecialTabName(path: string, name: string): string {
   if (isReviewGroupEditorPath(path)) {
-    return editorPathsT('review');
+    return editorPathsT("review");
   }
 
   if (path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) {

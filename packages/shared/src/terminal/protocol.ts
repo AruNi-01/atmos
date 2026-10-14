@@ -49,8 +49,18 @@ export type TerminalClientMessage =
   | { type: "terminal_destroy"; session_id: string };
 
 export type TerminalServerMessage =
-  | { type: "terminal_created"; session_id: string; workspace_id: string; snapshot?: TerminalSnapshot | null }
-  | { type: "terminal_attached"; session_id: string; workspace_id: string; snapshot?: TerminalSnapshot | null }
+  | {
+      type: "terminal_created";
+      session_id: string;
+      workspace_id: string;
+      snapshot?: TerminalSnapshot | null;
+    }
+  | {
+      type: "terminal_attached";
+      session_id: string;
+      workspace_id: string;
+      snapshot?: TerminalSnapshot | null;
+    }
   | { type: "terminal_output"; session_id: string; data_b64: string }
   | { type: "terminal_closed"; session_id: string }
   | { type: "terminal_destroyed"; session_id: string }

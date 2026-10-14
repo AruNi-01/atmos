@@ -13,7 +13,10 @@ import {
 } from "@/features/canvas/lib/canvas-widget-shape";
 import { findCanvasWidgetPlacement } from "@/features/canvas/lib/canvas-widget-placement";
 import { reparentCanvasShapeToFrame } from "@/features/canvas/lib/canvas-widget-frame";
-import { CANVAS_WIDGET_REGISTRY, type AddableCanvasWidgetType } from "@/features/canvas/lib/canvas-widget-registry";
+import {
+  CANVAS_WIDGET_REGISTRY,
+  type AddableCanvasWidgetType,
+} from "@/features/canvas/lib/canvas-widget-registry";
 import { createCanvasCenterOverviewTab } from "@/features/canvas/lib/canvas-center-tabs";
 
 function createBrowserId(): string {

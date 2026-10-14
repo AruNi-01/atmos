@@ -18,9 +18,7 @@ describe("createRelayClient", () => {
 
     const client = createRelayClient({ baseUrl: "https://relay.example/" });
     expect(client.baseUrl).toBe("https://relay.example");
-    await expect(client.listComputers("device-credential-32chars-minimum!!")).resolves.toEqual(
-      [],
-    );
+    await expect(client.listComputers("device-credential-32chars-minimum!!")).resolves.toEqual([]);
   });
 
   test("sends relay secret header when configured", async () => {
@@ -75,8 +73,7 @@ describe("createRelayClient", () => {
           client_token: "client-token",
           expires_at: 1_900_000_000,
           gateway_url: "https://relay.example/v1/computers/server/proxy",
-          ws_url:
-            "wss://relay.example/ws/client?server_id=server&token=client-token",
+          ws_url: "wss://relay.example/ws/client?server_id=server&token=client-token",
         }),
         { status: 200 },
       )) as typeof fetch;
@@ -171,9 +168,7 @@ describe("createRelayClient", () => {
   test("withDeviceCredential binds token for subsequent calls", async () => {
     const longTok = "e".repeat(32);
     globalThis.fetch = (async (_input, init) => {
-      expect(new Headers(init?.headers).get("Authorization")).toBe(
-        `Bearer ${longTok}`,
-      );
+      expect(new Headers(init?.headers).get("Authorization")).toBe(`Bearer ${longTok}`);
       return new Response(JSON.stringify({ computers: [] }), { status: 200 });
     }) as typeof fetch;
 

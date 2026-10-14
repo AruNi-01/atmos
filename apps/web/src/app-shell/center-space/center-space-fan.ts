@@ -76,9 +76,7 @@ export function centerSpaceFanPose(
   };
 }
 
-export function centerSpaceFanCssVars(
-  pose: CenterSpaceFanPose,
-): Record<string, string> {
+export function centerSpaceFanCssVars(pose: CenterSpaceFanPose): Record<string, string> {
   return {
     "--fan-x": `${pose.x}px`,
     "--fan-y": `${pose.y}px`,

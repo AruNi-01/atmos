@@ -47,15 +47,22 @@ export async function uploadChatPhotos(input: {
   for (const photo of input.photos) {
     form.append("files", await chatUploadFile(photo));
   }
-  const response = await fetch(`${input.gatewayUrl.replace(/\/$/, "")}/api/agent/upload-attachments`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${input.token}` },
-    body: form,
-  });
+  const response = await fetch(
+    `${input.gatewayUrl.replace(/\/$/, "")}/api/agent/upload-attachments`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${input.token}` },
+      body: form,
+    },
+  );
   if (!response.ok) {
     throw new Error("Could not upload that photo.");
   }
-  const json = await response.json() as { success?: boolean; message?: string; data?: { paths?: string[] } };
+  const json = (await response.json()) as {
+    success?: boolean;
+    message?: string;
+    data?: { paths?: string[] };
+  };
   if (!json.success || !json.data?.paths) {
     throw new Error(json.message || "Could not upload that photo.");
   }

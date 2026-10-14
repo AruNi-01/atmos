@@ -27,7 +27,5 @@ export function useAutomationRunListQuery(automationGuid: string | null) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
 
-  return useQuery(
-    automationRunListQueryOptions(scope, connectionState, automationGuid ?? ""),
-  );
+  return useQuery(automationRunListQueryOptions(scope, connectionState, automationGuid ?? ""));
 }

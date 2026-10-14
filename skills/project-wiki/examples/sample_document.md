@@ -183,10 +183,10 @@ The cleanup is cascading: when a connection is removed, its MPSC sender is dropp
 
 ### Configuration
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `heartbeat_interval_secs` | `10` | How often ping frames are sent |
-| `connection_timeout_secs` | `30` | Max time to wait for pong before disconnecting |
+| Variable                  | Default | Description                                    |
+| ------------------------- | ------- | ---------------------------------------------- |
+| `heartbeat_interval_secs` | `10`    | How often ping frames are sent                 |
+| `connection_timeout_secs` | `30`    | Max time to wait for pong before disconnecting |
 
 For high-latency or low-activity scenarios, increase `connection_timeout_secs` to avoid premature disconnects. For heavily loaded servers, reducing `heartbeat_interval_secs` can detect dead connections faster, at the cost of more ping traffic. The defaults are tuned for typical web app usage (active tabs, stable networks).
 
@@ -196,15 +196,15 @@ The WebSocket layer evolved in stages. Initially, a single client type and no he
 
 ## Key Source Files
 
-| File | Purpose |
-|------|---------|
-| `crates/infra/src/websocket/manager.rs` | WsManager — Connection registry with concurrent read/write access |
+| File                                       | Purpose                                                                |
+| ------------------------------------------ | ---------------------------------------------------------------------- |
+| `crates/infra/src/websocket/manager.rs`    | WsManager — Connection registry with concurrent read/write access      |
 | `crates/infra/src/websocket/connection.rs` | WsConnection — Individual connection state, identity, and send channel |
-| `crates/infra/src/websocket/types.rs` | WsMessage, ClientType — Message envelope and client classification |
-| `crates/infra/src/websocket/error.rs` | WsError, WsResult — Error types for all failure modes |
-| `apps/api/src/api/ws/handlers.rs` | HTTP upgrade handler, socket splitting, message routing |
-| `apps/api/src/api/ws/mod.rs` | WebSocket route registration in the Axum router |
-| `apps/api/src/main.rs` | Heartbeat configuration and WsManager initialization |
+| `crates/infra/src/websocket/types.rs`      | WsMessage, ClientType — Message envelope and client classification     |
+| `crates/infra/src/websocket/error.rs`      | WsError, WsResult — Error types for all failure modes                  |
+| `apps/api/src/api/ws/handlers.rs`          | HTTP upgrade handler, socket splitting, message routing                |
+| `apps/api/src/api/ws/mod.rs`               | WebSocket route registration in the Axum router                        |
+| `apps/api/src/main.rs`                     | Heartbeat configuration and WsManager initialization                   |
 
 ## Next Steps
 

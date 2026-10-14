@@ -8,10 +8,7 @@ import {
   __resetAiContextPayloadsForTests,
   registerAiContextPrompt,
 } from "@/shared/lib/ai-context-protocol";
-import {
-  __resetComposerPasteForTests,
-  registerComposerPaste,
-} from "@/shared/lib/composer-paste";
+import { __resetComposerPasteForTests, registerComposerPaste } from "@/shared/lib/composer-paste";
 import { SKILL_DISABLE_PROTOCOL } from "@/features/skills/lib/skill-disable-protocol";
 
 const commands = [
@@ -65,9 +62,7 @@ describe("expandAgentComposerText", () => {
 
   it("materializes AI context chips including terminal selections", () => {
     const token = registerAiContextPrompt("terminal-selection", "npm test\npass");
-    expect(expandAgentComposerText(`${token}\u00A0why failed?`)).toBe(
-      "npm test\npass why failed?",
-    );
+    expect(expandAgentComposerText(`${token}\u00A0why failed?`)).toBe("npm test\npass why failed?");
   });
 
   it("expands large paste chips to the original body", () => {

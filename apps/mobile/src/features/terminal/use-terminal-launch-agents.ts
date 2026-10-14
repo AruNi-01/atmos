@@ -22,24 +22,29 @@ export function useTerminalLaunchAgents(active: boolean): MobileLaunchAgent[] {
     let fetched = false;
     setCustom(null);
     if (key) {
-      void AsyncStorage.getItem(key).then((raw) => {
-        if (cancelled || fetched || !raw) return;
-        const parsed = parseCachedAgents(raw);
-        if (parsed) setCustom(parsed);
-      }).catch(() => undefined);
+      void AsyncStorage.getItem(key)
+        .then((raw) => {
+          if (cancelled || fetched || !raw) return;
+          const parsed = parseCachedAgents(raw);
+          if (parsed) setCustom(parsed);
+        })
+        .catch(() => undefined);
     }
     if (!active || !client || state !== "open" || !key) {
       return () => {
         cancelled = true;
       };
     }
-    void wsActions.codeAgentCustomGet(client).then((payload) => {
-      if (cancelled) return;
-      fetched = true;
-      const agents = Array.isArray(payload.agents) ? payload.agents : [];
-      setCustom(agents);
-      void AsyncStorage.setItem(key, JSON.stringify(agents)).catch(() => undefined);
-    }).catch(() => undefined);
+    void wsActions
+      .codeAgentCustomGet(client)
+      .then((payload) => {
+        if (cancelled) return;
+        fetched = true;
+        const agents = Array.isArray(payload.agents) ? payload.agents : [];
+        setCustom(agents);
+        void AsyncStorage.setItem(key, JSON.stringify(agents)).catch(() => undefined);
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
@@ -55,7 +60,12 @@ function parseCachedAgents(raw: string): CodeAgentCustomEntry[] | null {
     return parsed.filter((agent): agent is CodeAgentCustomEntry => {
       if (!agent || typeof agent !== "object") return false;
       const row = agent as Partial<CodeAgentCustomEntry>;
-      return typeof row.id === "string" && typeof row.cmd === "string" && typeof row.flags === "string" && typeof row.label === "string";
+      return (
+        typeof row.id === "string" &&
+        typeof row.cmd === "string" &&
+        typeof row.flags === "string" &&
+        typeof row.label === "string"
+      );
     });
   } catch {
     return null;

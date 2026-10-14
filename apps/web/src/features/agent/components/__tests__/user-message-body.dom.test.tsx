@@ -54,9 +54,8 @@ mock.module("@/shared/lib/link-preview-query", () => ({
 }));
 
 const { UserMessageBody } = await import("../UserMessageBody");
-const { FindHighlightProvider, useSetFindSearchQuery } = await import(
-  "@/features/editor/components/find-highlight"
-);
+const { FindHighlightProvider, useSetFindSearchQuery } =
+  await import("@/features/editor/components/find-highlight");
 
 function PublishFindQuery({
   query,

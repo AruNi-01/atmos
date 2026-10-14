@@ -55,13 +55,9 @@ export function useAddCanvasTerminal(editor: Editor | null) {
       if (!hostId) {
         return null;
       }
-      const contextId =
-        resolveCenterOpenContextId(hostId, hostContextId, paintContextId) ?? hostId;
+      const contextId = resolveCenterOpenContextId(hostId, hostContextId, paintContextId) ?? hostId;
 
-      const created = await createTerminalTabWithInitialPane(
-        contextId,
-        input.context.contextScope,
-      );
+      const created = await createTerminalTabWithInitialPane(contextId, input.context.contextScope);
       const tmuxWindowName = created?.pane.tmuxWindowName;
       if (!created || !tmuxWindowName) {
         return null;
@@ -75,11 +71,8 @@ export function useAddCanvasTerminal(editor: Editor | null) {
         tmuxWindowName,
       );
       const size = input.size ?? CANVAS_TERMINAL_DEFAULT_SIZE;
-      const position = input.position ?? findCanvasWidgetPlacement(
-        editor,
-        size,
-        { frameId: input.frameId },
-      );
+      const position =
+        input.position ?? findCanvasWidgetPlacement(editor, size, { frameId: input.frameId });
 
       editor.createShape<CanvasTerminalShape>({
         id: shapeId,

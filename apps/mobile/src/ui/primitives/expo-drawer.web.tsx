@@ -173,11 +173,15 @@ export function ExpoDrawer({
             style={[
               styles.handle,
               {
-                backgroundColor: palette.isDark ? "rgba(235, 235, 245, 0.32)" : "rgba(60, 60, 67, 0.30)",
+                backgroundColor: palette.isDark
+                  ? "rgba(235, 235, 245, 0.32)"
+                  : "rgba(60, 60, 67, 0.30)",
               },
             ]}
           />
-          <View style={[styles.body, { paddingHorizontal: contentPaddingHorizontal }]}>{children}</View>
+          <View style={[styles.body, { paddingHorizontal: contentPaddingHorizontal }]}>
+            {children}
+          </View>
         </Animated.View>
       </View>
     </Modal>

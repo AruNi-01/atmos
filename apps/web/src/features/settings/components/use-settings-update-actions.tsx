@@ -205,7 +205,7 @@ export function useSettingsUpdateActions() {
               install: t("desktop.toast.install"),
             },
             () => {
-            void handleInstallUpdate(toastId);
+              void handleInstallUpdate(toastId);
             },
           ),
           type: "info",

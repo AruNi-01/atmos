@@ -14,22 +14,22 @@ The main quality risks are tenant ownership drift, stale Relay routes, untrusted
 
 ## Index
 
-| Id | Severity | Area | Title | Status |
-|----|----------|------|-------|--------|
-| REV-001 | P1 | relay | Route mutations need strict tenant ownership guards | fixed |
-| REV-002 | P1 | service/api | External trigger ingestion must revalidate local automation state | fixed |
-| REV-003 | P2 | web/service | Route cleanup and `needs_setup` transitions need explicit handling | fixed |
-| REV-004 | P2 | relay/tests | Delivery lifecycle coverage is still incomplete | fixed |
+| Id      | Severity | Area        | Title                                                              | Status |
+| ------- | -------- | ----------- | ------------------------------------------------------------------ | ------ |
+| REV-001 | P1       | relay       | Route mutations need strict tenant ownership guards                | fixed  |
+| REV-002 | P1       | service/api | External trigger ingestion must revalidate local automation state  | fixed  |
+| REV-003 | P2       | web/service | Route cleanup and `needs_setup` transitions need explicit handling | fixed  |
+| REV-004 | P2       | relay/tests | Delivery lifecycle coverage is still incomplete                    | fixed  |
 
 ## REV-001 · Route mutations need strict tenant ownership guards
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | relay |
+| Field           | Value                   |
+| --------------- | ----------------------- |
+| **Status**      | fixed                   |
+| **Severity**    | P1                      |
+| **Area**        | relay                   |
 | **Reported by** | internal quality review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned              |
 
 ### Finding
 
@@ -55,13 +55,13 @@ GitHub route creation, update, and deletion are relay operations. They must be a
 
 ## REV-002 · External trigger ingestion must revalidate local automation state
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P1 |
-| **Area** | service/api |
+| Field           | Value                   |
+| --------------- | ----------------------- |
+| **Status**      | fixed                   |
+| **Severity**    | P1                      |
+| **Area**        | service/api             |
 | **Reported by** | internal quality review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned              |
 
 ### Finding
 
@@ -87,13 +87,13 @@ Relay can verify GitHub signatures and match route metadata, but it cannot be th
 
 ## REV-003 · Route cleanup and `needs_setup` transitions need explicit handling
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | web/service |
+| Field           | Value                   |
+| --------------- | ----------------------- |
+| **Status**      | fixed                   |
+| **Severity**    | P2                      |
+| **Area**        | web/service             |
 | **Reported by** | internal quality review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned              |
 
 ### Finding
 
@@ -119,13 +119,13 @@ GitHub trigger setup spans local automation state and Relay route state. If disa
 
 ## REV-004 · Delivery lifecycle coverage is still incomplete
 
-| Field | Value |
-|-------|--------|
-| **Status** | fixed |
-| **Severity** | P2 |
-| **Area** | relay/tests |
+| Field           | Value                   |
+| --------------- | ----------------------- |
+| **Status**      | fixed                   |
+| **Severity**    | P2                      |
+| **Area**        | relay/tests             |
 | **Reported by** | internal quality review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned              |
 
 ### Finding
 

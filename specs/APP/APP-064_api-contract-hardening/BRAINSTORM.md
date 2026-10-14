@@ -30,20 +30,20 @@ Current numbers (2026-08-24): **273** `WsAction` names; **30** `WsEvent` variant
 
 ## Review of the oRPC-era recommendations
 
-| Claim | Verdict | Note |
-|-------|---------|------|
-| Do not introduce oRPC | **Hold** | Would add a second contract + client over an existing WS kernel with reconnect, computer-scope, no-queue, and token-in-URL semantics oRPC does not own. |
-| Three planes (Hub / Relay / Computer) | **Hold** | Already the package map. |
-| `api-types` + `api-client` *is* the Computer RPC SDK | **Hold** | Missing piece is payload mapping, not a new framework. |
-| Mobile already reuses the kernel | **Hold** | `MobileWsClient` → `createWsSession()` + `adaptSocket()`. |
-| `request()` is only name-safe | **Hold** | Also still accepts `WsAction \| string`, which weakens the catalog. |
-| Keep api-client a kernel, not `gitApi` | **Hold** | Web already has `apps/web/src/api/ws/*-api.ts`; mobile has `ws-actions.ts`. |
-| Do not create `@atmos/api-sdk` now | **Hold** | APP-050 “second consumer” rule. |
-| Do not merge hub-client + relay-client | **Hold** | Different planes and auth. |
-| P0: migrate `ws-api-types.ts` / mobile `ws-actions.ts` as dual catalogs | **Partial / overstated** | Action catalog is already one `WsAction`. Web `ws-api-types.ts` is mostly a re-export shim. Mobile `ws-actions.ts` is a **feature wrapper**, which we want to keep. Remaining work is DTO completeness + a few drifted shapes. |
-| P1: split `WS_ACTIONS` into domain files / `client.git.getStatus()` | **Demote** | File split is organization, not type safety. Namespaced methods on the kernel mix layers we just separated. Domain modules already exist on the Rust side (`message/*.rs`) and in web feature APIs. |
-| P2: REST OpenAPI / schema export | **Hold as later, recast** | REST is multi-plane (Computer `/api/system/*`, Hub, Relay, hooks). One OpenAPI for “REST” would smear planes. Do not OpenAPI-ify the product. |
-| Continue “one catalog, one frame, one DTO” | **Hold with nuance** | Frames + action *names* are already unified. DTOs and notifications are not. |
+| Claim                                                                   | Verdict                   | Note                                                                                                                                                                                                                           |
+| ----------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Do not introduce oRPC                                                   | **Hold**                  | Would add a second contract + client over an existing WS kernel with reconnect, computer-scope, no-queue, and token-in-URL semantics oRPC does not own.                                                                        |
+| Three planes (Hub / Relay / Computer)                                   | **Hold**                  | Already the package map.                                                                                                                                                                                                       |
+| `api-types` + `api-client` _is_ the Computer RPC SDK                    | **Hold**                  | Missing piece is payload mapping, not a new framework.                                                                                                                                                                         |
+| Mobile already reuses the kernel                                        | **Hold**                  | `MobileWsClient` → `createWsSession()` + `adaptSocket()`.                                                                                                                                                                      |
+| `request()` is only name-safe                                           | **Hold**                  | Also still accepts `WsAction \| string`, which weakens the catalog.                                                                                                                                                            |
+| Keep api-client a kernel, not `gitApi`                                  | **Hold**                  | Web already has `apps/web/src/api/ws/*-api.ts`; mobile has `ws-actions.ts`.                                                                                                                                                    |
+| Do not create `@atmos/api-sdk` now                                      | **Hold**                  | APP-050 “second consumer” rule.                                                                                                                                                                                                |
+| Do not merge hub-client + relay-client                                  | **Hold**                  | Different planes and auth.                                                                                                                                                                                                     |
+| P0: migrate `ws-api-types.ts` / mobile `ws-actions.ts` as dual catalogs | **Partial / overstated**  | Action catalog is already one `WsAction`. Web `ws-api-types.ts` is mostly a re-export shim. Mobile `ws-actions.ts` is a **feature wrapper**, which we want to keep. Remaining work is DTO completeness + a few drifted shapes. |
+| P1: split `WS_ACTIONS` into domain files / `client.git.getStatus()`     | **Demote**                | File split is organization, not type safety. Namespaced methods on the kernel mix layers we just separated. Domain modules already exist on the Rust side (`message/*.rs`) and in web feature APIs.                            |
+| P2: REST OpenAPI / schema export                                        | **Hold as later, recast** | REST is multi-plane (Computer `/api/system/*`, Hub, Relay, hooks). One OpenAPI for “REST” would smear planes. Do not OpenAPI-ify the product.                                                                                  |
+| Continue “one catalog, one frame, one DTO”                              | **Hold with nuance**      | Frames + action _names_ are already unified. DTOs and notifications are not.                                                                                                                                                   |
 
 Concrete drift that the review under-named: `WorkspaceAttachmentPayload` in `@atmos/api-types` (`name` / `path` / `content_type`) does **not** match the Rust wire (`filename` / `mime` / `data_base64`). Web maps camelCase locally. Mobile still has a transitional `GitFileDiffResponse`. These are contract bugs, not a reason for oRPC.
 
@@ -96,7 +96,7 @@ Action names stay gated; callers keep `request<T>(action, unknown)`.
 ## Key forks in the road
 
 - **Fork 1**: oRPC vs typed map vs codegen — **Option B**. Decide remaining codegen in TECH only as a later escape hatch.
-- **Fork 2**: Contract map covers **all** `WsAction` wire types in api-types, or only multi-client DTOs? — lean **all wire input/output in api-types** (subpath imports keep mobile from loading unused domains). App-only **view models** stay in apps. This slightly extends APP-048 M4 for *wire* types.
+- **Fork 2**: Contract map covers **all** `WsAction` wire types in api-types, or only multi-client DTOs? — lean **all wire input/output in api-types** (subpath imports keep mobile from loading unused domains). App-only **view models** stay in apps. This slightly extends APP-048 M4 for _wire_ types.
 - **Fork 3**: Namespaced `client.git.*` on the kernel vs keep app feature APIs — **keep app feature APIs**.
 - **Fork 4**: REST OpenAPI now vs later vs never for the whole surface — **not now**; per-plane inventory only if a second Computer-REST consumer appears.
 - **Fork 5**: Domain-split `WS_ACTIONS.ts` as a P1 vs derived later — **later**, and only if the contract modules are already split.

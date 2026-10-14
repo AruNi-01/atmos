@@ -77,8 +77,7 @@ export function reviewSessionStatusRank(status: string) {
 
 export function sortReviewSessions(sessions: ReviewSessionDto[]) {
   return [...sessions].sort((left, right) => {
-    const statusRank =
-      reviewSessionStatusRank(left.status) - reviewSessionStatusRank(right.status);
+    const statusRank = reviewSessionStatusRank(left.status) - reviewSessionStatusRank(right.status);
     if (statusRank !== 0) return statusRank;
     return compareReviewTimestamps(right.updated_at, left.updated_at);
   });
@@ -100,10 +99,7 @@ export function commentTitle(comment: ReviewCommentDto) {
   return `Comment on L${comment.anchor_start_line}-${comment.anchor_end_line}`;
 }
 
-export function sortComments(
-  comments: ReviewCommentDto[],
-  currentFileSnapshotGuid: string | null,
-) {
+export function sortComments(comments: ReviewCommentDto[], currentFileSnapshotGuid: string | null) {
   const statusRank = (status: string) => {
     switch (status) {
       case "open":
@@ -120,10 +116,8 @@ export function sortComments(
   };
 
   return [...comments].sort((left, right) => {
-    const leftCurrent =
-      left.file_snapshot_guid === currentFileSnapshotGuid ? 0 : 1;
-    const rightCurrent =
-      right.file_snapshot_guid === currentFileSnapshotGuid ? 0 : 1;
+    const leftCurrent = left.file_snapshot_guid === currentFileSnapshotGuid ? 0 : 1;
+    const rightCurrent = right.file_snapshot_guid === currentFileSnapshotGuid ? 0 : 1;
     if (leftCurrent !== rightCurrent) return leftCurrent - rightCurrent;
     const leftStatus = statusRank(left.status);
     const rightStatus = statusRank(right.status);

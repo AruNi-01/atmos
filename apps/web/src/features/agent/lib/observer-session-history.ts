@@ -27,15 +27,14 @@ export function observerHistoryRequest(activity: AgentActivity): ObserverHistory
   const sessionId = activity.session_id?.trim() ?? "";
   const chat = activity.surface === "chat" || sessionId.startsWith("chat:");
   if (chat) {
-    const chatId = activity.surface_id?.trim()
-      || (sessionId.startsWith("chat:") ? sessionId.slice("chat:".length).trim() : "");
+    const chatId =
+      activity.surface_id?.trim() ||
+      (sessionId.startsWith("chat:") ? sessionId.slice("chat:".length).trim() : "");
     return chatId ? { kind: "chat", chatId } : null;
   }
   const native = activity.native_session_id?.trim() ?? "";
   if (!native) return null;
-  const provider = activity.host_provider_id?.trim()
-    || HOST_PROVIDER_BY_TOOL[activity.tool]
-    || "";
+  const provider = activity.host_provider_id?.trim() || HOST_PROVIDER_BY_TOOL[activity.tool] || "";
   if (!provider || !Object.values(HOST_PROVIDER_BY_TOOL).includes(provider)) return null;
   return { kind: "host", key: `${provider}:${native}` };
 }

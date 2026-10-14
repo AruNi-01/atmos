@@ -8,4 +8,4 @@ export interface ProjectOption {
   name: string;
 }
 
-export type WorkspaceLinkType = 'none' | 'issue' | 'pr';
+export type WorkspaceLinkType = "none" | "issue" | "pr";

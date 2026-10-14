@@ -45,10 +45,12 @@ function ProjectMetadataValue({
       <TooltipProvider delayDuration={250}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className={cn(
-              "inline-block max-w-full truncate whitespace-nowrap align-top text-foreground",
-              valueClassName,
-            )}>
+            <span
+              className={cn(
+                "inline-block max-w-full truncate align-top whitespace-nowrap text-foreground",
+                valueClassName,
+              )}
+            >
               {value}
             </span>
           </TooltipTrigger>
@@ -107,15 +109,15 @@ export function GroupedProjectRow({
   });
   const prIconClass = isActive ? "text-sidebar-foreground" : "text-muted-foreground";
 
-  const enterInfoPopover = React.useCallback((
-    trigger: HTMLElement,
-    options?: { immediate?: boolean },
-  ) => {
-    workspaceInfoHoverSession.enter(project.id, trigger, {
-      ...options,
-      instanceId: hoverInstanceId,
-    });
-  }, [hoverInstanceId, project.id]);
+  const enterInfoPopover = React.useCallback(
+    (trigger: HTMLElement, options?: { immediate?: boolean }) => {
+      workspaceInfoHoverSession.enter(project.id, trigger, {
+        ...options,
+        instanceId: hoverInstanceId,
+      });
+    },
+    [hoverInstanceId, project.id],
+  );
 
   React.useEffect(() => {
     return () => {
@@ -176,15 +178,18 @@ export function GroupedProjectRow({
     workspaceInfoHoverSession.dismiss();
   }, [currentBranch, managedPr, openActionRunTab, openPullRequestTab, project.id]);
 
-  const handleTouchStart = React.useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    if (!isInfoPopoverOpen) {
-      ignoreNextClickRef.current = true;
-      enterInfoPopover(event.currentTarget, { immediate: true });
-      window.setTimeout(() => {
-        ignoreNextClickRef.current = false;
-      }, 500);
-    }
-  }, [enterInfoPopover, isInfoPopoverOpen]);
+  const handleTouchStart = React.useCallback(
+    (event: React.TouchEvent<HTMLDivElement>) => {
+      if (!isInfoPopoverOpen) {
+        ignoreNextClickRef.current = true;
+        enterInfoPopover(event.currentTarget, { immediate: true });
+        window.setTimeout(() => {
+          ignoreNextClickRef.current = false;
+        }, 500);
+      }
+    },
+    [enterInfoPopover, isInfoPopoverOpen],
+  );
 
   return (
     <>
@@ -214,14 +219,15 @@ export function GroupedProjectRow({
         data-ws-row=""
         {...{ [SIDEBAR_SHORTCUT_TARGET_ATTR]: projectShortcutKey }}
         className={cn(
-          "relative flex w-full min-w-0 cursor-pointer items-center rounded-md border border-transparent px-3 py-1.5 hover:bg-sidebar-accent group/ws",
+          "group/ws relative flex w-full min-w-0 cursor-pointer items-center rounded-md border border-transparent px-3 py-1.5 hover:bg-sidebar-accent",
           isActive
             ? "bg-sidebar-accent text-sidebar-accent-foreground"
             : "text-muted-foreground hover:text-sidebar-accent-foreground",
         )}
       >
-        <div className="relative flex min-w-0 w-full items-center gap-1">
-          <div className="absolute -left-1 flex size-5 items-center justify-center overflow-hidden rounded-md border border-sidebar-border bg-sidebar text-[9px] font-bold text-muted-foreground"
+        <div className="relative flex w-full min-w-0 items-center gap-1">
+          <div
+            className="absolute -left-1 flex size-5 items-center justify-center overflow-hidden rounded-md border border-sidebar-border bg-sidebar text-[9px] font-bold text-muted-foreground"
             style={{
               borderLeft: project.borderColor ? `2px solid ${project.borderColor}` : undefined,
             }}
@@ -258,12 +264,12 @@ export function GroupedProjectRow({
             <span className="hidden text-[11px] text-muted-foreground group-hover/ws:inline">
               {timeAgo}
             </span>
-            <span className="inline-flex h-4 shrink-0 items-center rounded-md border border-border/60 bg-muted/40 px-1.5 text-[10px] font-medium normal-case tracking-normal text-muted-foreground">
+            <span className="inline-flex h-4 shrink-0 items-center rounded-md border border-border/60 bg-muted/40 px-1.5 text-[10px] font-medium tracking-normal text-muted-foreground normal-case">
               {t("chip")}
             </span>
           </div>
           {shortcutDigit != null ? (
-            <div className="pointer-events-none absolute right-0 top-1/2 z-10 -translate-y-1/2">
+            <div className="pointer-events-none absolute top-1/2 right-0 z-10 -translate-y-1/2">
               <SidebarHeldShortcutBadge targetKey={projectShortcutKey} />
             </div>
           ) : null}
@@ -305,7 +311,7 @@ export function GroupedProjectRow({
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="shrink-0 whitespace-nowrap">{t("workspaces")}</span>
-                  <span className="min-w-0 flex-1 truncate whitespace-nowrap text-right text-foreground">
+                  <span className="min-w-0 flex-1 truncate text-right whitespace-nowrap text-foreground">
                     {t("workspaceCount", { count: project.workspaces.length })}
                   </span>
                 </div>
@@ -315,7 +321,7 @@ export function GroupedProjectRow({
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="shrink-0 whitespace-nowrap">{t("lastActive")}</span>
-                  <span className="min-w-0 flex-1 truncate whitespace-nowrap text-right text-foreground">
+                  <span className="min-w-0 flex-1 truncate text-right whitespace-nowrap text-foreground">
                     {timeAgo}
                   </span>
                 </div>

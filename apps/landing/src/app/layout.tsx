@@ -17,10 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Lives in the root layout so locale switches do not re-render this
           <script> on the client (React 19 rejects that).
         */}
-        <script
-          id="theme-init"
-          dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
-        />
+        <script id="theme-init" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body
         className={`${GeistSans.variable} ${geistMono.variable} ${GeistSans.className} antialiased`}

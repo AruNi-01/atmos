@@ -3,12 +3,7 @@
  * Reuses the same assets as production Tauri (`apps/desktop/src-tauri/icons`).
  */
 
-import {
-  app,
-  nativeImage,
-  type BrowserWindowConstructorOptions,
-  type NativeImage,
-} from "electron";
+import { app, nativeImage, type BrowserWindowConstructorOptions, type NativeImage } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { REPO_ROOT } from "./runtime/ensure.js";
@@ -38,8 +33,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  */
 export function iconSearchRoots(): string[] {
   const roots: string[] = [];
-  const resourcesPath =
-    typeof process.resourcesPath === "string" ? process.resourcesPath : "";
+  const resourcesPath = typeof process.resourcesPath === "string" ? process.resourcesPath : "";
   if (resourcesPath) {
     roots.push(join(resourcesPath, "icons"));
     roots.push(join(resourcesPath, "app.asar.unpacked", "resources", "icons"));
@@ -121,8 +115,7 @@ export function applyReadyAppBranding(): void {
   // Electron 37 / recent macOS — only setIcon for unpackaged / dev shells.
   // Prefer PNG over .icns for sharp Retina tiles when setIcon is used.
   if (process.platform === "darwin" && app.dock && !app.isPackaged) {
-    const dockPath =
-      icons.pngPath ?? icons.dockIconPath ?? icons.windowIconPath;
+    const dockPath = icons.pngPath ?? icons.dockIconPath ?? icons.windowIconPath;
     if (dockPath) {
       try {
         let image = nativeImage.createFromPath(dockPath);

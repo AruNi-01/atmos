@@ -30,21 +30,39 @@ export function RunHistoryPanel({
 }) {
   const t = useTranslations("automation.runHistoryPanel");
   return (
-    <div className={cn("flex min-h-0 flex-col rounded-md border border-border bg-background", className)}>
+    <div
+      className={cn(
+        "flex min-h-0 flex-col rounded-md border border-border bg-background",
+        className,
+      )}
+    >
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <History className="size-4" />
           {t("title")}
         </div>
-        <Button variant="ghost" size="icon" className="size-8" onClick={onRefresh} disabled={loading}>
-          {loading ? <LoaderCircle className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          onClick={onRefresh}
+          disabled={loading}
+        >
+          {loading ? (
+            <LoaderCircle className="size-4 animate-spin" />
+          ) : (
+            <RefreshCw className="size-4" />
+          )}
         </Button>
       </div>
       <ScrollArea className="min-h-0 flex-1" scrollFade viewportClassName="p-3">
         {loading && runs.length === 0 ? (
           <div className="space-y-2">
             {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="h-16 animate-pulse rounded-md border border-border bg-muted/20" />
+              <div
+                key={index}
+                className="h-16 animate-pulse rounded-md border border-border bg-muted/20"
+              />
             ))}
           </div>
         ) : runs.length === 0 ? (
@@ -91,13 +109,17 @@ function RunHistoryRow({
     <div
       className={cn(
         "rounded-md border",
-        selected ? "border-primary/40 bg-primary/5" : "border-border bg-background hover:bg-muted/30",
+        selected
+          ? "border-primary/40 bg-primary/5"
+          : "border-border bg-background hover:bg-muted/30",
       )}
     >
       <button type="button" onClick={onSelect} className="w-full px-3 py-3 text-left">
         <div className="flex items-center justify-between gap-3">
           <StatusBadge status={run.status} />
-          <span className="text-xs tabular-nums text-muted-foreground">{formatShortId(run.guid)}</span>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {formatShortId(run.guid)}
+          </span>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span>{triggerLabel}</span>

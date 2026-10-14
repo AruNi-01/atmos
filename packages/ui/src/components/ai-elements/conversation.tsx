@@ -26,18 +26,10 @@ export const Conversation = ({ className, ...props }: ConversationProps) => (
   />
 );
 
-export type ConversationContentProps = ComponentProps<
-  typeof StickToBottom.Content
->;
+export type ConversationContentProps = ComponentProps<typeof StickToBottom.Content>;
 
-export const ConversationContent = ({
-  className,
-  ...props
-}: ConversationContentProps) => (
-  <StickToBottom.Content
-    className={cn("flex flex-col gap-8 p-4", className)}
-    {...props}
-  />
+export const ConversationContent = ({ className, ...props }: ConversationContentProps) => (
+  <StickToBottom.Content className={cn("flex flex-col gap-8 p-4", className)} {...props} />
 );
 
 export type ConversationEmptyStateProps = ComponentProps<"div"> & {
@@ -57,7 +49,7 @@ export const ConversationEmptyState = ({
   <div
     className={cn(
       "flex size-full flex-col items-center justify-center gap-3 p-8 text-center",
-      className
+      className,
     )}
     {...props}
   >
@@ -65,10 +57,8 @@ export const ConversationEmptyState = ({
       <>
         {icon && <div className="text-muted-foreground">{icon}</div>}
         <div className="space-y-1">
-          <h3 className="font-medium text-sm">{title}</h3>
-          {description && (
-            <p className="text-muted-foreground text-sm">{description}</p>
-          )}
+          <h3 className="text-sm font-medium">{title}</h3>
+          {description && <p className="text-sm text-muted-foreground">{description}</p>}
         </div>
       </>
     )}
@@ -100,10 +90,7 @@ function ConversationScrollButtonControl({
 
     const measure = () => {
       const extra = button.offsetWidth - button.clientWidth;
-      const next = Math.max(
-        SCROLL_BUTTON_ICON_SIZE,
-        Math.ceil(content.scrollWidth + extra),
-      );
+      const next = Math.max(SCROLL_BUTTON_ICON_SIZE, Math.ceil(content.scrollWidth + extra));
       setWidth((current) => (current === next ? current : next));
     };
 
@@ -124,7 +111,7 @@ function ConversationScrollButtonControl({
         />
       }
       className={cn(
-        "h-8 min-h-8 min-w-8 max-h-8 justify-center gap-0 overflow-hidden rounded-full border-border px-0 shadow-sm before:rounded-full sm:h-8 [&_svg]:mx-0!",
+        "h-8 max-h-8 min-h-8 min-w-8 justify-center gap-0 overflow-hidden rounded-full border-border px-0 shadow-sm before:rounded-full sm:h-8 [&_svg]:mx-0!",
         "has-[[data-agent-chat-scroll-below]]:justify-start",
         className,
       )}
@@ -135,7 +122,7 @@ function ConversationScrollButtonControl({
     >
       <span
         ref={measureRef}
-        className="inline-flex h-8 w-max shrink-0 items-center gap-1.5 has-[[data-agent-chat-scroll-below]]:pl-2 has-[[data-agent-chat-scroll-below]]:pr-2.5"
+        className="inline-flex h-8 w-max shrink-0 items-center gap-1.5 has-[[data-agent-chat-scroll-below]]:pr-2.5 has-[[data-agent-chat-scroll-below]]:pl-2"
       >
         {children ?? <ArrowDownIcon className="size-4" />}
       </span>
@@ -202,27 +189,20 @@ export interface ConversationMessage {
   content: string;
 }
 
-export type ConversationDownloadProps = Omit<
-  ComponentProps<typeof Button>,
-  "onClick"
-> & {
+export type ConversationDownloadProps = Omit<ComponentProps<typeof Button>, "onClick"> & {
   messages: ConversationMessage[];
   filename?: string;
   formatMessage?: (message: ConversationMessage, index: number) => string;
 };
 
 const defaultFormatMessage = (message: ConversationMessage): string => {
-  const roleLabel =
-    message.role.charAt(0).toUpperCase() + message.role.slice(1);
+  const roleLabel = message.role.charAt(0).toUpperCase() + message.role.slice(1);
   return `**${roleLabel}:** ${message.content}`;
 };
 
 export const messagesToMarkdown = (
   messages: ConversationMessage[],
-  formatMessage: (
-    message: ConversationMessage,
-    index: number
-  ) => string = defaultFormatMessage
+  formatMessage: (message: ConversationMessage, index: number) => string = defaultFormatMessage,
 ): string => messages.map((msg, i) => formatMessage(msg, i)).join("\n\n");
 
 export const ConversationDownload = ({
@@ -250,7 +230,7 @@ export const ConversationDownload = ({
     <Button
       className={cn(
         "absolute top-4 right-4 rounded-full dark:bg-background dark:hover:bg-muted",
-        className
+        className,
       )}
       onClick={handleDownload}
       size="icon"

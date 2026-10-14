@@ -10,19 +10,19 @@
 
 被审查提交（代表性，窗口内约 44 条非 merge 业务/代码提交）：
 
-| Hash | Author | Message |
-| --- | --- | --- |
-| `750fab75b` | AruNi_Lu | fix(token-usage): fold publish into share popover (#240) |
-| `3b1451c8f`…`e5c054814` | AarynLu | Launchpad UI / settings underlay / automations memory+filters / skills / workspace script / token-usage polish（#241 合入） |
-| `f8389e229` | Cursor Agent | feat(git): open topological history graph in a center tab |
-| `2f06e6a48` / `7c214ac9d` | Cursor Agent | history prefetch + @tanstack/react-virtual |
-| `c18f78fbc` | AarynLu | feat(git): add resizable Graph History columns |
-| `995ea6ac2`…`d5e72f9ca` | Cursor Agent | Changes toolbar scoped bulk actions + destructive confirm dialog |
-| `1a5d5e115` | AarynLu | feat(web): add Changes list/tree view and tighten chrome |
-| `d282d0081` | AarynLu | feat(ui): share overlay close chrome across drawers |
-| `c5f80a48e` | AarynLu | fix(desktop-use): stop host on quit and hide vendor process name |
-| `621110fc4` / `2ca6d303e` / `571eb9810` | Cursor Agent | desktop 2026.8.16 release + serve-sim packing fixes |
-| `3e7b89525` | AarynLu | docs(landing): changelog for 2026.8.15 / 2026.8.16 |
+| Hash                                    | Author       | Message                                                                                                                     |
+| --------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `750fab75b`                             | AruNi_Lu     | fix(token-usage): fold publish into share popover (#240)                                                                    |
+| `3b1451c8f`…`e5c054814`                 | AarynLu      | Launchpad UI / settings underlay / automations memory+filters / skills / workspace script / token-usage polish（#241 合入） |
+| `f8389e229`                             | Cursor Agent | feat(git): open topological history graph in a center tab                                                                   |
+| `2f06e6a48` / `7c214ac9d`               | Cursor Agent | history prefetch + @tanstack/react-virtual                                                                                  |
+| `c18f78fbc`                             | AarynLu      | feat(git): add resizable Graph History columns                                                                              |
+| `995ea6ac2`…`d5e72f9ca`                 | Cursor Agent | Changes toolbar scoped bulk actions + destructive confirm dialog                                                            |
+| `1a5d5e115`                             | AarynLu      | feat(web): add Changes list/tree view and tighten chrome                                                                    |
+| `d282d0081`                             | AarynLu      | feat(ui): share overlay close chrome across drawers                                                                         |
+| `c5f80a48e`                             | AarynLu      | fix(desktop-use): stop host on quit and hide vendor process name                                                            |
+| `621110fc4` / `2ca6d303e` / `571eb9810` | Cursor Agent | desktop 2026.8.16 release + serve-sim packing fixes                                                                         |
+| `3e7b89525`                             | AarynLu      | docs(landing): changelog for 2026.8.15 / 2026.8.16                                                                          |
 
 日合计业务改动量大（git history 单功能约 40+ files；automations 单提交 +3.7k/−1.0k；launchpad 相关多提交叠加）。
 
@@ -44,13 +44,13 @@ Git History 后端 parse + 前端纯 layout + infinite query + 虚拟化方向�
 
 ## 5. 分项评分
 
-| 维度 | 得分 | 扣分原因 |
-| --- | ---: | --- |
-| 设计与分层 | 25/30 | 正向：`history.rs` parse/refs；`git-history-graph.ts` / columns / search 纯模块；WS infinite query；filters 纯函数 + tests；workspace-script-dialog 纯 helper + DOM 测；desktop-use lifecycle/host-branding 抽出。扣分：`AutomationSetup` 仍是 composer + github + memory + dirty-leave 的总装车间（leave 守卫当日放大）；`use-automation-page-state` 继续做 URL+action 上帝 hook。 |
-| 可读性与复杂度 | 19/25 | Git History 面板内搜索/列宽/虚拟列表/SVG 切片交织，主组件约 370 行状态+渲染；TokenUsage share 的 capture / blob / lightbox / nested open 状态机难扫读；Automation leave 的 pushState+popstate+nav guard 正确但密度高。 |
-| 体量与内聚 | 13/20 | 当日固化/放大：`GitHistoryPanel` ~871（resizable 单提交 +532）、`AutomationSetup` 809→996、`TokenUsageShareDialog` ~727、`use-automation-page-state` ~736。正向：filter menus / memory editor / run drawer / SkillsFilterMenu / script helpers 有拆出。 |
-| 可维护性与复用 | 13/15 | 正向：overlay close chrome 共享；history columns 单测；stage-all 路径统一 re-export；TokenUsage icons/chips 抽出。扣分：`SkillsView.handleOpenInstalledSkill` 手写 URL 参数，与已有 `buildSkillListUrl` 平行。 |
-| 工程卫生 | 9/10 | 正向：Comet MIT NOTICE、图布局/search/columns 单测、e2e 调整、rustfmt/clippy 跟进、destructive bulk 确认对话框。扣 1：部分提交 message 非 conventional（如 “Restyle changes toolbar…”）。 |
+| 维度           |  得分 | 扣分原因                                                                                                                                                                                                                                                                                                                                                                            |
+| -------------- | ----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 设计与分层     | 25/30 | 正向：`history.rs` parse/refs；`git-history-graph.ts` / columns / search 纯模块；WS infinite query；filters 纯函数 + tests；workspace-script-dialog 纯 helper + DOM 测；desktop-use lifecycle/host-branding 抽出。扣分：`AutomationSetup` 仍是 composer + github + memory + dirty-leave 的总装车间（leave 守卫当日放大）；`use-automation-page-state` 继续做 URL+action 上帝 hook。 |
+| 可读性与复杂度 | 19/25 | Git History 面板内搜索/列宽/虚拟列表/SVG 切片交织，主组件约 370 行状态+渲染；TokenUsage share 的 capture / blob / lightbox / nested open 状态机难扫读；Automation leave 的 pushState+popstate+nav guard 正确但密度高。                                                                                                                                                              |
+| 体量与内聚     | 13/20 | 当日固化/放大：`GitHistoryPanel` ~871（resizable 单提交 +532）、`AutomationSetup` 809→996、`TokenUsageShareDialog` ~727、`use-automation-page-state` ~736。正向：filter menus / memory editor / run drawer / SkillsFilterMenu / script helpers 有拆出。                                                                                                                             |
+| 可维护性与复用 | 13/15 | 正向：overlay close chrome 共享；history columns 单测；stage-all 路径统一 re-export；TokenUsage icons/chips 抽出。扣分：`SkillsView.handleOpenInstalledSkill` 手写 URL 参数，与已有 `buildSkillListUrl` 平行。                                                                                                                                                                      |
+| 工程卫生       |  9/10 | 正向：Comet MIT NOTICE、图布局/search/columns 单测、e2e 调整、rustfmt/clippy 跟进、destructive bulk 确认对话框。扣 1：部分提交 message 非 conventional（如 “Restyle changes toolbar…”）。                                                                                                                                                                                           |
 
 ## 6. 主要问题清单
 

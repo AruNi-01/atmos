@@ -9,9 +9,7 @@ export type BrowserRuntimePayload = Record<string, unknown>;
  * Decide whether a Chromium window-open (target=_blank / window.open) should
  * become a product browser tab. Returns null for non-http(s) or empty URLs.
  */
-export function openTabTargetFromWindowOpenUrl(
-  rawUrl: string | null | undefined,
-): string | null {
+export function openTabTargetFromWindowOpenUrl(rawUrl: string | null | undefined): string | null {
   const trimmed = (rawUrl ?? "").trim();
   if (!trimmed) return null;
   try {
@@ -86,10 +84,7 @@ export function gateAndRemapRuntimeEvent(
   const eventType = String(obj.type ?? "");
   if (!sessionId) return null;
 
-  const known =
-    knownSessionIds instanceof Set
-      ? knownSessionIds
-      : new Set(knownSessionIds);
+  const known = knownSessionIds instanceof Set ? knownSessionIds : new Set(knownSessionIds);
   if (!known.has(sessionId)) return null;
   if (!expectedToken || !bridgeToken || bridgeToken !== expectedToken) {
     return null;

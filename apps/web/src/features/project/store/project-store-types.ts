@@ -16,7 +16,12 @@ export interface ProjectStore {
   fetchProjects: () => Promise<void>;
   ensureWorkspaceVisible: (workspaceId: string) => Promise<boolean>;
   resetForConnectionChange: () => void;
-  addProject: (data: { name: string; mainFilePath: string; sidebarOrder?: number; borderColor?: string }) => Promise<string>;
+  addProject: (data: {
+    name: string;
+    mainFilePath: string;
+    sidebarOrder?: number;
+    borderColor?: string;
+  }) => Promise<string>;
   updateProject: (
     id: string,
     data: Partial<Omit<Project, "borderColor" | "logoPath">> & {
@@ -62,7 +67,11 @@ export interface ProjectStore {
     priority: WorkspacePriority,
   ) => Promise<void>;
   fetchWorkspaceLabels: (deletedOnly?: boolean) => Promise<WorkspaceLabel[]>;
-  createWorkspaceLabel: (data: { name: string; color: string; source?: "manual" | "gitHub_issue" | "gitHub_pr" }) => Promise<WorkspaceLabel>;
+  createWorkspaceLabel: (data: {
+    name: string;
+    color: string;
+    source?: "manual" | "gitHub_issue" | "gitHub_pr";
+  }) => Promise<WorkspaceLabel>;
   updateWorkspaceLabel: (
     labelId: string,
     data: { name: string; color: string },

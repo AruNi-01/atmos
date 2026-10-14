@@ -2,10 +2,7 @@
  * APP-043 M9: debounce workspace prime on hover intent without forcing Warm.
  */
 
-export type PrimeWorkspaceFn = (
-  workspaceId: string,
-  isProjectContext?: boolean,
-) => void;
+export type PrimeWorkspaceFn = (workspaceId: string, isProjectContext?: boolean) => void;
 
 export function createWorkspacePrimePrefetch(options?: {
   debounceMs?: number;
@@ -29,11 +26,9 @@ export function createWorkspacePrimePrefetch(options?: {
       options?.primeWorkspace ??
       ((id: string, isProject?: boolean) => {
         // Lazy import keeps this module free of heavy store graphs for unit tests.
-        void import("@/features/terminal/store/use-terminal-store").then(
-          ({ useTerminalStore }) => {
-            useTerminalStore.getState().primeWorkspace(id, isProject);
-          },
-        );
+        void import("@/features/terminal/store/use-terminal-store").then(({ useTerminalStore }) => {
+          useTerminalStore.getState().primeWorkspace(id, isProject);
+        });
       });
     prime(workspaceId, isProjectContext);
   };

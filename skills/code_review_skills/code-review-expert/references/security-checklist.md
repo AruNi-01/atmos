@@ -64,12 +64,14 @@
 Race conditions are subtle bugs that cause intermittent failures and security vulnerabilities. Pay special attention to:
 
 ### Shared State Access
+
 - Multiple threads/goroutines/async tasks accessing shared variables without synchronization
 - Global state or singletons modified concurrently
 - Lazy initialization without proper locking (double-checked locking issues)
 - Non-thread-safe collections used in concurrent context
 
 ### Check-Then-Act (TOCTOU)
+
 - `if (exists) then use` patterns without atomic operations
 - `if (authorized) then perform` where authorization can change
 - File existence check followed by file operation
@@ -77,6 +79,7 @@ Race conditions are subtle bugs that cause intermittent failures and security vu
 - Inventory check followed by order placement
 
 ### Database Concurrency
+
 - Missing optimistic locking (`version` column, `updated_at` checks)
 - Missing pessimistic locking (`SELECT FOR UPDATE`)
 - Read-modify-write without transaction isolation
@@ -84,6 +87,7 @@ Race conditions are subtle bugs that cause intermittent failures and security vu
 - Unique constraint violations in concurrent inserts
 
 ### Distributed Systems
+
 - Missing distributed locks for shared resources
 - Leader election race conditions
 - Cache invalidation races (stale reads after writes)
@@ -91,6 +95,7 @@ Race conditions are subtle bugs that cause intermittent failures and security vu
 - Split-brain scenarios in cluster operations
 
 ### Common Patterns to Flag
+
 ```
 # Dangerous patterns:
 if not exists(key):       # TOCTOU
@@ -105,6 +110,7 @@ if user.balance >= amount:  # Check-then-act
 ```
 
 ### Questions to Ask
+
 - "What happens if two requests hit this code simultaneously?"
 - "Is this operation atomic or can it be interrupted?"
 - "What shared state does this code access?"

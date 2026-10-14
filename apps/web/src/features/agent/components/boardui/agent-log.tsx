@@ -104,7 +104,7 @@ export function RowConnector({
         height={BRANCH_Y + 1}
         viewBox={`0 0 ${BRANCH_WIDTH} ${BRANCH_Y + 1}`}
         fill="none"
-        className="absolute top-0 start-0 rtl:-scale-x-100"
+        className="absolute start-0 top-0 rtl:-scale-x-100"
       >
         <motion.path
           d={BRANCH_PATH}

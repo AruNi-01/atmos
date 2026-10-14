@@ -44,7 +44,10 @@ import {
   type QuotaAggregateResponse,
   type QuotaOverviewResponse,
 } from "@/api/ws-api";
-import { useQuotaOverviewCache, useQuotaOverviewQuery } from "@/features/quota-usage/hooks/use-quota-overview-query";
+import {
+  useQuotaOverviewCache,
+  useQuotaOverviewQuery,
+} from "@/features/quota-usage/hooks/use-quota-overview-query";
 import { formatQuotaFetchFailureMessage } from "@/features/quota-usage/lib/quota-display";
 import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
 import { useQuotaProviderOrder } from "@/shared/stores/use-ui-pref-hooks";
@@ -109,7 +112,13 @@ interface QuotaPopoverProps {
   onPopoverCloseAutoFocus?: (e: Event) => void;
 }
 
-export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenChange, embedded = false, dataEnabled = true, onPopoverCloseAutoFocus }: QuotaPopoverProps = {}) {
+export function QuotaPopover({
+  open: externalOpen,
+  onOpenChange: externalOnOpenChange,
+  embedded = false,
+  dataEnabled = true,
+  onPopoverCloseAutoFocus,
+}: QuotaPopoverProps = {}) {
   const t = useTranslations("appShell.usagePopover");
   const locale = useLocale();
   const providerScrollRef = useRef<HTMLDivElement | null>(null);
@@ -125,7 +134,9 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [switchingProviderId, setSwitchingProviderId] = useState<string | null>(null);
-  const [savingManualSetupProviderId, setSavingManualSetupProviderId] = useState<string | null>(null);
+  const [savingManualSetupProviderId, setSavingManualSetupProviderId] = useState<string | null>(
+    null,
+  );
   const [deletingKeyId, setDeletingKeyId] = useState<string | null>(null);
   const [isFooterHovered, setIsFooterHovered] = useState(false);
   const [isAutoRefreshPopoverOpen, setIsAutoRefreshPopoverOpen] = useState(false);
@@ -139,7 +150,9 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
     canScrollRight: false,
   });
   const [providerOrder, setProviderOrder] = useQuotaProviderOrder();
-  const [switchingFooterCarouselProviderId, setSwitchingFooterCarouselProviderId] = useState<string | null>(null);
+  const [switchingFooterCarouselProviderId, setSwitchingFooterCarouselProviderId] = useState<
+    string | null
+  >(null);
   const footerShowUsageCarousel = useLayoutSettingsStore((s) => s.showUsageCarousel);
   const setFooterShowUsageCarousel = useLayoutSettingsStore((s) => s.setFooterShowUsageCarousel);
   const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
@@ -149,63 +162,76 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
       activationConstraint: {
         distance: 6,
       },
-    })
+    }),
   );
 
   const selectedProvider = useMemo(
     () => overview?.providers.find((provider) => provider.id === selectedProviderId) ?? null,
-    [overview, selectedProviderId]
+    [overview, selectedProviderId],
   );
 
   useEffect(() => {
     loadOverviewErrorTextRef.current = t("errors.loadOverview");
   }, [t]);
 
-  const loadOverview = useCallback(async (refresh = false, providerId?: string | null) => {
-    if (!overview || refresh) setIsLoading(!overview);
-    setIsRefreshing(refresh && !!overview);
-    setError(null);
+  const loadOverview = useCallback(
+    async (refresh = false, providerId?: string | null) => {
+      if (!overview || refresh) setIsLoading(!overview);
+      setIsRefreshing(refresh && !!overview);
+      setError(null);
 
-    try {
-      const next = await quotaUsageApi.getOverview(refresh, providerId);
-      writeOverviewCache(next);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : loadOverviewErrorTextRef.current);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [overview, writeOverviewCache]);
+      try {
+        const next = await quotaUsageApi.getOverview(refresh, providerId);
+        writeOverviewCache(next);
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : loadOverviewErrorTextRef.current);
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [overview, writeOverviewCache],
+  );
 
-  const toggleProviderSwitch = useCallback(async (providerId: string, enabled: boolean) => {
-    setSwitchingProviderId(providerId);
-    setError(null);
+  const toggleProviderSwitch = useCallback(
+    async (providerId: string, enabled: boolean) => {
+      setSwitchingProviderId(providerId);
+      setError(null);
 
-    try {
-      const next = await quotaUsageApi.setProviderSwitch(providerId, enabled);
-      writeOverviewCache(next);
-    } catch (switchError) {
-      setError(switchError instanceof Error ? switchError.message : t("errors.updateProviderSwitch"));
-    } finally {
-      setSwitchingProviderId(null);
-    }
-  }, [t, writeOverviewCache]);
+      try {
+        const next = await quotaUsageApi.setProviderSwitch(providerId, enabled);
+        writeOverviewCache(next);
+      } catch (switchError) {
+        setError(
+          switchError instanceof Error ? switchError.message : t("errors.updateProviderSwitch"),
+        );
+      } finally {
+        setSwitchingProviderId(null);
+      }
+    },
+    [t, writeOverviewCache],
+  );
 
-  const toggleAllProvidersSwitch = useCallback(async (enabled: boolean) => {
-    setSwitchingProviderId(ALL_PROVIDER_SWITCH_ID);
-    setError(null);
+  const toggleAllProvidersSwitch = useCallback(
+    async (enabled: boolean) => {
+      setSwitchingProviderId(ALL_PROVIDER_SWITCH_ID);
+      setError(null);
 
-    try {
-      const next = await quotaUsageApi.setAllProvidersSwitch(enabled);
-      writeOverviewCache(next);
-    } catch (switchError) {
-      setError(
-        switchError instanceof Error ? switchError.message : t("errors.updateAllProviderSwitches")
-      );
-    } finally {
-      setSwitchingProviderId(null);
-    }
-  }, [t, writeOverviewCache]);
+      try {
+        const next = await quotaUsageApi.setAllProvidersSwitch(enabled);
+        writeOverviewCache(next);
+      } catch (switchError) {
+        setError(
+          switchError instanceof Error
+            ? switchError.message
+            : t("errors.updateAllProviderSwitches"),
+        );
+      } finally {
+        setSwitchingProviderId(null);
+      }
+    },
+    [t, writeOverviewCache],
+  );
 
   const addProviderApiKey = useCallback(
     async (providerId: string, region: string, apiKey: string) => {
@@ -221,7 +247,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
         setSavingManualSetupProviderId(null);
       }
     },
-    [t, writeOverviewCache]
+    [t, writeOverviewCache],
   );
 
   const deleteProviderApiKey = useCallback(
@@ -238,7 +264,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
         setDeletingKeyId(null);
       }
     },
-    [t, writeOverviewCache]
+    [t, writeOverviewCache],
   );
 
   useEffect(() => {
@@ -277,30 +303,27 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
     }
   }, [overview, selectedProviderId]);
 
-  const switches = useMemo(
-    () => {
-      const providers = overview?.providers ?? [];
-      const orderedProviders = sortQuotaProvidersBySwitchAndOrder(providers, providerOrder);
+  const switches = useMemo(() => {
+    const providers = overview?.providers ?? [];
+    const orderedProviders = sortQuotaProvidersBySwitchAndOrder(providers, providerOrder);
 
-      return [
-        {
-          id: ALL_PROVIDER_ID,
-          label: t("all"),
-          active: providers.some((provider) => provider.switch_enabled),
-        },
-        ...orderedProviders.map((provider) => ({
-          id: provider.id,
-          label: provider.label,
-          active: provider.switch_enabled,
-        })),
-      ];
-    },
-    [overview, providerOrder, t]
-  );
+    return [
+      {
+        id: ALL_PROVIDER_ID,
+        label: t("all"),
+        active: providers.some((provider) => provider.switch_enabled),
+      },
+      ...orderedProviders.map((provider) => ({
+        id: provider.id,
+        label: provider.label,
+        active: provider.switch_enabled,
+      })),
+    ];
+  }, [overview, providerOrder, t]);
 
   const carouselProviders = useMemo(
     () => (overview?.providers ?? []).filter((provider) => provider.switch_enabled),
-    [overview?.providers]
+    [overview?.providers],
   );
 
   useEffect(() => {
@@ -318,30 +341,33 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
     });
   }, [overview?.providers, setProviderOrder]);
 
-  const handleProviderSwitchDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
+  const handleProviderSwitchDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
 
-    const providers = overview?.providers ?? [];
-    const visualIds = sortQuotaProvidersBySwitchAndOrder(providers, providerOrder).map(
-      (provider) => provider.id,
-    );
-    const switchEnabledIds = providers
-      .filter((provider) => provider.switch_enabled)
-      .map((provider) => provider.id);
-    const next = reorderQuotaProvidersKeepingEnabledFirst(
-      visualIds,
-      String(active.id),
-      String(over.id),
-      switchEnabledIds,
-    );
+      const providers = overview?.providers ?? [];
+      const visualIds = sortQuotaProvidersBySwitchAndOrder(providers, providerOrder).map(
+        (provider) => provider.id,
+      );
+      const switchEnabledIds = providers
+        .filter((provider) => provider.switch_enabled)
+        .map((provider) => provider.id);
+      const next = reorderQuotaProvidersKeepingEnabledFirst(
+        visualIds,
+        String(active.id),
+        String(over.id),
+        switchEnabledIds,
+      );
 
-    setProviderOrder((current) =>
-      next.length === current.length && next.every((id, index) => id === current[index])
-        ? current
-        : next,
-    );
-  }, [overview?.providers, providerOrder, setProviderOrder]);
+      setProviderOrder((current) =>
+        next.length === current.length && next.every((id, index) => id === current[index])
+          ? current
+          : next,
+      );
+    },
+    [overview?.providers, providerOrder, setProviderOrder],
+  );
 
   const updateProviderScrollState = useCallback(() => {
     const el = providerScrollRef.current;
@@ -359,7 +385,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
       current.canScrollLeft === nextState.canScrollLeft &&
       current.canScrollRight === nextState.canScrollRight
         ? current
-        : nextState
+        : nextState,
     );
   }, []);
 
@@ -407,10 +433,11 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
   const displayedUpdatedAt =
     selectedProviderId === ALL_PROVIDER_ID
       ? overview?.generated_at
-      : selectedProvider?.last_updated_at ?? overview?.generated_at;
+      : (selectedProvider?.last_updated_at ?? overview?.generated_at);
   const autoRefreshValue = overview?.auto_refresh.interval_minutes?.toString() ?? "";
   const autoRefreshTriggerLabel = autoRefreshValue
-    ? AUTO_REFRESH_OPTIONS.find((option) => option.value === autoRefreshValue)?.shortLabel ?? t("auto")
+    ? (AUTO_REFRESH_OPTIONS.find((option) => option.value === autoRefreshValue)?.shortLabel ??
+      t("auto"))
     : t("auto");
   const autoRefreshTargetMs =
     overview?.generated_at && overview?.auto_refresh.interval_minutes
@@ -420,7 +447,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
     overview?.generated_at,
     overview?.auto_refresh.interval_minutes,
     nowMs,
-    { nextUpdateInLabel: t("formatters.nextUpdateIn") }
+    { nextUpdateInLabel: t("formatters.nextUpdateIn") },
   );
   const isAllSelected = selectedProviderId === ALL_PROVIDER_ID;
   const showFooterActions = isFooterHovered || isAutoRefreshPopoverOpen;
@@ -430,10 +457,9 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
       ? usageQuery.error.message
       : t("errors.loadOverview")
     : null;
-  const fetchFailureMessage = formatQuotaFetchFailureMessage(
-    overview?.partial_failures ?? [],
-    { clientError: error || queryErrorText },
-  );
+  const fetchFailureMessage = formatQuotaFetchFailureMessage(overview?.partial_failures ?? [], {
+    clientError: error || queryErrorText,
+  });
   const canCycleFooterInfo = Boolean(autoRefreshTargetMs);
   const footerInfoWidthClass =
     showAutoRefreshAction || Boolean(autoRefreshTargetMs) ? "w-[236px]" : "w-[148px]";
@@ -477,159 +503,176 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
     }),
   };
 
-  const updateAutoRefresh = useCallback(async (nextValue: string) => {
-    setIsUpdatingAutoRefresh(true);
-    setError(null);
+  const updateAutoRefresh = useCallback(
+    async (nextValue: string) => {
+      setIsUpdatingAutoRefresh(true);
+      setError(null);
 
-    try {
-      const next = await quotaUsageApi.setAutoRefresh(nextValue ? Number(nextValue) : null);
-      writeOverviewCache(next);
-      setIsAutoRefreshPopoverOpen(false);
-    } catch (updateError) {
-      setError(
-        updateError instanceof Error ? updateError.message : t("errors.updateAutoRefresh")
-      );
-    } finally {
-      setIsUpdatingAutoRefresh(false);
-    }
-  }, [t, writeOverviewCache]);
+      try {
+        const next = await quotaUsageApi.setAutoRefresh(nextValue ? Number(nextValue) : null);
+        writeOverviewCache(next);
+        setIsAutoRefreshPopoverOpen(false);
+      } catch (updateError) {
+        setError(
+          updateError instanceof Error ? updateError.message : t("errors.updateAutoRefresh"),
+        );
+      } finally {
+        setIsUpdatingAutoRefresh(false);
+      }
+    },
+    [t, writeOverviewCache],
+  );
 
-  const toggleFooterCarouselProvider = useCallback(async (providerId: string, enabled: boolean) => {
-    setSwitchingFooterCarouselProviderId(providerId);
-    setError(null);
+  const toggleFooterCarouselProvider = useCallback(
+    async (providerId: string, enabled: boolean) => {
+      setSwitchingFooterCarouselProviderId(providerId);
+      setError(null);
 
-    try {
-      const next = await quotaUsageApi.setProviderFooterCarousel(providerId, enabled);
-      writeOverviewCache(next);
-    } catch (toggleError) {
-      setError(
-        toggleError instanceof Error ? toggleError.message : t("errors.updateFooterCarousel")
-      );
-    } finally {
-      setSwitchingFooterCarouselProviderId(null);
-    }
-  }, [t, writeOverviewCache]);
+      try {
+        const next = await quotaUsageApi.setProviderFooterCarousel(providerId, enabled);
+        writeOverviewCache(next);
+      } catch (toggleError) {
+        setError(
+          toggleError instanceof Error ? toggleError.message : t("errors.updateFooterCarousel"),
+        );
+      } finally {
+        setSwitchingFooterCarouselProviderId(null);
+      }
+    },
+    [t, writeOverviewCache],
+  );
 
   const PanelShell: React.ElementType = embedded ? "div" : PopoverContent;
   const panelShellProps = embedded
     ? {
-      className:
-        "h-full w-full overflow-hidden rounded-none border-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.985),rgba(244,244,245,0.985))] p-0 shadow-none dark:bg-[linear-gradient(180deg,rgba(30,30,30,0.98),rgba(15,15,15,0.99))]",
-    }
+        className:
+          "h-full w-full overflow-hidden rounded-none border-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.985),rgba(244,244,245,0.985))] p-0 shadow-none dark:bg-[linear-gradient(180deg,rgba(30,30,30,0.98),rgba(15,15,15,0.99))]",
+      }
     : {
-      align: "end" as const,
-      sideOffset: 10,
-      onCloseAutoFocus: onPopoverCloseAutoFocus,
-      className:
-        "w-[min(92vw,560px)] overflow-x-hidden overflow-y-hidden rounded-[24px] border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.985),rgba(244,244,245,0.985))] p-0 shadow-[0_28px_80px_-36px_rgba(15,23,42,0.30)] dark:bg-[linear-gradient(180deg,rgba(30,30,30,0.98),rgba(15,15,15,0.99))]",
-    };
+        align: "end" as const,
+        sideOffset: 10,
+        onCloseAutoFocus: onPopoverCloseAutoFocus,
+        className:
+          "w-[min(92vw,560px)] overflow-x-hidden overflow-y-hidden rounded-[24px] border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.985),rgba(244,244,245,0.985))] p-0 shadow-[0_28px_80px_-36px_rgba(15,23,42,0.30)] dark:bg-[linear-gradient(180deg,rgba(30,30,30,0.98),rgba(15,15,15,0.99))]",
+      };
 
   const panel = (
     <PanelShell {...panelShellProps}>
-        <div className={cn(
+      <div
+        className={cn(
           "overflow-hidden rounded-[24px] border border-border/60",
-          embedded && "flex h-full flex-col rounded-none border-0"
-        )}>
-          <div className={cn(
+          embedded && "flex h-full flex-col rounded-none border-0",
+        )}
+      >
+        <div
+          className={cn(
             "bg-background/95 pb-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:bg-background",
-            embedded
-              ? "min-h-0 flex flex-1 flex-col rounded-none"
-              : "rounded-b-[20px]"
-          )}>
-            <div className="px-3 pb-2.5 pt-2.5">
-              <div className="relative -mx-3 px-3">
-                <ScrollArea
-                  scrollFade
-                  className="h-auto w-full"
-                  viewportClassName="h-auto"
-                  viewportRef={providerScrollRef}
+            embedded ? "flex min-h-0 flex-1 flex-col rounded-none" : "rounded-b-[20px]",
+          )}
+        >
+          <div className="px-3 pt-2.5 pb-2.5">
+            <div className="relative -mx-3 px-3">
+              <ScrollArea
+                scrollFade
+                className="h-auto w-full"
+                viewportClassName="h-auto"
+                viewportRef={providerScrollRef}
+              >
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  modifiers={[restrictToHorizontalAxis, restrictToParentElement]}
+                  onDragEnd={handleProviderSwitchDragEnd}
                 >
-                  <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    modifiers={[restrictToHorizontalAxis, restrictToParentElement]}
-                    onDragEnd={handleProviderSwitchDragEnd}
+                  <div className="flex w-max items-start gap-1 px-6 pb-0.5">
+                    <ProviderSwitch
+                      id={switches[0].id}
+                      label={switches[0].label}
+                      active={switches[0].active}
+                      selected={selectedProviderId === switches[0].id}
+                      onClick={() => startTransition(() => setSelectedProviderId(switches[0].id))}
+                    />
+                    <SortableContext
+                      items={switches.slice(1).map((item) => item.id)}
+                      strategy={horizontalListSortingStrategy}
+                    >
+                      {switches.slice(1).map((item) => (
+                        <SortableProviderSwitch key={item.id} id={item.id}>
+                          <ProviderSwitch
+                            id={item.id}
+                            label={item.label}
+                            active={item.active}
+                            draggable={item.active && selectedProviderId === item.id}
+                            selected={selectedProviderId === item.id}
+                            onClick={() => startTransition(() => setSelectedProviderId(item.id))}
+                          />
+                        </SortableProviderSwitch>
+                      ))}
+                    </SortableContext>
+                  </div>
+                </DndContext>
+              </ScrollArea>
+              {showProviderArrows ? (
+                <>
+                  <button
+                    type="button"
+                    aria-label={t("scrollProvidersLeft")}
+                    onClick={() => {
+                      providerScrollRef.current?.scrollBy({ left: -240, behavior: "smooth" });
+                      requestAnimationFrame(updateProviderScrollState);
+                    }}
+                    className={cn(
+                      "absolute inset-y-0 left-0 z-10 inline-flex w-8 items-center justify-center text-foreground/92 transition-opacity",
+                      providerScrollState.canScrollLeft
+                        ? "opacity-100"
+                        : "cursor-default opacity-28",
+                    )}
+                    aria-disabled={!providerScrollState.canScrollLeft}
                   >
-                    <div className="flex w-max items-start gap-1 px-6 pb-0.5">
-                      <ProviderSwitch
-                        id={switches[0].id}
-                        label={switches[0].label}
-                        active={switches[0].active}
-                        selected={selectedProviderId === switches[0].id}
-                        onClick={() => startTransition(() => setSelectedProviderId(switches[0].id))}
-                      />
-                      <SortableContext
-                        items={switches.slice(1).map((item) => item.id)}
-                        strategy={horizontalListSortingStrategy}
-                      >
-                        {switches.slice(1).map((item) => (
-                          <SortableProviderSwitch key={item.id} id={item.id}>
-                            <ProviderSwitch
-                              id={item.id}
-                              label={item.label}
-                              active={item.active}
-                              draggable={item.active && selectedProviderId === item.id}
-                              selected={selectedProviderId === item.id}
-                              onClick={() => startTransition(() => setSelectedProviderId(item.id))}
-                            />
-                          </SortableProviderSwitch>
-                        ))}
-                      </SortableContext>
-                    </div>
-                  </DndContext>
-                </ScrollArea>
-                {showProviderArrows ? (
-                  <>
-                    <button
-                      type="button"
-                      aria-label={t("scrollProvidersLeft")}
-                      onClick={() => {
-                        providerScrollRef.current?.scrollBy({ left: -240, behavior: "smooth" });
-                        requestAnimationFrame(updateProviderScrollState);
-                      }}
-                      className={cn(
-                        "absolute inset-y-0 left-0 z-10 inline-flex w-8 items-center justify-center text-foreground/92 transition-opacity",
-                        providerScrollState.canScrollLeft ? "opacity-100" : "cursor-default opacity-28"
-                      )}
-                      aria-disabled={!providerScrollState.canScrollLeft}
-                    >
-                      <ChevronLeft className="size-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={t("scrollProvidersRight")}
-                      onClick={() => {
-                        providerScrollRef.current?.scrollBy({ left: 240, behavior: "smooth" });
-                        requestAnimationFrame(updateProviderScrollState);
-                      }}
-                      className={cn(
-                        "absolute inset-y-0 right-0 z-10 inline-flex w-8 items-center justify-center text-foreground/92 transition-opacity",
-                        providerScrollState.canScrollRight ? "opacity-100" : "cursor-default opacity-28"
-                      )}
-                      aria-disabled={!providerScrollState.canScrollRight}
-                    >
-                      <ChevronRight className="size-3.5" />
-                    </button>
-                  </>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="mx-5 border-t border-border/40" />
-
-            <div className={cn("px-0 pb-1 pt-2.5", embedded && "min-h-0 flex-1 flex flex-col overflow-hidden")}>
-              {overview && fetchFailureMessage ? (
-                <div className="mx-4 mb-2.5">
-                  <QuotaFetchFailureBanner message={fetchFailureMessage} />
-                </div>
+                    <ChevronLeft className="size-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={t("scrollProvidersRight")}
+                    onClick={() => {
+                      providerScrollRef.current?.scrollBy({ left: 240, behavior: "smooth" });
+                      requestAnimationFrame(updateProviderScrollState);
+                    }}
+                    className={cn(
+                      "absolute inset-y-0 right-0 z-10 inline-flex w-8 items-center justify-center text-foreground/92 transition-opacity",
+                      providerScrollState.canScrollRight
+                        ? "opacity-100"
+                        : "cursor-default opacity-28",
+                    )}
+                    aria-disabled={!providerScrollState.canScrollRight}
+                  >
+                    <ChevronRight className="size-3.5" />
+                  </button>
+                </>
               ) : null}
+            </div>
+          </div>
 
-              <div className={cn(embedded && "min-h-0 flex-1 overflow-hidden")}>
-                <ScrollArea
-                  className={embedded ? "flex-1 min-h-0" : "h-[min(62vh,560px)]"}
-                  scrollFade
-                  scrollbarGutter
-                >
+          <div className="mx-5 border-t border-border/40" />
+
+          <div
+            className={cn(
+              "px-0 pt-2.5 pb-1",
+              embedded && "flex min-h-0 flex-1 flex-col overflow-hidden",
+            )}
+          >
+            {overview && fetchFailureMessage ? (
+              <div className="mx-4 mb-2.5">
+                <QuotaFetchFailureBanner message={fetchFailureMessage} />
+              </div>
+            ) : null}
+
+            <div className={cn(embedded && "min-h-0 flex-1 overflow-hidden")}>
+              <ScrollArea
+                className={embedded ? "min-h-0 flex-1" : "h-[min(62vh,560px)]"}
+                scrollFade
+                scrollbarGutter
+              >
                 <div className="px-0 py-3">
                   {(isLoading || usageQuery.isLoading) && !overview ? (
                     <div className="px-4">
@@ -670,270 +713,289 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
                       />
                     </div>
                   ) : (
-                    <div className="px-4 text-sm text-foreground/90">{t("selectProviderPrompt")}</div>
+                    <div className="px-4 text-sm text-foreground/90">
+                      {t("selectProviderPrompt")}
+                    </div>
                   )}
                 </div>
-                </ScrollArea>
-              </div>
-            </div>
-          </div>
-
-          <div className={cn(
-            "shrink-0 px-0 pb-3 pt-3",
-            embedded && "border-t border-border/40 bg-background/95"
-          )}>
-            <div className="flex items-center justify-between gap-3 px-4 text-xs text-foreground/90">
-              <div
-                className="flex items-center"
-                onMouseEnter={() => {
-                  setRefreshSwapDirection(1);
-                  setIsFooterHovered(true);
-                }}
-                onMouseLeave={() => {
-                  setRefreshSwapDirection(-1);
-                  setIsFooterHovered(false);
-                }}
-              >
-                <div className={cn("relative h-7", footerInfoWidthClass)}>
-                  <AnimatePresence mode="wait" initial={false} custom={refreshSwapDirection}>
-                    {showFooterActions ? (
-                      <motion.div
-                        key="footer-actions"
-                        custom={refreshSwapDirection}
-                        variants={refreshSwapVariants}
-                        initial="initial"
-                        animate="animate"
-                        exit="exit"
-                        transition={{ duration: 0.16, ease: "easeOut" }}
-                        className="absolute left-0 top-0 inline-flex h-7 items-center gap-1"
-                      >
-                        {showAutoRefreshAction ? (
-                          <Popover
-                            open={isAutoRefreshPopoverOpen}
-                            onOpenChange={setIsAutoRefreshPopoverOpen}
-                          >
-                            <PopoverTrigger asChild>
-                              <button
-                                type="button"
-                                className="inline-flex h-7 items-center justify-center gap-1 rounded-sm border border-border/70 bg-background/85 px-2 py-1 text-[10px] font-medium hover:border-foreground/20 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                                aria-label={t("configureAutoRefresh")}
-                                disabled={isUpdatingAutoRefresh}
-                              >
-                                <Clock3 className="size-3" />
-                                <span>{autoRefreshTriggerLabel}</span>
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent
-                              side="top"
-                              align="start"
-                              sideOffset={8}
-                              className="w-auto min-w-max max-w-none rounded-[18px] border-border/70 p-3"
-                            >
-                              <div className="space-y-3">
-                                <div className="flex items-start justify-between gap-4">
-                                  <div className="space-y-1">
-                                    <div className="text-xs font-medium text-foreground">
-                                      {t("autoRefresh.title")}
-                                    </div>
-                                  </div>
-                                  {nextAutoRefreshHint ? (
-                                    <div className="flex min-h-4 items-center whitespace-nowrap text-[11px] text-foreground/90">
-                                      <span>{nextAutoRefreshHint.suffix}&nbsp;</span>
-                                      <span className="font-medium text-foreground">
-                                        {nextAutoRefreshHint.value}
-                                      </span>
-                                    </div>
-                                  ) : null}
-                                </div>
-                                <ToggleGroup
-                                  type="single"
-                                  size="sm"
-                                  variant="outline"
-                                  spacing={2}
-                                  value={autoRefreshValue}
-                                  onValueChange={(value) => {
-                                    if (value === autoRefreshValue) {
-                                      void updateAutoRefresh("");
-                                      return;
-                                    }
-                                    void updateAutoRefresh(value);
-                                  }}
-                                  className="inline-flex flex-nowrap items-center whitespace-nowrap"
-                                >
-                                  {AUTO_REFRESH_OPTIONS.map((option) => (
-                                    <ToggleGroupItem
-                                      key={option.value}
-                                      value={option.value}
-                                      aria-label={t("autoRefresh.setInterval", { value: option.label })}
-                                      title={option.label}
-                                      className="rounded-md text-[11px]"
-                                      disabled={isUpdatingAutoRefresh}
-                                    >
-                                      {option.shortLabel}
-                                    </ToggleGroupItem>
-                                  ))}
-                                </ToggleGroup>
-                                <div className="text-[11px] text-foreground/90">
-                                  {t("autoRefresh.turnOffHint")}
-                                </div>
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-                        ) : null}
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void loadOverview(
-                              true,
-                              selectedProviderId === ALL_PROVIDER_ID ? null : selectedProviderId
-                            )
-                          }
-                          className="inline-flex h-7 items-center justify-center gap-1 rounded-sm border border-border/70 bg-background/85 px-2 py-1 hover:border-foreground/20 hover:text-foreground cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-                          disabled={isRefreshing}
-                          aria-label={t("refreshUsage")}
-                        >
-                          {isRefreshing
-                            ? <LoaderCircle className="block size-3 shrink-0 [transform-box:fill-box] [transform-origin:center] animate-spin" />
-                            : <RotateCcw className="block size-3 shrink-0 [transform-box:fill-box] [transform-origin:center]" />}
-                          <span className="text-[10px] font-medium">{t("refresh")}</span>
-                        </button>
-                      </motion.div>
-                    ) : canCycleFooterInfo &&
-                      footerInfoMode === "countdown" &&
-                      autoRefreshTargetMs ? (
-                      <motion.div
-                        key="footer-countdown"
-                        custom={refreshSwapDirection}
-                        variants={refreshSwapVariants}
-                        initial="initial"
-                        animate="animate"
-                        exit="exit"
-                        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                        className="absolute inset-0 inline-flex h-7 w-full items-center gap-1 whitespace-nowrap"
-                      >
-                        <span className="text-[11px] text-foreground/90">{t("nextUpdate")}</span>
-                        <AutoRefreshCountdownBadge targetTimeMs={autoRefreshTargetMs} />
-                      </motion.div>
-                    ) : (
-                      <motion.span
-                        key="updated-time"
-                        custom={refreshSwapDirection}
-                        variants={refreshSwapVariants}
-                        initial="initial"
-                        animate="animate"
-                        exit="exit"
-                        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                        className="absolute inset-0 inline-flex h-7 w-full items-center whitespace-nowrap"
-                      >
-                        {t("updatedAt", {
-                          value: formatTimestamp(displayedUpdatedAt, locale, { unknownLabel: t("formatters.unknown") }),
-                        })}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-
-              <TooltipProvider delayDuration={180}>
-                <div className="inline-flex items-center gap-4">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
-                        aria-label={t("keychainAccessReason")}
-                      >
-                        <KeyRound className="size-3.5" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" align="center" className="max-w-65">
-                      {t("keychainAccessTooltip")}
-                    </TooltipContent>
-                  </Tooltip>
-
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 text-muted-foreground/80 hover:text-foreground"
-                        aria-label={t("footerCarousel.configure")}
-                      >
-                        <Gauge className="size-3.5" />
-                        {carouselProviders.filter((provider) => provider.footer_carousel_show).length > 0 ? (
-                          <span className="min-w-3 text-[10px] font-medium leading-none">
-                            {carouselProviders.filter((provider) => provider.footer_carousel_show).length}
-                          </span>
-                        ) : null}
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      side="top"
-                      align="end"
-                      sideOffset={8}
-                      className="w-56 overflow-x-hidden overflow-y-hidden rounded-[16px] border-border/70 p-2"
-                    >
-                      <div className="flex items-start justify-between gap-3 px-2 pb-2 pt-1">
-                        <div className="min-w-0">
-                          <div className="text-xs font-medium text-foreground">{t("footerCarousel.title")}</div>
-                          <div className="mt-0.5 text-[11px] text-foreground/75">
-                            {t("footerCarousel.description")}
-                          </div>
-                        </div>
-                        <Switch
-                          checked={footerShowUsageCarousel}
-                          onCheckedChange={(checked) => void setFooterShowUsageCarousel(!!checked)}
-                          aria-label={t("footerCarousel.toggle")}
-                        />
-                      </div>
-                        {carouselProviders.length > 0 ? (
-                          <ScrollArea
-                            className="h-auto max-h-64"
-                            scrollFade
-                            viewportClassName="h-auto max-h-64"
-                          >
-                            {carouselProviders.map((provider) => {
-                              const checked = provider.footer_carousel_show;
-                              const isSwitchingFooterCarousel = switchingFooterCarouselProviderId === provider.id;
-                              return (
-                                <button
-                                  key={provider.id}
-                                  type="button"
-                                  aria-pressed={checked}
-                                  disabled={isSwitchingFooterCarousel || !footerShowUsageCarousel}
-                                  onClick={() => void toggleFooterCarouselProvider(provider.id, !checked)}
-                                  className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-muted/65 disabled:cursor-not-allowed disabled:opacity-40"
-                                >
-                                <span className="flex min-w-0 items-center gap-2">
-                                  <span className="flex size-5 shrink-0 items-center justify-center rounded-sm border border-border/60 bg-background/75 text-foreground/85 [&_svg]:size-3.5 [&_span]:size-3.5">
-                                    <ProviderGlyph providerId={provider.id} size={14} />
-                                  </span>
-                                  <span className="min-w-0 truncate">{provider.label}</span>
-                                </span>
-                                <span
-                                  className={cn(
-                                    "flex size-4 shrink-0 items-center justify-center rounded-sm border border-border/80",
-                                    checked && "border-foreground bg-foreground text-background"
-                                  )}
-                                >
-                                  {checked ? <Check className="size-3" /> : null}
-                                </span>
-                              </button>
-                            );
-                          })}
-                          </ScrollArea>
-                        ) : (
-                          <div className="px-2 py-3 text-[11px] text-foreground/75">
-                            {t("footerCarousel.noSources")}
-                          </div>
-                        )}
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </TooltipProvider>
+              </ScrollArea>
             </div>
           </div>
         </div>
+
+        <div
+          className={cn(
+            "shrink-0 px-0 pt-3 pb-3",
+            embedded && "border-t border-border/40 bg-background/95",
+          )}
+        >
+          <div className="flex items-center justify-between gap-3 px-4 text-xs text-foreground/90">
+            <div
+              className="flex items-center"
+              onMouseEnter={() => {
+                setRefreshSwapDirection(1);
+                setIsFooterHovered(true);
+              }}
+              onMouseLeave={() => {
+                setRefreshSwapDirection(-1);
+                setIsFooterHovered(false);
+              }}
+            >
+              <div className={cn("relative h-7", footerInfoWidthClass)}>
+                <AnimatePresence mode="wait" initial={false} custom={refreshSwapDirection}>
+                  {showFooterActions ? (
+                    <motion.div
+                      key="footer-actions"
+                      custom={refreshSwapDirection}
+                      variants={refreshSwapVariants}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
+                      transition={{ duration: 0.16, ease: "easeOut" }}
+                      className="absolute top-0 left-0 inline-flex h-7 items-center gap-1"
+                    >
+                      {showAutoRefreshAction ? (
+                        <Popover
+                          open={isAutoRefreshPopoverOpen}
+                          onOpenChange={setIsAutoRefreshPopoverOpen}
+                        >
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex h-7 items-center justify-center gap-1 rounded-sm border border-border/70 bg-background/85 px-2 py-1 text-[10px] font-medium hover:border-foreground/20 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                              aria-label={t("configureAutoRefresh")}
+                              disabled={isUpdatingAutoRefresh}
+                            >
+                              <Clock3 className="size-3" />
+                              <span>{autoRefreshTriggerLabel}</span>
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            side="top"
+                            align="start"
+                            sideOffset={8}
+                            className="w-auto max-w-none min-w-max rounded-[18px] border-border/70 p-3"
+                          >
+                            <div className="space-y-3">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="space-y-1">
+                                  <div className="text-xs font-medium text-foreground">
+                                    {t("autoRefresh.title")}
+                                  </div>
+                                </div>
+                                {nextAutoRefreshHint ? (
+                                  <div className="flex min-h-4 items-center text-[11px] whitespace-nowrap text-foreground/90">
+                                    <span>{nextAutoRefreshHint.suffix}&nbsp;</span>
+                                    <span className="font-medium text-foreground">
+                                      {nextAutoRefreshHint.value}
+                                    </span>
+                                  </div>
+                                ) : null}
+                              </div>
+                              <ToggleGroup
+                                type="single"
+                                size="sm"
+                                variant="outline"
+                                spacing={2}
+                                value={autoRefreshValue}
+                                onValueChange={(value) => {
+                                  if (value === autoRefreshValue) {
+                                    void updateAutoRefresh("");
+                                    return;
+                                  }
+                                  void updateAutoRefresh(value);
+                                }}
+                                className="inline-flex flex-nowrap items-center whitespace-nowrap"
+                              >
+                                {AUTO_REFRESH_OPTIONS.map((option) => (
+                                  <ToggleGroupItem
+                                    key={option.value}
+                                    value={option.value}
+                                    aria-label={t("autoRefresh.setInterval", {
+                                      value: option.label,
+                                    })}
+                                    title={option.label}
+                                    className="rounded-md text-[11px]"
+                                    disabled={isUpdatingAutoRefresh}
+                                  >
+                                    {option.shortLabel}
+                                  </ToggleGroupItem>
+                                ))}
+                              </ToggleGroup>
+                              <div className="text-[11px] text-foreground/90">
+                                {t("autoRefresh.turnOffHint")}
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void loadOverview(
+                            true,
+                            selectedProviderId === ALL_PROVIDER_ID ? null : selectedProviderId,
+                          )
+                        }
+                        className="inline-flex h-7 cursor-pointer items-center justify-center gap-1 rounded-sm border border-border/70 bg-background/85 px-2 py-1 hover:border-foreground/20 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={isRefreshing}
+                        aria-label={t("refreshUsage")}
+                      >
+                        {isRefreshing ? (
+                          <LoaderCircle className="block size-3 shrink-0 [transform-origin:center] animate-spin [transform-box:fill-box]" />
+                        ) : (
+                          <RotateCcw className="block size-3 shrink-0 [transform-origin:center] [transform-box:fill-box]" />
+                        )}
+                        <span className="text-[10px] font-medium">{t("refresh")}</span>
+                      </button>
+                    </motion.div>
+                  ) : canCycleFooterInfo &&
+                    footerInfoMode === "countdown" &&
+                    autoRefreshTargetMs ? (
+                    <motion.div
+                      key="footer-countdown"
+                      custom={refreshSwapDirection}
+                      variants={refreshSwapVariants}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
+                      transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                      className="absolute inset-0 inline-flex h-7 w-full items-center gap-1 whitespace-nowrap"
+                    >
+                      <span className="text-[11px] text-foreground/90">{t("nextUpdate")}</span>
+                      <AutoRefreshCountdownBadge targetTimeMs={autoRefreshTargetMs} />
+                    </motion.div>
+                  ) : (
+                    <motion.span
+                      key="updated-time"
+                      custom={refreshSwapDirection}
+                      variants={refreshSwapVariants}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
+                      transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                      className="absolute inset-0 inline-flex h-7 w-full items-center whitespace-nowrap"
+                    >
+                      {t("updatedAt", {
+                        value: formatTimestamp(displayedUpdatedAt, locale, {
+                          unknownLabel: t("formatters.unknown"),
+                        }),
+                      })}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+
+            <TooltipProvider delayDuration={180}>
+              <div className="inline-flex items-center gap-4">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
+                      aria-label={t("keychainAccessReason")}
+                    >
+                      <KeyRound className="size-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" align="center" className="max-w-65">
+                    {t("keychainAccessTooltip")}
+                  </TooltipContent>
+                </Tooltip>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 text-muted-foreground/80 hover:text-foreground"
+                      aria-label={t("footerCarousel.configure")}
+                    >
+                      <Gauge className="size-3.5" />
+                      {carouselProviders.filter((provider) => provider.footer_carousel_show)
+                        .length > 0 ? (
+                        <span className="min-w-3 text-[10px] leading-none font-medium">
+                          {
+                            carouselProviders.filter((provider) => provider.footer_carousel_show)
+                              .length
+                          }
+                        </span>
+                      ) : null}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    side="top"
+                    align="end"
+                    sideOffset={8}
+                    className="w-56 overflow-x-hidden overflow-y-hidden rounded-[16px] border-border/70 p-2"
+                  >
+                    <div className="flex items-start justify-between gap-3 px-2 pt-1 pb-2">
+                      <div className="min-w-0">
+                        <div className="text-xs font-medium text-foreground">
+                          {t("footerCarousel.title")}
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-foreground/75">
+                          {t("footerCarousel.description")}
+                        </div>
+                      </div>
+                      <Switch
+                        checked={footerShowUsageCarousel}
+                        onCheckedChange={(checked) => void setFooterShowUsageCarousel(!!checked)}
+                        aria-label={t("footerCarousel.toggle")}
+                      />
+                    </div>
+                    {carouselProviders.length > 0 ? (
+                      <ScrollArea
+                        className="h-auto max-h-64"
+                        scrollFade
+                        viewportClassName="h-auto max-h-64"
+                      >
+                        {carouselProviders.map((provider) => {
+                          const checked = provider.footer_carousel_show;
+                          const isSwitchingFooterCarousel =
+                            switchingFooterCarouselProviderId === provider.id;
+                          return (
+                            <button
+                              key={provider.id}
+                              type="button"
+                              aria-pressed={checked}
+                              disabled={isSwitchingFooterCarousel || !footerShowUsageCarousel}
+                              onClick={() =>
+                                void toggleFooterCarouselProvider(provider.id, !checked)
+                              }
+                              className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-muted/65 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <span className="flex min-w-0 items-center gap-2">
+                                <span className="flex size-5 shrink-0 items-center justify-center rounded-sm border border-border/60 bg-background/75 text-foreground/85 [&_span]:size-3.5 [&_svg]:size-3.5">
+                                  <ProviderGlyph providerId={provider.id} size={14} />
+                                </span>
+                                <span className="min-w-0 truncate">{provider.label}</span>
+                              </span>
+                              <span
+                                className={cn(
+                                  "flex size-4 shrink-0 items-center justify-center rounded-sm border border-border/80",
+                                  checked && "border-foreground bg-foreground text-background",
+                                )}
+                              >
+                                {checked ? <Check className="size-3" /> : null}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </ScrollArea>
+                    ) : (
+                      <div className="px-2 py-3 text-[11px] text-foreground/75">
+                        {t("footerCarousel.noSources")}
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </TooltipProvider>
+          </div>
+        </div>
+      </div>
     </PanelShell>
   );
 
@@ -948,7 +1010,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
               <PopoverTrigger asChild>
                 <button
                   aria-label={t("triggerAria")}
-                  className="size-8 flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  className="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 >
                   <Gauge className="size-3.5" />
                 </button>
@@ -957,8 +1019,9 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
             <TooltipContent>
               <div className="flex items-center gap-2">
                 <span>{t("tooltipTitle")}</span>
-                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-                  <Command className="size-3" /><span className="text-xs">U</span>
+                <kbd className="pointer-events-none inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90 select-none">
+                  <Command className="size-3" />
+                  <span className="text-xs">U</span>
                 </kbd>
               </div>
             </TooltipContent>

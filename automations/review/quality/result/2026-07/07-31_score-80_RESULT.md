@@ -9,19 +9,19 @@
 
 被审查提交：
 
-| Hash | Author | Message |
-| --- | --- | --- |
-| `d8b42a008` | AruNi_Lu | Merge pull request #176 from AruNi-01/aarynlu/landing-download-cta-polish |
-| `ecc84d0a7` | AarynLu | fix(web): improve composer @ file search and popover keyboard scroll |
+| Hash        | Author   | Message                                                                      |
+| ----------- | -------- | ---------------------------------------------------------------------------- |
+| `d8b42a008` | AruNi_Lu | Merge pull request #176 from AruNi-01/aarynlu/landing-download-cta-polish    |
+| `ecc84d0a7` | AarynLu  | fix(web): improve composer @ file search and popover keyboard scroll         |
 | `86e4fe22d` | AruNi_Lu | Merge pull request #177 from AruNi-01/aarynlu/composer-mention-search-scroll |
-| `98713c5aa` | AarynLu | chore: ignore local atmos-new-pr-merge skill |
-| `05f8bfa46` | AarynLu | feat(canvas): open compact add-widget UI on empty marquee select |
-| `51d22d0c3` | AruNi_Lu | Merge pull request #178 from AruNi-01/feat/canvas-empty-brush-add-widget |
-| `81ff8ed0e` | AarynLu | chore(skills): track atmos-new-pr-merge and keep branches after merge |
-| `74f66c74b` | AruNi_Lu | Merge pull request #179 from AruNi-01/chore/atmos-new-pr-merge-keep-branch |
-| `c8e30a098` | AarynLu | chore(skills): allow skill-only publishes directly on main |
-| `2b33d4a22` | AarynLu | feat(terminal): surface native OSC 0/2 titles as pane suffix (APP-047) |
-| `07c1cb659` | AarynLu | fix: address CodeRabbit review on OSC title PR |
+| `98713c5aa` | AarynLu  | chore: ignore local atmos-new-pr-merge skill                                 |
+| `05f8bfa46` | AarynLu  | feat(canvas): open compact add-widget UI on empty marquee select             |
+| `51d22d0c3` | AruNi_Lu | Merge pull request #178 from AruNi-01/feat/canvas-empty-brush-add-widget     |
+| `81ff8ed0e` | AarynLu  | chore(skills): track atmos-new-pr-merge and keep branches after merge        |
+| `74f66c74b` | AruNi_Lu | Merge pull request #179 from AruNi-01/chore/atmos-new-pr-merge-keep-branch   |
+| `c8e30a098` | AarynLu  | chore(skills): allow skill-only publishes directly on main                   |
+| `2b33d4a22` | AarynLu  | feat(terminal): surface native OSC 0/2 titles as pane suffix (APP-047)       |
+| `07c1cb659` | AarynLu  | fix: address CodeRabbit review on OSC title PR                               |
 
 说明：merge 与对应 feature commit 视为同一变更，不重复计分；skills/gitignore 作为工程卫生改动纳入观察但不主导扣分。
 
@@ -41,13 +41,13 @@
 
 ## 5. 分项评分
 
-| 维度 | 得分 | 扣分原因 |
-| --- | ---: | --- |
-| 设计与分层 | 25/30 | APP-047 分层清晰（shared sanitize + 不污染 agent 检测）；empty brush 手势纯逻辑也拆对了。但 compact UI 未复用/抽共享 catalog，与 `CanvasAddAtmosWidgetDialog` 平行复制上下文与组件目录职责（`05f8bfa46`）。 |
-| 可读性与复杂度 | 21/25 | mention 搜索改名匹配 + 共享 scroll helper 清晰；toolbar 上 `localOscTitle`（实为 shim 动态标题）与 `localNativeOscTitle`（native OSC）并存，双通道语义靠注释维持。 |
-| 体量与内聚 | 13/20 | 新增 `CanvasEmptyBrushAddWidget.tsx` 850 行（popover 段约 525 行），超过 UI 高风险阈值；手势检测与完整加组件表单同文件。 |
-| 可维护性与复用 | 12/15 | `buildProjectContext` / `buildContextOptions` / terminal 项目录等在两个 add-widget 表面重复；`filterMentionFileCandidates` 去掉 12 条上限，大仓库键盘导航成本上升。 |
-| 工程卫生 | 9/10 | 双语 i18n、empty-brush/OSC/mention 均有单元测试；`setOscTitle` 在 wiki/code-review/主 store 三份归一逻辑（当日末仍有 trim 差异，后续提交已部分收口）。 |
+| 维度           |  得分 | 扣分原因                                                                                                                                                                                                    |
+| -------------- | ----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 设计与分层     | 25/30 | APP-047 分层清晰（shared sanitize + 不污染 agent 检测）；empty brush 手势纯逻辑也拆对了。但 compact UI 未复用/抽共享 catalog，与 `CanvasAddAtmosWidgetDialog` 平行复制上下文与组件目录职责（`05f8bfa46`）。 |
+| 可读性与复杂度 | 21/25 | mention 搜索改名匹配 + 共享 scroll helper 清晰；toolbar 上 `localOscTitle`（实为 shim 动态标题）与 `localNativeOscTitle`（native OSC）并存，双通道语义靠注释维持。                                          |
+| 体量与内聚     | 13/20 | 新增 `CanvasEmptyBrushAddWidget.tsx` 850 行（popover 段约 525 行），超过 UI 高风险阈值；手势检测与完整加组件表单同文件。                                                                                    |
+| 可维护性与复用 | 12/15 | `buildProjectContext` / `buildContextOptions` / terminal 项目录等在两个 add-widget 表面重复；`filterMentionFileCandidates` 去掉 12 条上限，大仓库键盘导航成本上升。                                         |
+| 工程卫生       |  9/10 | 双语 i18n、empty-brush/OSC/mention 均有单元测试；`setOscTitle` 在 wiki/code-review/主 store 三份归一逻辑（当日末仍有 trim 差异，后续提交已部分收口）。                                                      |
 
 ## 6. 主要问题清单
 

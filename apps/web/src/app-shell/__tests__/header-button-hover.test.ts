@@ -33,9 +33,7 @@ describe("header button hover", () => {
     expect(git).toContain("HEADER_CHIP_SURFACE_CLASS");
     expect(actions).toContain("HEADER_CHIP_SURFACE_CLASS");
     expect(quickOpen).not.toContain("bg-muted/40 hover:bg-muted/60");
-    expect(actions).not.toContain(
-      "bg-muted/40 hover:bg-muted/60 text-muted-foreground",
-    );
+    expect(actions).not.toContain("bg-muted/40 hover:bg-muted/60 text-muted-foreground");
   });
 
   it("reuses the workspace PR lifecycle icon in header git context", () => {

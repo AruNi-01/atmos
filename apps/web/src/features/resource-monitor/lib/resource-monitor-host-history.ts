@@ -17,15 +17,11 @@ export type ResourceMonitorHistoryScope = {
   relaySessionRevision: number;
 };
 
-export function resourceMonitorHistoryScopeKey(
-  scope: ResourceMonitorHistoryScope,
-): string {
+export function resourceMonitorHistoryScopeKey(scope: ResourceMonitorHistoryScope): string {
   return `${scope.activeInstanceId}:${scope.connectionEpoch}:${scope.relaySessionRevision}`;
 }
 
-export function emptyResourceHostHistoryRing(
-  scopeKey = "",
-): ResourceHostHistoryRing {
+export function emptyResourceHostHistoryRing(scopeKey = ""): ResourceHostHistoryRing {
   return { scopeKey, points: [] };
 }
 

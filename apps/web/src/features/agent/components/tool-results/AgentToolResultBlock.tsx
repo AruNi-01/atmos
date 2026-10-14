@@ -59,10 +59,7 @@ function fenceForMarkdown(code: string, language: string): string {
   return `${ticks}${language}\n${code}\n${ticks}`;
 }
 
-function toolKindLabel(
-  kind: AgentToolKind,
-  t: (key: string) => string,
-): string {
+function toolKindLabel(kind: AgentToolKind, t: (key: string) => string): string {
   switch (kind) {
     case "read":
       return t("read");
@@ -195,15 +192,10 @@ function AgentToolCodeResult({
       <div
         className="px-2 pb-2 [&_.my-4]:my-2"
         style={{
-          ["--shiki-line-offset" as string]: Math.max(
-            0,
-            (lineRange?.start ?? startLine ?? 1) - 1,
-          ),
+          ["--shiki-line-offset" as string]: Math.max(0, (lineRange?.start ?? startLine ?? 1) - 1),
         }}
       >
-        <MarkdownRenderer>
-          {fenceForMarkdown(code, language)}
-        </MarkdownRenderer>
+        <MarkdownRenderer>{fenceForMarkdown(code, language)}</MarkdownRenderer>
       </div>
     </AgentToolCard>
   );
@@ -231,14 +223,18 @@ export function AgentToolResultBlock({
   const asSkill = part.kind === "skill";
   const skillName = skillNameFromPart(part);
   const path = parsed.path ?? pathFromPart(part);
-  const diffStats = parsed.presentation.kind === "diff_stats"
-    ? parsed.presentation
-    : part.result?.type === "diff_stats"
-      ? part.result
-      : null;
-  const fileChip = path
-    && (part.kind === "read" || part.kind === "edit" || part.kind === "delete" || parsed.presentation.kind === "code")
-    ? (
+  const diffStats =
+    parsed.presentation.kind === "diff_stats"
+      ? parsed.presentation
+      : part.result?.type === "diff_stats"
+        ? part.result
+        : null;
+  const fileChip =
+    path &&
+    (part.kind === "read" ||
+      part.kind === "edit" ||
+      part.kind === "delete" ||
+      parsed.presentation.kind === "code") ? (
       <AgentToolFileChip
         path={path}
         lineRange={part.kind === "read" ? parsed.lineRange : null}
@@ -250,33 +246,32 @@ export function AgentToolResultBlock({
               : undefined
         }
       />
-    )
-    : null;
+    ) : null;
   const kindLabel = toolKindLabel(part.kind, toolT);
   const heading = preferredCollapsedToolTitle(part, kindLabel);
   const displayPath = path ? displayTitle(path, path) : "";
-  const resolvedHeading = asSkill && skillName
-    ? t("skillTitle", { name: skillName })
-    : resolveAgentToolCardHeading({
-      heading,
-      path,
-      kindLabel,
-      omitPathInTitle: Boolean(fileChip),
-      pathAliases: displayPath && displayPath !== path ? [displayPath] : undefined,
-      formatWithPath: (tool, filePath) => toolT("labelWithPath", {
-        tool,
-        path: displayTitle(filePath, filePath),
-      }),
-    });
+  const resolvedHeading =
+    asSkill && skillName
+      ? t("skillTitle", { name: skillName })
+      : resolveAgentToolCardHeading({
+          heading,
+          path,
+          kindLabel,
+          omitPathInTitle: Boolean(fileChip),
+          pathAliases: displayPath && displayPath !== path ? [displayPath] : undefined,
+          formatWithPath: (tool, filePath) =>
+            toolT("labelWithPath", {
+              tool,
+              path: displayTitle(filePath, filePath),
+            }),
+        });
   const title = displayTitle(resolvedHeading, path);
   const icon = asSkill ? <Sparkles className="size-4" /> : getToolKindIcon(part.kind);
   const { presentation, inputRows, showInput } = parsed;
   const status = part.status ?? undefined;
   const failed = status?.toLowerCase() === "failed" || presentation.kind === "error";
-  const imagePreview = presentation.kind === "empty"
-    && part.kind === "read"
-    && Boolean(path)
-    && isImageToolPath(path);
+  const imagePreview =
+    presentation.kind === "empty" && part.kind === "read" && Boolean(path) && isImageToolPath(path);
 
   if (presentation.kind === "diff") {
     return (
@@ -285,10 +280,7 @@ export function AgentToolResultBlock({
           <AgentToolDiffResult
             key={`${file.path}-${index}`}
             path={file.path}
-            title={displayTitle(
-              presentation.files.length === 1 ? title : kindLabel,
-              file.path,
-            )}
+            title={displayTitle(presentation.files.length === 1 ? title : kindLabel, file.path)}
             oldContent={file.oldContent}
             newContent={file.newContent}
             lineRange={parsed.lineRange}
@@ -370,9 +362,12 @@ export function AgentToolResultBlock({
   }
 
   if (presentation.kind === "web_search" || part.kind === "web_search") {
-    const query = presentation.kind === "web_search"
-      ? presentation.query.trim()
-      : (part.params?.type === "web_search" ? part.params.query : "");
+    const query =
+      presentation.kind === "web_search"
+        ? presentation.query.trim()
+        : part.params?.type === "web_search"
+          ? part.params.query
+          : "";
     const links = presentation.kind === "web_search" ? presentation.links : [];
     const searchTitle = query ? t("searchingFor", { query }) : t("webSearch");
     return (
@@ -394,23 +389,22 @@ export function AgentToolResultBlock({
           ) : null
         }
       >
-        <AgentToolWebSearchBody
-          links={links}
-          sourcesLabel={t("sources")}
-        />
+        <AgentToolWebSearchBody links={links} sourcesLabel={t("sources")} />
       </AgentToolCard>
     );
   }
 
   if (presentation.kind === "web_fetch" || part.kind === "fetch") {
-    const url = presentation.kind === "web_fetch"
-      ? presentation.url
-      : (part.params?.type === "fetch" ? part.params.url : "");
+    const url =
+      presentation.kind === "web_fetch"
+        ? presentation.url
+        : part.params?.type === "fetch"
+          ? part.params.url
+          : "";
     const markdown = presentation.kind === "web_fetch" ? presentation.markdown : undefined;
     const text = presentation.kind === "web_fetch" ? presentation.text : undefined;
-    const errorText = presentation.kind === "error" || presentation.kind === "text"
-      ? presentation.text
-      : text;
+    const errorText =
+      presentation.kind === "error" || presentation.kind === "text" ? presentation.text : text;
     const host = hostFromUrl(url) ?? url;
     return (
       <AgentToolCard
@@ -427,29 +421,25 @@ export function AgentToolResultBlock({
         {failed ? (
           <AgentToolErrorBody text={errorText ?? ""} />
         ) : (
-          <AgentToolWebFetchBody
-            markdown={markdown}
-            text={text}
-          />
+          <AgentToolWebFetchBody markdown={markdown} text={text} />
         )}
       </AgentToolCard>
     );
   }
 
-  const searchMeta = presentation.kind === "search"
-    ? (presentation.hits.length > 0
-      ? presentation.hits.length
-      : matchCountFromSearchSummary(presentation.summary))
-    : null;
-  const statsMeta = diffStats
-    ? <AgentToolDiffStats additions={diffStats.additions} deletions={diffStats.deletions} />
-    : searchMeta != null
-      ? (
-        <span className="text-[11px] text-muted-foreground">
-          {t("matchCount", { count: searchMeta })}
-        </span>
-      )
+  const searchMeta =
+    presentation.kind === "search"
+      ? presentation.hits.length > 0
+        ? presentation.hits.length
+        : matchCountFromSearchSummary(presentation.summary)
       : null;
+  const statsMeta = diffStats ? (
+    <AgentToolDiffStats additions={diffStats.additions} deletions={diffStats.deletions} />
+  ) : searchMeta != null ? (
+    <span className="text-[11px] text-muted-foreground">
+      {t("matchCount", { count: searchMeta })}
+    </span>
+  ) : null;
 
   return (
     <AgentToolCard
@@ -477,7 +467,9 @@ export function AgentToolResultBlock({
       ) : null}
       {presentation.kind === "files" ? <AgentToolFilesBody paths={presentation.paths} /> : null}
       {presentation.kind === "tree" ? <AgentToolTreeBody entries={presentation.entries} /> : null}
-      {presentation.kind === "markdown" ? <AgentToolMarkdownBody markdown={presentation.markdown} /> : null}
+      {presentation.kind === "markdown" ? (
+        <AgentToolMarkdownBody markdown={presentation.markdown} />
+      ) : null}
       {presentation.kind === "json" ? <AgentToolJsonBody json={presentation.json} /> : null}
       {presentation.kind === "text" ? <AgentToolTextBody text={presentation.text} /> : null}
       {presentation.kind === "todos" ? <AgentToolTodosBody todos={presentation.todos} /> : null}
@@ -489,7 +481,8 @@ export function AgentToolResultBlock({
       {presentation.kind === "empty" && path && part.kind === "read" ? (
         <AgentToolPathPreviewBody path={path} status={status} />
       ) : null}
-      {presentation.kind === "empty" && !(path && (part.kind === "read" || part.kind === "edit" || part.kind === "delete")) ? (
+      {presentation.kind === "empty" &&
+      !(path && (part.kind === "read" || part.kind === "edit" || part.kind === "delete")) ? (
         <AgentToolEmptyBody status={status} />
       ) : null}
     </AgentToolCard>

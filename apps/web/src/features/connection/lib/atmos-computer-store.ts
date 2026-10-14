@@ -7,21 +7,18 @@
  * Relay session fields: memory only.
  */
 
-import { create } from 'zustand';
-import {
-  DEFAULT_RELAY_URL,
-  normalizeRelayUrl,
-} from '@atmos/relay-client';
-import { LOCAL_INSTANCE_ID } from '@/features/connection/lib/connection-instance';
+import { create } from "zustand";
+import { DEFAULT_RELAY_URL, normalizeRelayUrl } from "@atmos/relay-client";
+import { LOCAL_INSTANCE_ID } from "@/features/connection/lib/connection-instance";
 import {
   readConnectionUiPrefs,
   writeConnectionUiPrefs,
-} from '@/features/connection/lib/connection-ui-prefs';
+} from "@/features/connection/lib/connection-ui-prefs";
 
-export type AtmosComputerConnectionMode = 'local' | 'relay';
+export type AtmosComputerConnectionMode = "local" | "relay";
 
-export type { ComputerRow } from '@/features/connection/lib/connection-ui-prefs';
-import type { ComputerRow } from '@/features/connection/lib/connection-ui-prefs';
+export type { ComputerRow } from "@/features/connection/lib/connection-ui-prefs";
+import type { ComputerRow } from "@/features/connection/lib/connection-ui-prefs";
 
 interface AtmosComputerData {
   connectionMode: AtmosComputerConnectionMode;
@@ -71,12 +68,12 @@ interface AtmosComputerStore extends AtmosComputerData {
 }
 
 const envRelayUrl =
-  typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_ATMOS_RELAY_URL ?? '' : '';
+  typeof process !== "undefined" ? (process.env.NEXT_PUBLIC_ATMOS_RELAY_URL ?? "") : "";
 
 export { DEFAULT_RELAY_URL };
 
 export function resolveRelayUrl(raw?: string | null): string {
-  const trimmed = (raw ?? '').trim();
+  const trimmed = (raw ?? "").trim();
   if (trimmed) {
     return normalizeRelayUrl(trimmed);
   }
@@ -88,13 +85,13 @@ export function resolveRelayUrl(raw?: string | null): string {
 
 function loadLocalConnectionPrefs(): Pick<
   AtmosComputerData,
-  'computers' | 'selectedServerId' | 'localComputerDisplayName' | 'localServerId'
+  "computers" | "selectedServerId" | "localComputerDisplayName" | "localServerId"
 > {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return {
       computers: [],
       selectedServerId: null,
-      localComputerDisplayName: '',
+      localComputerDisplayName: "",
       localServerId: null,
     };
   }
@@ -120,11 +117,8 @@ function persistLocalConnectionPrefs(
     {
       computersCache: patch.computers ?? current.computersCache,
       selectedServerId:
-        patch.selectedServerId !== undefined
-          ? patch.selectedServerId
-          : current.selectedServerId,
-      localComputerDisplayName:
-        patch.localComputerDisplayName ?? current.localComputerDisplayName,
+        patch.selectedServerId !== undefined ? patch.selectedServerId : current.selectedServerId,
+      localComputerDisplayName: patch.localComputerDisplayName ?? current.localComputerDisplayName,
       localServerId:
         patch.localServerId !== undefined ? patch.localServerId : current.localServerId,
     },
@@ -135,10 +129,10 @@ function persistLocalConnectionPrefs(
 const localPrefs = loadLocalConnectionPrefs();
 
 export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
-  connectionMode: 'local',
+  connectionMode: "local",
   relayUrl: envRelayUrl || DEFAULT_RELAY_URL,
-  relaySecretKey: '',
-  accessToken: '',
+  relaySecretKey: "",
+  accessToken: "",
   accessTokenConfigured: false,
   computers: localPrefs.computers,
   selectedServerId: localPrefs.selectedServerId,
@@ -162,27 +156,27 @@ export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
     });
   },
 
-  setConnectionMode: connectionMode => set({ connectionMode }),
-  setRelayUrl: relayUrl => set({ relayUrl }),
-  setRelaySecretKey: relaySecretKey => set({ relaySecretKey }),
-  setAccessToken: accessToken => set({ accessToken }),
-  setAccessTokenConfigured: accessTokenConfigured => set({ accessTokenConfigured }),
+  setConnectionMode: (connectionMode) => set({ connectionMode }),
+  setRelayUrl: (relayUrl) => set({ relayUrl }),
+  setRelaySecretKey: (relaySecretKey) => set({ relaySecretKey }),
+  setAccessToken: (accessToken) => set({ accessToken }),
+  setAccessTokenConfigured: (accessTokenConfigured) => set({ accessTokenConfigured }),
 
-  setComputers: computers => {
+  setComputers: (computers) => {
     set({ computers });
     persistLocalConnectionPrefs({ computers });
   },
 
-  setSelectedServerId: selectedServerId => {
+  setSelectedServerId: (selectedServerId) => {
     set({ selectedServerId });
     persistLocalConnectionPrefs({ selectedServerId });
   },
 
-  setRelayWebSocketUrl: relayWebSocketUrl => set({ relayWebSocketUrl }),
-  setRelayGatewayHttpBase: relayGatewayHttpBase => set({ relayGatewayHttpBase }),
-  setRelayClientToken: relayClientToken => set({ relayClientToken }),
+  setRelayWebSocketUrl: (relayWebSocketUrl) => set({ relayWebSocketUrl }),
+  setRelayGatewayHttpBase: (relayGatewayHttpBase) => set({ relayGatewayHttpBase }),
+  setRelayClientToken: (relayClientToken) => set({ relayClientToken }),
 
-  setRelaySessionTransport: session => {
+  setRelaySessionTransport: (session) => {
     const current = get();
     const changed =
       current.relayWebSocketUrl !== session.relayWebSocketUrl ||
@@ -197,15 +191,15 @@ export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
     });
   },
 
-  setRegisterCommandShown: registerCommandShown => set({ registerCommandShown }),
-  setRegisterTokenExpiresAt: registerTokenExpiresAt => set({ registerTokenExpiresAt }),
+  setRegisterCommandShown: (registerCommandShown) => set({ registerCommandShown }),
+  setRegisterTokenExpiresAt: (registerTokenExpiresAt) => set({ registerTokenExpiresAt }),
 
-  setLocalComputerDisplayName: localComputerDisplayName => {
+  setLocalComputerDisplayName: (localComputerDisplayName) => {
     set({ localComputerDisplayName });
     persistLocalConnectionPrefs({ localComputerDisplayName });
   },
 
-  setLocalServerId: localServerId => {
+  setLocalServerId: (localServerId) => {
     if (get().localServerId === localServerId) {
       return;
     }
@@ -248,6 +242,6 @@ export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
 /** @deprecated Prefer `normalizeRelayUrl` from `@atmos/relay-client` / `resolveRelayUrl`. */
 export function normalizedRelayOrigin(raw: string): string {
   const t = raw.trim();
-  if (!t) return '';
+  if (!t) return "";
   return normalizeRelayUrl(t);
 }

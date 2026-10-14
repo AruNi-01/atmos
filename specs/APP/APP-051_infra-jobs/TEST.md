@@ -13,49 +13,49 @@ Backend infrastructure. Proof is **Rust unit tests** in `infra` plus **service-l
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 Jobs port | S1, S2 |
-| M2 Queue port | S10, S11 |
-| M3 Local jobs | S1–S7 |
-| M4 Local queue | S10–S13 |
-| M5 Lifecycle | S7, S13 |
-| M6 Automation tick | S14, S15, S16 |
-| M7 Manual direct | S17 |
-| M8 Events via queue | S18, S19 |
-| M9 AI usage | S20, S21, S22 |
-| M10 Agent-hooks cleanup | S23 |
-| M11 Layering | S24 |
-| M12 Inventory | S25 |
-| N1–N5 | deferred |
+| PRD item                | Scenario IDs  |
+| ----------------------- | ------------- |
+| M1 Jobs port            | S1, S2        |
+| M2 Queue port           | S10, S11      |
+| M3 Local jobs           | S1–S7         |
+| M4 Local queue          | S10–S13       |
+| M5 Lifecycle            | S7, S13       |
+| M6 Automation tick      | S14, S15, S16 |
+| M7 Manual direct        | S17           |
+| M8 Events via queue     | S18, S19      |
+| M9 AI usage             | S20, S21, S22 |
+| M10 Agent-hooks cleanup | S23           |
+| M11 Layering            | S24           |
+| M12 Inventory           | S25           |
+| N1–N5                   | deferred      |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Rust unit | `cargo test -p infra` | interval fires | short interval | counter ≥ 2 | planned |
-| S2 | Rust unit / API | `cargo test -p infra` | public surface | exports | no apalis/mq deps in infra for v1 | planned |
-| S3 | Rust unit | `cargo test -p infra` | cancel | running job | counter stops | planned |
-| S4 | Rust unit | `cargo test -p infra` | replace same id | two specs | single active cadence | planned |
-| S5 | Rust unit | `cargo test -p infra` | skip_if_running | long handler | no overlap starts | planned |
-| S6 | Rust unit | `cargo test -p infra` | fire_immediately true/false | both specs | true runs soon; false waits | planned |
-| S7 | Rust unit | `cargo test -p infra` | jobs shutdown | running job | clean stop | planned |
-| S10 | Rust unit | `cargo test -p infra` | enqueue + consume | capacity 8 | handler sees payload | planned |
-| S11 | Rust unit | `cargo test -p infra` | queue full | fill capacity | `EnqueueError::Full` | planned |
-| S12 | Rust unit | `cargo test -p infra` | FIFO best-effort | ordered msgs | order preserved with 1 consumer | planned |
-| S13 | Rust unit | `cargo test -p infra` | queue shutdown | active consumer | clean stop | planned |
-| S14 | Service | `cargo test -p core-service` | due tick via jobs wiring | due automation | run / next_run advanced | planned |
-| S15 | Service | `cargo test -p core-service` | pause / already_running | fixtures | domain rules hold | planned |
-| S16 | Service / static | `cargo test` + `rg` | no raw interval in scheduler_service | source | jobs registration only | planned |
-| S17 | Service / static | `rg` + existing tests | manual run path | start_run API | no enqueue/set_interval in path | planned |
-| S18 | Service / API | `cargo test` | enqueue on github ingress | mock queue | message enqueued | planned |
-| S19 | Service | `cargo test` | consumer → domain | payload fixture | claim/start path invoked | planned |
-| S20 | Service | `cargo test -p quota-usage` | attach_jobs enables refresh | short interval / mock | refresh runs | planned |
-| S21 | Service | `cargo test -p quota-usage` | change interval | replace | one registration | planned |
-| S22 | Service | `cargo test -p quota-usage` | disable | cancel | no further refresh | planned |
-| S23 | Unit / integration | `cargo test` or api test | hooks cleanup job | jobs registry | id registered; no main.rs raw loop | planned |
-| S24 | Static | `rg` | jobs/queue modules | infra | no domain imports | planned |
-| S25 | Static | `rg` / review | inventory | relay/pty/manual | non-migrate list respected | planned |
+| Scenario | Level              | Expected tool                | Target command / method              | Fixture / data        | Signals                            | Status  |
+| -------- | ------------------ | ---------------------------- | ------------------------------------ | --------------------- | ---------------------------------- | ------- |
+| S1       | Rust unit          | `cargo test -p infra`        | interval fires                       | short interval        | counter ≥ 2                        | planned |
+| S2       | Rust unit / API    | `cargo test -p infra`        | public surface                       | exports               | no apalis/mq deps in infra for v1  | planned |
+| S3       | Rust unit          | `cargo test -p infra`        | cancel                               | running job           | counter stops                      | planned |
+| S4       | Rust unit          | `cargo test -p infra`        | replace same id                      | two specs             | single active cadence              | planned |
+| S5       | Rust unit          | `cargo test -p infra`        | skip_if_running                      | long handler          | no overlap starts                  | planned |
+| S6       | Rust unit          | `cargo test -p infra`        | fire_immediately true/false          | both specs            | true runs soon; false waits        | planned |
+| S7       | Rust unit          | `cargo test -p infra`        | jobs shutdown                        | running job           | clean stop                         | planned |
+| S10      | Rust unit          | `cargo test -p infra`        | enqueue + consume                    | capacity 8            | handler sees payload               | planned |
+| S11      | Rust unit          | `cargo test -p infra`        | queue full                           | fill capacity         | `EnqueueError::Full`               | planned |
+| S12      | Rust unit          | `cargo test -p infra`        | FIFO best-effort                     | ordered msgs          | order preserved with 1 consumer    | planned |
+| S13      | Rust unit          | `cargo test -p infra`        | queue shutdown                       | active consumer       | clean stop                         | planned |
+| S14      | Service            | `cargo test -p core-service` | due tick via jobs wiring             | due automation        | run / next_run advanced            | planned |
+| S15      | Service            | `cargo test -p core-service` | pause / already_running              | fixtures              | domain rules hold                  | planned |
+| S16      | Service / static   | `cargo test` + `rg`          | no raw interval in scheduler_service | source                | jobs registration only             | planned |
+| S17      | Service / static   | `rg` + existing tests        | manual run path                      | start_run API         | no enqueue/set_interval in path    | planned |
+| S18      | Service / API      | `cargo test`                 | enqueue on github ingress            | mock queue            | message enqueued                   | planned |
+| S19      | Service            | `cargo test`                 | consumer → domain                    | payload fixture       | claim/start path invoked           | planned |
+| S20      | Service            | `cargo test -p quota-usage`  | attach_jobs enables refresh          | short interval / mock | refresh runs                       | planned |
+| S21      | Service            | `cargo test -p quota-usage`  | change interval                      | replace               | one registration                   | planned |
+| S22      | Service            | `cargo test -p quota-usage`  | disable                              | cancel                | no further refresh                 | planned |
+| S23      | Unit / integration | `cargo test` or api test     | hooks cleanup job                    | jobs registry         | id registered; no main.rs raw loop | planned |
+| S24      | Static             | `rg`                         | jobs/queue modules                   | infra                 | no domain imports                  | planned |
+| S25      | Static             | `rg` / review                | inventory                            | relay/pty/manual      | non-migrate list respected         | planned |
 
 ## Scenarios
 

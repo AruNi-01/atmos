@@ -5,18 +5,9 @@ import { AuthUIProvider } from "@daveyplate/better-auth-ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn, toastManager } from "@workspace/ui";
 import { hubConfigured } from "@/api/hub-client";
-import {
-  getHubAuthClient,
-  hubSignOut,
-} from "@/api/hub-auth-client";
-import {
-  isHubSocialProvider,
-  openHubOAuth,
-} from "@/features/settings/components/hub-oauth-open";
-import {
-  HUB_AUTH_DONE_CHANNEL,
-  HUB_AUTH_DONE_MESSAGE,
-} from "@/app/hub-auth/hub-auth-channel";
+import { getHubAuthClient, hubSignOut } from "@/api/hub-auth-client";
+import { isHubSocialProvider, openHubOAuth } from "@/features/settings/components/hub-oauth-open";
+import { HUB_AUTH_DONE_CHANNEL, HUB_AUTH_DONE_MESSAGE } from "@/app/hub-auth/hub-auth-channel";
 
 export {
   HUB_OAUTH_STARTED_EVENT,
@@ -32,15 +23,7 @@ type HubAuthUIProviderProps = {
  * plain img (not next/image) with no-referrer so the provider CDN does not
  * 403, and keep the image above Radix's initials fallback.
  */
-function HubAvatarImage({
-  src,
-  alt,
-  className,
-}: {
-  src: string;
-  alt: string;
-  className?: string;
-}) {
+function HubAvatarImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
   const [failed, setFailed] = React.useState(false);
   if (!src || failed) return null;
   return (
@@ -115,9 +98,8 @@ function ConfiguredHubAuthUIProvider({ children }: HubAuthUIProviderProps) {
     await queryClient.refetchQueries({ queryKey: ["hub", "session"] });
     // Cookie session present → ensure local device for Linear / local API.
     try {
-      const { ensureLocalHubDevice } = await import(
-        "@/features/connection/lib/ensure-local-hub-device"
-      );
+      const { ensureLocalHubDevice } =
+        await import("@/features/connection/lib/ensure-local-hub-device");
       await ensureLocalHubDevice();
       await queryClient.invalidateQueries({ queryKey: ["hub"] });
     } catch {
@@ -152,23 +134,25 @@ function ConfiguredHubAuthUIProvider({ children }: HubAuthUIProviderProps) {
 
   // baseURL is prepended to callback paths inside better-auth-ui ProviderButton.
   // Keep empty so web callbackURL is the app origin (not Hub).
-  const redirectTo =
-    typeof window !== "undefined" ? window.location.origin : "/";
+  const redirectTo = typeof window !== "undefined" ? window.location.origin : "/";
 
-  const socialSignIn = React.useCallback(async (params: unknown) => {
-    const p = params as { provider?: string; callbackURL?: string };
-    if (!p?.provider || !isHubSocialProvider(p.provider)) {
-      throw new Error(`Unsupported provider: ${String(p?.provider)}`);
-    }
-    const result = await openHubOAuth({
-      provider: p.provider,
-      mode: "sign-in",
-    });
-    if (!result.ok) {
-      toast({ variant: "error", message: result.error });
-      throw new Error(result.error);
-    }
-  }, [toast]);
+  const socialSignIn = React.useCallback(
+    async (params: unknown) => {
+      const p = params as { provider?: string; callbackURL?: string };
+      if (!p?.provider || !isHubSocialProvider(p.provider)) {
+        throw new Error(`Unsupported provider: ${String(p?.provider)}`);
+      }
+      const result = await openHubOAuth({
+        provider: p.provider,
+        mode: "sign-in",
+      });
+      if (!result.ok) {
+        toast({ variant: "error", message: result.error });
+        throw new Error(result.error);
+      }
+    },
+    [toast],
+  );
 
   return (
     <AuthUIProvider
@@ -221,8 +205,7 @@ function ConfiguredHubAuthUIProvider({ children }: HubAuthUIProviderProps) {
             } catch (e) {
               toast({
                 variant: "error",
-                message:
-                  e instanceof Error ? e.message : "Sign out failed",
+                message: e instanceof Error ? e.message : "Sign out failed",
               });
             }
           })();

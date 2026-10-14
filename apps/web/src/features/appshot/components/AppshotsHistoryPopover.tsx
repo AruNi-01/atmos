@@ -3,12 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Button, ScrollArea, Skeleton, cn } from "@workspace/ui";
-import {
-  AlertCircle,
-  Camera,
-  RefreshCw,
-  ShieldAlert,
-} from "lucide-react";
+import { AlertCircle, Camera, RefreshCw, ShieldAlert } from "lucide-react";
 import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
 import { ShortcutKeySequence } from "@/shared/components/shortcut-key-sequence";
 
@@ -24,11 +19,7 @@ import {
 } from "../lib/appshot-client";
 import { useOpenPermissionAccessSettings } from "../lib/open-desktop-use-settings";
 import { sanitizeRecordDetailPayloads } from "../lib/appshot-payload";
-import type {
-  AppshotRecordDetail,
-  AppshotRecordListItem,
-  AppshotStatus,
-} from "../types";
+import type { AppshotRecordDetail, AppshotRecordListItem, AppshotStatus } from "../types";
 import { AppshotRecordRow } from "./AppshotRecordRow";
 
 type AppshotsHistoryPopoverProps = {
@@ -43,10 +34,7 @@ const APPSHOT_CAPTURE_SHORTCUT_KEYS = ["Left ⇧", "Right ⇧"];
 /** Prefetch the next page slightly before the sentinel enters the viewport. */
 const LOAD_MORE_ROOT_MARGIN = "120px 0px";
 
-export function AppshotsHistoryPopover({
-  open,
-  onClose,
-}: AppshotsHistoryPopoverProps) {
+export function AppshotsHistoryPopover({ open, onClose }: AppshotsHistoryPopoverProps) {
   const t = useTranslations("appshot.components");
   const openPermissionAccessSettings = useOpenPermissionAccessSettings();
   const [status, setStatus] = React.useState<AppshotStatus | null>(null);
@@ -96,9 +84,7 @@ export function AppshotsHistoryPopover({
     setHistoryError(null);
     try {
       const nextRecords = await listAppshotRecords();
-      const sorted = [...nextRecords].sort((a, b) =>
-        b.timestamp.localeCompare(a.timestamp),
-      );
+      const sorted = [...nextRecords].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
       setRecords(sorted);
       setVisibleCount(PAGE_SIZE);
       // Keep detail cache for timestamps that still exist so refresh does not
@@ -213,8 +199,7 @@ export function AppshotsHistoryPopover({
   // visible detail resolves. Keep existing rows visible during soft refresh.
   const showHistorySkeleton =
     (historyLoading && records.length === 0) ||
-    (records.length > 0 &&
-      visibleRecords.every((item) => details[item.timestamp] == null));
+    (records.length > 0 && visibleRecords.every((item) => details[item.timestamp] == null));
   // Sentinel only mounts once rows render; include this so the observer attaches
   // after the first paint of real content (not while the skeleton is up).
   const listReady = !showHistorySkeleton && records.length > 0;
@@ -241,9 +226,7 @@ export function AppshotsHistoryPopover({
     }
 
     const scrollRoot =
-      (sentinel.closest(
-        '[data-slot="scroll-area-viewport"]',
-      ) as Element | null) ?? null;
+      (sentinel.closest('[data-slot="scroll-area-viewport"]') as Element | null) ?? null;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -268,23 +251,26 @@ export function AppshotsHistoryPopover({
     permissionWatcherRef.current = watchAppshotStatusAfterPermissionOpen(refreshStatus);
   }, [onClose, openPermissionAccessSettings, refreshStatus]);
 
-  const handleCopy = React.useCallback(async (timestamp: string) => {
-    setCopyingTimestamp(timestamp);
-    setCopiedTimestamp(null);
-    clearCopyResetTimer();
-    try {
-      await copyAppshotRecord(timestamp);
-      setCopiedTimestamp(timestamp);
-      copyResetTimerRef.current = window.setTimeout(() => {
-        copyResetTimerRef.current = null;
-        setCopiedTimestamp((current) => (current === timestamp ? null : current));
-      }, 1_500);
-    } catch (err) {
-      setHistoryError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setCopyingTimestamp(null);
-    }
-  }, [clearCopyResetTimer]);
+  const handleCopy = React.useCallback(
+    async (timestamp: string) => {
+      setCopyingTimestamp(timestamp);
+      setCopiedTimestamp(null);
+      clearCopyResetTimer();
+      try {
+        await copyAppshotRecord(timestamp);
+        setCopiedTimestamp(timestamp);
+        copyResetTimerRef.current = window.setTimeout(() => {
+          copyResetTimerRef.current = null;
+          setCopiedTimestamp((current) => (current === timestamp ? null : current));
+        }, 1_500);
+      } catch (err) {
+        setHistoryError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setCopyingTimestamp(null);
+      }
+    },
+    [clearCopyResetTimer],
+  );
 
   const handleDelete = React.useCallback(async (timestamp: string) => {
     setDeletingTimestamp(timestamp);
@@ -308,33 +294,36 @@ export function AppshotsHistoryPopover({
     setPreviewImage(null);
   }, []);
 
-  const handlePreview = React.useCallback(async (record: AppshotRecordDetail) => {
-    if (!record.snapshot_url) {
-      return;
-    }
-    const requestId = previewRequestRef.current + 1;
-    previewRequestRef.current = requestId;
-    const alt = t("history.previewAlt", { appName: record.metadata.app_name });
-    setPreviewImage({
-      timestamp: record.timestamp,
-      src: record.snapshot_url,
-      alt,
-    });
-    try {
-      const fullSnapshot = await readAppshotSnapshot(record.timestamp);
-      if (previewRequestRef.current === requestId) {
-        setPreviewImage({
-          timestamp: record.timestamp,
-          src: fullSnapshot.snapshot_url,
-          alt,
-        });
+  const handlePreview = React.useCallback(
+    async (record: AppshotRecordDetail) => {
+      if (!record.snapshot_url) {
+        return;
       }
-    } catch (err) {
-      if (previewRequestRef.current === requestId) {
-        setHistoryError(err instanceof Error ? err.message : String(err));
+      const requestId = previewRequestRef.current + 1;
+      previewRequestRef.current = requestId;
+      const alt = t("history.previewAlt", { appName: record.metadata.app_name });
+      setPreviewImage({
+        timestamp: record.timestamp,
+        src: record.snapshot_url,
+        alt,
+      });
+      try {
+        const fullSnapshot = await readAppshotSnapshot(record.timestamp);
+        if (previewRequestRef.current === requestId) {
+          setPreviewImage({
+            timestamp: record.timestamp,
+            src: fullSnapshot.snapshot_url,
+            alt,
+          });
+        }
+      } catch (err) {
+        if (previewRequestRef.current === requestId) {
+          setHistoryError(err instanceof Error ? err.message : String(err));
+        }
       }
-    }
-  }, [t]);
+    },
+    [t],
+  );
 
   return (
     <div className="flex min-h-0 flex-col gap-3">
@@ -356,7 +345,9 @@ export function AppshotsHistoryPopover({
             }}
             className="cursor-pointer"
           >
-            <RefreshCw className={cn("size-3", (statusLoading || historyLoading) && "animate-spin")} />
+            <RefreshCw
+              className={cn("size-3", (statusLoading || historyLoading) && "animate-spin")}
+            />
           </Button>
         </div>
         <p className="text-xs leading-relaxed text-muted-foreground">
@@ -416,7 +407,9 @@ export function AppshotsHistoryPopover({
 
       <div className="flex min-h-0 flex-col gap-2">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-medium text-popover-foreground">{t("history.recentRecords")}</p>
+          <p className="text-xs font-medium text-popover-foreground">
+            {t("history.recentRecords")}
+          </p>
           {records.length > 0 ? (
             <Badge variant="outline" className="rounded-md text-[10px] font-normal">
               {records.length}
@@ -432,11 +425,7 @@ export function AppshotsHistoryPopover({
           <div className="space-y-2" aria-busy={showHistorySkeleton || detailLoading}>
             {showHistorySkeleton ? (
               <HistorySkeleton
-                count={
-                  records.length > 0
-                    ? Math.min(visibleRecords.length, PAGE_SIZE)
-                    : 3
-                }
+                count={records.length > 0 ? Math.min(visibleRecords.length, PAGE_SIZE) : 3}
               />
             ) : records.length === 0 ? (
               <div className="rounded-md border border-border bg-muted/20 px-3 py-6 text-center text-xs text-muted-foreground">
@@ -490,7 +479,10 @@ function InlineError({ message }: { message: string }) {
   const t = useTranslations("appshot.components");
   return (
     <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-      <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-label={t("history.errorIconAriaLabel")} />
+      <AlertCircle
+        className="mt-0.5 size-3.5 shrink-0"
+        aria-label={t("history.errorIconAriaLabel")}
+      />
       <span className="min-w-0 break-words">{message}</span>
     </div>
   );

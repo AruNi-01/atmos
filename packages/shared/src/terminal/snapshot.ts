@@ -55,11 +55,16 @@ export function isInlineMouseTuiCommand(cmd: string): boolean {
 }
 
 /** Whether reattach hydration should re-enable xterm mouse tracking modes. */
-export function shouldRestoreTuiMouseTracking(snapshot: Pick<
-  TerminalSnapshot,
-  "alternate" | "restore_mouse_tracking" | "mouse_tracking_sequence"
->): boolean {
-  if (typeof snapshot.mouse_tracking_sequence === "string" && snapshot.mouse_tracking_sequence.length > 0) {
+export function shouldRestoreTuiMouseTracking(
+  snapshot: Pick<
+    TerminalSnapshot,
+    "alternate" | "restore_mouse_tracking" | "mouse_tracking_sequence"
+  >,
+): boolean {
+  if (
+    typeof snapshot.mouse_tracking_sequence === "string" &&
+    snapshot.mouse_tracking_sequence.length > 0
+  ) {
     return true;
   }
   // Fullscreen TUIs always need mouse after reattach even if a stale
@@ -74,11 +79,16 @@ export function shouldRestoreTuiMouseTracking(snapshot: Pick<
 }
 
 /** Exact or default DECSET sequence for post-hydrate mouse restore. */
-export function mouseTrackingRestoreSequence(snapshot: Pick<
-  TerminalSnapshot,
-  "alternate" | "restore_mouse_tracking" | "mouse_tracking_sequence"
->): string {
-  if (typeof snapshot.mouse_tracking_sequence === "string" && snapshot.mouse_tracking_sequence.length > 0) {
+export function mouseTrackingRestoreSequence(
+  snapshot: Pick<
+    TerminalSnapshot,
+    "alternate" | "restore_mouse_tracking" | "mouse_tracking_sequence"
+  >,
+): string {
+  if (
+    typeof snapshot.mouse_tracking_sequence === "string" &&
+    snapshot.mouse_tracking_sequence.length > 0
+  ) {
     return snapshot.mouse_tracking_sequence;
   }
   return shouldRestoreTuiMouseTracking(snapshot) ? ENABLE_TUI_MOUSE_TRACKING : "";
@@ -96,8 +106,7 @@ export function buildTerminalSnapshotRestorePayload(snapshot: TerminalSnapshot):
   const clearScrollback = useAlternateScreen ? "" : "\x1b[3J";
   // After replaying cells for an inline mouse TUI, clear scrollback again so a
   // tall capture of prior TUI frames does not accumulate under the viewport.
-  const postHydrateScrollbackClear =
-    !useAlternateScreen && restoreMouseTracking ? "\x1b[3J" : "";
+  const postHydrateScrollbackClear = !useAlternateScreen && restoreMouseTracking ? "\x1b[3J" : "";
   const clearScreen = `${screenMode}\x1b[H\x1b[2J${clearScrollback}`;
   const data = normalizeSnapshotData(snapshot.data);
   const cursorRestore = `\x1b[${snapshot.cursor_y + 1};${snapshot.cursor_x + 1}H`;
@@ -108,4 +117,3 @@ export function buildTerminalSnapshotRestorePayload(snapshot: TerminalSnapshot):
     restoreMouseTracking,
   };
 }
-

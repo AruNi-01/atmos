@@ -21,9 +21,7 @@ const targets = [
 ] as const;
 
 function resolveTscBin(): string {
-  const candidates = [
-    join(root, "node_modules", "@typescript", "native", "bin", "tsc"),
-  ];
+  const candidates = [join(root, "node_modules", "@typescript", "native", "bin", "tsc")];
   for (const candidate of candidates) {
     if (existsSync(candidate)) return candidate;
   }
@@ -33,11 +31,10 @@ function resolveTscBin(): string {
 function runTsc(bin: string, cwd: string, checkers: number): Promise<number> {
   const started = performance.now();
   return new Promise((resolve, reject) => {
-    const child = spawn(
-      bin,
-      ["--noEmit", "--checkers", String(checkers)],
-      { cwd, stdio: "inherit" },
-    );
+    const child = spawn(bin, ["--noEmit", "--checkers", String(checkers)], {
+      cwd,
+      stdio: "inherit",
+    });
     child.on("exit", (code) => {
       if (code !== 0) reject(new Error(`tsc failed in ${cwd} with code ${code}`));
       else resolve(performance.now() - started);

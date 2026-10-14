@@ -1,11 +1,7 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it } from "bun:test";
 
-import {
-  OBSERVER_MOTION_MS,
-  nextTimedExits,
-  observerStaggerMs,
-} from "../observer-graph-motion";
+import { OBSERVER_MOTION_MS, nextTimedExits, observerStaggerMs } from "../observer-graph-motion";
 
 describe("observer graph motion", () => {
   it("keeps removed items until the exit window ends", () => {

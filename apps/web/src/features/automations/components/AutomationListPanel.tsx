@@ -124,7 +124,10 @@ export function AutomationListPanel({
   onSearchQueryChange: (value: string) => void;
   onSelectRun: (guid: string) => void;
   onViewRuns: (guid: string) => void;
-  onRunAction: (action: "run" | "pause" | "resume" | "delete", automation: AutomationSummary) => Promise<void>;
+  onRunAction: (
+    action: "run" | "pause" | "resume" | "delete",
+    automation: AutomationSummary,
+  ) => Promise<void>;
   onToggleEnabled: (automation: AutomationSummary, enabled: boolean) => Promise<void>;
 }) {
   const t = useTranslations("automation.listPanel");
@@ -168,14 +171,16 @@ export function AutomationListPanel({
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background/50">
       <ScrollArea className="min-h-0 flex-1" scrollFade>
         <div className="mx-auto w-full max-w-6xl px-6 sm:px-8">
-          <div className="space-y-2 pb-8 pt-10">
+          <div className="space-y-2 pt-10 pb-8">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <Timer className="size-5" />
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-2xl font-bold tracking-tight text-foreground">{t("title")}</h2>
+                  <h2 className="text-2xl font-bold tracking-tight text-foreground">
+                    {t("title")}
+                  </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {listTab === "history"
                       ? t("historySummary", { runCount: runs.length })
@@ -190,18 +195,16 @@ export function AutomationListPanel({
             </div>
           </div>
 
-          <div className="sticky top-0 z-10 -mx-4 bg-background/85 px-4 pb-6 pt-2 backdrop-blur-md sm:-mx-8 sm:px-8">
+          <div className="sticky top-0 z-10 -mx-4 bg-background/85 px-4 pt-2 pb-6 backdrop-blur-md sm:-mx-8 sm:px-8">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex min-w-0 flex-1 items-center gap-2">
-                <div className="relative group min-w-0 flex-1">
-                  <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary" />
+                <div className="group relative min-w-0 flex-1">
+                  <Search className="absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary" />
                   <Input
                     value={searchQuery}
                     onChange={(event) => onSearchQueryChange(event.target.value)}
                     placeholder={
-                      listTab === "history"
-                        ? t("searchRunsPlaceholder")
-                        : t("searchPlaceholder")
+                      listTab === "history" ? t("searchRunsPlaceholder") : t("searchPlaceholder")
                     }
                     className="h-11 rounded-xl border-border/50 bg-muted/20 pl-10 shadow-sm transition-all focus:bg-background focus-visible:ring-1 focus-visible:ring-primary/20"
                   />
@@ -323,7 +326,11 @@ export function AutomationListPanel({
                 setDeleteTarget(null);
               }}
             >
-              {deleteBusy ? <LoaderCircle className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+              {deleteBusy ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <Trash2 className="size-4" />
+              )}
               {t("deleteDialog.confirm")}
             </Button>
           </div>
@@ -387,8 +394,14 @@ function AutomationListRow({
             <h3 className="truncate text-sm font-semibold text-foreground group-hover:text-primary">
               {automation.display_name}
             </h3>
-            {isAutomationPaused(automation) ? <Badge variant="outline">{t("row.paused")}</Badge> : null}
-            {status ? <StatusBadge status={status.status} /> : <Badge variant="secondary">{t("row.neverRun")}</Badge>}
+            {isAutomationPaused(automation) ? (
+              <Badge variant="outline">{t("row.paused")}</Badge>
+            ) : null}
+            {status ? (
+              <StatusBadge status={status.status} />
+            ) : (
+              <Badge variant="secondary">{t("row.neverRun")}</Badge>
+            )}
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
             <span className="inline-flex min-w-0 items-center gap-1">
@@ -451,8 +464,17 @@ function AutomationListRow({
         </Button>
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-9" aria-label={t("row.actionsAria")}>
-              {deleteBusy ? <LoaderCircle className="size-4 animate-spin" /> : <Ellipsis className="size-4" />}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-9"
+              aria-label={t("row.actionsAria")}
+            >
+              {deleteBusy ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <Ellipsis className="size-4" />
+              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
@@ -496,9 +518,7 @@ function EmptyAutomationList({
     <PageEmptyState
       icon={showFilteredEmpty ? <IconSearch /> : <IconTimeCircle />}
       title={showFilteredEmpty ? t("empty.queryTitle") : t("empty.defaultTitle")}
-      description={
-        showFilteredEmpty ? t("empty.queryDescription") : t("empty.defaultDescription")
-      }
+      description={showFilteredEmpty ? t("empty.queryDescription") : t("empty.defaultDescription")}
       actions={
         <>
           {showFilteredEmpty ? (
@@ -516,5 +536,3 @@ function EmptyAutomationList({
     />
   );
 }
-
-

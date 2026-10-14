@@ -146,12 +146,12 @@ Add `controls.json` next to `lottie.json` when labels or numeric ranges matter:
 
 Slot value types map to controls:
 
-| Slot value | Control |
-| --- | --- |
-| number | slider |
-| RGBA array `0..1` | color picker |
-| two-number array | two number inputs |
-| string text slot | text input |
+| Slot value        | Control           |
+| ----------------- | ----------------- |
+| number            | slider            |
+| RGBA array `0..1` | color picker      |
+| two-number array  | two number inputs |
+| string text slot  | text input        |
 
 Slot types must match the properties that reference them.
 

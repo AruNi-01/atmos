@@ -8,21 +8,21 @@
 
 ## Coverage Map
 
-| Scenario | Requirement |
-|----------|-------------|
-| S1 | `e2e` workspace is installable and typechecks. |
-| S2 | Playwright can start or reuse the web app. |
-| S3 | Smoke test reaches `/en/setup` and validates setup controls on Chromium. |
-| S4 | Specs guidance points future E2E scenarios to the harness and commands. |
+| Scenario | Requirement                                                              |
+| -------- | ------------------------------------------------------------------------ |
+| S1       | `e2e` workspace is installable and typechecks.                           |
+| S2       | Playwright can start or reuse the web app.                               |
+| S3       | Smoke test reaches `/en/setup` and validates setup controls on Chromium. |
+| S4       | Specs guidance points future E2E scenarios to the harness and commands.  |
 
 ## Execution Map
 
-| Scenario | Level | Tool | Command | Signals | Status |
-|----------|-------|------|---------|---------|--------|
-| S1 | Harness | TypeScript | `bun run --cwd e2e lint` | `tsc --noEmit` exits 0 | passed |
-| S2 | Harness | Playwright | `just test-e2e-smoke` | web server starts/reuses successfully | passed |
-| S3 | E2E smoke | Playwright | `just test-e2e-smoke` | `/en/setup` renders tabs/buttons without page or console errors | passed |
-| S4 | Docs | Review | inspect `specs/AGENTS.md`, `e2e/README.md`, `e2e/AGENTS.md` | future agents know placement and commands | passed |
+| Scenario | Level     | Tool       | Command                                                     | Signals                                                         | Status |
+| -------- | --------- | ---------- | ----------------------------------------------------------- | --------------------------------------------------------------- | ------ |
+| S1       | Harness   | TypeScript | `bun run --cwd e2e lint`                                    | `tsc --noEmit` exits 0                                          | passed |
+| S2       | Harness   | Playwright | `just test-e2e-smoke`                                       | web server starts/reuses successfully                           | passed |
+| S3       | E2E smoke | Playwright | `just test-e2e-smoke`                                       | `/en/setup` renders tabs/buttons without page or console errors | passed |
+| S4       | Docs      | Review     | inspect `specs/AGENTS.md`, `e2e/README.md`, `e2e/AGENTS.md` | future agents know placement and commands                       | passed |
 
 ## Scenarios
 

@@ -8,11 +8,11 @@
 
 Pick exactly one based on what the feature ships to:
 
-| Zone | Use when the feature lives in | Prefix |
-|------|-------------------------------|--------|
-| `APP/` | `apps/web`, `apps/desktop`, `apps/cli`, `apps/api`, shared `crates/` | `APP-NNN` |
-| `Landing/` | `apps/landing` | `Landing-NNN` |
-| `Docs/` | `apps/docs` | `Docs-NNN` |
+| Zone       | Use when the feature lives in                                        | Prefix        |
+| ---------- | -------------------------------------------------------------------- | ------------- |
+| `APP/`     | `apps/web`, `apps/desktop`, `apps/cli`, `apps/api`, shared `crates/` | `APP-NNN`     |
+| `Landing/` | `apps/landing`                                                       | `Landing-NNN` |
+| `Docs/`    | `apps/docs`                                                          | `Docs-NNN`    |
 
 If a feature spans multiple apps inside Atmos (e.g. web + desktop + api), it is still **APP**.
 
@@ -44,12 +44,12 @@ Conventions:
 
 ## 3. The Four Files (always all four)
 
-| File | Purpose | Typical length |
-|------|---------|----------------|
-| `BRAINSTORM.md` | Problem space, options, open questions | Short, iterative |
-| `PRD.md` | **WHAT & WHY**: users, features, metrics, scope | Medium |
-| `TECH.md` | **HOW**: architecture, data, APIs, rollout | Medium to long |
-| `TEST.md` | Executable verification contract: strategy, scenario map, acceptance criteria, and post-run coverage status | Short to medium |
+| File            | Purpose                                                                                                     | Typical length   |
+| --------------- | ----------------------------------------------------------------------------------------------------------- | ---------------- |
+| `BRAINSTORM.md` | Problem space, options, open questions                                                                      | Short, iterative |
+| `PRD.md`        | **WHAT & WHY**: users, features, metrics, scope                                                             | Medium           |
+| `TECH.md`       | **HOW**: architecture, data, APIs, rollout                                                                  | Medium to long   |
+| `TEST.md`       | Executable verification contract: strategy, scenario map, acceptance criteria, and post-run coverage status | Short to medium  |
 
 Rules:
 
@@ -87,8 +87,8 @@ Keep the layers honest:
 
 Some specs—especially long-lived integrations—benefit from a **fifth sibling file** that is **not** part of the planning quartet:
 
-| File | Purpose |
-|------|---------|
+| File             | Purpose                                                                  |
+| ---------------- | ------------------------------------------------------------------------ |
 | `IMPROVEMENT.md` | **After ship**: incidents, parity gaps, mitigations, results, follow-ups |
 
 **When to add**
@@ -123,8 +123,8 @@ When creating or refreshing an `IMPROVEMENT.md`, load the template on demand fro
 
 Some specs benefit from a tracked `PROGRESS.md` once implementation begins or is about to begin. It is **not** part of the planning quartet and is **not** a requirements source.
 
-| File | Purpose |
-|------|---------|
+| File          | Purpose                                                                                                   |
+| ------------- | --------------------------------------------------------------------------------------------------------- |
 | `PROGRESS.md` | **During implementation**: current state, handoff notes, blockers, changed areas, and verification status |
 
 **When to add**
@@ -159,8 +159,8 @@ When creating or refreshing a `PROGRESS.md`, load the template on demand from [`
 
 Some specs benefit from a tracked `REVIEW.md` after code implementation reaches review. It is **not** part of the planning quartet and is **not** a requirements source.
 
-| File | Purpose |
-|------|---------|
+| File        | Purpose                                                                                                                                 |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `REVIEW.md` | **After implementation**: functional completeness, architecture, maintainability, testability, code size, and review-finding fix status |
 
 **When to add**
@@ -254,10 +254,10 @@ Then:
 
 Prefer **Mermaid** fenced blocks in the Markdown file so GitHub / editors render them; use `specs/<ZONE>/<SPEC>/assets/` only when you need exported PNG/SVG from external tools.
 
-| File | Include diagrams when they clarify… | Typical diagram types |
-|------|-------------------------------------|------------------------|
-| **`PRD.md`** | **Product behavior** — how users or operators move through the feature | **Business process** flows (activities / swimlanes), **state** diagrams for user-visible lifecycles (e.g. enrollment, pairing), decision flows for scope-critical branches |
-| **`TECH.md`** | **Engineering design** — structure, protocols, and data | **Architecture** (components, deployment boundaries), **flowcharts** for pipelines or control logic, **sequence diagrams** for APIs / WS / cross-service calls, **ER diagrams** (or equivalent relational schema sketches) **whenever persistence / migrations matter** |
+| File          | Include diagrams when they clarify…                                    | Typical diagram types                                                                                                                                                                                                                                                   |
+| ------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`PRD.md`**  | **Product behavior** — how users or operators move through the feature | **Business process** flows (activities / swimlanes), **state** diagrams for user-visible lifecycles (e.g. enrollment, pairing), decision flows for scope-critical branches                                                                                              |
+| **`TECH.md`** | **Engineering design** — structure, protocols, and data                | **Architecture** (components, deployment boundaries), **flowcharts** for pipelines or control logic, **sequence diagrams** for APIs / WS / cross-service calls, **ER diagrams** (or equivalent relational schema sketches) **whenever persistence / migrations matter** |
 
 `BRAINSTORM.md` may use informal sketches optionally; `TEST.md` may reference TECH diagrams instead of duplicating them.
 
@@ -265,12 +265,12 @@ Prefer **Mermaid** fenced blocks in the Markdown file so GitHub / editors render
 
 ## 7. Relationship to Other Docs
 
-| Location | Role |
-|----------|------|
-| `specs/` (this tree) | What we plan to build and how |
-| `docs/` | Stable architecture, ADRs, reference material |
-| `AGENTS.md` (repo root) | How agents work across the whole repo |
-| Package-level `AGENTS.md` | Conventions inside a specific crate/app |
+| Location                  | Role                                          |
+| ------------------------- | --------------------------------------------- |
+| `specs/` (this tree)      | What we plan to build and how                 |
+| `docs/`                   | Stable architecture, ADRs, reference material |
+| `AGENTS.md` (repo root)   | How agents work across the whole repo         |
+| Package-level `AGENTS.md` | Conventions inside a specific crate/app       |
 
 When something in `specs/` ships and stabilizes, migrate the enduring parts into `docs/`. Do not duplicate.
 
@@ -288,7 +288,7 @@ When something in `specs/` ships and stabilizes, migrate the enduring parts into
 - [ ] `README.md` **Current Specs** table updated.
 - [ ] Links to related code / specs are relative and valid.
 - [ ] No secrets, customer data, or internal URLs.
-- [ ] PRD states scope *and* non-scope; includes **diagrams as needed** (business flows, user-visible states — see §6 Diagrams).
+- [ ] PRD states scope _and_ non-scope; includes **diagrams as needed** (business flows, user-visible states — see §6 Diagrams).
 - [ ] TECH lists risks; includes **diagrams as needed** (architecture, flows, sequences, persistence ER/schema — see §6 Diagrams).
 - [ ] TEST maps PRD Must Haves to scenario ids, includes an execution map, names observable signals, lists acceptance criteria, and separates executable coverage from agent-browser/manual exploratory checks.
 

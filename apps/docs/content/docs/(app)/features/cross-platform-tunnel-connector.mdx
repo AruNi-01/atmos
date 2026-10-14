@@ -11,11 +11,11 @@ Tunnel Connector is desktop-only. It exposes the current computer's local Atmos 
 
 Use these when you are working on the same machine that runs Atmos:
 
-| Client | How it connects |
-|--------|-----------------|
-| **Desktop app** | Starts and talks to the local Atmos runtime automatically |
-| **Local web** | Opens the same local runtime from a browser |
-| **CLI** | Resolves the active Atmos runtime and sends commands to it |
+| Client          | How it connects                                            |
+| --------------- | ---------------------------------------------------------- |
+| **Desktop app** | Starts and talks to the local Atmos runtime automatically  |
+| **Local web**   | Opens the same local runtime from a browser                |
+| **CLI**         | Resolves the active Atmos runtime and sends commands to it |
 
 Local clients do not require a public URL or a tunnel provider.
 
@@ -31,11 +31,11 @@ Use it when you want to:
 
 ## Supported Providers
 
-| Provider | Typical use |
-|----------|-------------|
-| **Tailscale** | Private access across devices in your tailnet |
+| Provider              | Typical use                                                  |
+| --------------------- | ------------------------------------------------------------ |
+| **Tailscale**         | Private access across devices in your tailnet                |
 | **Cloudflare Tunnel** | Temporary public HTTPS links through Cloudflare Quick Tunnel |
-| **ngrok** | Quick public HTTPS links for demos and short-lived sharing |
+| **ngrok**             | Quick public HTTPS links for demos and short-lived sharing   |
 
 Each provider runs as its own connector. Atmos manages the local gateway, session token, status, expiry, and share URL from one place.
 

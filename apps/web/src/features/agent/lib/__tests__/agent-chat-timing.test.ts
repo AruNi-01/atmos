@@ -40,36 +40,42 @@ describe("formatWorkDuration", () => {
 describe("snapshotLiveElapsedMs", () => {
   it("uses the server worked_ms on a streaming assistant as the source of truth", () => {
     expect(
-      snapshotLiveElapsedMs({
-        running_turn_started_at: "2026-08-30T00:00:00.000Z",
-        messages: [
-          {
-            id: "a1",
-            role: "assistant",
-            parts: [{ type: "text", text: "hi" }],
-            streaming: true,
-            worked_ms: 14_000,
-            thinking_ms: 4_000,
-          },
-        ],
-      }, Date.parse("2026-08-30T00:00:30.000Z")),
+      snapshotLiveElapsedMs(
+        {
+          running_turn_started_at: "2026-08-30T00:00:00.000Z",
+          messages: [
+            {
+              id: "a1",
+              role: "assistant",
+              parts: [{ type: "text", text: "hi" }],
+              streaming: true,
+              worked_ms: 14_000,
+              thinking_ms: 4_000,
+            },
+          ],
+        },
+        Date.parse("2026-08-30T00:00:30.000Z"),
+      ),
     ).toBe(14_000);
   });
 
   it("falls back to running_turn_started_at when worked_ms is missing", () => {
     const now = Date.parse("2026-08-30T00:00:20.000Z");
     expect(
-      snapshotLiveElapsedMs({
-        running_turn_started_at: "2026-08-30T00:00:00.000Z",
-        messages: [
-          {
-            id: "a1",
-            role: "assistant",
-            parts: [{ type: "thinking", text: "hmm" }],
-            streaming: true,
-          },
-        ],
-      }, now),
+      snapshotLiveElapsedMs(
+        {
+          running_turn_started_at: "2026-08-30T00:00:00.000Z",
+          messages: [
+            {
+              id: "a1",
+              role: "assistant",
+              parts: [{ type: "thinking", text: "hmm" }],
+              streaming: true,
+            },
+          ],
+        },
+        now,
+      ),
     ).toBe(20_000);
   });
 
@@ -147,9 +153,7 @@ describe("formatUserMessageTime", () => {
 
 describe("promptToCompleteMs", () => {
   it("returns the span from prompt send to reply complete", () => {
-    expect(
-      promptToCompleteMs("2026-04-01T10:00:01.000Z", "2026-04-01T10:00:09.000Z"),
-    ).toBe(8_000);
+    expect(promptToCompleteMs("2026-04-01T10:00:01.000Z", "2026-04-01T10:00:09.000Z")).toBe(8_000);
     expect(
       promptToCompleteMs("2026-04-01T10:00:09.000Z", "2026-04-01T10:00:01.000Z"),
     ).toBeUndefined();

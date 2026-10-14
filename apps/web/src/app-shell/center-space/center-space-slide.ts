@@ -37,9 +37,9 @@ function startViewTransition(update: () => void): ViewTransitionLike | null {
 
 function visibleCenterCards(): HTMLElement[] {
   if (typeof document === "undefined") return [];
-  return Array.from(
-    document.querySelectorAll<HTMLElement>("[data-center-stage-card]"),
-  ).filter((card) => card.getClientRects().length > 0);
+  return Array.from(document.querySelectorAll<HTMLElement>("[data-center-stage-card]")).filter(
+    (card) => card.getClientRects().length > 0,
+  );
 }
 
 function setVtName(el: HTMLElement | null | undefined, name: string): void {

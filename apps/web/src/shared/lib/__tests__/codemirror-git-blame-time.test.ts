@@ -1,10 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { enUS } from "date-fns/locale";
 import { format, fromUnixTime } from "date-fns";
-import {
-  formatBlameAbsolute,
-  formatBlameWhen,
-} from "@/shared/lib/codemirror-git-blame-time";
+import { formatBlameAbsolute, formatBlameWhen } from "@/shared/lib/codemirror-git-blame-time";
 
 describe("formatBlameWhen", () => {
   test("joins relative time with local-timezone wall clock", () => {

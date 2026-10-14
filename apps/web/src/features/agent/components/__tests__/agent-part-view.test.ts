@@ -11,14 +11,8 @@ describe("agent part markdown rendering", () => {
     expect(view).toContain("components={reviewComponents as never}");
     expect(view).toContain("linkSafety={CONVERSATION_LINK_SAFETY}");
     const thinkingAt = view.indexOf('part.type === "thinking"');
-    const thinkingComponentsAt = view.indexOf(
-      "components={reviewComponents as never}",
-      thinkingAt,
-    );
-    const thinkingLinkSafetyAt = view.indexOf(
-      "linkSafety={CONVERSATION_LINK_SAFETY}",
-      thinkingAt,
-    );
+    const thinkingComponentsAt = view.indexOf("components={reviewComponents as never}", thinkingAt);
+    const thinkingLinkSafetyAt = view.indexOf("linkSafety={CONVERSATION_LINK_SAFETY}", thinkingAt);
     expect(thinkingAt).toBeGreaterThan(-1);
     expect(thinkingComponentsAt).toBeGreaterThan(thinkingAt);
     expect(thinkingLinkSafetyAt).toBeGreaterThan(thinkingAt);
@@ -39,7 +33,7 @@ describe("agent part markdown rendering", () => {
   it("renders historic permission parts as read-only cards", () => {
     expect(view).toContain("useHistoricPermissionParts");
     expect(view).toContain("readOnly");
-    expect(view).toContain('onRespond={() => {}}');
+    expect(view).toContain("onRespond={() => {}}");
   });
 
   it("hides live plan-mode chrome that already lives above the composer", () => {

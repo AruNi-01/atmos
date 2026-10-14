@@ -29,9 +29,7 @@ export function toBoundedScreenshotDataUrl(payload: string | null): string | nul
     return null;
   }
 
-  const dataUrl = payload.startsWith("data:")
-    ? payload
-    : `data:image/png;base64,${payload}`;
+  const dataUrl = payload.startsWith("data:") ? payload : `data:image/png;base64,${payload}`;
 
   if (dataUrl.length > MAX_INLINE_APPSHOT_IMAGE_CHARS) {
     return null;
@@ -58,9 +56,7 @@ export function sanitizePendingPreviewPayload(
   };
 }
 
-export function sanitizeRecordDetailPayload(
-  detail: AppshotRecordDetail,
-): AppshotRecordDetail {
+export function sanitizeRecordDetailPayload(detail: AppshotRecordDetail): AppshotRecordDetail {
   if (!detail.snapshot_url || toBoundedScreenshotDataUrl(detail.snapshot_url)) {
     return detail;
   }

@@ -1,14 +1,10 @@
 /** Normalize GitHub Actions run/job status strings. */
-export function normalizeActionStatus(
-  value: string | null | undefined,
-): string {
+export function normalizeActionStatus(value: string | null | undefined): string {
   return (value ?? "").trim().toLowerCase();
 }
 
 /** Actively executing (blue spinner). */
-export function isActionInProgress(
-  status: string | null | undefined,
-): boolean {
+export function isActionInProgress(status: string | null | undefined): boolean {
   return normalizeActionStatus(status) === "in_progress";
 }
 
@@ -16,9 +12,7 @@ export function isActionInProgress(
  * Waiting to start / waiting for a runner / approval — not running yet.
  * Visually distinct from in_progress (static clock, amber).
  */
-export function isActionQueuedOrPending(
-  status: string | null | undefined,
-): boolean {
+export function isActionQueuedOrPending(status: string | null | undefined): boolean {
   const s = normalizeActionStatus(status);
   return (
     s === "queued" ||

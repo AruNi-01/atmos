@@ -7,14 +7,7 @@
  * non-darwin).
  */
 import { execFileSync } from "node:child_process";
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -63,12 +56,8 @@ function stageDarwinDevApp(electronBin: string): string {
   const iconPath = resolveIconIcns();
 
   const markerWanted = `${electronBin}\n${iconPath ?? ""}\n${PRODUCT_NAME}\n${DEV_BUNDLE_ID}\n`;
-  const markerHave = existsSync(markerPath)
-    ? readFileSync(markerPath, "utf8")
-    : "";
-  const appPresent = existsSync(
-    join(destApp, "Contents/MacOS/Electron"),
-  );
+  const markerHave = existsSync(markerPath) ? readFileSync(markerPath, "utf8") : "";
+  const appPresent = existsSync(join(destApp, "Contents/MacOS/Electron"));
 
   if (!appPresent || markerHave !== markerWanted) {
     console.log(`[prepare-dev-app] staging branded app → ${destApp}`);
@@ -84,11 +73,7 @@ function stageDarwinDevApp(electronBin: string): string {
   }
 
   const plutilReplace = (key: string, value: string) => {
-    execFileSync(
-      "plutil",
-      ["-replace", key, "-string", value, plist],
-      { stdio: "pipe" },
-    );
+    execFileSync("plutil", ["-replace", key, "-string", value, plist], { stdio: "pipe" });
   };
 
   try {
@@ -107,18 +92,14 @@ function stageDarwinDevApp(electronBin: string): string {
     },
   ]);
   try {
-    execFileSync(
-      "plutil",
-      ["-replace", "CFBundleURLTypes", "-json", urlTypes, plist],
-      { stdio: "pipe" },
-    );
+    execFileSync("plutil", ["-replace", "CFBundleURLTypes", "-json", urlTypes, plist], {
+      stdio: "pipe",
+    });
   } catch {
     try {
-      execFileSync(
-        "plutil",
-        ["-insert", "CFBundleURLTypes", "-json", urlTypes, plist],
-        { stdio: "pipe" },
-      );
+      execFileSync("plutil", ["-insert", "CFBundleURLTypes", "-json", urlTypes, plist], {
+        stdio: "pipe",
+      });
     } catch (e) {
       console.warn("[prepare-dev-app] CFBundleURLTypes patch failed", e);
     }
@@ -131,9 +112,7 @@ function stageDarwinDevApp(electronBin: string): string {
       console.warn("[prepare-dev-app] copy icns failed", e);
     }
   } else {
-    console.warn(
-      "[prepare-dev-app] icon.icns missing — run bun run sync-icons",
-    );
+    console.warn("[prepare-dev-app] icon.icns missing — run bun run sync-icons");
   }
 
   // Drop quarantine so a copied .app launches without Gatekeeper prompts.
@@ -149,9 +128,7 @@ function stageDarwinDevApp(electronBin: string): string {
     console.warn("[prepare-dev-app] staged binary missing; using stock");
     return electronBin;
   }
-  console.log(
-    `[prepare-dev-app] ready: ${PRODUCT_NAME} (${DEV_BUNDLE_ID})`,
-  );
+  console.log(`[prepare-dev-app] ready: ${PRODUCT_NAME} (${DEV_BUNDLE_ID})`);
   return stagedBin;
 }
 

@@ -57,22 +57,30 @@ bun install
 Atmos 采用前后端分离架构，你需要分别启动两个核心服务。
 
 ### 1. 启动后端 API 服务
+
 在一个新的终端窗口中运行：
+
 ```bash
 just dev-api
 ```
+
 **它会做什么？**
+
 - 自动编译 Rust 后端代码。
 - 初始化本地 SQLite 数据库 (`atmos.db`)。
 - 执行数据库迁移，准备好基础表结构。
 - 在 `http://127.0.0.1:8080` 开启 API 服务。
 
 ### 2. 启动前端 Web 应用
+
 在另一个终端窗口中运行：
+
 ```bash
 just dev-web
 ```
+
 **它会做什么？**
+
 - 启动 Next.js 开发服务器。
 - 在 `http://localhost:3000` 开启用户界面。
 
@@ -107,12 +115,15 @@ sequenceDiagram
 ## 常见问题排查 (FAQ)
 
 ### 1. 数据库连接失败？
+
 检查项目根目录是否有写入权限。Atmos 默认在根目录创建 `atmos.db` 文件。
 
 ### 2. 终端显示“Tmux not found”？
+
 虽然 Atmos 支持纯 PTY 模式，但为了最佳体验，建议安装 Tmux。你可以通过 `brew install tmux` (macOS) 或 `sudo apt install tmux` (Ubuntu) 进行安装。
 
 ### 3. 端口冲突？
+
 如果 8080 或 3000 端口已被占用，你可以在 `.env` 文件中修改 `PORT` 变量。
 
 ## 下一步行动

@@ -17,7 +17,9 @@ describe("pressableButtonRoot", () => {
 
   test("accepts only the nearest PT button node", () => {
     const button = typed("button");
-    expect(pressableButtonRoot({ button: 0, target: button as never })).toBe(button as unknown as HTMLElement);
+    expect(pressableButtonRoot({ button: 0, target: button as never })).toBe(
+      button as unknown as HTMLElement,
+    );
     expect(INTERACT_PRESS_NODE_TYPE).toBe("button");
   });
 

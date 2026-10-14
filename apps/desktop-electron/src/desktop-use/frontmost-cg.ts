@@ -43,15 +43,7 @@ function resolveFrontmostBinary(): string | null {
     candidates.push(join(appPath, "resources", "bin", name));
     if (typeof process.resourcesPath === "string" && process.resourcesPath) {
       candidates.push(join(process.resourcesPath, "bin", name));
-      candidates.push(
-        join(
-          process.resourcesPath,
-          "app.asar.unpacked",
-          "resources",
-          "bin",
-          name,
-        ),
-      );
+      candidates.push(join(process.resourcesPath, "app.asar.unpacked", "resources", "bin", name));
     }
   } catch {
     /* not electron / tests */
@@ -63,9 +55,7 @@ function resolveFrontmostBinary(): string | null {
   } catch {
     /* ignore */
   }
-  candidates.push(
-    join(process.cwd(), "apps/desktop-electron/resources/bin", name),
-  );
+  candidates.push(join(process.cwd(), "apps/desktop-electron/resources/bin", name));
   candidates.push(join(process.cwd(), "resources/bin", name));
   for (const p of candidates) {
     if (existsSync(p)) return p;
@@ -87,8 +77,7 @@ export function parseCgFrontmostJson(raw: string): DesktopUseFrontmost | null {
   const rawW = typeof parsed.width === "number" ? parsed.width : null;
   const rawH = typeof parsed.height === "number" ? parsed.height : null;
   // Both edges must be usable content size (reject title-bar strips).
-  const usable =
-    rawW != null && rawH != null && rawW >= 64 && rawH >= 64;
+  const usable = rawW != null && rawH != null && rawW >= 64 && rawH >= 64;
   return {
     appName,
     windowTitle: parsed.window_title?.trim() || null,

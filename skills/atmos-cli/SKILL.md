@@ -36,14 +36,14 @@ Not this skill: Device Preview phone → `atmos-device-preview`. Automation comp
 
 Every command prints **one JSON object** to stdout:
 
-| Field | Meaning |
-|-------|---------|
-| `ok` | success |
-| `command` | what ran |
-| `result` | payload when `ok` |
-| `error.code` / `error.message` | when failed |
-| `fix` | plain-language recovery |
-| `next_actions` | suggested next commands (templates + params) |
+| Field                          | Meaning                                      |
+| ------------------------------ | -------------------------------------------- |
+| `ok`                           | success                                      |
+| `command`                      | what ran                                     |
+| `result`                       | payload when `ok`                            |
+| `error.code` / `error.message` | when failed                                  |
+| `fix`                          | plain-language recovery                      |
+| `next_actions`                 | suggested next commands (templates + params) |
 
 Exit code `0` iff `ok: true`. Prefer following `next_actions` and `fix`.
 
@@ -53,18 +53,18 @@ Details: [`references/envelope.md`](references/envelope.md).
 
 ## Decision tree (load references on demand)
 
-| Intent | Commands | Load reference |
-|--------|----------|----------------|
-| Server ready? | `atmos status` | [`auth-and-runtime.md`](references/auth-and-runtime.md) |
-| Auth / start server | `atmos runtime ensure` | [`auth-and-runtime.md`](references/auth-and-runtime.md) |
+| Intent                      | Commands                                      | Load reference                                            |
+| --------------------------- | --------------------------------------------- | --------------------------------------------------------- |
+| Server ready?               | `atmos status`                                | [`auth-and-runtime.md`](references/auth-and-runtime.md)   |
+| Auth / start server         | `atmos runtime ensure`                        | [`auth-and-runtime.md`](references/auth-and-runtime.md)   |
 | Project / workspace / group | `atmos project …` / `workspace …` / `group …` | [`project-workspace.md`](references/project-workspace.md) |
-| Terminal / run logs | `atmos terminal …` / `run …` | [`terminal-run.md`](references/terminal-run.md) |
-| Settings | `atmos settings …` | [`settings.md`](references/settings.md) |
-| Git via Atmos | `atmos git …` | [`git.md`](references/git.md) |
-| No typed command | `atmos call` / `actions list` | [`call-escape-hatch.md`](references/call-escape-hatch.md) |
-| Canvas diagram | **other skill** | `atmos-canvas-agent` |
-| Screenshot / click OS UI | **other skill** | `atmos-desktop-use` |
-| Page DOM / CDP | **other skill** | `atmos-browser-use` |
+| Terminal / run logs         | `atmos terminal …` / `run …`                  | [`terminal-run.md`](references/terminal-run.md)           |
+| Settings                    | `atmos settings …`                            | [`settings.md`](references/settings.md)                   |
+| Git via Atmos               | `atmos git …`                                 | [`git.md`](references/git.md)                             |
+| No typed command            | `atmos call` / `actions list`                 | [`call-escape-hatch.md`](references/call-escape-hatch.md) |
+| Canvas diagram              | **other skill**                               | `atmos-canvas-agent`                                      |
+| Screenshot / click OS UI    | **other skill**                               | `atmos-desktop-use`                                       |
+| Page DOM / CDP              | **other skill**                               | `atmos-browser-use`                                       |
 
 ---
 
@@ -97,23 +97,23 @@ Destructive deletes require **`--yes`**.
 
 ## Anti-patterns
 
-- ❌ Driving the Web UI (or desktop-use) for basic project/workspace CRUD  
-- ❌ Dumping the full wire-action catalog into context  
-- ❌ Using `atmos call` when an L1 command exists  
-- ❌ Omitting `--yes` on deletes then retrying blindly without reading `fix`  
-- ❌ Mixing this skill with canvas/desktop-use without need  
+- ❌ Driving the Web UI (or desktop-use) for basic project/workspace CRUD
+- ❌ Dumping the full wire-action catalog into context
+- ❌ Using `atmos call` when an L1 command exists
+- ❌ Omitting `--yes` on deletes then retrying blindly without reading `fix`
+- ❌ Mixing this skill with canvas/desktop-use without need
 
 ---
 
 ## Errors (short)
 
-| Code | Recovery |
-|------|----------|
-| `SERVER_UNREACHABLE` | `atmos runtime ensure` |
-| `UNAUTHORIZED` | set token flags / env |
-| `CONFIRMATION_REQUIRED` | re-run with `--yes` |
-| `CONTEXT_REQUIRED` | pass `--project` / `--workspace` or `context set` |
-| `UNKNOWN_ACTION` | `atmos actions list --filter …` then fix `call` name |
+| Code                    | Recovery                                             |
+| ----------------------- | ---------------------------------------------------- |
+| `SERVER_UNREACHABLE`    | `atmos runtime ensure`                               |
+| `UNAUTHORIZED`          | set token flags / env                                |
+| `CONFIRMATION_REQUIRED` | re-run with `--yes`                                  |
+| `CONTEXT_REQUIRED`      | pass `--project` / `--workspace` or `context set`    |
+| `UNKNOWN_ACTION`        | `atmos actions list --filter …` then fix `call` name |
 
 More: [`references/errors.md`](references/errors.md).
 
@@ -121,28 +121,28 @@ More: [`references/errors.md`](references/errors.md).
 
 ## Related skills
 
-| Skill | When |
-|-------|------|
-| `atmos-canvas-agent` | Live canvas drawing |
-| `atmos-desktop-use` | Local OS GUI capture/click |
-| `atmos-browser-use` | Page CDP control |
-| `atmos-review-fix` | Review-session agent flows |
-| `atmos-automation` | Automation complete / paths / status |
+| Skill                | When                                 |
+| -------------------- | ------------------------------------ |
+| `atmos-canvas-agent` | Live canvas drawing                  |
+| `atmos-desktop-use`  | Local OS GUI capture/click           |
+| `atmos-browser-use`  | Page CDP control                     |
+| `atmos-review-fix`   | Review-session agent flows           |
+| `atmos-automation`   | Automation complete / paths / status |
 
 ---
 
 ## References (on-demand)
 
-| File | Load when |
-|------|-----------|
-| [`references/envelope.md`](references/envelope.md) | Envelope details |
-| [`references/auth-and-runtime.md`](references/auth-and-runtime.md) | API URL, token, runtime |
+| File                                                                 | Load when                             |
+| -------------------------------------------------------------------- | ------------------------------------- |
+| [`references/envelope.md`](references/envelope.md)                   | Envelope details                      |
+| [`references/auth-and-runtime.md`](references/auth-and-runtime.md)   | API URL, token, runtime               |
 | [`references/project-workspace.md`](references/project-workspace.md) | project / workspace / group / context |
-| [`references/terminal-run.md`](references/terminal-run.md) | terminal / run |
-| [`references/settings.md`](references/settings.md) | settings |
-| [`references/git.md`](references/git.md) | git |
-| [`references/call-escape-hatch.md`](references/call-escape-hatch.md) | `call` / actions list |
-| [`references/errors.md`](references/errors.md) | error codes |
-| [`references/command-index.md`](references/command-index.md) | compact L1 index |
+| [`references/terminal-run.md`](references/terminal-run.md)           | terminal / run                        |
+| [`references/settings.md`](references/settings.md)                   | settings                              |
+| [`references/git.md`](references/git.md)                             | git                                   |
+| [`references/call-escape-hatch.md`](references/call-escape-hatch.md) | `call` / actions list                 |
+| [`references/errors.md`](references/errors.md)                       | error codes                           |
+| [`references/command-index.md`](references/command-index.md)         | compact L1 index                      |
 
 Skill source: `skills/atmos-cli/` (synced to `~/.atmos/skills/.system/atmos-cli/` with other system skills).

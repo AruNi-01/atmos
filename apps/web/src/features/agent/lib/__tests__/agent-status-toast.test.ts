@@ -20,9 +20,9 @@ describe("agentNotifyToastKind", () => {
   });
 
   it("does not treat idle as complete when reason is explicitly something else", () => {
-    expect(
-      agentNotifyToastKind({ reason: "permission_request", state: "idle" }),
-    ).toBe("permission");
+    expect(agentNotifyToastKind({ reason: "permission_request", state: "idle" })).toBe(
+      "permission",
+    );
   });
 });
 

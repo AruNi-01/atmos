@@ -46,14 +46,14 @@ export function HostSessionCheckReveal({
           onKeyDown={(event) => event.stopPropagation()}
           className={cn(
             !revealed &&
-              "pointer-events-none group-hover/check:pointer-events-auto group-focus-within/check:pointer-events-auto",
+              "pointer-events-none group-focus-within/check:pointer-events-auto group-hover/check:pointer-events-auto",
           )}
         />
       </div>
       <div
         className={cn(
           "relative z-10 w-full bg-background transition-[margin-left,width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-          "group-hover/check:ml-11 group-hover/check:w-[calc(100%-2.75rem)] group-focus-within/check:ml-11 group-focus-within/check:w-[calc(100%-2.75rem)]",
+          "group-focus-within/check:ml-11 group-focus-within/check:w-[calc(100%-2.75rem)] group-hover/check:ml-11 group-hover/check:w-[calc(100%-2.75rem)]",
           revealed && "ml-11 w-[calc(100%-2.75rem)]",
         )}
       >

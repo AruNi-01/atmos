@@ -13,11 +13,7 @@ import {
 } from "@/features/agent/lib/agent-chat-events";
 import type { AgentChatEvent, AgentEvent, AgentMessage } from "@atmos/api-types/ws/dto/agent-chat";
 
-function chatEvent(
-  chatId: string,
-  revision: number,
-  payload: AgentEvent,
-): AgentChatEvent {
+function chatEvent(chatId: string, revision: number, payload: AgentEvent): AgentChatEvent {
   return { chat_id: chatId, event_id: `evt-${revision}`, revision, payload };
 }
 
@@ -45,11 +41,7 @@ function textChunk(
   });
 }
 
-function partClosed(
-  revision: number,
-  partId: string,
-  durationMs?: number,
-): AgentChatEvent {
+function partClosed(revision: number, partId: string, durationMs?: number): AgentChatEvent {
   return chatEvent("chat-1", revision, {
     type: "part_closed",
     part_id: partId,
@@ -119,9 +111,7 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(messages).toHaveLength(2);
     expect(messages[1]?.role).toBe("assistant");
     expect(messages[1]?.streaming).toBe(false);
-    expect(messages[1]?.parts).toEqual([
-      { type: "error", message: "GLM Coding Plan expired" },
-    ]);
+    expect(messages[1]?.parts).toEqual([{ type: "error", message: "GLM Coding Plan expired" }]);
   });
 
   it("session-op and rewind events do not create or delete messages", () => {
@@ -132,30 +122,54 @@ describe("agent chat fold stays on AgentMessage", () => {
         parts: [{ type: "text", text: "keep me" }],
       },
     ];
-    expect(foldMessagesFromEvent([], chatEvent("chat-1", 1, {
-      type: "session_op_requested",
-      request: {
-        request_id: "op-1",
-        kind: "rewind",
-        title: "Rewind to this turn",
-        options: [{ option_id: "keep", name: "Keep conversation" }],
-      },
-    }), "chat-1")).toEqual([]);
-    expect(foldMessagesFromEvent(existing, chatEvent("chat-1", 2, {
-      type: "session_op_resolved",
-      request_id: "op-1",
-      option_id: "keep",
-      outcome: "applied",
-    }), "chat-1")).toEqual(existing);
-    expect(foldMessagesFromEvent(existing, chatEvent("chat-1", 3, {
-      type: "session_forked",
-      parent_chat_id: "chat-1",
-      chat_id: "chat-2",
-    }), "chat-1")).toEqual(existing);
-    expect(foldMessagesFromEvent(existing, chatEvent("chat-1", 4, {
-      type: "rewind_view_updated",
-      until_turn_id: "t1",
-    }), "chat-1")).toEqual(existing);
+    expect(
+      foldMessagesFromEvent(
+        [],
+        chatEvent("chat-1", 1, {
+          type: "session_op_requested",
+          request: {
+            request_id: "op-1",
+            kind: "rewind",
+            title: "Rewind to this turn",
+            options: [{ option_id: "keep", name: "Keep conversation" }],
+          },
+        }),
+        "chat-1",
+      ),
+    ).toEqual([]);
+    expect(
+      foldMessagesFromEvent(
+        existing,
+        chatEvent("chat-1", 2, {
+          type: "session_op_resolved",
+          request_id: "op-1",
+          option_id: "keep",
+          outcome: "applied",
+        }),
+        "chat-1",
+      ),
+    ).toEqual(existing);
+    expect(
+      foldMessagesFromEvent(
+        existing,
+        chatEvent("chat-1", 3, {
+          type: "session_forked",
+          parent_chat_id: "chat-1",
+          chat_id: "chat-2",
+        }),
+        "chat-1",
+      ),
+    ).toEqual(existing);
+    expect(
+      foldMessagesFromEvent(
+        existing,
+        chatEvent("chat-1", 4, {
+          type: "rewind_view_updated",
+          until_turn_id: "t1",
+        }),
+        "chat-1",
+      ),
+    ).toEqual(existing);
   });
 
   it("permission chrome stays off the transcript fold", () => {
@@ -166,25 +180,37 @@ describe("agent chat fold stays on AgentMessage", () => {
         parts: [{ type: "text", text: "run ls" }],
       },
     ];
-    expect(foldMessagesFromEvent(existing, chatEvent("chat-1", 2, {
-      type: "permission_requested",
-      request: {
-        request_id: "perm-1",
-        tool: "Bash",
-        description: "ls -la",
-        options: [
-          { option_id: "allow_once", name: "Allow once", kind: "allow_once" },
-          { option_id: "allow_always", name: "Allow always", kind: "allow_always" },
-          { option_id: "reject_once", name: "Reject once", kind: "reject_once" },
-          { option_id: "reject_always", name: "Reject always", kind: "reject_always" },
-        ],
-      },
-    }), "chat-1")).toEqual(existing);
-    expect(foldMessagesFromEvent(existing, chatEvent("chat-1", 3, {
-      type: "permission_resolved",
-      request_id: "perm-1",
-      option_id: "allow_once",
-    }), "chat-1")).toEqual(existing);
+    expect(
+      foldMessagesFromEvent(
+        existing,
+        chatEvent("chat-1", 2, {
+          type: "permission_requested",
+          request: {
+            request_id: "perm-1",
+            tool: "Bash",
+            description: "ls -la",
+            options: [
+              { option_id: "allow_once", name: "Allow once", kind: "allow_once" },
+              { option_id: "allow_always", name: "Allow always", kind: "allow_always" },
+              { option_id: "reject_once", name: "Reject once", kind: "reject_once" },
+              { option_id: "reject_always", name: "Reject always", kind: "reject_always" },
+            ],
+          },
+        }),
+        "chat-1",
+      ),
+    ).toEqual(existing);
+    expect(
+      foldMessagesFromEvent(
+        existing,
+        chatEvent("chat-1", 3, {
+          type: "permission_resolved",
+          request_id: "perm-1",
+          option_id: "allow_once",
+        }),
+        "chat-1",
+      ),
+    ).toEqual(existing);
   });
 
   it("config_updated does not create a message", () => {
@@ -535,28 +561,36 @@ describe("agent chat fold stays on AgentMessage", () => {
   });
 
   it("defaults tool status from the event type when the payload omits it", () => {
-    const started = foldMessagesFromEvent([], chatEvent("chat-1", 1, {
-      type: "tool_call_started",
-      turn_id: "t1",
-      tool_call: {
-        tool_call_id: "tool-1",
-        name: "Read",
-        kind: "read",
-        params: { type: "read", path: "a.ts" },
-      } as never,
-    }), "chat-1");
+    const started = foldMessagesFromEvent(
+      [],
+      chatEvent("chat-1", 1, {
+        type: "tool_call_started",
+        turn_id: "t1",
+        tool_call: {
+          tool_call_id: "tool-1",
+          name: "Read",
+          kind: "read",
+          params: { type: "read", path: "a.ts" },
+        } as never,
+      }),
+      "chat-1",
+    );
     expect(started[0]?.parts[0]).toMatchObject({ type: "tool_call", status: "running" });
 
-    const failed = foldMessagesFromEvent(started, chatEvent("chat-1", 2, {
-      type: "tool_call_failed",
-      turn_id: "t1",
-      tool_call: {
-        tool_call_id: "tool-1",
-        name: "Read",
-        kind: "read",
-        params: { type: "read", path: "a.ts" },
-      } as never,
-    }), "chat-1");
+    const failed = foldMessagesFromEvent(
+      started,
+      chatEvent("chat-1", 2, {
+        type: "tool_call_failed",
+        turn_id: "t1",
+        tool_call: {
+          tool_call_id: "tool-1",
+          name: "Read",
+          kind: "read",
+          params: { type: "read", path: "a.ts" },
+        } as never,
+      }),
+      "chat-1",
+    );
     expect(failed[0]?.parts[0]).toMatchObject({ type: "tool_call", status: "failed" });
   });
 
@@ -600,8 +634,8 @@ describe("agent chat fold stays on AgentMessage", () => {
       params: { type: "read", path: "/tmp/app/README.md", limit: 150 },
       result: { type: "file_content", path: "/tmp/app/README.md", text: "# hi\n" },
     });
-    expect(JSON.stringify(messages[0]?.parts[0])).not.toContain("\"input\"");
-    expect(JSON.stringify(messages[0]?.parts[0])).not.toContain("\"output\"");
+    expect(JSON.stringify(messages[0]?.parts[0])).not.toContain('"input"');
+    expect(JSON.stringify(messages[0]?.parts[0])).not.toContain('"output"');
   });
 
   it("keeps prior optionals when a later event omits them", () => {
@@ -735,32 +769,48 @@ describe("agent chat fold stays on AgentMessage", () => {
   });
 
   it("reads the latest plan part from assistant messages", () => {
-    const messages = foldMessagesFromEvent([], chatEvent("chat-1", 1, {
-      type: "plan_updated",
-      plan: { entries: [{ content: "Inspect", priority: "high", status: "completed" }] },
-    }), "chat-1");
+    const messages = foldMessagesFromEvent(
+      [],
+      chatEvent("chat-1", 1, {
+        type: "plan_updated",
+        plan: { entries: [{ content: "Inspect", priority: "high", status: "completed" }] },
+      }),
+      "chat-1",
+    );
     expect(currentPlanFromMessages(messages)).toEqual({
       entries: [{ content: "Inspect", priority: "high", status: "completed" }],
     });
   });
 
   it("clears the composer plan when a new user turn starts", () => {
-    let messages = foldMessagesFromEvent([], chatEvent("chat-1", 1, {
-      type: "plan_updated",
-      plan: { entries: [{ content: "Inspect", priority: "high", status: "in_progress" }] },
-    }), "chat-1");
+    let messages = foldMessagesFromEvent(
+      [],
+      chatEvent("chat-1", 1, {
+        type: "plan_updated",
+        plan: { entries: [{ content: "Inspect", priority: "high", status: "in_progress" }] },
+      }),
+      "chat-1",
+    );
     expect(currentPlanFromMessages(messages)).not.toBeNull();
-    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 2, {
-      type: "user_message",
-      turn_id: "t2",
-      message_id: "u2",
-      text: "next",
-    }), "chat-1");
+    messages = foldMessagesFromEvent(
+      messages,
+      chatEvent("chat-1", 2, {
+        type: "user_message",
+        turn_id: "t2",
+        message_id: "u2",
+        text: "next",
+      }),
+      "chat-1",
+    );
     expect(currentPlanFromMessages(messages)).toBeNull();
-    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 3, {
-      type: "plan_updated",
-      plan: { entries: [{ content: "Fix fold", priority: "high", status: "pending" }] },
-    }), "chat-1");
+    messages = foldMessagesFromEvent(
+      messages,
+      chatEvent("chat-1", 3, {
+        type: "plan_updated",
+        plan: { entries: [{ content: "Fix fold", priority: "high", status: "pending" }] },
+      }),
+      "chat-1",
+    );
     expect(currentPlanFromMessages(messages)).toEqual({
       entries: [{ content: "Fix fold", priority: "high", status: "pending" }],
     });
@@ -802,7 +852,11 @@ describe("agent chat fold stays on AgentMessage", () => {
     let messages = foldMessagesFromEvent([], think, "chat-1");
     messages = foldMessagesFromEvent(messages, todo, "chat-1");
     messages = foldMessagesFromEvent(messages, hidden, "chat-1");
-    expect(messages[0]?.parts.map((part) => part.type)).toEqual(["tool_call", "tool_call", "tool_call"]);
+    expect(messages[0]?.parts.map((part) => part.type)).toEqual([
+      "tool_call",
+      "tool_call",
+      "tool_call",
+    ]);
     expect(messages[0]?.parts[0]).toMatchObject({
       type: "tool_call",
       name: "think",
@@ -923,10 +977,12 @@ describe("agent chat fold stays on AgentMessage", () => {
     messages = foldMessagesFromEvent(messages, done, "chat-1");
     expect(messages[0]?.streaming).toBe(false);
     const parts = messages[0]?.parts ?? [];
-    expect(parts.find((part) => part.type === "tool_call" && part.tool_call_id === "t-other"))
-      .toMatchObject({ status: "completed" });
-    expect(parts.find((part) => part.type === "tool_call" && part.tool_call_id === "t-bg"))
-      .toMatchObject({ status: "running" });
+    expect(
+      parts.find((part) => part.type === "tool_call" && part.tool_call_id === "t-other"),
+    ).toMatchObject({ status: "completed" });
+    expect(
+      parts.find((part) => part.type === "tool_call" && part.tool_call_id === "t-bg"),
+    ).toMatchObject({ status: "running" });
   });
 
   it("copies background execute params and still shows TaskOutput when it arrives as other", () => {
@@ -980,19 +1036,29 @@ describe("agent chat fold stays on AgentMessage", () => {
     let messages = foldMessagesFromEvent([], start, "chat-1");
     messages = foldMessagesFromEvent(messages, stream, "chat-1");
     messages = foldMessagesFromEvent(messages, poll, "chat-1");
-    const live = messages[0]?.parts.find((part) => part.type === "tool_call" && part.tool_call_id === "call-bg");
+    const live = messages[0]?.parts.find(
+      (part) => part.type === "tool_call" && part.tool_call_id === "call-bg",
+    );
     expect(live).toMatchObject({
       type: "tool_call",
       status: "running",
       kind: "execute",
       params: { type: "execute", command: "count", background: true, task_id: "task-1" },
     });
-    expect(messages[0]?.parts.some((part) => part.type === "tool_call" && part.tool_call_id === "call-poll")).toBe(true);
+    expect(
+      messages[0]?.parts.some(
+        (part) => part.type === "tool_call" && part.tool_call_id === "call-poll",
+      ),
+    ).toBe(true);
     messages = foldMessagesFromEvent(messages, finished, "chat-1");
-    const done = messages[0]?.parts.find((part) => part.type === "tool_call" && part.tool_call_id === "call-bg");
+    const done = messages[0]?.parts.find(
+      (part) => part.type === "tool_call" && part.tool_call_id === "call-bg",
+    );
     expect(done).toMatchObject({ status: "completed" });
     expect(JSON.stringify(done)).toContain("DONE");
-    expect(messages[0]?.parts.some((part) => part.type === "tool_call" && part.name === "TaskOutput")).toBe(true);
+    expect(
+      messages[0]?.parts.some((part) => part.type === "tool_call" && part.name === "TaskOutput"),
+    ).toBe(true);
   });
 
   it("updates one subagent card from dispatch through child completion", () => {
@@ -1300,38 +1366,54 @@ describe("agent chat fold stays on AgentMessage", () => {
       text: "hi",
     });
     let messages = foldMessagesFromEvent([], user, "chat-1");
-    messages = foldMessagesFromEvent(messages, textChunk(2, {
-      part_id: "think-1",
-      message_id: "a1",
-      kind: "thinking",
-      text: "first",
-      ordinal: 0,
-    }), "chat-1");
+    messages = foldMessagesFromEvent(
+      messages,
+      textChunk(2, {
+        part_id: "think-1",
+        message_id: "a1",
+        kind: "thinking",
+        text: "first",
+        ordinal: 0,
+      }),
+      "chat-1",
+    );
     messages = foldMessagesFromEvent(messages, partClosed(3, "think-1", 5000), "chat-1");
-    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 4, {
-      type: "tool_call_started",
-      tool_call: {
-        tool_call_id: "t1",
-        name: "Read",
-        kind: "read",
-        status: "running",
-        params: { type: "read", path: "a.ts" },
-      },
-    }), "chat-1");
-    messages = foldMessagesFromEvent(messages, textChunk(5, {
-      part_id: "think-2",
-      message_id: "a1",
-      kind: "thinking",
-      text: "second",
-      ordinal: 2,
-    }), "chat-1");
+    messages = foldMessagesFromEvent(
+      messages,
+      chatEvent("chat-1", 4, {
+        type: "tool_call_started",
+        tool_call: {
+          tool_call_id: "t1",
+          name: "Read",
+          kind: "read",
+          status: "running",
+          params: { type: "read", path: "a.ts" },
+        },
+      }),
+      "chat-1",
+    );
+    messages = foldMessagesFromEvent(
+      messages,
+      textChunk(5, {
+        part_id: "think-2",
+        message_id: "a1",
+        kind: "thinking",
+        text: "second",
+        ordinal: 2,
+      }),
+      "chat-1",
+    );
     messages = foldMessagesFromEvent(messages, partClosed(6, "think-2", 8000), "chat-1");
-    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 7, {
-      type: "turn_completed",
-      turn_id: "t1",
-      worked_ms: 45000,
-      thinking_ms: 13000,
-    }), "chat-1");
+    messages = foldMessagesFromEvent(
+      messages,
+      chatEvent("chat-1", 7, {
+        type: "turn_completed",
+        turn_id: "t1",
+        worked_ms: 45000,
+        thinking_ms: 13000,
+      }),
+      "chat-1",
+    );
     expect(messages[1]).toMatchObject({
       id: "a1",
       thinking_ms: 13000,
@@ -1496,29 +1578,41 @@ describe("agent chat fold stays on AgentMessage", () => {
       text: "hi",
     });
     let messages = foldMessagesFromEvent([], user, "chat-1");
-    messages = foldMessagesFromEvent(messages, textChunk(2, {
-      part_id: "a1",
-      message_id: "a1",
-      text: "looking",
-      ordinal: 0,
-    }), "chat-1");
-    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 3, {
-      type: "tool_call_started",
-      turn_id: "t1",
-      tool_call: {
-        tool_call_id: "tool-1",
-        name: "Read",
-        kind: "read",
-        status: "running",
-        params: { type: "read", path: "a.ts" },
-      },
-    }), "chat-1");
-    messages = foldMessagesFromEvent(messages, textChunk(4, {
-      part_id: "a2",
-      message_id: "a2",
-      text: "final",
-      ordinal: 2,
-    }), "chat-1");
+    messages = foldMessagesFromEvent(
+      messages,
+      textChunk(2, {
+        part_id: "a1",
+        message_id: "a1",
+        text: "looking",
+        ordinal: 0,
+      }),
+      "chat-1",
+    );
+    messages = foldMessagesFromEvent(
+      messages,
+      chatEvent("chat-1", 3, {
+        type: "tool_call_started",
+        turn_id: "t1",
+        tool_call: {
+          tool_call_id: "tool-1",
+          name: "Read",
+          kind: "read",
+          status: "running",
+          params: { type: "read", path: "a.ts" },
+        },
+      }),
+      "chat-1",
+    );
+    messages = foldMessagesFromEvent(
+      messages,
+      textChunk(4, {
+        part_id: "a2",
+        message_id: "a2",
+        text: "final",
+        ordinal: 2,
+      }),
+      "chat-1",
+    );
     const parts = messages[1]?.parts ?? [];
     expect(parts.map((part) => part.type)).toEqual(["text", "tool_call", "text"]);
     expect(parts[0]).toMatchObject({ type: "text", text: "looking" });
@@ -1535,28 +1629,40 @@ describe("agent chat fold stays on AgentMessage", () => {
       text: "hi",
     });
     let messages = foldMessagesFromEvent([], user, "chat-1");
-    messages = foldMessagesFromEvent(messages, textChunk(2, {
-      part_id: "a1",
-      message_id: "a1",
-      text: first,
-    }), "chat-1");
-    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 3, {
-      type: "tool_call_started",
-      turn_id: "t1",
-      tool_call: {
-        tool_call_id: "tool-1",
-        name: "Read",
-        kind: "read",
-        status: "running",
-        params: { type: "read", path: "a.ts" },
-      },
-    }), "chat-1");
-    messages = foldMessagesFromEvent(messages, textChunk(4, {
-      part_id: "a1",
-      message_id: "a1",
-      offset: byteLength(first),
-      text: second,
-    }), "chat-1");
+    messages = foldMessagesFromEvent(
+      messages,
+      textChunk(2, {
+        part_id: "a1",
+        message_id: "a1",
+        text: first,
+      }),
+      "chat-1",
+    );
+    messages = foldMessagesFromEvent(
+      messages,
+      chatEvent("chat-1", 3, {
+        type: "tool_call_started",
+        turn_id: "t1",
+        tool_call: {
+          tool_call_id: "tool-1",
+          name: "Read",
+          kind: "read",
+          status: "running",
+          params: { type: "read", path: "a.ts" },
+        },
+      }),
+      "chat-1",
+    );
+    messages = foldMessagesFromEvent(
+      messages,
+      textChunk(4, {
+        part_id: "a1",
+        message_id: "a1",
+        offset: byteLength(first),
+        text: second,
+      }),
+      "chat-1",
+    );
     const parts = messages[1]?.parts ?? [];
     expect(parts.map((part) => part.type)).toEqual(["text", "tool_call"]);
     expect(parts[0]).toMatchObject({
@@ -1577,11 +1683,15 @@ describe("agent chat fold stays on AgentMessage", () => {
       text: "hi",
     });
     let messages = foldMessagesFromEvent([], user, "chat-1");
-    messages = foldMessagesFromEvent(messages, textChunk(2, {
-      part_id: "a1",
-      message_id: "a1",
-      text: prefix,
-    }), "chat-1");
+    messages = foldMessagesFromEvent(
+      messages,
+      textChunk(2, {
+        part_id: "a1",
+        message_id: "a1",
+        text: prefix,
+      }),
+      "chat-1",
+    );
     expect(textFromParts(messages[1]!.parts)).toBe(prefix);
 
     const inflight = new Set<string>();
@@ -1600,12 +1710,16 @@ describe("agent chat fold stays on AgentMessage", () => {
     expect(first).toEqual({ partId: "a1", fromOffset: 100 });
     expect(takeBackfillRequest(inflight, gapped.backfill)).toBeNull();
 
-    messages = foldMessagesFromEvent(gapped.messages, textChunk(4, {
-      part_id: "a1",
-      message_id: "a1",
-      offset: 100,
-      text: suffix,
-    }), "chat-1");
+    messages = foldMessagesFromEvent(
+      gapped.messages,
+      textChunk(4, {
+        part_id: "a1",
+        message_id: "a1",
+        offset: 100,
+        text: suffix,
+      }),
+      "chat-1",
+    );
     expect(textFromParts(messages[1]!.parts)).toBe(server);
 
     messages = foldMessagesFromEvent(messages, gap, "chat-1");
@@ -1613,40 +1727,60 @@ describe("agent chat fold stays on AgentMessage", () => {
   });
 
   it("keeps a settled assistant identity while a later turn streams", () => {
-    let messages = foldMessagesFromEvent([], chatEvent("chat-1", 1, {
-      type: "user_message",
-      turn_id: "t1",
-      message_id: "u1",
-      text: "one",
-    }), "chat-1");
-    messages = foldMessagesFromEvent(messages, textChunk(2, {
-      part_id: "a1",
-      message_id: "a1",
-      text: "done",
-    }), "chat-1");
+    let messages = foldMessagesFromEvent(
+      [],
+      chatEvent("chat-1", 1, {
+        type: "user_message",
+        turn_id: "t1",
+        message_id: "u1",
+        text: "one",
+      }),
+      "chat-1",
+    );
+    messages = foldMessagesFromEvent(
+      messages,
+      textChunk(2, {
+        part_id: "a1",
+        message_id: "a1",
+        text: "done",
+      }),
+      "chat-1",
+    );
     messages = foldMessagesFromEvent(messages, partClosed(3, "a1"), "chat-1");
     const settled = messages.find((message) => message.role === "assistant");
     expect(settled?.id).toBe("a1");
 
-    messages = foldMessagesFromEvent(messages, chatEvent("chat-1", 4, {
-      type: "user_message",
-      turn_id: "t2",
-      message_id: "u2",
-      text: "two",
-    }), "chat-1");
-    messages = foldMessagesFromEvent(messages, textChunk(5, {
-      part_id: "a2",
-      message_id: "a2",
-      text: "hel",
-    }), "chat-1");
+    messages = foldMessagesFromEvent(
+      messages,
+      chatEvent("chat-1", 4, {
+        type: "user_message",
+        turn_id: "t2",
+        message_id: "u2",
+        text: "two",
+      }),
+      "chat-1",
+    );
+    messages = foldMessagesFromEvent(
+      messages,
+      textChunk(5, {
+        part_id: "a2",
+        message_id: "a2",
+        text: "hel",
+      }),
+      "chat-1",
+    );
     expect(messages.find((message) => message.id === "a1")).toBe(settled);
 
-    messages = foldMessagesFromEvent(messages, textChunk(6, {
-      part_id: "a2",
-      message_id: "a2",
-      offset: 3,
-      text: "lo",
-    }), "chat-1");
+    messages = foldMessagesFromEvent(
+      messages,
+      textChunk(6, {
+        part_id: "a2",
+        message_id: "a2",
+        offset: 3,
+        text: "lo",
+      }),
+      "chat-1",
+    );
     expect(messages.find((message) => message.id === "a1")).toBe(settled);
     expect(textFromParts(messages.find((message) => message.id === "a2")!.parts)).toBe("hello");
   });
@@ -1662,12 +1796,14 @@ describe("agent chat fold stays on AgentMessage", () => {
     const history = [user, assistant];
     const next = applyTurnSnapshot(
       history,
-      [{
-        id: "a1",
-        role: "assistant",
-        parts: [{ type: "text", text: "Hello", message_id: "p1" }],
-        streaming: true,
-      }],
+      [
+        {
+          id: "a1",
+          role: "assistant",
+          parts: [{ type: "text", text: "Hello", message_id: "p1" }],
+          streaming: true,
+        },
+      ],
       ["p1"],
     );
     expect(next[0]).toBe(user);
@@ -1687,23 +1823,27 @@ describe("agent chat fold stays on AgentMessage", () => {
     const snap = chatEvent("chat-1", 5, {
       type: "turn_snapshot",
       turn_id: "t1",
-      messages: [{
-        id: "a1",
-        role: "assistant",
-        parts: [{ type: "text", text: "Hello", message_id: "p1" }],
-        streaming: true,
-      }],
+      messages: [
+        {
+          id: "a1",
+          role: "assistant",
+          parts: [{ type: "text", text: "Hello", message_id: "p1" }],
+          streaming: true,
+        },
+      ],
       open_part_ids: ["p1"],
     });
     const later = chatEvent("chat-1", 6, {
       type: "turn_snapshot",
       turn_id: "t1",
-      messages: [{
-        id: "a1",
-        role: "assistant",
-        parts: [{ type: "text", text: "Hello world", message_id: "p1" }],
-        streaming: true,
-      }],
+      messages: [
+        {
+          id: "a1",
+          role: "assistant",
+          parts: [{ type: "text", text: "Hello world", message_id: "p1" }],
+          streaming: true,
+        },
+      ],
       open_part_ids: ["p1"],
     });
     const snapshotMessages = foldMessagesFromEvent(
@@ -1726,37 +1866,45 @@ describe("agent chat fold stays on AgentMessage", () => {
     const provisional: AgentMessage = {
       id: "assistant:u1",
       role: "assistant",
-      parts: [{
-        type: "tool_call",
-        tool_call_id: "search-1",
-        name: "Search",
-        kind: "search",
-        status: "running",
-        params: { type: "search", query: "atmos" },
-      }],
-      streaming: true,
-    };
-    const next = applyTurnSnapshot(
-      [user, provisional],
-      [{
-        id: "tool-search-1",
-        role: "assistant",
-        parts: [{
+      parts: [
+        {
           type: "tool_call",
           tool_call_id: "search-1",
           name: "Search",
           kind: "search",
           status: "running",
           params: { type: "search", query: "atmos" },
-        }],
-        streaming: true,
-      }],
+        },
+      ],
+      streaming: true,
+    };
+    const next = applyTurnSnapshot(
+      [user, provisional],
+      [
+        {
+          id: "tool-search-1",
+          role: "assistant",
+          parts: [
+            {
+              type: "tool_call",
+              tool_call_id: "search-1",
+              name: "Search",
+              kind: "search",
+              status: "running",
+              params: { type: "search", query: "atmos" },
+            },
+          ],
+          streaming: true,
+        },
+      ],
       [],
     );
     expect(next.map((message) => message.id)).toEqual(["u1", "tool-search-1"]);
-    expect(next.filter((message) =>
-      message.parts.some((part) => part.type === "tool_call" && part.tool_call_id === "search-1")
-    )).toHaveLength(1);
+    expect(
+      next.filter((message) =>
+        message.parts.some((part) => part.type === "tool_call" && part.tool_call_id === "search-1"),
+      ),
+    ).toHaveLength(1);
   });
 
   it("applyTurnSnapshot keeps prior-turn history while replacing the live assistant", () => {
@@ -1773,12 +1921,14 @@ describe("agent chat fold stays on AgentMessage", () => {
     ];
     const next = applyTurnSnapshot(
       history,
-      [{
-        id: "a1",
-        role: "assistant",
-        parts: [{ type: "text", text: "Hello", message_id: "p1" }],
-        streaming: true,
-      }],
+      [
+        {
+          id: "a1",
+          role: "assistant",
+          parts: [{ type: "text", text: "Hello", message_id: "p1" }],
+          streaming: true,
+        },
+      ],
       ["p1"],
     );
     expect(next.map((message) => message.id)).toEqual(["u0", "a0", "u1", "a1"]);

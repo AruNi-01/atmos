@@ -64,10 +64,7 @@ export function parseBrowserCenterTabValue(
   return { contextId, browserId };
 }
 
-function upsertBrowser(
-  tabs: BrowserCenterTab[],
-  nextTab: BrowserCenterTab,
-): BrowserCenterTab[] {
+function upsertBrowser(tabs: BrowserCenterTab[], nextTab: BrowserCenterTab): BrowserCenterTab[] {
   const existingIndex = tabs.findIndex((tab) => tab.value === nextTab.value);
   if (existingIndex === -1) return [...tabs, nextTab];
 

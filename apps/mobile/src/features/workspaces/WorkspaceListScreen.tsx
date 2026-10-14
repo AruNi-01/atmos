@@ -56,12 +56,8 @@ export function WorkspaceListScreen() {
   const relayClient = useRelayClient();
   const { client: wsClient, state: wsState } = useMobileWs();
   const disconnectedReason = useUiStore((state) => state.disconnectedReason);
-  const deviceCredentialLoaded = useSessionStore(
-    (state) => state.deviceCredentialLoaded,
-  );
-  const hasDeviceCredential = useSessionStore(
-    (state) => state.hasDeviceCredential,
-  );
+  const deviceCredentialLoaded = useSessionStore((state) => state.deviceCredentialLoaded);
+  const hasDeviceCredential = useSessionStore((state) => state.hasDeviceCredential);
   const relayUrl = useSessionStore((state) => state.relayUrl);
   const relayAuthRevision = useSessionStore((state) => state.relayAuthRevision);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
@@ -84,7 +80,8 @@ export function WorkspaceListScreen() {
 
   const computers = computersQuery.data ?? [];
   const clientSessionUnavailable = wsState === "closed";
-  const computersError = computersQuery.error instanceof Error ? computersQuery.error.message : null;
+  const computersError =
+    computersQuery.error instanceof Error ? computersQuery.error.message : null;
   const isHomeConnected = hasDeviceCredential && wsState === "open";
 
   const createSession = useMutation({
@@ -107,12 +104,23 @@ export function WorkspaceListScreen() {
       computers,
       selectedServerId,
     });
-    const attemptKey = nextAutoConnectServerId ? `${nextAutoConnectServerId}:${shouldReconnect ? "reconnect" : "initial"}` : null;
+    const attemptKey = nextAutoConnectServerId
+      ? `${nextAutoConnectServerId}:${shouldReconnect ? "reconnect" : "initial"}`
+      : null;
     if (nextAutoConnectServerId && lastAutoSessionAttemptRef.current !== attemptKey) {
       lastAutoSessionAttemptRef.current = attemptKey;
       createSession.mutate(nextAutoConnectServerId);
     }
-  }, [activeClientSession, clientSessionUnavailable, computers, computersQuery.isSuccess, createSession, hasDeviceCredential, selectedServerId, sessionHydrated]);
+  }, [
+    activeClientSession,
+    clientSessionUnavailable,
+    computers,
+    computersQuery.isSuccess,
+    createSession,
+    hasDeviceCredential,
+    selectedServerId,
+    sessionHydrated,
+  ]);
 
   const bootstrapQuery = useQuery({
     queryKey: ["workspace-bootstrap", selectedServerId, wsState],
@@ -121,7 +129,8 @@ export function WorkspaceListScreen() {
   });
 
   const bootstrap = bootstrapQuery.data ?? EMPTY_BOOTSTRAP;
-  const workspaceError = bootstrapQuery.error instanceof Error ? bootstrapQuery.error.message : null;
+  const workspaceError =
+    bootstrapQuery.error instanceof Error ? bootstrapQuery.error.message : null;
   const sessionError = createSession.error instanceof Error ? createSession.error.message : null;
   const [refreshing, setRefreshing] = useState(false);
   const refreshWorkspaces = useCallback(async () => {
@@ -326,10 +335,7 @@ function ChooseComputerPrompt({
       }}
     >
       <View style={{ alignSelf: "stretch", gap: 20, paddingHorizontal: 8 }}>
-        <EmptyState
-          message="Choose a Computer to see workspaces."
-          title="No Computer selected"
-        />
+        <EmptyState message="Choose a Computer to see workspaces." title="No Computer selected" />
         <Host
           colorScheme={theme.colorScheme}
           matchContents={{ vertical: true }}

@@ -11,10 +11,7 @@ import {
   getCreateWorkspaceReadiness,
   selectCreateWorkspaceProjectGuid,
 } from "@/features/workspaces/create-workspace-readiness";
-import {
-  formatSetupStatus,
-  slugify,
-} from "@/features/workspaces/create-workspace-helpers";
+import { formatSetupStatus, slugify } from "@/features/workspaces/create-workspace-helpers";
 import { useCreateWorkspaceSetup } from "@/features/workspaces/use-create-workspace-setup";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 
@@ -50,7 +47,11 @@ const STATUS_OPTIONS = [
 
 const EMPTY_LABEL_VALUE = "__none__";
 
-export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGuid?: string | null }) {
+export function CreateWorkspaceScreen({
+  initialProjectGuid,
+}: {
+  initialProjectGuid?: string | null;
+}) {
   const router = useRouter();
   const theme = useMobileTheme();
   const { client, state } = useMobileWs();
@@ -126,16 +127,15 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
         projectGuid,
         title,
       });
-      if (!readiness.canCreate) throw new Error(readiness.reason ?? "Workspace creation is not ready.");
+      if (!readiness.canCreate)
+        throw new Error(readiness.reason ?? "Workspace creation is not ready.");
       if (issueUrl.trim() && prUrl.trim()) {
         throw new Error("Choose either a GitHub Issue URL or a GitHub PR URL, not both.");
       }
       const githubIssue = issueUrl.trim()
         ? await wsActions.githubIssueGet(client, issueUrl.trim())
         : null;
-      const githubPr = prUrl.trim()
-        ? await wsActions.githubPrGet(client, prUrl.trim())
-        : null;
+      const githubPr = prUrl.trim() ? await wsActions.githubPrGet(client, prUrl.trim()) : null;
       const name = slugify(internalName || title);
       const branch = slugify(branchName || internalName || title);
       const workspace = await wsActions.workspaceCreate(client, {
@@ -164,7 +164,8 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
 
   const confirmTodos = useMutation({
     mutationFn: async () => {
-      if (!client || state !== "open" || !createdWorkspace) throw new Error("Workspace setup is not ready.");
+      if (!client || state !== "open" || !createdWorkspace)
+        throw new Error("Workspace setup is not ready.");
       if (!setupOutput.trim()) throw new Error("No generated TODO content is available.");
       return wsActions.workspaceConfirmTodos(client, createdWorkspace.guid, setupOutput);
     },
@@ -172,7 +173,8 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
       setError(null);
       setIsAwaitingSetup(true);
     },
-    onError: (nextError) => setError(nextError instanceof Error ? nextError.message : "Could not continue setup."),
+    onError: (nextError) =>
+      setError(nextError instanceof Error ? nextError.message : "Could not continue setup."),
   });
 
   const retrySetup = useMutation({
@@ -182,7 +184,8 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
       }
       return wsActions.workspaceRetrySetup(client, {
         guid: createdWorkspace.guid,
-        failed_step_key: setupProgress.failed_step_key ?? setupProgress.step_key ?? "run_setup_script",
+        failed_step_key:
+          setupProgress.failed_step_key ?? setupProgress.step_key ?? "run_setup_script",
         github_issue: createdWorkspace.github_issue,
         github_pr: createdWorkspace.github_pr,
         auto_extract_todos: setupProgress.setup_context?.auto_extract_todos ?? autoExtractTodos,
@@ -192,7 +195,8 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
       setError(null);
       setIsAwaitingSetup(true);
     },
-    onError: (nextError) => setError(nextError instanceof Error ? nextError.message : "Could not retry setup."),
+    onError: (nextError) =>
+      setError(nextError instanceof Error ? nextError.message : "Could not retry setup."),
   });
 
   const footerLabel = createdWorkspace
@@ -220,28 +224,32 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
       footer={
         <View style={styles.footer}>
           <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={footerDisabled ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
-      style={styles.stretchHost}
-    >
-      <Button
-        disabled={footerDisabled}
-        label={footerLabel}
-        onPress={(footerDisabled) ? undefined : (() => {
-              if (createdWorkspace) {
-                router.replace(`/workspace/${createdWorkspace.guid}`);
-                return;
+            matchContents={{ vertical: true }}
+            colorScheme={theme.colorScheme}
+            seedColor={footerDisabled ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
+            style={styles.stretchHost}
+          >
+            <Button
+              disabled={footerDisabled}
+              label={footerLabel}
+              onPress={
+                footerDisabled
+                  ? undefined
+                  : () => {
+                      if (createdWorkspace) {
+                        router.replace(`/workspace/${createdWorkspace.guid}`);
+                        return;
+                      }
+                      createWorkspace.mutate();
+                    }
               }
-              createWorkspace.mutate();
-            })}
-        modifiers={buttonStretchModifiers}
-        style={{
-      height: 52,
-    }}
-        variant="filled"
-      />
-    </Host>
+              modifiers={buttonStretchModifiers}
+              style={{
+                height: 52,
+              }}
+              variant="filled"
+            />
+          </Host>
           {!createdWorkspace && createReadiness.reason ? (
             <Text selectable style={[styles.footerHint, { color: theme.colors.secondaryLabel }]}>
               {createReadiness.reason}
@@ -252,7 +260,10 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
     >
       <Section label="Project">
         {projects.length === 0 ? (
-          <EmptyState title="No projects loaded" message="Select a Computer, then import a project or refresh workspace data." />
+          <EmptyState
+            title="No projects loaded"
+            message="Select a Computer, then import a project or refresh workspace data."
+          />
         ) : (
           <View style={styles.block}>
             <NativePicker
@@ -275,21 +286,21 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
             value={baseBranch}
           />
           <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={theme.colors.label}
-      style={styles.stretchHost}
-    >
-      <Button
-        label={showAdvanced ? "Hide Advanced" : "Show Advanced"}
-        onPress={() => setShowAdvanced((value) => !value)}
-        modifiers={buttonStretchModifiers}
-        style={{
-      height: 52,
-    }}
-        variant="outlined"
-      />
-    </Host>
+            matchContents={{ vertical: true }}
+            colorScheme={theme.colorScheme}
+            seedColor={theme.colors.label}
+            style={styles.stretchHost}
+          >
+            <Button
+              label={showAdvanced ? "Hide Advanced" : "Show Advanced"}
+              onPress={() => setShowAdvanced((value) => !value)}
+              modifiers={buttonStretchModifiers}
+              style={{
+                height: 52,
+              }}
+              variant="outlined"
+            />
+          </Host>
           {showAdvanced ? (
             <View style={styles.advanced}>
               <Separator />
@@ -361,26 +372,30 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
                     </View>
                     <View style={styles.inlineAction}>
                       <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={theme.colors.label}
-      style={styles.stretchHost}
-    >
-      <Button
-        disabled={labelToAdd === EMPTY_LABEL_VALUE}
-        label={"Add"}
-        onPress={(labelToAdd === EMPTY_LABEL_VALUE) ? undefined : (() => {
-                          if (labelToAdd === EMPTY_LABEL_VALUE) return;
-                          setSelectedLabelGuids((current) => [...current, labelToAdd]);
-                          setLabelToAdd(EMPTY_LABEL_VALUE);
-                        })}
-        modifiers={buttonStretchModifiers}
-        style={{
-      height: 52,
-    }}
-        variant="outlined"
-      />
-    </Host>
+                        matchContents={{ vertical: true }}
+                        colorScheme={theme.colorScheme}
+                        seedColor={theme.colors.label}
+                        style={styles.stretchHost}
+                      >
+                        <Button
+                          disabled={labelToAdd === EMPTY_LABEL_VALUE}
+                          label={"Add"}
+                          onPress={
+                            labelToAdd === EMPTY_LABEL_VALUE
+                              ? undefined
+                              : () => {
+                                  if (labelToAdd === EMPTY_LABEL_VALUE) return;
+                                  setSelectedLabelGuids((current) => [...current, labelToAdd]);
+                                  setLabelToAdd(EMPTY_LABEL_VALUE);
+                                }
+                          }
+                          modifiers={buttonStretchModifiers}
+                          style={{
+                            height: 52,
+                          }}
+                          variant="outlined"
+                        />
+                      </Host>
                     </View>
                   </View>
                   {selectedLabels.map((label) => (
@@ -392,23 +407,25 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
                     >
                       <View style={styles.inlineAction}>
                         <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={theme.colors.red}
-      style={styles.stretchHost}
-    >
-      <Button
-        label={"Remove"}
-        onPress={() => {
-                            setSelectedLabelGuids((current) => current.filter((guid) => guid !== label.guid));
-                          }}
-        modifiers={buttonStretchModifiers}
-        style={{
-      height: 52,
-    }}
-        variant="outlined"
-      />
-    </Host>
+                          matchContents={{ vertical: true }}
+                          colorScheme={theme.colorScheme}
+                          seedColor={theme.colors.red}
+                          style={styles.stretchHost}
+                        >
+                          <Button
+                            label={"Remove"}
+                            onPress={() => {
+                              setSelectedLabelGuids((current) =>
+                                current.filter((guid) => guid !== label.guid),
+                              );
+                            }}
+                            modifiers={buttonStretchModifiers}
+                            style={{
+                              height: 52,
+                            }}
+                            variant="outlined"
+                          />
+                        </Host>
                       </View>
                     </Row>
                   ))}
@@ -436,7 +453,10 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
               <View
                 style={[
                   styles.outputBox,
-                  { backgroundColor: theme.colors.cardElevated, borderColor: theme.colors.separator },
+                  {
+                    backgroundColor: theme.colors.cardElevated,
+                    borderColor: theme.colors.separator,
+                  },
                 ]}
               >
                 <Text selectable style={[styles.outputText, { color: theme.colors.label }]}>
@@ -446,65 +466,77 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
             ) : null}
             {setupProgress.requires_confirmation ? (
               <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={confirmTodos.isPending || !setupOutputPreview ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
-      style={styles.stretchHost}
-    >
-      <Button
-        disabled={confirmTodos.isPending || !setupOutputPreview}
-        label={confirmTodos.isPending ? "Confirming..." : "Confirm TODOs"}
-        onPress={(confirmTodos.isPending || !setupOutputPreview) ? undefined : (() => confirmTodos.mutate())}
-        modifiers={buttonStretchModifiers}
-        style={{
-      height: 52,
-    }}
-        variant="filled"
-      />
-    </Host>
+                matchContents={{ vertical: true }}
+                colorScheme={theme.colorScheme}
+                seedColor={
+                  confirmTodos.isPending || !setupOutputPreview
+                    ? theme.colors.tertiaryLabel
+                    : theme.colors.ctaFill
+                }
+                style={styles.stretchHost}
+              >
+                <Button
+                  disabled={confirmTodos.isPending || !setupOutputPreview}
+                  label={confirmTodos.isPending ? "Confirming..." : "Confirm TODOs"}
+                  onPress={
+                    confirmTodos.isPending || !setupOutputPreview
+                      ? undefined
+                      : () => confirmTodos.mutate()
+                  }
+                  modifiers={buttonStretchModifiers}
+                  style={{
+                    height: 52,
+                  }}
+                  variant="filled"
+                />
+              </Host>
             ) : null}
             {setupProgress.status === "error" && createdWorkspace ? (
               <View style={styles.progressActions}>
                 <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={retrySetup.isPending ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
-      style={styles.stretchHost}
-    >
-      <Button
-        disabled={retrySetup.isPending}
-        label={retrySetup.isPending ? "Retrying..." : "Retry Setup"}
-        onPress={(retrySetup.isPending) ? undefined : (() => retrySetup.mutate())}
-        modifiers={buttonStretchModifiers}
-        style={{
-      height: 52,
-    }}
-        variant="filled"
-      />
-    </Host>
+                  matchContents={{ vertical: true }}
+                  colorScheme={theme.colorScheme}
+                  seedColor={
+                    retrySetup.isPending ? theme.colors.tertiaryLabel : theme.colors.ctaFill
+                  }
+                  style={styles.stretchHost}
+                >
+                  <Button
+                    disabled={retrySetup.isPending}
+                    label={retrySetup.isPending ? "Retrying..." : "Retry Setup"}
+                    onPress={retrySetup.isPending ? undefined : () => retrySetup.mutate()}
+                    modifiers={buttonStretchModifiers}
+                    style={{
+                      height: 52,
+                    }}
+                    variant="filled"
+                  />
+                </Host>
                 <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={theme.colors.label}
-      style={styles.stretchHost}
-    >
-      <Button
-        label={"Open Workspace"}
-        onPress={() => router.replace(`/workspace/${createdWorkspace.guid}`)}
-        modifiers={buttonStretchModifiers}
-        style={{
-      height: 52,
-    }}
-        variant="outlined"
-      />
-    </Host>
+                  matchContents={{ vertical: true }}
+                  colorScheme={theme.colorScheme}
+                  seedColor={theme.colors.label}
+                  style={styles.stretchHost}
+                >
+                  <Button
+                    label={"Open Workspace"}
+                    onPress={() => router.replace(`/workspace/${createdWorkspace.guid}`)}
+                    modifiers={buttonStretchModifiers}
+                    style={{
+                      height: 52,
+                    }}
+                    variant="outlined"
+                  />
+                </Host>
               </View>
             ) : null}
           </View>
         </Section>
       ) : null}
 
-      <InlineError message={error ?? (bootstrap.error instanceof Error ? bootstrap.error.message : null)} />
+      <InlineError
+        message={error ?? (bootstrap.error instanceof Error ? bootstrap.error.message : null)}
+      />
     </AppScreen>
   );
 }

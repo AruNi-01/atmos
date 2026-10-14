@@ -15,11 +15,7 @@ import LogoSvg from "@workspace/ui/components/logo-svg";
 import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
 import { DecorIcon } from "@workspace/ui/components/ui/decor-icon";
 
-export type OAuthCallbackProvider =
-  | "github"
-  | "google"
-  | "linear"
-  | "generic";
+export type OAuthCallbackProvider = "github" | "google" | "linear" | "generic";
 
 export type OAuthCallbackStatus = "working" | "ok" | "error";
 
@@ -32,12 +28,7 @@ const PROVIDER_LABEL: Record<OAuthCallbackProvider, string> = {
 
 function GithubMark({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="currentColor"
-      aria-hidden
-    >
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
       <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58 0-.29-.01-1.04-.02-2.05-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.33-1.76-1.33-1.76-1.09-.74.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49.99.11-.78.42-1.3.76-1.6-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.62-5.48 5.92.43.37.81 1.1.81 2.22 0 1.6-.01 2.89-.01 3.28 0 .32.22.7.82.58A12.01 12.01 0 0 0 24 12c0-6.63-5.37-12-12-12Z" />
     </svg>
   );
@@ -109,12 +100,7 @@ function LogoTile({
 
 function LinkStatus({ status }: { status: OAuthCallbackStatus }) {
   if (status === "working") {
-    return (
-      <Loader2
-        className="size-4 shrink-0 animate-spin text-muted-foreground"
-        aria-hidden
-      />
-    );
+    return <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />;
   }
   if (status === "ok") {
     return (
@@ -130,9 +116,7 @@ function LinkStatus({ status }: { status: OAuthCallbackStatus }) {
   );
 }
 
-export function parseOAuthCallbackProvider(
-  raw: string | null | undefined,
-): OAuthCallbackProvider {
+export function parseOAuthCallbackProvider(raw: string | null | undefined): OAuthCallbackProvider {
   const value = (raw ?? "").trim().toLowerCase();
   if (value === "github" || value === "google" || value === "linear") {
     return value;
@@ -201,10 +185,7 @@ export function OAuthCallbackShell({
         className,
       )}
     >
-      <section
-        className="relative flex w-full max-w-sm flex-col p-6 md:p-8"
-        aria-live="polite"
-      >
+      <section className="relative flex w-full max-w-sm flex-col p-6 md:p-8" aria-live="polite">
         {/* Extended hairline frame (AuthPage / CTA1 pattern) */}
         <div
           className="pointer-events-none absolute -inset-y-6 -left-px w-px bg-border"
@@ -230,25 +211,16 @@ export function OAuthCallbackShell({
             {showProvider ? (
               <>
                 <LogoTile label={PROVIDER_LABEL[provider]}>
-                  <ProviderMark
-                    provider={provider}
-                    className="size-7 text-foreground"
-                  />
+                  <ProviderMark provider={provider} className="size-7 text-foreground" />
                 </LogoTile>
-                <div
-                  className="flex items-center gap-1.5 text-muted-foreground/60"
-                  aria-hidden
-                >
+                <div className="flex items-center gap-1.5 text-muted-foreground/60" aria-hidden>
                   <span className="h-px w-3.5 bg-border" />
                   <LinkStatus status={status} />
                   <span className="h-px w-3.5 bg-border" />
                 </div>
               </>
             ) : null}
-            <LogoTile
-              label="Atmos"
-              className={cn(!showProvider && "size-16 rounded-2xl")}
-            >
+            <LogoTile label="Atmos" className={cn(!showProvider && "size-16 rounded-2xl")}>
               <LogoSvg
                 className="text-foreground"
                 width={showProvider ? 28 : 36}
@@ -258,22 +230,11 @@ export function OAuthCallbackShell({
             </LogoTile>
           </div>
 
-          <h1 className="text-lg font-semibold tracking-tight text-foreground">
-            {title}
-          </h1>
-          <div
-            className={cn(
-              "mt-2 max-w-sm text-sm leading-relaxed",
-              messageClass,
-            )}
-          >
-            {message}
-          </div>
+          <h1 className="text-lg font-semibold tracking-tight text-foreground">{title}</h1>
+          <div className={cn("mt-2 max-w-sm text-sm leading-relaxed", messageClass)}>{message}</div>
 
           {children ? (
-            <div className="mt-4 flex w-full flex-col items-center gap-2">
-              {children}
-            </div>
+            <div className="mt-4 flex w-full flex-col items-center gap-2">{children}</div>
           ) : null}
         </div>
       </section>

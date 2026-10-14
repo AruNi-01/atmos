@@ -3,14 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { CheckCircle2, Loader2 } from "lucide-react";
-import {
-  Button,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  TextShimmer,
-  cn,
-} from "@workspace/ui";
+import { Button, Popover, PopoverContent, PopoverTrigger, TextShimmer, cn } from "@workspace/ui";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useStoreWithEqualityFn } from "zustand/traditional";
@@ -59,7 +52,7 @@ function itemTitle(
   if (item.job) {
     return jobTitle(
       item.job,
-      item.workspaceId ? workspaceNameById.get(item.workspaceId) ?? null : null,
+      item.workspaceId ? (workspaceNameById.get(item.workspaceId) ?? null) : null,
       creatingFallback,
     );
   }
@@ -99,11 +92,10 @@ function SetupDetailPanel({
   const t = useTranslations("header.workspaceJobs");
   const workspaceId = item.workspaceId;
   const liveProgress = useProjectStore((state) =>
-    workspaceId ? state.setupProgress[workspaceId] ?? null : null,
+    workspaceId ? (state.setupProgress[workspaceId] ?? null) : null,
   );
   const progress = liveProgress ?? item.progress;
-  const enterable =
-    !!workspaceId && !isWorkspaceSetupBlocking(progress ?? undefined) && !isCurrent;
+  const enterable = !!workspaceId && !isWorkspaceSetupBlocking(progress ?? undefined) && !isCurrent;
   const detailWidth = progress
     ? getWorkspaceSetupPopoverWidth(getWorkspaceSetupSteps(progress).length, viewportWidth)
     : 360;
@@ -111,7 +103,7 @@ function SetupDetailPanel({
   return (
     <div
       style={{ width: Math.min(detailWidth, Math.max(280, viewportWidth - 24)) }}
-      className="min-w-0 max-h-[min(72vh,var(--radix-popover-content-available-height))] overflow-y-auto"
+      className="max-h-[min(72vh,var(--radix-popover-content-available-height))] min-w-0 overflow-y-auto"
     >
       {showHeader ? (
         <div className="flex items-center gap-1 px-3 pt-2">
@@ -121,7 +113,7 @@ function SetupDetailPanel({
               {t("autoEnterNow")}
             </Button>
           ) : workspaceId && workspaceId === autoEnterWorkspaceId ? (
-            <span className="pr-1 text-[11px] tabular-nums text-muted-foreground">
+            <span className="pr-1 text-[11px] text-muted-foreground tabular-nums">
               {t("autoEnterCountdown", { seconds: remainingSeconds ?? 0 })}
             </span>
           ) : null}
@@ -185,7 +177,7 @@ function WorkspaceSetupListRow({
     !ready && item.progress ? Math.round(getWorkspaceSetupProgressValue(item.progress)) : null;
   const stepLabel = ready
     ? t("ready")
-    : item.progress?.stepTitle ?? (workspaceId ? t("preparing") : t("creating"));
+    : (item.progress?.stepTitle ?? (workspaceId ? t("preparing") : t("creating")));
   const showCountdown = workspaceId != null && workspaceId === autoEnterWorkspaceId;
 
   const rowButton = (rowOpen: boolean) => (
@@ -211,7 +203,7 @@ function WorkspaceSetupListRow({
             {showCountdown ? ` · ${t("autoEnterCountdown", { seconds: remainingSeconds })}` : ""}
           </span>
           {percent != null ? (
-            <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+            <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
               {percent}%
             </span>
           ) : null}
@@ -236,7 +228,7 @@ function WorkspaceSetupListRow({
 
   if (ready) {
     return (
-      <div className="relative min-w-0 w-full">
+      <div className="relative w-full min-w-0">
         {rowButton(false)}
         {enterNowButton}
       </div>
@@ -244,7 +236,7 @@ function WorkspaceSetupListRow({
   }
 
   return (
-    <div className="relative min-w-0 w-full">
+    <div className="relative w-full min-w-0">
       <Popover
         open={open}
         onOpenChange={(next) => {
@@ -339,7 +331,11 @@ function CreatingJobPopover({
         <PopoverTrigger asChild>
           <button type="button" className={HEADER_SETUP_CHIP_TRIGGER_CLASS} aria-label={title}>
             <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
-            <TextShimmer as="span" duration={1.6} className="block min-w-0 truncate text-[12px] font-medium">
+            <TextShimmer
+              as="span"
+              duration={1.6}
+              className="block min-w-0 truncate text-[12px] font-medium"
+            >
               {title}
             </TextShimmer>
           </button>
@@ -531,7 +527,9 @@ export function HeaderWorkspaceJobs() {
                   <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
                 )}
                 {allReady ? (
-                  <span className="block min-w-0 truncate text-[12px] font-medium">{groupedTitle}</span>
+                  <span className="block min-w-0 truncate text-[12px] font-medium">
+                    {groupedTitle}
+                  </span>
                 ) : (
                   <TextShimmer
                     as="span"

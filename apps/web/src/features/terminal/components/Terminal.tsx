@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
@@ -19,18 +13,17 @@ import { useTheme } from "next-themes";
 import "@xterm/xterm/css/xterm.css";
 import "./terminal-grid.css";
 
-import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme, terminalFont } from "../lib/theme";
 import {
-  registerXtermPreviewHost,
-  renderXtermBufferPreview,
-} from "../lib/terminal-xterm-preview";
+  defaultTerminalOptions,
+  atmosDarkTheme,
+  atmosLightTheme,
+  terminalFont,
+} from "../lib/theme";
+import { registerXtermPreviewHost, renderXtermBufferPreview } from "../lib/terminal-xterm-preview";
 import { useTerminalAppearanceSettingsStore } from "@/features/settings/store/terminal-appearance-settings-store";
 import { useTerminalWebSocket } from "../hooks/use-terminal-websocket";
 import { publishTerminalOutput } from "../lib/terminal-output-bus";
-import {
-  HIDDEN_PTY_CONNECT_GRID,
-  shouldConnectHiddenPty,
-} from "../lib/terminal-hidden-connect";
+import { HIDDEN_PTY_CONNECT_GRID, shouldConnectHiddenPty } from "../lib/terminal-hidden-connect";
 import {
   isTerminalKeepAlivePanel,
   shouldPaintTerminalSurface,
@@ -150,10 +143,7 @@ function readCssCellHeight(term: XTerm): number {
   return typeof height === "number" && height > 0 ? height : 0;
 }
 
-function proposeTerminalGrid(
-  term: XTerm,
-  fit: FitAddon,
-): { cols: number; rows: number } | null {
+function proposeTerminalGrid(term: XTerm, fit: FitAddon): { cols: number; rows: number } | null {
   const proposed = fit.proposeDimensions();
   if (
     !proposed ||
@@ -172,11 +162,7 @@ function proposeTerminalGrid(
   return { cols: proposed.cols, rows };
 }
 
-function resizeXtermPreservingScroll(
-  term: XTerm,
-  cols: number,
-  rows: number,
-): boolean {
+function resizeXtermPreservingScroll(term: XTerm, cols: number, rows: number): boolean {
   if (term.cols === cols && term.rows === rows) return false;
   const snapshot = captureXtermResizeScroll(term);
   term.resize(cols, rows);
@@ -275,13 +261,15 @@ const Terminal = ({
   // Keep title callbacks in sync to avoid stale closures in OSC handlers
   const lastOscTitleRef = useRef<string | undefined>(undefined);
   const onSelectionSnapshotChangeRef = useRef(onSelectionSnapshotChange);
-  useEffect(() => { onSelectionSnapshotChangeRef.current = onSelectionSnapshotChange; });
+  useEffect(() => {
+    onSelectionSnapshotChangeRef.current = onSelectionSnapshotChange;
+  });
   const sourceSessionIdRef = useRef(sessionId);
   const sourceTmuxWindowNameRef = useRef(tmuxWindowName);
   const workspaceIdRef = useRef(workspaceId);
-  const interruptInferenceRef = useRef<ReturnType<
-    typeof createAgentHookInterruptInference
-  > | null>(null);
+  const interruptInferenceRef = useRef<ReturnType<typeof createAgentHookInterruptInference> | null>(
+    null,
+  );
   useEffect(() => {
     sourceSessionIdRef.current = sessionId;
     sourceTmuxWindowNameRef.current = tmuxWindowName;
@@ -329,13 +317,15 @@ const Terminal = ({
   const pendingOscRawRef = useRef<string | undefined>(undefined);
   const terminalInputCleanupRef = useRef<(() => void) | null>(null);
   const [showScrollDown, setShowScrollDown] = useState(false);
-  const [selectionSnapshot, setSelectionSnapshot] = useState<TerminalSelectionSnapshot | null>(null);
+  const [selectionSnapshot, setSelectionSnapshot] = useState<TerminalSelectionSnapshot | null>(
+    null,
+  );
   const lastSelectionAnchorRef = useRef<{ x: number; y: number } | null>(null);
   // Prefer "connected" when this session was already live (warm remount / tab re-show)
   // so the full-screen Connecting overlay does not flash.
-  const [status, setStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected" | "error">(
-    () => (wasTerminalSessionLive(sessionId) ? "connected" : "connecting"),
-  );
+  const [status, setStatus] = useState<
+    "connecting" | "connected" | "reconnecting" | "disconnected" | "error"
+  >(() => (wasTerminalSessionLive(sessionId) ? "connected" : "connecting"));
   const [attachError, setAttachError] = useState<string | null>(null);
   // One-shot auto-create after attach NotFound (missing tmux window). Avoids
   // looping if create also fails.
@@ -391,27 +381,24 @@ const Terminal = ({
     restoreXtermResizeScroll(term, snapshot, () => jumpAndTrackBottom(term));
     if (followBottomAfterPinRef.current) scheduleFollowBottom();
   };
-  const hostResizePinRef = useRef(createHostResizePinScheduler({
-    send: (size) => {
-      // Mark the pin first so onResize → pin is a no-op, then resize xterm
-      // before SIGWINCH so the pane dumps into the matching grid.
-      lastPinnedSizeRef.current = { cols: size.cols, rows: size.rows };
-      applyXtermGrid(size);
-      sendResizeRef.current(size);
-    },
-  }));
+  const hostResizePinRef = useRef(
+    createHostResizePinScheduler({
+      send: (size) => {
+        // Mark the pin first so onResize → pin is a no-op, then resize xterm
+        // before SIGWINCH so the pane dumps into the matching grid.
+        lastPinnedSizeRef.current = { cols: size.cols, rows: size.rows };
+        applyXtermGrid(size);
+        sendResizeRef.current(size);
+      },
+    }),
+  );
   const pinTerminalSizeRef = useRef<
     (size: { cols: number; rows: number }, options?: { force?: boolean }) => void
   >(() => {});
   pinTerminalSizeRef.current = (size, options) => {
     if (!isUsableTerminalGrid(size.cols, size.rows)) return;
     const last = lastPinnedSizeRef.current;
-    if (
-      !options?.force &&
-      last &&
-      last.cols === size.cols &&
-      last.rows === size.rows
-    ) {
+    if (!options?.force && last && last.cols === size.cols && last.rows === size.rows) {
       hostResizePinRef.current.cancel();
       return;
     }
@@ -464,11 +451,9 @@ const Terminal = ({
   const normalizedTerminalScaleRef = useRef(normalizedTerminalScale);
   const appliedTerminalScaleRef = useRef(appliedTerminalScale);
   const outputListenersRef = useRef(new Set<(data: string) => void>());
-  const {
-    resetInputReady,
-    scheduleInputReady,
-    scheduleInputReadyFallback,
-  } = useTerminalInputReady({ onSessionReady, sessionId });
+  const { resetInputReady, scheduleInputReady, scheduleInputReadyFallback } = useTerminalInputReady(
+    { onSessionReady, sessionId },
+  );
   const {
     closeSearch,
     handleSearchQueryChange,
@@ -484,17 +469,14 @@ const Terminal = ({
   } = useTerminalSearch({ isDark, searchAddonRef, terminalRef });
   // SearchAddon selects matches for highlighting; suppress the selection toolbar while find is open.
   const isSearchVisibleRef = useRef(isSearchVisible);
-  const {
-    handleResolvedLinkRef,
-    handleTerminalLinkRef,
-    updatePointerModifierState,
-  } = useTerminalLinks({
-    containerRef,
-    cwd,
-    projectRootPath,
-    terminalRef,
-    workspaceId: openContextId || workspaceId,
-  });
+  const { handleResolvedLinkRef, handleTerminalLinkRef, updatePointerModifierState } =
+    useTerminalLinks({
+      containerRef,
+      cwd,
+      projectRootPath,
+      terminalRef,
+      workspaceId: openContextId || workspaceId,
+    });
 
   const wsUrl = buildTerminalWsUrl({
     cwd,
@@ -569,50 +551,53 @@ const Terminal = ({
     syncPaintLive();
   }, [surfaceActive, syncPaintLive]);
 
-  const handleOutput = useCallback((data: string | Uint8Array) => {
-    publishTerminalOutput(sessionId, data);
-    if (data.length > 0) {
-      const term = terminalRef.current;
-      const destructive = shouldAvoidTerminalWriteFastPath(data);
-      if (destructive) {
-        destructiveCoalesceUntilRef.current = performance.now() + DESTRUCTIVE_COALESCE_MS;
-      }
-      pendingWriteRef.current.push(cloneTerminalWriteChunk(data));
-      if (!paintLiveRef.current) {
-        pendingWriteRef.current = trimHiddenTerminalWriteBuffer(pendingWriteRef.current);
-      } else {
-        const canFastPath =
-          term &&
-          !rafScheduledRef.current &&
-          pendingWriteRef.current.length === 1 &&
-          data.length > 0 &&
-          data.length <= INTERACTIVE_OUTPUT_FAST_PATH_MAX &&
-          !destructive &&
-          performance.now() >= destructiveCoalesceUntilRef.current;
+  const handleOutput = useCallback(
+    (data: string | Uint8Array) => {
+      publishTerminalOutput(sessionId, data);
+      if (data.length > 0) {
+        const term = terminalRef.current;
+        const destructive = shouldAvoidTerminalWriteFastPath(data);
+        if (destructive) {
+          destructiveCoalesceUntilRef.current = performance.now() + DESTRUCTIVE_COALESCE_MS;
+        }
+        pendingWriteRef.current.push(cloneTerminalWriteChunk(data));
+        if (!paintLiveRef.current) {
+          pendingWriteRef.current = trimHiddenTerminalWriteBuffer(pendingWriteRef.current);
+        } else {
+          const canFastPath =
+            term &&
+            !rafScheduledRef.current &&
+            pendingWriteRef.current.length === 1 &&
+            data.length > 0 &&
+            data.length <= INTERACTIVE_OUTPUT_FAST_PATH_MAX &&
+            !destructive &&
+            performance.now() >= destructiveCoalesceUntilRef.current;
 
-        if (canFastPath) {
-          pendingWriteRef.current = [];
-          term.write(cloneTerminalWriteChunk(data));
-        } else if (!rafScheduledRef.current) {
-          rafScheduledRef.current = true;
-          requestAnimationFrame(flushPendingWrites);
+          if (canFastPath) {
+            pendingWriteRef.current = [];
+            term.write(cloneTerminalWriteChunk(data));
+          } else if (!rafScheduledRef.current) {
+            rafScheduledRef.current = true;
+            requestAnimationFrame(flushPendingWrites);
+          }
         }
       }
-    }
-    if (data.length > 0 && status === "connected") {
-      scheduleInputReady();
-    }
-    const text =
-      typeof data === "string"
-        ? data
-        : outputTextDecoderRef.current.decode(data, { stream: true });
-    if (text) {
-      onData?.(text); // Forward decoded text for parent features (e.g. URL detection)
-      for (const listener of outputListenersRef.current) {
-        listener(text);
+      if (data.length > 0 && status === "connected") {
+        scheduleInputReady();
       }
-    }
-  }, [flushPendingWrites, onData, scheduleInputReady, sessionId, status]);
+      const text =
+        typeof data === "string"
+          ? data
+          : outputTextDecoderRef.current.decode(data, { stream: true });
+      if (text) {
+        onData?.(text); // Forward decoded text for parent features (e.g. URL detection)
+        for (const listener of outputListenersRef.current) {
+          listener(text);
+        }
+      }
+    },
+    [flushPendingWrites, onData, scheduleInputReady, sessionId, status],
+  );
 
   const handleConnected = useCallback(() => {
     markTerminalSessionLive(sessionId);
@@ -630,10 +615,7 @@ const Terminal = ({
       fitAddonRef.current &&
       isTerminalContainerVisible(containerRef.current)
     ) {
-      const { cols, rows } = fitTerminalPreservingScroll(
-        terminalRef.current,
-        fitAddonRef.current,
-      );
+      const { cols, rows } = fitTerminalPreservingScroll(terminalRef.current, fitAddonRef.current);
       // Fresh control client: always re-pin (force) even if xterm grid matched.
       pinTerminalSizeRef.current({ cols, rows }, { force: true });
     }
@@ -688,77 +670,88 @@ const Terminal = ({
     [isNewPane, noTmux, onSessionError, resetInputReady, sessionId],
   );
 
-  const handleAttached = useCallback((snapshot?: TerminalSnapshot | null) => {
-    markTerminalSessionLive(sessionId);
-    setAttachError(null);
-    setStatus("connected");
-    const term = terminalRef.current;
-    if (!term || !snapshot) {
-      scheduleInputReady();
-      return;
-    }
-
-    pendingWriteRef.current = [];
-    outputTextDecoderRef.current = new TextDecoder();
-    const useAlternateScreen = snapshot.alternate === true;
-    // capture-pane restores cells, not DEC mouse modes. Prefer the exact
-    // sequence observed on the live stream; fall back to flag / alternate
-    // heuristic with the full default (includes 1003 hover).
-    const mouseRestore = mouseTrackingRestoreSequence(snapshot);
-    const screenMode = useAlternateScreen ? "\x1b[?1049h" : "\x1b[?1049l";
-    // Always erase display; clear scrollback for non-alt. Inline mouse TUIs
-    // (Grok) paint in the normal buffer — after replaying cells, clear
-    // scrollback again so older backends that still ship long history do not
-    // leave multi-viewport junk under the TUI (APP-054).
-    const clearScrollback = useAlternateScreen ? "" : CLEAR_XTERM_SCROLLBACK;
-    const postHydrateScrollbackClear =
-      !useAlternateScreen && mouseRestore.length > 0 ? CLEAR_XTERM_SCROLLBACK : "";
-    const clearScreen = `${screenMode}\x1b[H\x1b[2J${clearScrollback}`;
-    const data = normalizeSnapshotData(snapshot.data);
-    const cursorRestore = `\x1b[${snapshot.cursor_y + 1};${snapshot.cursor_x + 1}H`;
-    // Authoritative mouse for reattach is the snapshot sequence. Synthetic
-    // reattach title uses OSC 9998 (title-only) so it cannot race-clear modes.
-    tuiMouseDesiredRef.current = mouseRestore.length > 0;
-    lastMouseRestoreSequenceRef.current = mouseRestore;
-    term.reset();
-    if (
-      isUsableTerminalGrid(snapshot.cols, snapshot.rows) &&
-      (term.cols !== snapshot.cols || term.rows !== snapshot.rows)
-    ) {
-      term.resize(snapshot.cols, snapshot.rows);
-    }
-    // tmux `capture-pane -N` preserves trailing spaces so background-coloured
-    // TUI panels survive reconnect. Replay them with autowrap disabled so a
-    // full-width captured row does not create an extra wrapped line in xterm.js.
-    // Do not force DEC cursor hide here: Grok-class TUIs use the real caret for
-    // input; a permanent ?25l leaves typing without a visible cursor.
-    const payload = `${clearScreen}\x1b[?7l${data}\x1b[?7h\x1b[0m${cursorRestore}${postHydrateScrollbackClear}${mouseRestore}`;
-    writeXtermPayload(term, payload, () => {
-      if (!useAlternateScreen) {
-        jumpXtermToBottom(term);
+  const handleAttached = useCallback(
+    (snapshot?: TerminalSnapshot | null) => {
+      markTerminalSessionLive(sessionId);
+      setAttachError(null);
+      setStatus("connected");
+      const term = terminalRef.current;
+      if (!term || !snapshot) {
+        scheduleInputReady();
+        return;
       }
-      const mouseActive =
-        isTerminalMouseTrackingActive(term) || mouseRestore.length > 0;
-      const host = containerRef.current?.parentElement ?? containerRef.current;
-      host?.classList.toggle("atmos-tui-mouse-active", mouseActive);
-      // Zero local scrollback only for inline mouse TUIs (normal buffer).
-      // Alt-screen hydrate must keep normal-buffer shell history intact.
-      applyTuiMouseScrollbackPolicy(term, !useAlternateScreen && mouseActive);
-      scheduleInputReady();
-    });
-  }, [scheduleInputReady, sessionId]);
 
-  const { isConnected, isReconnecting, sendInput, sendEnter, sendTerminalReport, sendResize, sendDestroy, connect, disconnect } =
-    useTerminalWebSocket({
-      url: wsUrl,
-      sessionId,
-      workspaceId,
-      onOutput: handleOutput,
-      onConnected: handleConnected,
-      onDisconnected: handleDisconnected,
-      onError: handleError,
-      onAttached: handleAttached,
-    });
+      pendingWriteRef.current = [];
+      outputTextDecoderRef.current = new TextDecoder();
+      const useAlternateScreen = snapshot.alternate === true;
+      // capture-pane restores cells, not DEC mouse modes. Prefer the exact
+      // sequence observed on the live stream; fall back to flag / alternate
+      // heuristic with the full default (includes 1003 hover).
+      const mouseRestore = mouseTrackingRestoreSequence(snapshot);
+      const screenMode = useAlternateScreen ? "\x1b[?1049h" : "\x1b[?1049l";
+      // Always erase display; clear scrollback for non-alt. Inline mouse TUIs
+      // (Grok) paint in the normal buffer — after replaying cells, clear
+      // scrollback again so older backends that still ship long history do not
+      // leave multi-viewport junk under the TUI (APP-054).
+      const clearScrollback = useAlternateScreen ? "" : CLEAR_XTERM_SCROLLBACK;
+      const postHydrateScrollbackClear =
+        !useAlternateScreen && mouseRestore.length > 0 ? CLEAR_XTERM_SCROLLBACK : "";
+      const clearScreen = `${screenMode}\x1b[H\x1b[2J${clearScrollback}`;
+      const data = normalizeSnapshotData(snapshot.data);
+      const cursorRestore = `\x1b[${snapshot.cursor_y + 1};${snapshot.cursor_x + 1}H`;
+      // Authoritative mouse for reattach is the snapshot sequence. Synthetic
+      // reattach title uses OSC 9998 (title-only) so it cannot race-clear modes.
+      tuiMouseDesiredRef.current = mouseRestore.length > 0;
+      lastMouseRestoreSequenceRef.current = mouseRestore;
+      term.reset();
+      if (
+        isUsableTerminalGrid(snapshot.cols, snapshot.rows) &&
+        (term.cols !== snapshot.cols || term.rows !== snapshot.rows)
+      ) {
+        term.resize(snapshot.cols, snapshot.rows);
+      }
+      // tmux `capture-pane -N` preserves trailing spaces so background-coloured
+      // TUI panels survive reconnect. Replay them with autowrap disabled so a
+      // full-width captured row does not create an extra wrapped line in xterm.js.
+      // Do not force DEC cursor hide here: Grok-class TUIs use the real caret for
+      // input; a permanent ?25l leaves typing without a visible cursor.
+      const payload = `${clearScreen}\x1b[?7l${data}\x1b[?7h\x1b[0m${cursorRestore}${postHydrateScrollbackClear}${mouseRestore}`;
+      writeXtermPayload(term, payload, () => {
+        if (!useAlternateScreen) {
+          jumpXtermToBottom(term);
+        }
+        const mouseActive = isTerminalMouseTrackingActive(term) || mouseRestore.length > 0;
+        const host = containerRef.current?.parentElement ?? containerRef.current;
+        host?.classList.toggle("atmos-tui-mouse-active", mouseActive);
+        // Zero local scrollback only for inline mouse TUIs (normal buffer).
+        // Alt-screen hydrate must keep normal-buffer shell history intact.
+        applyTuiMouseScrollbackPolicy(term, !useAlternateScreen && mouseActive);
+        scheduleInputReady();
+      });
+    },
+    [scheduleInputReady, sessionId],
+  );
+
+  const {
+    isConnected,
+    isReconnecting,
+    sendInput,
+    sendEnter,
+    sendTerminalReport,
+    sendResize,
+    sendDestroy,
+    connect,
+    disconnect,
+  } = useTerminalWebSocket({
+    url: wsUrl,
+    sessionId,
+    workspaceId,
+    onOutput: handleOutput,
+    onConnected: handleConnected,
+    onDisconnected: handleDisconnected,
+    onError: handleError,
+    onAttached: handleAttached,
+  });
 
   const handleRetryAttach = useCallback(() => {
     setAttachError(null);
@@ -965,7 +958,7 @@ const Terminal = ({
         };
       },
     }),
-    [sendDestroy, disconnect, sendInput, sendEnter, getCursorClientPoint]
+    [sendDestroy, disconnect, sendInput, sendEnter, getCursorClientPoint],
   );
 
   // Hydrate appearance prefs so new / remounted terminals pick up server values.
@@ -1002,11 +995,14 @@ const Terminal = ({
   }, [appliedTerminalScale]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setAppliedTerminalScale((current) =>
-        current === normalizedTerminalScale ? current : normalizedTerminalScale,
-      );
-    }, isCanvasScaledTerminal ? CANVAS_TERMINAL_SCALE_FIT_DEBOUNCE_MS : 0);
+    const timer = setTimeout(
+      () => {
+        setAppliedTerminalScale((current) =>
+          current === normalizedTerminalScale ? current : normalizedTerminalScale,
+        );
+      },
+      isCanvasScaledTerminal ? CANVAS_TERMINAL_SCALE_FIT_DEBOUNCE_MS : 0,
+    );
 
     return () => {
       clearTimeout(timer);
@@ -1067,610 +1063,604 @@ const Terminal = ({
 
       if (cancelled || !containerRef.current || terminalRef.current) return;
 
-    // Create terminal instance
-    const appearance = useTerminalAppearanceSettingsStore.getState();
-    const terminal = new XTerm({
-      ...defaultTerminalOptions,
-      cursorStyle: appearance.cursorStyle,
-      cursorBlink: appearance.cursorBlink,
-      theme: currentTheme,
-      fontSize: scaledTerminalFontSize,
-      linkHandler: {
-        activate(event, text) {
-          void handleResolvedLinkRef.current(event, text);
+      // Create terminal instance
+      const appearance = useTerminalAppearanceSettingsStore.getState();
+      const terminal = new XTerm({
+        ...defaultTerminalOptions,
+        cursorStyle: appearance.cursorStyle,
+        cursorBlink: appearance.cursorBlink,
+        theme: currentTheme,
+        fontSize: scaledTerminalFontSize,
+        linkHandler: {
+          activate(event, text) {
+            void handleResolvedLinkRef.current(event, text);
+          },
+          allowNonHttpProtocols: true,
         },
-        allowNonHttpProtocols: true,
-      },
-    });
-
-    // Create addons
-    const fitAddon = new FitAddon();
-    const searchAddon = new SearchAddon();
-
-    // Load addons
-    const unicode11Addon = new Unicode11Addon();
-    terminal.loadAddon(unicode11Addon);
-    terminal.unicode.activeVersion = "11";
-    terminal.loadAddon(fitAddon);
-    linkProvider = terminal.registerLinkProvider(
-      createTerminalLinkProvider(terminal, { cwdPath: cwd, projectRootPath }, (event, target) => {
-        void handleTerminalLinkRef.current(event, target);
-      })
-    );
-    terminal.loadAddon(searchAddon);
-    searchAddonRef.current = searchAddon;
-    searchResultsListenerRef.current = searchAddon.onDidChangeResults((event) => {
-      setSearchStats({
-        current: event.resultIndex >= 0 ? event.resultIndex + 1 : 0,
-        total: event.resultCount,
       });
-    });
-    terminal.loadAddon(new ClipboardAddon(undefined, new SafeClipboardProvider()));
 
-    // Open terminal in container
-    terminal.open(containerRef.current);
-    unregisterPreviewHost = registerXtermPreviewHost(
-      containerRef.current,
-      () => terminal,
-    );
+      // Create addons
+      const fitAddon = new FitAddon();
+      const searchAddon = new SearchAddon();
 
-    // APP-054: while DEC mouse tracking is active, convert trackpad/wheel
-    // distance into multiple line reports so TUI viewports move proportionally.
-    // When tracking is off, xterm keeps local scrollback behavior.
-    // Inline mouse TUIs (Grok, normal buffer only) get scrollback=0 so resize
-    // redraws cannot stack full frames into local history. Alt-screen mouse
-    // apps must not trigger that policy (it trims frozen shell scrollback).
-    hostForMouseChrome = containerRef.current?.parentElement ?? containerRef.current;
-    const syncTuiMouseChrome = (active: boolean) => {
-      // Never force DEC ?25l here — Grok owns the caret for typing.
-      hostForMouseChrome?.classList.toggle("atmos-tui-mouse-active", active);
-      const inlineMouseTui =
-        active && terminal.buffer.active.type !== "alternate";
-      // Leaving inline zero-scrollback policy: drop any TUI frames that leaked
-      // into local history (Grok quit). Idle shells never pin scrollback to 0,
-      // so this does not run for normal prompts.
-      const leavingInlinePolicy =
-        !inlineMouseTui && terminal.options.scrollback === 0;
-      applyTuiMouseScrollbackPolicy(terminal, inlineMouseTui);
-      if (leavingInlinePolicy) {
-        terminal.write(CLEAR_XTERM_SCROLLBACK);
-      }
-    };
-    attachTuiMouseWheelMultiplier(terminal, {
-      onMouseTrackingActiveChange: syncTuiMouseChrome,
-    });
-    // xterm toggles `.enable-mouse-events` when DEC mouse modes change; observe
-    // only that class so focus/blur (`.focus`) does not re-enter chrome sync.
-    if (terminal.element && typeof MutationObserver !== "undefined") {
-      let lastHadMouseClass = terminal.element.classList.contains("enable-mouse-events");
-      mouseClassObserver = new MutationObserver(() => {
-        const el = terminal.element;
-        if (!el) return;
-        const hasMouseClass = el.classList.contains("enable-mouse-events");
-        if (hasMouseClass === lastHadMouseClass) return;
-        lastHadMouseClass = hasMouseClass;
-        syncTuiMouseChrome(isTerminalMouseTrackingActive(terminal));
+      // Load addons
+      const unicode11Addon = new Unicode11Addon();
+      terminal.loadAddon(unicode11Addon);
+      terminal.unicode.activeVersion = "11";
+      terminal.loadAddon(fitAddon);
+      linkProvider = terminal.registerLinkProvider(
+        createTerminalLinkProvider(terminal, { cwdPath: cwd, projectRootPath }, (event, target) => {
+          void handleTerminalLinkRef.current(event, target);
+        }),
+      );
+      terminal.loadAddon(searchAddon);
+      searchAddonRef.current = searchAddon;
+      searchResultsListenerRef.current = searchAddon.onDidChangeResults((event) => {
+        setSearchStats({
+          current: event.resultIndex >= 0 ? event.resultIndex + 1 : 0,
+          total: event.resultCount,
+        });
       });
-      mouseClassObserver.observe(terminal.element, {
-        attributes: true,
-        attributeFilter: ["class"],
-      });
-    }
-    syncTuiMouseChrome(isTerminalMouseTrackingActive(terminal));
+      terminal.loadAddon(new ClipboardAddon(undefined, new SafeClipboardProvider()));
 
-    const readCurrentSelectionSnapshot = (): TerminalSelectionSnapshot | null => {
-      const selectedText = terminal.hasSelection() ? terminal.getSelection() : "";
-      const normalized = normalizeTerminalSelectionText(selectedText);
-      if (!normalized.text.trim()) return null;
-      const wrapperRect =
-        containerRef.current?.parentElement?.getBoundingClientRect() ??
-        containerRef.current?.getBoundingClientRect();
-      const fallbackAnchor = wrapperRect
-        ? { x: wrapperRect.width / 2, y: Math.max(20, wrapperRect.height * 0.35) }
-        : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-      return {
-        id: `selection-${createOpaqueId()}`,
-        text: normalized.text,
-        sourceSessionId: sourceSessionIdRef.current,
-        sourceTmuxWindowName: sourceTmuxWindowNameRef.current,
-        selectedAtMs: Date.now(),
-        lineCount: normalized.lineCount,
-        byteCount: normalized.byteCount,
-        truncated: normalized.truncated,
-        anchor: lastSelectionAnchorRef.current ?? fallbackAnchor,
+      // Open terminal in container
+      terminal.open(containerRef.current);
+      unregisterPreviewHost = registerXtermPreviewHost(containerRef.current, () => terminal);
+
+      // APP-054: while DEC mouse tracking is active, convert trackpad/wheel
+      // distance into multiple line reports so TUI viewports move proportionally.
+      // When tracking is off, xterm keeps local scrollback behavior.
+      // Inline mouse TUIs (Grok, normal buffer only) get scrollback=0 so resize
+      // redraws cannot stack full frames into local history. Alt-screen mouse
+      // apps must not trigger that policy (it trims frozen shell scrollback).
+      hostForMouseChrome = containerRef.current?.parentElement ?? containerRef.current;
+      const syncTuiMouseChrome = (active: boolean) => {
+        // Never force DEC ?25l here — Grok owns the caret for typing.
+        hostForMouseChrome?.classList.toggle("atmos-tui-mouse-active", active);
+        const inlineMouseTui = active && terminal.buffer.active.type !== "alternate";
+        // Leaving inline zero-scrollback policy: drop any TUI frames that leaked
+        // into local history (Grok quit). Idle shells never pin scrollback to 0,
+        // so this does not run for normal prompts.
+        const leavingInlinePolicy = !inlineMouseTui && terminal.options.scrollback === 0;
+        applyTuiMouseScrollbackPolicy(terminal, inlineMouseTui);
+        if (leavingInlinePolicy) {
+          terminal.write(CLEAR_XTERM_SCROLLBACK);
+        }
       };
-    };
-
-    const emitCurrentSelectionSnapshot = () => {
-      if (cancelled) return;
-      if (isSearchVisibleRef.current) {
-        setCurrentSelectionSnapshot(null);
-        return;
+      attachTuiMouseWheelMultiplier(terminal, {
+        onMouseTrackingActiveChange: syncTuiMouseChrome,
+      });
+      // xterm toggles `.enable-mouse-events` when DEC mouse modes change; observe
+      // only that class so focus/blur (`.focus`) does not re-enter chrome sync.
+      if (terminal.element && typeof MutationObserver !== "undefined") {
+        let lastHadMouseClass = terminal.element.classList.contains("enable-mouse-events");
+        mouseClassObserver = new MutationObserver(() => {
+          const el = terminal.element;
+          if (!el) return;
+          const hasMouseClass = el.classList.contains("enable-mouse-events");
+          if (hasMouseClass === lastHadMouseClass) return;
+          lastHadMouseClass = hasMouseClass;
+          syncTuiMouseChrome(isTerminalMouseTrackingActive(terminal));
+        });
+        mouseClassObserver.observe(terminal.element, {
+          attributes: true,
+          attributeFilter: ["class"],
+        });
       }
-      setCurrentSelectionSnapshot(readCurrentSelectionSnapshot());
-    };
+      syncTuiMouseChrome(isTerminalMouseTrackingActive(terminal));
 
-    const rememberSelectionAnchor = (event: PointerEvent | MouseEvent) => {
-      const wrapperRect =
-        containerRef.current?.parentElement?.getBoundingClientRect() ??
-        containerRef.current?.getBoundingClientRect();
-      lastSelectionAnchorRef.current = {
-        x: wrapperRect ? event.clientX - wrapperRect.left : event.clientX,
-        y: wrapperRect ? event.clientY - wrapperRect.top : event.clientY,
+      const readCurrentSelectionSnapshot = (): TerminalSelectionSnapshot | null => {
+        const selectedText = terminal.hasSelection() ? terminal.getSelection() : "";
+        const normalized = normalizeTerminalSelectionText(selectedText);
+        if (!normalized.text.trim()) return null;
+        const wrapperRect =
+          containerRef.current?.parentElement?.getBoundingClientRect() ??
+          containerRef.current?.getBoundingClientRect();
+        const fallbackAnchor = wrapperRect
+          ? { x: wrapperRect.width / 2, y: Math.max(20, wrapperRect.height * 0.35) }
+          : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        return {
+          id: `selection-${createOpaqueId()}`,
+          text: normalized.text,
+          sourceSessionId: sourceSessionIdRef.current,
+          sourceTmuxWindowName: sourceTmuxWindowNameRef.current,
+          selectedAtMs: Date.now(),
+          lineCount: normalized.lineCount,
+          byteCount: normalized.byteCount,
+          truncated: normalized.truncated,
+          anchor: lastSelectionAnchorRef.current ?? fallbackAnchor,
+        };
       };
-      window.requestAnimationFrame(emitCurrentSelectionSnapshot);
-    };
 
-    const selectionContainer = containerRef.current;
-    selectionContainer.addEventListener("pointerup", rememberSelectionAnchor);
-    selectionContainer.addEventListener("mouseup", rememberSelectionAnchor);
-    selectionAnchorCleanup = () => {
-      selectionContainer.removeEventListener("pointerup", rememberSelectionAnchor);
-      selectionContainer.removeEventListener("mouseup", rememberSelectionAnchor);
-    };
-    selectionChangeDisposable = terminal.onSelectionChange(() => {
-      window.requestAnimationFrame(emitCurrentSelectionSnapshot);
-    });
+      const emitCurrentSelectionSnapshot = () => {
+        if (cancelled) return;
+        if (isSearchVisibleRef.current) {
+          setCurrentSelectionSnapshot(null);
+          return;
+        }
+        setCurrentSelectionSnapshot(readCurrentSelectionSnapshot());
+      };
 
-    // ── Paste + Shift+Enter (tmux control mode) ───────────────────────
-    // tmux control mode does not forward `\x1b[?2004h` to xterm.js, so xterm
-    // never bracket-wraps paste — newlines become raw \r (Enter). Intercept at
-    // document capture before xterm.js. Shift+Enter also maps to \r in xterm;
-    // Web uses LF, Desktop WKWebView uses CSI-u (see shiftEnterInput).
-    {
-      const doc = containerRef.current?.ownerDocument ?? document;
-      let isHandlingPaste = false;
+      const rememberSelectionAnchor = (event: PointerEvent | MouseEvent) => {
+        const wrapperRect =
+          containerRef.current?.parentElement?.getBoundingClientRect() ??
+          containerRef.current?.getBoundingClientRect();
+        lastSelectionAnchorRef.current = {
+          x: wrapperRect ? event.clientX - wrapperRect.left : event.clientX,
+          y: wrapperRect ? event.clientY - wrapperRect.top : event.clientY,
+        };
+        window.requestAnimationFrame(emitCurrentSelectionSnapshot);
+      };
 
-      const handlePaste = (e: ClipboardEvent) => {
-        if (isHandlingPaste || readOnlyRef.current) return;
+      const selectionContainer = containerRef.current;
+      selectionContainer.addEventListener("pointerup", rememberSelectionAnchor);
+      selectionContainer.addEventListener("mouseup", rememberSelectionAnchor);
+      selectionAnchorCleanup = () => {
+        selectionContainer.removeEventListener("pointerup", rememberSelectionAnchor);
+        selectionContainer.removeEventListener("mouseup", rememberSelectionAnchor);
+      };
+      selectionChangeDisposable = terminal.onSelectionChange(() => {
+        window.requestAnimationFrame(emitCurrentSelectionSnapshot);
+      });
 
-        const target = e.target as Node;
-        if (!containerRef.current?.contains(target)) return;
+      // ── Paste + Shift+Enter (tmux control mode) ───────────────────────
+      // tmux control mode does not forward `\x1b[?2004h` to xterm.js, so xterm
+      // never bracket-wraps paste — newlines become raw \r (Enter). Intercept at
+      // document capture before xterm.js. Shift+Enter also maps to \r in xterm;
+      // Web uses LF, Desktop WKWebView uses CSI-u (see shiftEnterInput).
+      {
+        const doc = containerRef.current?.ownerDocument ?? document;
+        let isHandlingPaste = false;
 
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        isHandlingPaste = true;
+        const handlePaste = (e: ClipboardEvent) => {
+          if (isHandlingPaste || readOnlyRef.current) return;
 
-        navigator.clipboard.readText().then((text) => {
-          if (!text) return;
-          terminal.input(wrapBracketedPaste(text), false);
-        }).catch(() => {
-          const dt = new DataTransfer();
-          const synthetic = new ClipboardEvent("paste", {
-            bubbles: true,
-            clipboardData: dt,
-          });
-          (e.target as HTMLElement)?.dispatchEvent(synthetic);
-        }).finally(() => {
-          isHandlingPaste = false;
+          const target = e.target as Node;
+          if (!containerRef.current?.contains(target)) return;
+
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          isHandlingPaste = true;
+
+          navigator.clipboard
+            .readText()
+            .then((text) => {
+              if (!text) return;
+              terminal.input(wrapBracketedPaste(text), false);
+            })
+            .catch(() => {
+              const dt = new DataTransfer();
+              const synthetic = new ClipboardEvent("paste", {
+                bubbles: true,
+                clipboardData: dt,
+              });
+              (e.target as HTMLElement)?.dispatchEvent(synthetic);
+            })
+            .finally(() => {
+              isHandlingPaste = false;
+            });
+        };
+
+        const handleShiftEnter = (e: KeyboardEvent) => {
+          if (!e.shiftKey || e.key !== "Enter" || readOnlyRef.current) return;
+          const target = e.target as Node;
+          if (!containerRef.current?.contains(target)) return;
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          terminal.input(shiftEnterInput(), false);
+        };
+
+        doc.addEventListener("paste", handlePaste, true);
+        doc.addEventListener("keydown", handleShiftEnter, true);
+
+        terminalInputCleanupRef.current = () => {
+          doc.removeEventListener("paste", handlePaste, true);
+          doc.removeEventListener("keydown", handleShiftEnter, true);
+        };
+      }
+
+      // Native OSC 0/2 titles from agent CLIs (Codex/Claude/…). Capture via both
+      // onTitleChange and explicit OSC handlers — under tmux some builds only hit one path.
+      // Never feed this into agent detection (APP-047).
+      // Do NOT reset lastOscTitleRef here: a warm remount must not drop a title that
+      // was already restored from the pane store before this effect re-ran.
+      lastTitleRef.current = "";
+      if (oscSettleTimerRef.current) {
+        clearTimeout(oscSettleTimerRef.current);
+        oscSettleTimerRef.current = null;
+      }
+      // Shell preexec sets OSC to the command name (`ls`) then precmd sets path
+      // within ~tens of ms. Settle before painting so short commands never flash.
+      const emitOscTitle = (_raw: string | undefined) => {
+        // Titles are detected on the computer and pushed as terminal_title_updated.
+      };
+      titleChangeDisposable = terminal.onTitleChange((raw) => {
+        emitOscTitle(raw);
+      });
+      // Explicit handlers: return false so xterm default title handling still runs.
+      osc0HandlerDisposable = terminal.parser.registerOscHandler(0, (data) => {
+        // OSC 0 is "icon name ; window title" or just title
+        const title = data.includes(";") ? data.slice(data.indexOf(";") + 1) : data;
+        emitOscTitle(title);
+        return false;
+      });
+      osc2HandlerDisposable = terminal.parser.registerOscHandler(2, (data) => {
+        emitOscTitle(data);
+        return false;
+      });
+
+      // Dynamic tab titles:
+      //   OSC 9999 — real shell shim (preexec/precmd). CMD_END may clear mouse.
+      //   OSC 9998 — server reattach inject only. Title only; never clear mouse
+      //              (APP-054: eliminates hydrate vs inject race on refresh).
+      //
+      // Optimizations on 9999:
+      //   1. Dedup — skip update if the new title equals the current one
+      //   2. Debounce CMD_START — short-lived commands (ls, pwd, echo) finish
+      //      before the timer fires, so CMD_END cancels the pending CMD_START
+      //      and the title never flickers.
+      const CMD_START_DELAY_MS = 150;
+
+      const emitDynamicTitle = (_title: string) => {
+        // Titles are detected on the computer and pushed as terminal_title_updated.
+      };
+
+      const applyDynamicTitleCmdStart = (payload: string) => {
+        const title = extractCommandName(payload);
+        // CMD_START arrives before the process can enter alternate screen or
+        // enable DEC mouse. Reassert only state already observed/restored; a
+        // command name alone must never trigger the inline scrollback policy.
+        const wantMouse = shouldEnableTuiMouseOnCommandStart(
+          terminal.buffer.active.type,
+          tuiMouseDesiredRef.current,
+        );
+        if (wantMouse) {
+          tuiMouseDesiredRef.current = true;
+          const seq = lastMouseRestoreSequenceRef.current || ENABLE_TUI_MOUSE_TRACKING;
+          terminal.write(seq);
+          syncTuiMouseChrome(true);
+        }
+        if (cmdStartTimerRef.current) {
+          clearTimeout(cmdStartTimerRef.current);
+        }
+        cmdStartTimerRef.current = setTimeout(() => {
+          cmdStartTimerRef.current = null;
+          emitDynamicTitle(title);
+        }, CMD_START_DELAY_MS);
+      };
+
+      const applyDynamicTitleCmdEnd = (
+        payload: string,
+        opts: { allowMouseSideEffects: boolean; clearOscTitle: boolean },
+      ) => {
+        if (opts.allowMouseSideEffects) {
+          // Real shell idle: clear mouse only when not on alternate screen.
+          // Reattach inject must NOT take this path (uses OSC 9998).
+          if (shouldDisableTuiMouseOnCmdEnd(terminal.buffer.active.type)) {
+            tuiMouseDesiredRef.current = false;
+            lastMouseRestoreSequenceRef.current = "";
+            // Disable mouse only. Scrollback clear (if any) runs inside
+            // syncTuiMouseChrome when leaving the inline zero-scrollback policy —
+            // not on every shell precmd (that wiped normal history).
+            terminal.write(DISABLE_TUI_MOUSE_TRACKING);
+            syncTuiMouseChrome(false);
+          }
+        }
+        if (cmdStartTimerRef.current) {
+          clearTimeout(cmdStartTimerRef.current);
+          cmdStartTimerRef.current = null;
+        }
+        // Real shell CMD_END (9999): agent/CLI exited → clear native OSC topic
+        // (APP-047). Reattach inject (9998) must keep topics across refresh.
+        // Always notify even when local ref is empty — store may still hold a
+        // restored topic after warm remount.
+        if (opts.clearOscTitle) {
+          if (oscSettleTimerRef.current) {
+            clearTimeout(oscSettleTimerRef.current);
+            oscSettleTimerRef.current = null;
+          }
+          pendingOscRawRef.current = undefined;
+          lastOscTitleRef.current = undefined;
+        }
+        emitDynamicTitle(shortenPath(payload));
+      };
+
+      const registerTitleOsc = (osc: number, allowMouseSideEffects: boolean) => {
+        const clearOscTitle = shouldClearNativeOscOnCmdEnd(osc);
+        terminal.parser.registerOscHandler(osc, (data: string) => {
+          const colonIdx = data.indexOf(":");
+          if (colonIdx === -1) return true;
+          const metaType = data.substring(0, colonIdx);
+          const payload = data.substring(colonIdx + 1);
+          if (metaType === "CMD_START") {
+            applyDynamicTitleCmdStart(payload);
+          } else if (metaType === "CMD_END") {
+            applyDynamicTitleCmdEnd(payload, { allowMouseSideEffects, clearOscTitle });
+          }
+          return true;
         });
       };
 
-      const handleShiftEnter = (e: KeyboardEvent) => {
-        if (!e.shiftKey || e.key !== "Enter" || readOnlyRef.current) return;
-        const target = e.target as Node;
-        if (!containerRef.current?.contains(target)) return;
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        terminal.input(shiftEnterInput(), false);
-      };
+      // 9998 = reattach synthetic title (no mouse disable, keep OSC topic).
+      // 9999 = real shell (may clear mouse + native OSC on CMD_END).
+      registerTitleOsc(9998, false);
+      registerTitleOsc(9999, true);
 
-      doc.addEventListener("paste", handlePaste, true);
-      doc.addEventListener("keydown", handleShiftEnter, true);
-
-      terminalInputCleanupRef.current = () => {
-        doc.removeEventListener("paste", handlePaste, true);
-        doc.removeEventListener("keydown", handleShiftEnter, true);
-      };
-    }
-
-    // Native OSC 0/2 titles from agent CLIs (Codex/Claude/…). Capture via both
-    // onTitleChange and explicit OSC handlers — under tmux some builds only hit one path.
-    // Never feed this into agent detection (APP-047).
-    // Do NOT reset lastOscTitleRef here: a warm remount must not drop a title that
-    // was already restored from the pane store before this effect re-ran.
-    lastTitleRef.current = "";
-    if (oscSettleTimerRef.current) {
-      clearTimeout(oscSettleTimerRef.current);
-      oscSettleTimerRef.current = null;
-    }
-    // Shell preexec sets OSC to the command name (`ls`) then precmd sets path
-    // within ~tens of ms. Settle before painting so short commands never flash.
-    const emitOscTitle = (_raw: string | undefined) => {
-      // Titles are detected on the computer and pushed as terminal_title_updated.
-    };
-    titleChangeDisposable = terminal.onTitleChange((raw) => {
-      emitOscTitle(raw);
-    });
-    // Explicit handlers: return false so xterm default title handling still runs.
-    osc0HandlerDisposable = terminal.parser.registerOscHandler(0, (data) => {
-      // OSC 0 is "icon name ; window title" or just title
-      const title = data.includes(";") ? data.slice(data.indexOf(";") + 1) : data;
-      emitOscTitle(title);
-      return false;
-    });
-    osc2HandlerDisposable = terminal.parser.registerOscHandler(2, (data) => {
-      emitOscTitle(data);
-      return false;
-    });
-
-    // Dynamic tab titles:
-    //   OSC 9999 — real shell shim (preexec/precmd). CMD_END may clear mouse.
-    //   OSC 9998 — server reattach inject only. Title only; never clear mouse
-    //              (APP-054: eliminates hydrate vs inject race on refresh).
-    //
-    // Optimizations on 9999:
-    //   1. Dedup — skip update if the new title equals the current one
-    //   2. Debounce CMD_START — short-lived commands (ls, pwd, echo) finish
-    //      before the timer fires, so CMD_END cancels the pending CMD_START
-    //      and the title never flickers.
-    const CMD_START_DELAY_MS = 150;
-
-    const emitDynamicTitle = (_title: string) => {
-      // Titles are detected on the computer and pushed as terminal_title_updated.
-    };
-
-    const applyDynamicTitleCmdStart = (payload: string) => {
-      const title = extractCommandName(payload);
-      // CMD_START arrives before the process can enter alternate screen or
-      // enable DEC mouse. Reassert only state already observed/restored; a
-      // command name alone must never trigger the inline scrollback policy.
-      const wantMouse = shouldEnableTuiMouseOnCommandStart(
-        terminal.buffer.active.type,
-        tuiMouseDesiredRef.current,
-      );
-      if (wantMouse) {
-        tuiMouseDesiredRef.current = true;
-        const seq =
-          lastMouseRestoreSequenceRef.current || ENABLE_TUI_MOUSE_TRACKING;
-        terminal.write(seq);
-        syncTuiMouseChrome(true);
-      }
-      if (cmdStartTimerRef.current) {
-        clearTimeout(cmdStartTimerRef.current);
-      }
-      cmdStartTimerRef.current = setTimeout(() => {
-        cmdStartTimerRef.current = null;
-        emitDynamicTitle(title);
-      }, CMD_START_DELAY_MS);
-    };
-
-    const applyDynamicTitleCmdEnd = (
-      payload: string,
-      opts: { allowMouseSideEffects: boolean; clearOscTitle: boolean },
-    ) => {
-      if (opts.allowMouseSideEffects) {
-        // Real shell idle: clear mouse only when not on alternate screen.
-        // Reattach inject must NOT take this path (uses OSC 9998).
-        if (shouldDisableTuiMouseOnCmdEnd(terminal.buffer.active.type)) {
-          tuiMouseDesiredRef.current = false;
-          lastMouseRestoreSequenceRef.current = "";
-          // Disable mouse only. Scrollback clear (if any) runs inside
-          // syncTuiMouseChrome when leaving the inline zero-scrollback policy —
-          // not on every shell precmd (that wiped normal history).
-          terminal.write(DISABLE_TUI_MOUSE_TRACKING);
-          syncTuiMouseChrome(false);
-        }
-      }
-      if (cmdStartTimerRef.current) {
-        clearTimeout(cmdStartTimerRef.current);
-        cmdStartTimerRef.current = null;
-      }
-      // Real shell CMD_END (9999): agent/CLI exited → clear native OSC topic
-      // (APP-047). Reattach inject (9998) must keep topics across refresh.
-      // Always notify even when local ref is empty — store may still hold a
-      // restored topic after warm remount.
-      if (opts.clearOscTitle) {
-        if (oscSettleTimerRef.current) {
-          clearTimeout(oscSettleTimerRef.current);
-          oscSettleTimerRef.current = null;
-        }
-        pendingOscRawRef.current = undefined;
-        lastOscTitleRef.current = undefined;
-      }
-      emitDynamicTitle(shortenPath(payload));
-    };
-
-    const registerTitleOsc = (osc: number, allowMouseSideEffects: boolean) => {
-      const clearOscTitle = shouldClearNativeOscOnCmdEnd(osc);
-      terminal.parser.registerOscHandler(osc, (data: string) => {
-        const colonIdx = data.indexOf(":");
-        if (colonIdx === -1) return true;
-        const metaType = data.substring(0, colonIdx);
-        const payload = data.substring(colonIdx + 1);
-        if (metaType === "CMD_START") {
-          applyDynamicTitleCmdStart(payload);
-        } else if (metaType === "CMD_END") {
-          applyDynamicTitleCmdEnd(payload, { allowMouseSideEffects, clearOscTitle });
-        }
-        return true;
-      });
-    };
-
-    // 9998 = reattach synthetic title (no mouse disable, keep OSC topic).
-    // 9999 = real shell (may clear mouse + native OSC on CMD_END).
-    registerTitleOsc(9998, false);
-    registerTitleOsc(9999, true);
-
-    // Try to load WebGL addon for better performance and crisp text rendering.
-    // preserveDrawingBuffer lets pane drag capture a real terminal snapshot.
-    try {
-      const webglAddon = new WebglAddon(true);
-      terminal.loadAddon(webglAddon);
-      webglAddonRef.current = webglAddon;
-
-      webglAddon.onContextLoss(() => {
-        webglAddon.dispose();
-        webglAddonRef.current = null;
-      });
-    } catch (e) {
-      console.warn("WebGL addon failed to load, using canvas renderer", e);
-    }
-
-    try {
-      terminal.loadAddon(new ImageAddon());
-    } catch (e) {
-      console.warn("Image addon failed to load", e);
-    }
-
-    // Store refs BEFORE fit so handlers can access them
-    terminalRef.current = terminal;
-    fitAddonRef.current = fitAddon;
-
-    // APP-054: coalesce high-frequency mouse reports / short control bursts so
-    // trackpad multi-report scrolls do not enqueue one WS write per line.
-    inputQueueAlive = true;
-    inputCoalesceQueue = createTerminalInputCoalesceQueue({
-      send: (payload) => {
-        sendInput(payload);
-      },
-      isActive: () => inputQueueAlive && !cancelled,
-    });
-
-    // Handle terminal input
-    terminal.onData((data) => {
-      if (!data) return;
-
-      if (readOnlyRef.current) {
-        onInputWhileReadOnly?.();
-        return;
-      }
-      if (isTerminalEmulatorReport(data)) {
-        sendTerminalReport(data);
-      } else {
-        inputCoalesceQueue?.enqueue(data);
-        interruptInferenceRef.current?.observeInput(data);
-      }
-      onData?.(data); // Notify parent
-    });
-
-    // IMPORTANT: Register onResize BEFORE fitAddon.fit() so the initial
-    // resize event (from default 80x24 to actual size) is captured.
-    // Dedup via pinTerminalSizeRef so warm reveal / double fit paths do not
-    // emit identical terminal_resize (SIGWINCH flash for inline TUIs).
-    terminal.onResize(({ cols, rows }) => {
-      pinTerminalSizeRef.current({ cols, rows });
-      // Inline mouse TUIs (Grok) only: a rows change can briefly park the old
-      // frame as history before repaint. Idle shells and alt-screen apps must
-      // keep local scrollback intact across resize. Always drop the previous
-      // TUI frame here — skipping it during drag leaves stacked remnants.
-      if (isInlineMouseTuiScrollbackSurface(terminal)) {
-        if (terminal.options.scrollback !== 0) {
-          terminal.options.scrollback = 0;
-        }
-        if (shouldDiscardXtermScrollbackOnResize({ inlineMouseTuiActive: true })) {
-          discardXtermScrollbackWhileMouseTui(terminal, true);
-        }
-      }
-    });
-
-    let connectStarted = false;
-    let initialConnectFrameCount = 0;
-    let initialConnectStableFrameCount = 0;
-    let lastInitialConnectGrid: { cols: number; rows: number } | null = null;
-    const buildRuntimeWsUrl = async () => {
-      let runtimeWsUrl = wsUrl;
+      // Try to load WebGL addon for better performance and crisp text rendering.
+      // preserveDrawingBuffer lets pane drag capture a real terminal snapshot.
       try {
-        const cfg = await getRuntimeApiConfig();
-        const urlObj = new URL(wsUrl);
-        if (cfg.port) {
-          const runtimeBase = new URL(wsBase(cfg));
-          urlObj.host = runtimeBase.host;
-          urlObj.protocol = runtimeBase.protocol;
+        const webglAddon = new WebglAddon(true);
+        terminal.loadAddon(webglAddon);
+        webglAddonRef.current = webglAddon;
+
+        webglAddon.onContextLoss(() => {
+          webglAddon.dispose();
+          webglAddonRef.current = null;
+        });
+      } catch (e) {
+        console.warn("WebGL addon failed to load, using canvas renderer", e);
+      }
+
+      try {
+        terminal.loadAddon(new ImageAddon());
+      } catch (e) {
+        console.warn("Image addon failed to load", e);
+      }
+
+      // Store refs BEFORE fit so handlers can access them
+      terminalRef.current = terminal;
+      fitAddonRef.current = fitAddon;
+
+      // APP-054: coalesce high-frequency mouse reports / short control bursts so
+      // trackpad multi-report scrolls do not enqueue one WS write per line.
+      inputQueueAlive = true;
+      inputCoalesceQueue = createTerminalInputCoalesceQueue({
+        send: (payload) => {
+          sendInput(payload);
+        },
+        isActive: () => inputQueueAlive && !cancelled,
+      });
+
+      // Handle terminal input
+      terminal.onData((data) => {
+        if (!data) return;
+
+        if (readOnlyRef.current) {
+          onInputWhileReadOnly?.();
+          return;
         }
-        if (cfg.token) {
-          urlObj.searchParams.set("token", cfg.token);
+        if (isTerminalEmulatorReport(data)) {
+          sendTerminalReport(data);
+        } else {
+          inputCoalesceQueue?.enqueue(data);
+          interruptInferenceRef.current?.observeInput(data);
         }
-        runtimeWsUrl = urlObj.toString();
-      } catch {
-        // Fallback to original URL in non-desktop environments.
-      }
-      return runtimeWsUrl;
-    };
-    const tryFitAndReadGrid = () => {
-      // Off-screen warm panes: never measure (avoids forced layout storms on hop).
-      if (!surfaceActiveRef.current) return null;
-      if (!isTerminalContainerVisible(containerRef.current)) return null;
+        onData?.(data); // Notify parent
+      });
 
-      fitAddon.fit();
-      const grid = { cols: terminal.cols, rows: terminal.rows };
-      return isUsableTerminalGrid(grid.cols, grid.rows) ? grid : null;
-    };
-    const scheduleConnectCheck = () => {
-      if (cancelled || connectStarted || connectRafId) return;
-      connectRafId = requestAnimationFrame(runConnectCheck);
-    };
-    const runConnectCheck = () => {
-      connectRafId = 0;
-      if (cancelled || connectStarted) return;
+      // IMPORTANT: Register onResize BEFORE fitAddon.fit() so the initial
+      // resize event (from default 80x24 to actual size) is captured.
+      // Dedup via pinTerminalSizeRef so warm reveal / double fit paths do not
+      // emit identical terminal_resize (SIGWINCH flash for inline TUIs).
+      terminal.onResize(({ cols, rows }) => {
+        pinTerminalSizeRef.current({ cols, rows });
+        // Inline mouse TUIs (Grok) only: a rows change can briefly park the old
+        // frame as history before repaint. Idle shells and alt-screen apps must
+        // keep local scrollback intact across resize. Always drop the previous
+        // TUI frame here — skipping it during drag leaves stacked remnants.
+        if (isInlineMouseTuiScrollbackSurface(terminal)) {
+          if (terminal.options.scrollback !== 0) {
+            terminal.options.scrollback = 0;
+          }
+          if (shouldDiscardXtermScrollbackOnResize({ inlineMouseTuiActive: true })) {
+            discardXtermScrollbackWhileMouseTui(terminal, true);
+          }
+        }
+      });
 
-      const grid = tryFitAndReadGrid();
-      if (!grid) return;
+      let connectStarted = false;
+      let initialConnectFrameCount = 0;
+      let initialConnectStableFrameCount = 0;
+      let lastInitialConnectGrid: { cols: number; rows: number } | null = null;
+      const buildRuntimeWsUrl = async () => {
+        let runtimeWsUrl = wsUrl;
+        try {
+          const cfg = await getRuntimeApiConfig();
+          const urlObj = new URL(wsUrl);
+          if (cfg.port) {
+            const runtimeBase = new URL(wsBase(cfg));
+            urlObj.host = runtimeBase.host;
+            urlObj.protocol = runtimeBase.protocol;
+          }
+          if (cfg.token) {
+            urlObj.searchParams.set("token", cfg.token);
+          }
+          runtimeWsUrl = urlObj.toString();
+        } catch {
+          // Fallback to original URL in non-desktop environments.
+        }
+        return runtimeWsUrl;
+      };
+      const tryFitAndReadGrid = () => {
+        // Off-screen warm panes: never measure (avoids forced layout storms on hop).
+        if (!surfaceActiveRef.current) return null;
+        if (!isTerminalContainerVisible(containerRef.current)) return null;
 
-      initialConnectFrameCount += 1;
-      if (
-        lastInitialConnectGrid &&
-        lastInitialConnectGrid.cols === grid.cols &&
-        lastInitialConnectGrid.rows === grid.rows
-      ) {
-        initialConnectStableFrameCount += 1;
-      } else {
-        lastInitialConnectGrid = grid;
-        initialConnectStableFrameCount = 1;
-      }
+        fitAddon.fit();
+        const grid = { cols: terminal.cols, rows: terminal.rows };
+        return isUsableTerminalGrid(grid.cols, grid.rows) ? grid : null;
+      };
+      const scheduleConnectCheck = () => {
+        if (cancelled || connectStarted || connectRafId) return;
+        connectRafId = requestAnimationFrame(runConnectCheck);
+      };
+      const runConnectCheck = () => {
+        connectRafId = 0;
+        if (cancelled || connectStarted) return;
 
-      const waitedLongEnough = initialConnectFrameCount >= INITIAL_CONNECT_MIN_FRAMES;
-      const gridIsStable = initialConnectStableFrameCount >= INITIAL_CONNECT_STABLE_FRAMES;
-      const hitWaitLimit = initialConnectFrameCount >= INITIAL_CONNECT_MAX_WAIT_FRAMES;
-      if ((!waitedLongEnough || !gridIsStable) && !hitWaitLimit) {
-        scheduleConnectCheck();
-        return;
-      }
+        const grid = tryFitAndReadGrid();
+        if (!grid) return;
 
-      connectStarted = true;
-      // Connect with runtime token in desktop mode, then include initial cols/rows.
-      // cancelled is set to true by the cleanup function below. In desktop (Tauri) mode,
-      // getRuntimeApiConfig() needs ~50ms for IPC. React Strict Mode double-mounts the
-      // component, so two async IIFEs may be in flight simultaneously. The cancelled flag
-      // ensures only the IIFE belonging to the live mount actually calls connect().
-      void (async () => {
-        const runtimeWsUrl = await buildRuntimeWsUrl();
-        if (cancelled) return;
-        const separator = runtimeWsUrl.includes("?") ? "&" : "?";
-        const connectUrl = `${runtimeWsUrl}${separator}cols=${terminal.cols}&rows=${terminal.rows}`;
-        connect(connectUrl);
-      })();
-    };
-    const connectWhenVisible = () => {
-      if (cancelled || connectStarted) return;
-      if (
-        shouldConnectHiddenPty({
-          surfaceActive: surfaceActiveRef.current,
-          connectWhileHidden: connectWhileHiddenRef.current,
-        })
-      ) {
+        initialConnectFrameCount += 1;
+        if (
+          lastInitialConnectGrid &&
+          lastInitialConnectGrid.cols === grid.cols &&
+          lastInitialConnectGrid.rows === grid.rows
+        ) {
+          initialConnectStableFrameCount += 1;
+        } else {
+          lastInitialConnectGrid = grid;
+          initialConnectStableFrameCount = 1;
+        }
+
+        const waitedLongEnough = initialConnectFrameCount >= INITIAL_CONNECT_MIN_FRAMES;
+        const gridIsStable = initialConnectStableFrameCount >= INITIAL_CONNECT_STABLE_FRAMES;
+        const hitWaitLimit = initialConnectFrameCount >= INITIAL_CONNECT_MAX_WAIT_FRAMES;
+        if ((!waitedLongEnough || !gridIsStable) && !hitWaitLimit) {
+          scheduleConnectCheck();
+          return;
+        }
+
         connectStarted = true;
+        // Connect with runtime token in desktop mode, then include initial cols/rows.
+        // cancelled is set to true by the cleanup function below. In desktop (Tauri) mode,
+        // getRuntimeApiConfig() needs ~50ms for IPC. React Strict Mode double-mounts the
+        // component, so two async IIFEs may be in flight simultaneously. The cancelled flag
+        // ensures only the IIFE belonging to the live mount actually calls connect().
         void (async () => {
           const runtimeWsUrl = await buildRuntimeWsUrl();
           if (cancelled) return;
           const separator = runtimeWsUrl.includes("?") ? "&" : "?";
-          const { cols, rows } = HIDDEN_PTY_CONNECT_GRID;
-          connect(`${runtimeWsUrl}${separator}cols=${cols}&rows=${rows}`);
+          const connectUrl = `${runtimeWsUrl}${separator}cols=${terminal.cols}&rows=${terminal.rows}`;
+          connect(connectUrl);
         })();
-        return;
-      }
-      scheduleConnectCheck();
-    };
-    const scheduleVisibilityPoll = () => {
-      if (cancelled || connectStarted || visibilityPollTimer) return;
-      visibilityPollTimer = setTimeout(() => {
-        visibilityPollTimer = null;
-        connectWhenVisible();
-        scheduleVisibilityPoll();
-      }, 250);
-    };
-
-    // Only connect once the pane is visible and FitAddon can produce a real grid.
-    // Hidden terminal tabs often measure as 10x5; hydrating a 148-column tmux
-    // snapshot into that tiny xterm buffer permanently wraps and corrupts TUIs.
-    connectWhenVisible();
-    scheduleVisibilityPoll();
-
-    // ── Cmd/Ctrl+C: copy selection to clipboard ──────────────────────
-    terminal.attachCustomKeyEventHandler((event) => {
-      if (isFindShortcut(event)) {
-        openSearch();
-        return false;
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
-        if (terminal.hasSelection()) {
-          const selection = terminal.getSelection();
-          if (selection?.trim() && navigator.clipboard) {
-            void navigator.clipboard.writeText(selection);
-          }
-          return false; // Consumed — don't send Ctrl+C to terminal
-        }
-      }
-      return true;
-    });
-
-    // ── Scroll-to-bottom button tracking ────────────────────────────
-    // xterm.js handles all scrolling natively (local scrollback: 10000).
-    // Show button when user scrolls away from bottom.
-    terminal.onScroll(() => {
-      const buf = terminal.buffer.active;
-      const atBottom = isXtermNearBottom(buf.viewportY, buf.baseY);
-      if (!atBottom) cancelFollowBottom();
-      setShowScrollDown(!atBottom);
-    });
-
-    // ── Resize observer ────────────────────────────────────────────
-    // Uses rAF to coalesce multiple ResizeObserver fires within one frame.
-    // Control mode sends raw pane output, so xterm.js owns scrollback and TUI
-    // alternate-screen transitions without backend cleanup hacks.
-    const runResizeFit = () => {
-      resizeRafIdRef.current = 0;
-      const term = terminalRef.current;
-      const fit = fitAddonRef.current;
-      if (!term || !fit) return;
-      // Host said off-screen — do not read layout (forced-layout thrash source).
-      if (!surfaceActiveRef.current) return;
-      // Skip when terminal container is hidden (e.g. tab not visible)
-      if (!isTerminalContainerVisible(containerRef.current)) return;
-
-      // Post-reveal RO delivery: drop only when the grid is still correct so a
-      // real size change right after observe is never swallowed.
-      if (suppressNextRoFitRef.current) {
-        suppressNextRoFitRef.current = false;
-        const proposed = proposeTerminalGrid(term, fit);
+      };
+      const connectWhenVisible = () => {
+        if (cancelled || connectStarted) return;
         if (
-          proposed &&
-          proposed.cols === term.cols &&
-          proposed.rows === term.rows
+          shouldConnectHiddenPty({
+            surfaceActive: surfaceActiveRef.current,
+            connectWhileHidden: connectWhileHiddenRef.current,
+          })
         ) {
+          connectStarted = true;
+          void (async () => {
+            const runtimeWsUrl = await buildRuntimeWsUrl();
+            if (cancelled) return;
+            const separator = runtimeWsUrl.includes("?") ? "&" : "?";
+            const { cols, rows } = HIDDEN_PTY_CONNECT_GRID;
+            connect(`${runtimeWsUrl}${separator}cols=${cols}&rows=${rows}`);
+          })();
           return;
         }
-      }
+        scheduleConnectCheck();
+      };
+      const scheduleVisibilityPoll = () => {
+        if (cancelled || connectStarted || visibilityPollTimer) return;
+        visibilityPollTimer = setTimeout(() => {
+          visibilityPollTimer = null;
+          connectWhenVisible();
+          scheduleVisibilityPoll();
+        }, 250);
+      };
 
-      // Wait for the proposed grid to sit still one frame (or a small cap)
-      // before fitting. Pointermove must not SIGWINCH every tick.
-      stableFitRef.current.request();
+      // Only connect once the pane is visible and FitAddon can produce a real grid.
+      // Hidden terminal tabs often measure as 10x5; hydrating a 148-column tmux
+      // snapshot into that tiny xterm buffer permanently wraps and corrupts TUIs.
       connectWhenVisible();
-    };
-    const scheduleResizeFit = () => {
-      if (!surfaceActiveRef.current) return;
-      if (resizeRafIdRef.current) return;
-      resizeRafIdRef.current = requestAnimationFrame(runResizeFit);
-    };
-    const resizeObserver = new ResizeObserver(() => {
-      if (!surfaceActiveRef.current) return;
-      if (!isCanvasScaledTerminal) {
-        scheduleResizeFit();
-        return;
-      }
+      scheduleVisibilityPoll();
 
-      if (resizeDebounceTimerRef.current) {
-        clearTimeout(resizeDebounceTimerRef.current);
-      }
-      const scaleFitPending =
-        Math.abs(normalizedTerminalScaleRef.current - appliedTerminalScaleRef.current) > 0.001;
-      if (!scaleFitPending) {
-        scheduleResizeFit();
-        return;
-      }
+      // ── Cmd/Ctrl+C: copy selection to clipboard ──────────────────────
+      terminal.attachCustomKeyEventHandler((event) => {
+        if (isFindShortcut(event)) {
+          openSearch();
+          return false;
+        }
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
+          if (terminal.hasSelection()) {
+            const selection = terminal.getSelection();
+            if (selection?.trim() && navigator.clipboard) {
+              void navigator.clipboard.writeText(selection);
+            }
+            return false; // Consumed — don't send Ctrl+C to terminal
+          }
+        }
+        return true;
+      });
 
-      resizeDebounceTimerRef.current = setTimeout(() => {
-        resizeDebounceTimerRef.current = null;
-        scheduleResizeFit();
-      }, CANVAS_TERMINAL_SCALE_FIT_DEBOUNCE_MS);
-    });
+      // ── Scroll-to-bottom button tracking ────────────────────────────
+      // xterm.js handles all scrolling natively (local scrollback: 10000).
+      // Show button when user scrolls away from bottom.
+      terminal.onScroll(() => {
+        const buf = terminal.buffer.active;
+        const atBottom = isXtermNearBottom(buf.viewportY, buf.baseY);
+        if (!atBottom) cancelFollowBottom();
+        setShowScrollDown(!atBottom);
+      });
 
-    resizeObserverRef.current = resizeObserver;
-    // Only observe while this surface is the active frame/tab (IMP-014).
-    if (surfaceActiveRef.current) {
-      resizeObserver.observe(containerRef.current);
-      terminal.focus();
-    }
+      // ── Resize observer ────────────────────────────────────────────
+      // Uses rAF to coalesce multiple ResizeObserver fires within one frame.
+      // Control mode sends raw pane output, so xterm.js owns scrollback and TUI
+      // alternate-screen transitions without backend cleanup hacks.
+      const runResizeFit = () => {
+        resizeRafIdRef.current = 0;
+        const term = terminalRef.current;
+        const fit = fitAddonRef.current;
+        if (!term || !fit) return;
+        // Host said off-screen — do not read layout (forced-layout thrash source).
+        if (!surfaceActiveRef.current) return;
+        // Skip when terminal container is hidden (e.g. tab not visible)
+        if (!isTerminalContainerVisible(containerRef.current)) return;
+
+        // Post-reveal RO delivery: drop only when the grid is still correct so a
+        // real size change right after observe is never swallowed.
+        if (suppressNextRoFitRef.current) {
+          suppressNextRoFitRef.current = false;
+          const proposed = proposeTerminalGrid(term, fit);
+          if (proposed && proposed.cols === term.cols && proposed.rows === term.rows) {
+            return;
+          }
+        }
+
+        // Wait for the proposed grid to sit still one frame (or a small cap)
+        // before fitting. Pointermove must not SIGWINCH every tick.
+        stableFitRef.current.request();
+        connectWhenVisible();
+      };
+      const scheduleResizeFit = () => {
+        if (!surfaceActiveRef.current) return;
+        if (resizeRafIdRef.current) return;
+        resizeRafIdRef.current = requestAnimationFrame(runResizeFit);
+      };
+      const resizeObserver = new ResizeObserver(() => {
+        if (!surfaceActiveRef.current) return;
+        if (!isCanvasScaledTerminal) {
+          scheduleResizeFit();
+          return;
+        }
+
+        if (resizeDebounceTimerRef.current) {
+          clearTimeout(resizeDebounceTimerRef.current);
+        }
+        const scaleFitPending =
+          Math.abs(normalizedTerminalScaleRef.current - appliedTerminalScaleRef.current) > 0.001;
+        if (!scaleFitPending) {
+          scheduleResizeFit();
+          return;
+        }
+
+        resizeDebounceTimerRef.current = setTimeout(() => {
+          resizeDebounceTimerRef.current = null;
+          scheduleResizeFit();
+        }, CANVAS_TERMINAL_SCALE_FIT_DEBOUNCE_MS);
+      });
+
+      resizeObserverRef.current = resizeObserver;
+      // Only observe while this surface is the active frame/tab (IMP-014).
+      if (surfaceActiveRef.current) {
+        resizeObserver.observe(containerRef.current);
+        terminal.focus();
+      }
     }; // end initTerminal
 
     initTerminal();
@@ -1765,11 +1755,7 @@ const Terminal = ({
         if (!isTerminalContainerVisible(containerRef.current)) return;
 
         const proposed = proposeTerminalGrid(term, fit);
-        if (
-          proposed &&
-          proposed.cols === term.cols &&
-          proposed.rows === term.rows
-        ) {
+        if (proposed && proposed.cols === term.cols && proposed.rows === term.rows) {
           // Grid already correct — never fit/resize/pin (avoids TUI redraw).
           // Drop the mandatory first RO delivery after observe.
           suppressNextRoFitRef.current = true;
@@ -1867,10 +1853,14 @@ const Terminal = ({
               setCurrentSelectionSnapshot(null);
               terminalRef.current?.clearSelection();
             }}
-            onSideChatForSelection={onStartSideChatForSelection ? (snapshot) => {
-              onStartSideChatForSelection(snapshot);
-              setCurrentSelectionSnapshot(null);
-            } : undefined}
+            onSideChatForSelection={
+              onStartSideChatForSelection
+                ? (snapshot) => {
+                    onStartSideChatForSelection(snapshot);
+                    setCurrentSelectionSnapshot(null);
+                  }
+                : undefined
+            }
           />
         ) : null
       }
@@ -1878,10 +1868,7 @@ const Terminal = ({
   );
 };
 
-
-
 Terminal.displayName = "Terminal";
-
 
 export { Terminal };
 export type { TerminalProps };

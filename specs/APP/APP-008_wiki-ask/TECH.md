@@ -85,18 +85,20 @@ isProject: false
 
 复制内容建议模板（Markdown）：
 
-```md
+````md
 ## Wiki Excerpt
-- **Wiki Page**: `overview/architecture.md`
-- **Section**: `Runtime Flow`  # 若可解析到最近 heading
 
-~~~markdown
+- **Wiki Page**: `overview/architecture.md`
+- **Section**: `Runtime Flow` # 若可解析到最近 heading
+
+```markdown
 <selected_text>
-~~~
+```
 
 ## Ask
+
 <optional note when expanded copy is used>
-```
+````
 
 ## 4.2 Agent Chat 模式切换
 
@@ -148,7 +150,7 @@ type AgentChatMode = "default" | "wiki_ask";
 `AgentChatPanel` 的 last-session 恢复 key 继续 mode-aware，避免 UI 侧误串会话：
 
 ```ts
-getSessionContextKey(workspaceId, projectId, mode)
+getSessionContextKey(workspaceId, projectId, mode);
 // workspace:<id>:default
 // workspace:<id>:wiki_ask
 // project:<id>:default
@@ -317,4 +319,3 @@ Wiki Ask 除了与 default 隔离外，还必须在不同 Project/Workspace 间�
 - M3（1-1.5 天）：完成 session 隔离 + 历史隔离 + 回归测试。
 
 建议按 M1->M3 顺序合并，确保每一步都可独立验证并可回滚。
-

@@ -54,11 +54,15 @@ const projects: Project[] = [
   },
 ];
 
-function listed(id: string, scope: "global" | "project" | "workspace", extra?: Partial<PtDesignListed["meta"]>): PtDesignListed {
+function listed(
+  id: string,
+  scope: "global" | "project" | "workspace",
+  extra?: Partial<PtDesignListed["meta"]>,
+): PtDesignListed {
   return {
     id,
     key: `pt-design/v2/${id}`,
-    doc: { ptx: "<page id=\"page\"></page>\n" },
+    doc: { ptx: '<page id="page"></page>\n' },
     meta: {
       id,
       name: extra?.name ?? "",
@@ -112,9 +116,19 @@ describe("pt-design overview grouping helpers", () => {
     expect(grouped.global.map((row) => row.id)).toEqual(["global"]);
     expect(grouped.projects.map((row) => row.name)).toEqual(["Atmos"]);
     expect(grouped.projects[0]!.items.map((row) => row.id)).toEqual(["ws-1"]);
-    expect(filterResolvedPtDesigns(rows, "project").map((row) => row.id).sort()).toEqual(["doc-p", "ws-1"]);
-    expect(filterResolvedPtDesigns(rows, "workspace").map((row) => row.id).sort()).toEqual(["doc-p", "ws-1"]);
-    expect(searchResolvedPtDesigns(rows, "atmos", "Untitled").map((row) => row.id)).toEqual(["ws-1"]);
+    expect(
+      filterResolvedPtDesigns(rows, "project")
+        .map((row) => row.id)
+        .sort(),
+    ).toEqual(["doc-p", "ws-1"]);
+    expect(
+      filterResolvedPtDesigns(rows, "workspace")
+        .map((row) => row.id)
+        .sort(),
+    ).toEqual(["doc-p", "ws-1"]);
+    expect(searchResolvedPtDesigns(rows, "atmos", "Untitled").map((row) => row.id)).toEqual([
+      "ws-1",
+    ]);
     expect(displayPtDesignName(rows[2]!, "Untitled")).toBe("Home");
   });
 
@@ -150,9 +164,7 @@ describe("pt-design overview grouping helpers", () => {
     expect(rows[0]).toMatchObject({ group: "project", projectId: "missing" });
     const grouped = groupResolvedPtDesigns(rows, []);
     expect(grouped.global).toEqual([]);
-    expect(grouped.projects).toEqual([
-      { projectId: "missing", name: "", items: rows },
-    ]);
+    expect(grouped.projects).toEqual([{ projectId: "missing", name: "", items: rows }]);
   });
 
   test("listedDesignTitle prefers the saved name", () => {

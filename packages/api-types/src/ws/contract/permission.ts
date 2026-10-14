@@ -1,8 +1,5 @@
 import type { WsEmpty } from "../dto/common";
-import type {
-  PermissionAccessListResponse,
-  PermissionAccessSetRequest,
-} from "../dto/permission";
+import type { PermissionAccessListResponse, PermissionAccessSetRequest } from "../dto/permission";
 
 export type PermissionContract = {
   permission_access_list: {

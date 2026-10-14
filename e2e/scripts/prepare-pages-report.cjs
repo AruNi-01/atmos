@@ -121,7 +121,11 @@ function preparePagesReport(env = process.env) {
   retainExistingReports(existingRoot, siteRoot, reportPath);
   copyReportDir(sourceDir, path.join(siteRoot, reportPath));
   fs.writeFileSync(path.join(siteRoot, ".nojekyll"), "");
-  fs.writeFileSync(path.join(siteRoot, "index.html"), buildSiteIndexHtml(repoName, reportPath), "utf8");
+  fs.writeFileSync(
+    path.join(siteRoot, "index.html"),
+    buildSiteIndexHtml(repoName, reportPath),
+    "utf8",
+  );
 
   return { reportPath, reportUrl, siteRoot };
 }

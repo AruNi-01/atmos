@@ -65,21 +65,21 @@ apps/web TerminalSideChatModal
 
 ## Product decisions resolved in TECH
 
-| Fork | Decision |
-|------|----------|
-| Capture source | Capture from backend tmux, not xterm buffer, so hidden scrollback and detached/restored panes behave consistently. |
-| Capture format | Return plain text only. Do not feed ANSI escape sequences into the agent prompt. |
-| Capture limits | Use byte budgets as the public contract. Default final prompt transcript budget is 98,304 bytes after UTF-8 normalization; the backend may internally read a larger tmux tail window, but line counts are metadata only. |
-| Side mode chip | Hover/focus on the `/side` chip shows a compact metadata popover. It never renders the full transcript. |
-| Side terminal rendering | Reuse `Terminal` directly in a dedicated modal shell. Do not reuse `TerminalGrid` for M1 because grid context menu, split logic, hotkeys, layout persistence, and pinning are product anti-goals. |
-| Overlay scope | Render side chat UI inside the source terminal surface, not at the app root. Canvas terminal side chats are clipped to the current terminal card/shape and cannot move onto the broader canvas. |
-| Hidden lifecycle | Hide unmounts the modal terminal and keeps the tmux window alive; restore reattaches by the known side tmux window name and rehydrates from the terminal snapshot path. |
-| Agent selection | Reuse the same source-pane agent detection used by the terminal header. If no source agent is detected at submit time, open the existing terminal-agent picker/menu; only fail inline when no runnable agent can be selected. |
-| Color allocation | Pick a random bright/light color and reject colors already used by active side chats. Avoid dark colors because the hidden dots must stay visible on terminal surfaces. |
-| Side chat identity | Generate a unique side chat id before terminal creation. Pass it through terminal WebSocket creation, inject it into the tmux window environment, and store it on the side chat UI record. |
-| Agent status integration | Agent hooks remain the source of running/permission notifications. Hook payloads carry side-chat metadata when present so the footer agent status panel can restore/focus the side chat by id instead of navigating only by normal pane id. |
-| Persistence | Persist side-chat metadata in the backend local registry and mirror identity/source metadata into tmux window options. tmux remains the live process/content source; the backend registry restores UI handles after route changes, reloads, and client switches. |
-| Cleanup | Close removes the backend registry record and destroys the side tmux window. Source terminal destruction cascades to every child side chat from that source before/with the source close path. Reconciliation removes stale registry records for missing tmux windows. |
+| Fork                     | Decision                                                                                                                                                                                                                                                               |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Capture source           | Capture from backend tmux, not xterm buffer, so hidden scrollback and detached/restored panes behave consistently.                                                                                                                                                     |
+| Capture format           | Return plain text only. Do not feed ANSI escape sequences into the agent prompt.                                                                                                                                                                                       |
+| Capture limits           | Use byte budgets as the public contract. Default final prompt transcript budget is 98,304 bytes after UTF-8 normalization; the backend may internally read a larger tmux tail window, but line counts are metadata only.                                               |
+| Side mode chip           | Hover/focus on the `/side` chip shows a compact metadata popover. It never renders the full transcript.                                                                                                                                                                |
+| Side terminal rendering  | Reuse `Terminal` directly in a dedicated modal shell. Do not reuse `TerminalGrid` for M1 because grid context menu, split logic, hotkeys, layout persistence, and pinning are product anti-goals.                                                                      |
+| Overlay scope            | Render side chat UI inside the source terminal surface, not at the app root. Canvas terminal side chats are clipped to the current terminal card/shape and cannot move onto the broader canvas.                                                                        |
+| Hidden lifecycle         | Hide unmounts the modal terminal and keeps the tmux window alive; restore reattaches by the known side tmux window name and rehydrates from the terminal snapshot path.                                                                                                |
+| Agent selection          | Reuse the same source-pane agent detection used by the terminal header. If no source agent is detected at submit time, open the existing terminal-agent picker/menu; only fail inline when no runnable agent can be selected.                                          |
+| Color allocation         | Pick a random bright/light color and reject colors already used by active side chats. Avoid dark colors because the hidden dots must stay visible on terminal surfaces.                                                                                                |
+| Side chat identity       | Generate a unique side chat id before terminal creation. Pass it through terminal WebSocket creation, inject it into the tmux window environment, and store it on the side chat UI record.                                                                             |
+| Agent status integration | Agent hooks remain the source of running/permission notifications. Hook payloads carry side-chat metadata when present so the footer agent status panel can restore/focus the side chat by id instead of navigating only by normal pane id.                            |
+| Persistence              | Persist side-chat metadata in the backend local registry and mirror identity/source metadata into tmux window options. tmux remains the live process/content source; the backend registry restores UI handles after route changes, reloads, and client switches.       |
+| Cleanup                  | Close removes the backend registry record and destroys the side tmux window. Source terminal destruction cascades to every child side chat from that source before/with the source close path. Reconciliation removes stale registry records for missing tmux windows. |
 
 ## Module-by-module design
 

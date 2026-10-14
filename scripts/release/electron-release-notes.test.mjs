@@ -24,10 +24,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 describe("Electron production release notes", () => {
   it("default stub is product-facing Atmos Desktop (no Tauri-as-default)", () => {
-    const body = defaultElectronReleaseNotes(
-      "2026.8.1",
-      "desktop-electron-2026.8.1",
-    );
+    const body = defaultElectronReleaseNotes("2026.8.1", "desktop-electron-2026.8.1");
     expect(body).toContain("Atmos desktop release `2026.8.1`");
     expect(body).toContain("desktop-electron-2026.8.1");
     expect(body).toContain("com.atmos.desktop");
@@ -40,10 +37,7 @@ describe("Electron production release notes", () => {
 
   it("default stub ends with collapsed Download section and real asset names", () => {
     const version = "2026.8.2-beta.1";
-    const body = defaultElectronReleaseNotes(
-      version,
-      `desktop-electron-${version}`,
-    );
+    const body = defaultElectronReleaseNotes(version, `desktop-electron-${version}`);
     expect(body).toContain("<details>");
     expect(body).toContain("<summary><strong>Download</strong></summary>");
     expect(body).toContain("### macOS");
@@ -53,9 +47,7 @@ describe("Electron production release notes", () => {
     expect(body).toContain(`Atmos_${version}_x64.dmg`);
     expect(body).toContain(`Atmos_${version}_x64-setup.exe`);
     expect(body).toContain(`Atmos_${version}_x64.AppImage`);
-    expect(body).toContain(
-      `releases/download/desktop-electron-${version}/`,
-    );
+    expect(body).toContain(`releases/download/desktop-electron-${version}/`);
     // macOS first
     const macIdx = body.indexOf("### macOS");
     const winIdx = body.indexOf("### Windows");
@@ -71,9 +63,7 @@ describe("Electron production release notes", () => {
     const next = ensureDesktopDownloadSection(body, "2026.8.2");
     expect(next).toContain("Atmos_2026.8.2_aarch64.dmg");
     expect(next).not.toContain("Atmos_2026.7.1_aarch64.dmg");
-    expect((next.match(/<!-- atmos-desktop-download -->/g) || []).length).toBe(
-      1,
-    );
+    expect((next.match(/<!-- atmos-desktop-download -->/g) || []).length).toBe(1);
     expect((next.match(/<details>/g) || []).length).toBe(1);
   });
 
@@ -108,9 +98,7 @@ describe("Electron production release notes", () => {
   it("formatContributorMentions uses natural English lists", () => {
     expect(formatContributorMentions(["a"])).toBe("@a");
     expect(formatContributorMentions(["a", "b"])).toBe("@a and @b");
-    expect(formatContributorMentions(["a", "b", "c"])).toBe(
-      "@a, @b, and @c",
-    );
+    expect(formatContributorMentions(["a", "b", "c"])).toBe("@a, @b, and @c");
   });
 
   it("ensureDesktopReleaseNotesExtras puts contributors before download", () => {
@@ -137,9 +125,7 @@ describe("Electron production release notes", () => {
 
   it("buildDesktopContributorsSection is empty without logins", () => {
     expect(buildDesktopContributorsSection([])).toBe("");
-    expect(buildDesktopContributorsSection(["dependabot[bot]"])).toContain(
-      "@dependabot[bot]",
-    );
+    expect(buildDesktopContributorsSection(["dependabot[bot]"])).toContain("@dependabot[bot]");
   });
 
   it("stripDesktopContributorsSection removes marker block", () => {
@@ -153,12 +139,9 @@ describe("Electron production release notes", () => {
   });
 
   it("release-desktop-electron.mjs uses shared notes helper (not inline experimental stub)", () => {
-    const src = readFileSync(
-      resolve(__dirname, "release-desktop-electron.mjs"),
-      "utf8",
-    );
+    const src = readFileSync(resolve(__dirname, "release-desktop-electron.mjs"), "utf8");
     expect(src).toContain("defaultElectronReleaseNotes");
-    expect(src).toContain("from \"./electron-release-notes.mjs\"");
+    expect(src).toContain('from "./electron-release-notes.mjs"');
     for (const phrase of FORBIDDEN_ELECTRON_NOTES_PHRASES) {
       expect(src.includes(phrase)).toBe(false);
     }

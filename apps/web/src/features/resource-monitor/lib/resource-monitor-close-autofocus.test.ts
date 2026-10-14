@@ -52,7 +52,13 @@ describe("preventResourceMonitorCloseAutoFocus", () => {
     expect(navigating.current).toBe(true);
 
     let prevented = 0;
-    expect(onCloseAutoFocus({ preventDefault: () => { prevented += 1; } })).toBe(true);
+    expect(
+      onCloseAutoFocus({
+        preventDefault: () => {
+          prevented += 1;
+        },
+      }),
+    ).toBe(true);
     expect(prevented).toBe(1);
     expect(navigating.current).toBe(false);
   });
@@ -64,9 +70,7 @@ describe("nested resource-monitor detail dismiss", () => {
       closest: (selector: string) =>
         selector === "[data-resource-monitor-detail]" ? detail : null,
     };
-    expect(isResourceMonitorDetailEventTarget(detail as unknown as EventTarget)).toBe(
-      true,
-    );
+    expect(isResourceMonitorDetailEventTarget(detail as unknown as EventTarget)).toBe(true);
     expect(isResourceMonitorDetailEventTarget(null)).toBe(false);
 
     let dismissed = 0;

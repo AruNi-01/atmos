@@ -120,7 +120,7 @@ describe("S5 in-place overlay renderers (no document.body portal)", () => {
   test("dialog interact starts closed with a trigger; title stays mounted (hidden) and has no portal traces", () => {
     const node = moduleOf("dialog").defaultNode("dlg");
     const html = markup("dialog", "interact", node);
-    expect(html).toContain('data-pt-overlay-trigger');
+    expect(html).toContain("data-pt-overlay-trigger");
     expect(html).toMatch(/type="button"/);
     expect(html).toMatch(/aria-expanded="false"/);
     expect(html).toContain("Confirm");
@@ -146,7 +146,7 @@ describe("S5 in-place overlay renderers (no document.body portal)", () => {
 
   test("dropdown-menu interact includes a trigger and menuitems (content mounted when closed)", () => {
     const html = markup("dropdown-menu", "interact");
-    expect(html).toContain('data-pt-overlay-trigger');
+    expect(html).toContain("data-pt-overlay-trigger");
     expect(html).toMatch(/aria-expanded="false"/);
     expect(html).toContain("File");
     expect(html).toMatch(/role="menuitem"/);
@@ -157,7 +157,7 @@ describe("S5 in-place overlay renderers (no document.body portal)", () => {
 
   test("popover interact starts closed with a trigger and content hidden", () => {
     const html = markup("popover", "interact");
-    expect(html).toContain('data-pt-overlay-trigger');
+    expect(html).toContain("data-pt-overlay-trigger");
     expect(html).toMatch(/aria-expanded="false"/);
     expect(html).toContain("More");
     expect(html).toContain("Popover");

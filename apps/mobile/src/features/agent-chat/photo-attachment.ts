@@ -7,7 +7,10 @@ export type ComposerPhoto = {
   mediaType: string;
 };
 
-export function appendPhotos(current: readonly ComposerPhoto[], next: readonly ComposerPhoto[]): ComposerPhoto[] {
+export function appendPhotos(
+  current: readonly ComposerPhoto[],
+  next: readonly ComposerPhoto[],
+): ComposerPhoto[] {
   const seen = new Set(current.map((photo) => photo.id));
   const merged = [...current];
   for (const photo of next) {

@@ -51,22 +51,14 @@ export function useProjectGithubRepos(projects: Project[], enabled = true) {
     return map;
   }, [projects]);
 
-  const paths = useMemo(
-    () => (pathKey ? pathKey.split("\0").filter(Boolean) : []),
-    [pathKey],
-  );
+  const paths = useMemo(() => (pathKey ? pathKey.split("\0").filter(Boolean) : []), [pathKey]);
 
   const query = useQuery(
     wsQueryOptions({
       scope,
       connectionState,
       enabled: enabled && paths.length > 0,
-      queryKey: [
-        ...queryKeys.computer.root(scope),
-        "task",
-        "projectGithubRepos",
-        pathKey,
-      ] as const,
+      queryKey: [...queryKeys.computer.root(scope), "task", "projectGithubRepos", pathKey] as const,
       queryFn: async (): Promise<ProjectGithubRepo[]> => {
         const response = await gitApi.getStatuses(paths);
         const byFullName = new Map<string, ProjectGithubRepo>();
@@ -87,9 +79,7 @@ export function useProjectGithubRepos(projects: Project[], enabled = true) {
             path: result.path,
           });
         }
-        return Array.from(byFullName.values()).sort((a, b) =>
-          a.fullName.localeCompare(b.fullName),
-        );
+        return Array.from(byFullName.values()).sort((a, b) => a.fullName.localeCompare(b.fullName));
       },
       staleTime: REPOS_STALE_MS,
       gcTime: REPOS_GC_MS,

@@ -11,20 +11,20 @@
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1       | S1, S2, S6 |
-| M2       | S1, S3, S9 |
-| M3       | S4, S9 |
-| M4       | S1, S4 |
-| M5       | S2, S6 |
-| M6       | S2, S5, S8 |
-| M7       | S5 |
-| M8       | S6, S7 |
+| PRD item | Scenario IDs        |
+| -------- | ------------------- |
+| M1       | S1, S2, S6          |
+| M2       | S1, S3, S9          |
+| M3       | S4, S9              |
+| M4       | S1, S4              |
+| M5       | S2, S6              |
+| M6       | S2, S5, S8          |
+| M7       | S5                  |
+| M8       | S6, S7              |
 | M9       | S3, S4, S6, S7, S11 |
-| M10      | S8 |
-| M11      | S9 |
-| M12      | S10 |
+| M10      | S8                  |
+| M11      | S9                  |
+| M12      | S10                 |
 
 ## Scenarios
 

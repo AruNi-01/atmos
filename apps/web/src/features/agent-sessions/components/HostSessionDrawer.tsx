@@ -65,7 +65,7 @@ export function HostSessionDrawer({
       <DrawerPortal>
         <DrawerOverlay className="bg-black/40" style={{ zIndex: 50 }} />
         <DrawerContentBare
-          className="fixed z-50 flex overflow-hidden rounded-xl border border-border/70 bg-background outline-none shadow-2xl !select-text"
+          className="fixed z-50 flex overflow-hidden rounded-xl border border-border/70 bg-background shadow-2xl !select-text outline-none"
           style={contentStyle}
         >
           <DrawerTitle className="sr-only">{t("title")}</DrawerTitle>

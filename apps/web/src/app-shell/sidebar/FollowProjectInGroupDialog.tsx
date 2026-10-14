@@ -24,13 +24,7 @@ export type FollowProjectInGroupPending = {
   groupName: string;
 };
 
-function GroupNameBadge({
-  name,
-  className,
-}: {
-  name: string;
-  className?: string;
-}) {
+function GroupNameBadge({ name, className }: { name: string; className?: string }) {
   return (
     <Badge
       variant="secondary"
@@ -86,9 +80,7 @@ export function FollowProjectInGroupDialog({
                     })}
                   </p>
                   <div className="flex flex-wrap items-center gap-1.5 text-foreground">
-                    <span className="text-muted-foreground">
-                      {t("followProject.targetGroup")}
-                    </span>
+                    <span className="text-muted-foreground">{t("followProject.targetGroup")}</span>
                     <GroupNameBadge name={pending.groupName} />
                   </div>
                 </>
@@ -98,12 +90,7 @@ export function FollowProjectInGroupDialog({
         </DialogHeader>
 
         <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
-          <Button
-            type="button"
-            className="w-full"
-            disabled={busy}
-            onClick={onFollowProject}
-          >
+          <Button type="button" className="w-full" disabled={busy} onClick={onFollowProject}>
             {t("followProject.followProject")}
           </Button>
           <Button

@@ -12,34 +12,38 @@ The `atmos` CLI is a comprehensive developer tool combining project management, 
 
 ### Key Design Decisions
 
-| Aspect | Choice | Rationale |
-|--------|--------|-----------|
-| Framework | clap with derive macros | Type-safe, maintainable, most popular |
-| Backend Integration | Direct `core-service` calls | No HTTP overhead, standalone operation |
-| Output Format | JSON by default | Scriptable, pipe-friendly, parseable |
-| Authentication | `ATMOS_TOKEN` environment variable | 12-factor app principles, secure |
-| Command Syntax | Flat + nested aliases | Convenience + discoverability |
+| Aspect              | Choice                             | Rationale                              |
+| ------------------- | ---------------------------------- | -------------------------------------- |
+| Framework           | clap with derive macros            | Type-safe, maintainable, most popular  |
+| Backend Integration | Direct `core-service` calls        | No HTTP overhead, standalone operation |
+| Output Format       | JSON by default                    | Scriptable, pipe-friendly, parseable   |
+| Authentication      | `ATMOS_TOKEN` environment variable | 12-factor app principles, secure       |
+| Command Syntax      | Flat + nested aliases              | Convenience + discoverability          |
 
 ## Command Structure
 
 ### Project Management (`atmos project` / `atmos`)
+
 - `init [name]` - Initialize new Atmos project
 - `status` - Show current project status
 - `config set/get/list` - Manage project configuration
 
 ### Development Workflow (`atmos dev` / `atmos`)
+
 - `build` - Build the project
 - `test` - Run tests
 - `run [command]` - Run development server
 - `clean` - Clean build artifacts
 
 ### Agent Interaction (`atmos agent` / `atmos`)
+
 - `chat <prompt>` - Send prompt to agent
 - `list` - List available agents
 - `logs [agent-id]` - View agent execution logs
 - `cancel [agent-id]` - Cancel running agent
 
 ### Alias Examples
+
 ```bash
 atmos init                    # atmos project init
 atmos build                   # atmos dev build
@@ -49,6 +53,7 @@ atmos chat "fix this bug"     # atmos agent chat
 ## Implementation Architecture
 
 ### Project Structure
+
 ```
 apps/cli/
 ├── Cargo.toml
@@ -66,6 +71,7 @@ apps/cli/
 ```
 
 ### Core Abstractions
+
 ```rust
 trait Command {
     async fn execute(&self, ctx: &Context) -> Result<Output>;
@@ -79,30 +85,35 @@ User Input → clap Parser → Command → Service Layer → Response → JSON O
 ```
 
 ### Example: `atmos project init my-app`
+
 1. clap parses to `ProjectInitCommand { name: "my-app" }`
 2. Command calls `project_service.create_project(name)`
 3. Service returns `Project { id, name, status }`
 4. Output serializes to:
    ```json
-   {"success":true,"data":{"id":"proj_123","name":"my-app","status":"initialized"}}
+   { "success": true, "data": { "id": "proj_123", "name": "my-app", "status": "initialized" } }
    ```
 
 ### Error Response Format
+
 ```json
-{"success":false,"error":{"code":"E123","message":"Description"}}
+{ "success": false, "error": { "code": "E123", "message": "Description" } }
 ```
 
 ## Testing Strategy
 
 ### Unit Tests
+
 - Mock `core-service` traits
 - Test parsing, validation, output formatting
 
 ### Integration Tests
+
 - Real `core-service` with fixtures
 - Verify JSON structure and error codes
 
 ### Manual Verification
+
 ```bash
 # Basic functionality
 atmos init test-project && echo "✓ Init works"

@@ -18,6 +18,7 @@ Users frequently hop across several workspaces in one sitting. They expect recen
 ## Options
 
 ### Option A — Extend APP-034 only (terminal LRU polish)
+
 Fix restore blocking, fit-on-show, and prefetch; leave files/wiki/sidebar single-context.
 
 **Pros**: small diff.  
@@ -25,6 +26,7 @@ Fix restore blocking, fit-on-show, and prefetch; leave files/wiki/sidebar single
 **Unknown**: how much of the 1–2s is restore vs remount.
 
 ### Option B — Full Workspace Surface Cache (chosen)
+
 Multi-instance **WorkspaceFrame** pool for Center content; Active / Warm / Frozen tiers; surface-specific keep policies; global budgets; non-blocking restore; supersede APP-034 store with a unified surface cache.
 
 **Pros**: matches multi-session tools; one coherent model for terminals + editors + browsers; memory bounded by design.  
@@ -32,6 +34,7 @@ Multi-instance **WorkspaceFrame** pool for Center content; Active / Warm / Froze
 **Unknown**: exact default budget numbers on low-RAM machines.
 
 ### Option C — Multi-window only (Desktop)
+
 Each workspace is a separate window/process; no in-window warm pool.
 
 **Pros**: strong isolation.  

@@ -48,9 +48,7 @@ export function buildSkillDetailUrl({
   skillId: string;
 }) {
   const listUrl = buildSkillListUrl({ activeTab, filter, projects, query });
-  const searchParams = new URLSearchParams(
-    listUrl.includes("?") ? listUrl.split("?", 1)[1] : "",
-  );
+  const searchParams = new URLSearchParams(listUrl.includes("?") ? listUrl.split("?", 1)[1] : "");
   searchParams.set("scope", skillScope);
   searchParams.set("skillId", skillId);
   return `/skills?${searchParams.toString()}`;
@@ -65,12 +63,7 @@ export function filterMarketCategories(categories: SkillMarketCategory[], query:
     .map((category) => ({
       ...category,
       items: category.items.filter((item) => {
-        const haystack = [
-          category.title,
-          item.title,
-          item.description,
-          item.author?.handle,
-        ]
+        const haystack = [category.title, item.title, item.description, item.author?.handle]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();

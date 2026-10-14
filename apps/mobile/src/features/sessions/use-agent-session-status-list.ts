@@ -31,14 +31,17 @@ export function useAgentSessionStatusList() {
   });
 
   const nextPageLock = useRef(false);
-  const loadNextPage = useCallback((allowError: boolean) => {
-    if (nextPageLock.current || !query.hasNextPage || query.isFetchingNextPage) return;
-    if (!allowError && query.isFetchNextPageError) return;
-    nextPageLock.current = true;
-    void query.fetchNextPage().finally(() => {
-      nextPageLock.current = false;
-    });
-  }, [query.fetchNextPage, query.hasNextPage, query.isFetchNextPageError, query.isFetchingNextPage]);
+  const loadNextPage = useCallback(
+    (allowError: boolean) => {
+      if (nextPageLock.current || !query.hasNextPage || query.isFetchingNextPage) return;
+      if (!allowError && query.isFetchNextPageError) return;
+      nextPageLock.current = true;
+      void query.fetchNextPage().finally(() => {
+        nextPageLock.current = false;
+      });
+    },
+    [query.fetchNextPage, query.hasNextPage, query.isFetchNextPageError, query.isFetchingNextPage],
+  );
 
   const fetchNextPage = useCallback(() => {
     loadNextPage(false);
@@ -49,10 +52,7 @@ export function useAgentSessionStatusList() {
   }, [loadNextPage]);
 
   const pages = query.data?.pages;
-  const sessions = useMemo(
-    () => pages?.flatMap((page) => page.sessions) ?? [],
-    [pages],
-  );
+  const sessions = useMemo(() => pages?.flatMap((page) => page.sessions) ?? [], [pages]);
 
   return {
     counts: pages?.[0]?.counts,

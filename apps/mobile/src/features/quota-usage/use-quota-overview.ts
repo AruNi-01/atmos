@@ -96,12 +96,16 @@ export function useQuotaOverview(options?: { fetch?: boolean }) {
     onMutate: (input) => {
       const generation = bumpSwitches([input.providerId]);
       const previous = queryClient.getQueryData<QuotaOverviewResponse>(queryKey);
-      const previousEnabled = previous?.providers.find((provider) => provider.id === input.providerId)?.switch_enabled;
+      const previousEnabled = previous?.providers.find(
+        (provider) => provider.id === input.providerId,
+      )?.switch_enabled;
       if (previous) {
         queryClient.setQueryData<QuotaOverviewResponse>(queryKey, {
           ...previous,
           providers: previous.providers.map((provider) =>
-            provider.id === input.providerId ? { ...provider, switch_enabled: input.enabled } : provider,
+            provider.id === input.providerId
+              ? { ...provider, switch_enabled: input.enabled }
+              : provider,
           ),
         });
       }
@@ -111,7 +115,9 @@ export function useQuotaOverview(options?: { fetch?: boolean }) {
     onSuccess: (overview, input, context) =>
       applyOverview(
         overview,
-        (providerId) => providerId === input.providerId && switchGeneration.get(providerId) === context?.generation,
+        (providerId) =>
+          providerId === input.providerId &&
+          switchGeneration.get(providerId) === context?.generation,
         intervalStillCurrent(context?.autoRefreshGeneration),
       ),
     onError: (error: unknown, input, context) => {
@@ -138,11 +144,16 @@ export function useQuotaOverview(options?: { fetch?: boolean }) {
       const previous = queryClient.getQueryData<QuotaOverviewResponse>(queryKey);
       const ids = (previous?.providers ?? []).map((provider) => provider.id);
       const generation = bumpSwitches(ids);
-      const previousEnabled = new Map((previous?.providers ?? []).map((provider) => [provider.id, provider.switch_enabled]));
+      const previousEnabled = new Map(
+        (previous?.providers ?? []).map((provider) => [provider.id, provider.switch_enabled]),
+      );
       if (previous) {
         queryClient.setQueryData<QuotaOverviewResponse>(queryKey, {
           ...previous,
-          providers: previous.providers.map((provider) => ({ ...provider, switch_enabled: enabled })),
+          providers: previous.providers.map((provider) => ({
+            ...provider,
+            switch_enabled: enabled,
+          })),
         });
       }
       setActionError(null);
@@ -152,7 +163,8 @@ export function useQuotaOverview(options?: { fetch?: boolean }) {
       const ids = new Set(context?.ids ?? []);
       applyOverview(
         overview,
-        (providerId) => ids.has(providerId) && switchGeneration.get(providerId) === context?.generation,
+        (providerId) =>
+          ids.has(providerId) && switchGeneration.get(providerId) === context?.generation,
         intervalStillCurrent(context?.autoRefreshGeneration),
       );
     },
@@ -244,7 +256,9 @@ export function useQuotaOverview(options?: { fetch?: boolean }) {
   }, [computerKey, overviewQuery.data, overviewQuery.isSuccess]);
 
   const overview = overviewQuery.data ?? null;
-  const providers = [...(overview?.providers ?? [])].sort((left, right) => left.label.localeCompare(right.label));
+  const providers = [...(overview?.providers ?? [])].sort((left, right) =>
+    left.label.localeCompare(right.label),
+  );
 
   return {
     actionError,

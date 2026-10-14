@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import { useEffect, useSyncExternalStore } from 'react';
-import { isDesktopRuntime } from '@/shared/lib/desktop-runtime';
-import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
-import { ensureProjectBootstrap } from '@/features/project/hooks/use-project-bootstrap-query';
+import { useEffect, useSyncExternalStore } from "react";
+import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
+import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
+import { ensureProjectBootstrap } from "@/features/project/hooks/use-project-bootstrap-query";
 
 const PROJECT_PREFETCH_IDLE_TIMEOUT_MS = 12_000;
 const DESKTOP_STARTUP_PREFETCH_TIMEOUT_MS = 30_000;
 
-type DesktopStartupPrefetchStatus = 'idle' | 'loading' | 'settled';
+type DesktopStartupPrefetchStatus = "idle" | "loading" | "settled";
 
 let desktopStartupPrefetchPromise: Promise<void> | null = null;
-let desktopStartupPrefetchStatus: DesktopStartupPrefetchStatus = 'idle';
+let desktopStartupPrefetchStatus: DesktopStartupPrefetchStatus = "idle";
 const desktopStartupPrefetchListeners = new Set<() => void>();
 
 const delay = (ms: number) =>
@@ -19,9 +19,7 @@ const delay = (ms: number) =>
     window.setTimeout(resolve, ms);
   });
 
-function setDesktopStartupPrefetchStatus(
-  nextStatus: DesktopStartupPrefetchStatus,
-) {
+function setDesktopStartupPrefetchStatus(nextStatus: DesktopStartupPrefetchStatus) {
   if (desktopStartupPrefetchStatus === nextStatus) {
     return;
   }
@@ -42,11 +40,11 @@ function getDesktopStartupPrefetchSnapshot() {
 }
 
 function getDesktopStartupPrefetchServerSnapshot() {
-  return 'settled' as const;
+  return "settled" as const;
 }
 
 function waitForWebSocketConnected(): Promise<void> {
-  if (useWebSocketStore.getState().connectionState === 'connected') {
+  if (useWebSocketStore.getState().connectionState === "connected") {
     return Promise.resolve();
   }
 
@@ -64,12 +62,12 @@ function waitForWebSocketConnected(): Promise<void> {
     };
 
     unsubscribe = useWebSocketStore.subscribe((state) => {
-      if (state.connectionState === 'connected') {
+      if (state.connectionState === "connected") {
         finish();
       }
     });
 
-    if (useWebSocketStore.getState().connectionState === 'connected') {
+    if (useWebSocketStore.getState().connectionState === "connected") {
       finish();
       return;
     }
@@ -110,30 +108,30 @@ export function waitForDesktopStartupPrefetch(
   }
 
   const prefetch = runDesktopStartupPrefetch().catch((err) => {
-    console.warn('[DesktopStartupPrefetch] prefetch failed:', err);
+    console.warn("[DesktopStartupPrefetch] prefetch failed:", err);
   });
 
   return Promise.race([
     prefetch,
     delay(timeoutMs).then(() => {
-      console.warn('[DesktopStartupPrefetch] prefetch timed out');
+      console.warn("[DesktopStartupPrefetch] prefetch timed out");
     }),
   ]);
 }
 
 function startDesktopStartupPrefetchLoading() {
   if (!isDesktopRuntime()) {
-    setDesktopStartupPrefetchStatus('settled');
+    setDesktopStartupPrefetchStatus("settled");
     return;
   }
 
-  if (desktopStartupPrefetchStatus !== 'idle') {
+  if (desktopStartupPrefetchStatus !== "idle") {
     return;
   }
 
-  setDesktopStartupPrefetchStatus('loading');
+  setDesktopStartupPrefetchStatus("loading");
   void waitForDesktopStartupPrefetch(PROJECT_PREFETCH_IDLE_TIMEOUT_MS).finally(() => {
-    setDesktopStartupPrefetchStatus('settled');
+    setDesktopStartupPrefetchStatus("settled");
   });
 }
 
@@ -152,7 +150,7 @@ export function useDesktopStartupPrefetchLoading(enabled = true): boolean {
     startDesktopStartupPrefetchLoading();
   }, [enabled]);
 
-  return enabled && isDesktopRuntime() && status !== 'settled';
+  return enabled && isDesktopRuntime() && status !== "settled";
 }
 
 /** Kick off desktop connection bootstrap + project fetch as early as the root layout mounts. */

@@ -38,9 +38,7 @@ function normalizeEntry(value: unknown): PaneTitleCacheEntry | null {
     typeof value.dynamicTitle === "string" ? value.dynamicTitle : undefined,
   );
   const oscTitle =
-    typeof value.oscTitle === "string" && value.oscTitle.trim()
-      ? value.oscTitle.trim()
-      : undefined;
+    typeof value.oscTitle === "string" && value.oscTitle.trim() ? value.oscTitle.trim() : undefined;
   if (!dynamicTitle && !oscTitle) return null;
   return {
     ...(dynamicTitle ? { dynamicTitle } : {}),

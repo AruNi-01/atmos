@@ -1,13 +1,7 @@
 import Svg, { Path } from "react-native-svg";
 
 /** GitHub mark — same path as web `oauth-callback-shell` GithubMark. */
-export function GithubMark({
-  color = "#0a0a0b",
-  size = 20,
-}: {
-  color?: string;
-  size?: number;
-}) {
+export function GithubMark({ color = "#0a0a0b", size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path

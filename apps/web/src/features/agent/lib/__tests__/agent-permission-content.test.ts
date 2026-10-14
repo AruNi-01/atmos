@@ -66,7 +66,8 @@ describe("resolvePermissionCommand", () => {
     expect(
       resolvePermissionCommand({
         tool: "commandExecution",
-        description: "Do you want to allow writing the requested file outside the current workspace at the exact path you provided?",
+        description:
+          "Do you want to allow writing the requested file outside the current workspace at the exact path you provided?",
         contentMarkdown: command,
       }),
     ).toBe(command);

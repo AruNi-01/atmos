@@ -26,7 +26,16 @@ import {
   cn,
 } from "@workspace/ui";
 import { formatLocalDateTime, formatRelativeTime, parseUTCDate } from "@atmos/shared";
-import { ChevronDown, Folder, GitBranch, Loader2, MessageSquare, MessagesSquare, RefreshCw, Search } from "lucide-react";
+import {
+  ChevronDown,
+  Folder,
+  GitBranch,
+  Loader2,
+  MessageSquare,
+  MessagesSquare,
+  RefreshCw,
+  Search,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { agentChatApi, type AgentChatIndexEntry } from "@/api/ws/agent-chat-api";
 import { chatSessionsParams } from "@/shared/lib/nuqs/searchParams";
@@ -38,7 +47,10 @@ import {
   useCustomAgentListQuery,
   useNativeChatAgentListQuery,
 } from "@/features/agent/hooks/use-agent-registry-query";
-import { customAgentDisplayName, customAgentIsEnabled } from "@/features/agent/lib/custom-agent-registry";
+import {
+  customAgentDisplayName,
+  customAgentIsEnabled,
+} from "@/features/agent/lib/custom-agent-registry";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
@@ -128,14 +140,12 @@ export const AgentChatSessionsView: React.FC<AgentChatSessionsViewProps> = ({
         icon: agent.icon,
         isCustom: agent.install_method === "custom",
       }));
-    const custom = (customQuery.data?.agents ?? [])
-      .filter(customAgentIsEnabled)
-      .map((agent) => ({
-        id: agent.name,
-        name: customAgentDisplayName(agent),
-        icon: null,
-        isCustom: true,
-      }));
+    const custom = (customQuery.data?.agents ?? []).filter(customAgentIsEnabled).map((agent) => ({
+      id: agent.name,
+      name: customAgentDisplayName(agent),
+      icon: null,
+      isCustom: true,
+    }));
     const native = (nativeQuery.data?.agents ?? [])
       .filter((agent) => agent.enabled)
       .map((agent) => ({
@@ -191,7 +201,7 @@ export const AgentChatSessionsView: React.FC<AgentChatSessionsViewProps> = ({
   const selectedProject = useMemo(
     () =>
       selectedSessionContext.projectId
-        ? projects.find((project) => project.id === selectedSessionContext.projectId) ?? null
+        ? (projects.find((project) => project.id === selectedSessionContext.projectId) ?? null)
         : null,
     [projects, selectedSessionContext.projectId],
   );
@@ -299,45 +309,51 @@ export const AgentChatSessionsView: React.FC<AgentChatSessionsViewProps> = ({
     setWorkspacePopoverOpen(false);
   }, [draftWorkspaceIds, projectWorkspaceOptions]);
 
-  const handleWorkspacePopoverOpenChange = useCallback((open: boolean) => {
-    setWorkspacePopoverOpen(open);
-    if (open) setDraftWorkspaceIds(selectedWorkspaceIds);
-  }, [selectedWorkspaceIds]);
+  const handleWorkspacePopoverOpenChange = useCallback(
+    (open: boolean) => {
+      setWorkspacePopoverOpen(open);
+      if (open) setDraftWorkspaceIds(selectedWorkspaceIds);
+    },
+    [selectedWorkspaceIds],
+  );
 
-  const loadSessions = useCallback(async (cursor?: string) => {
-    if (!wsConnected) return;
-    const generation = ++loadGenerationRef.current;
-    const appending = Boolean(cursor);
-    if (appending) setIsLoadingMore(true);
-    else {
-      setIsLoading(true);
-      setLoadError(null);
-    }
-    try {
-      const listed = await agentChatApi.list({
-        all: true,
-        cursor: cursor ?? null,
-        limit: AGENT_CHAT_SESSIONS_PAGE_LIMIT,
-      });
-      if (generation !== loadGenerationRef.current) return;
-      const items = listed.items ?? [];
-      setSessions((prev) => {
-        if (!appending) return items;
-        const seen = new Set(prev.map((item) => item.id));
-        return [...prev, ...items.filter((item) => !seen.has(item.id))];
-      });
-      setHasMore(items.length >= AGENT_CHAT_SESSIONS_PAGE_LIMIT);
-    } catch (error) {
-      if (generation !== loadGenerationRef.current) return;
-      setLoadError(error instanceof Error ? error.message : t("emptyState.loadFailed"));
-      if (!appending) setSessions([]);
-    } finally {
-      if (generation === loadGenerationRef.current) {
-        setIsLoading(false);
-        setIsLoadingMore(false);
+  const loadSessions = useCallback(
+    async (cursor?: string) => {
+      if (!wsConnected) return;
+      const generation = ++loadGenerationRef.current;
+      const appending = Boolean(cursor);
+      if (appending) setIsLoadingMore(true);
+      else {
+        setIsLoading(true);
+        setLoadError(null);
       }
-    }
-  }, [t, wsConnected]);
+      try {
+        const listed = await agentChatApi.list({
+          all: true,
+          cursor: cursor ?? null,
+          limit: AGENT_CHAT_SESSIONS_PAGE_LIMIT,
+        });
+        if (generation !== loadGenerationRef.current) return;
+        const items = listed.items ?? [];
+        setSessions((prev) => {
+          if (!appending) return items;
+          const seen = new Set(prev.map((item) => item.id));
+          return [...prev, ...items.filter((item) => !seen.has(item.id))];
+        });
+        setHasMore(items.length >= AGENT_CHAT_SESSIONS_PAGE_LIMIT);
+      } catch (error) {
+        if (generation !== loadGenerationRef.current) return;
+        setLoadError(error instanceof Error ? error.message : t("emptyState.loadFailed"));
+        if (!appending) setSessions([]);
+      } finally {
+        if (generation === loadGenerationRef.current) {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        }
+      }
+    },
+    [t, wsConnected],
+  );
 
   useEffect(() => {
     void loadSessions();
@@ -390,11 +406,7 @@ export const AgentChatSessionsView: React.FC<AgentChatSessionsViewProps> = ({
   const enrichedSessions = useMemo<EnrichedSession[]>(() => {
     return filteredSessions.map((session) => {
       const agent = registryAgents.find((item) => item.id === session.provider_id);
-      const location = resolveAgentChatLocationLabel(
-        session,
-        projects,
-        t("sessionContext.thread"),
-      );
+      const location = resolveAgentChatLocationLabel(session, projects, t("sessionContext.thread"));
       return {
         ...session,
         displayTitle:
@@ -447,7 +459,7 @@ export const AgentChatSessionsView: React.FC<AgentChatSessionsViewProps> = ({
     >
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 sm:flex-row">
         <div className="relative min-w-0 flex-1">
-          <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60" />
+          <Search className="absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground/60" />
           <Input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
@@ -632,7 +644,7 @@ export const AgentChatSessionsView: React.FC<AgentChatSessionsViewProps> = ({
       <div className="flex h-full flex-col bg-background/50">
         {!hideHeader ? (
           <>
-            <div className="shrink-0 space-y-2 px-8 pb-6 pt-12">
+            <div className="shrink-0 space-y-2 px-8 pt-12 pb-6">
               <h2 className="flex items-center gap-3 text-2xl font-bold tracking-tight">
                 <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <MessageSquare className="size-5" />
@@ -699,10 +711,7 @@ export const AgentChatSessionsView: React.FC<AgentChatSessionsViewProps> = ({
                         {t("emptyState.clearSearch")}
                       </EmptyAction>
                     ) : selectedAgent ? (
-                      <EmptyAction
-                        emphasis="quiet"
-                        onClick={() => void setSelectedRegistryId("")}
-                      >
+                      <EmptyAction emphasis="quiet" onClick={() => void setSelectedRegistryId("")}>
                         {t("emptyState.clearAgent")}
                       </EmptyAction>
                     ) : sessions.length > 0 ? (
@@ -815,7 +824,8 @@ export const AgentChatSessionsView: React.FC<AgentChatSessionsViewProps> = ({
                                             </span>
                                           </TooltipTrigger>
                                           <TooltipContent className="max-w-xs break-all">
-                                            {session.cwdDisplay || t("sessionCard.noWorkingDirectory")}
+                                            {session.cwdDisplay ||
+                                              t("sessionCard.noWorkingDirectory")}
                                           </TooltipContent>
                                         </Tooltip>
                                       </div>
@@ -831,7 +841,10 @@ export const AgentChatSessionsView: React.FC<AgentChatSessionsViewProps> = ({
                                     <div className="mt-0.5 text-[10px] text-muted-foreground/55 tabular-nums">
                                       {session.updated_at &&
                                       !Number.isNaN(parseUTCDate(session.updated_at).getTime())
-                                        ? formatLocalDateTime(session.updated_at, "yyyy/MM/dd HH:mm")
+                                        ? formatLocalDateTime(
+                                            session.updated_at,
+                                            "yyyy/MM/dd HH:mm",
+                                          )
                                         : ""}
                                     </div>
                                   </div>

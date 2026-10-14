@@ -78,12 +78,7 @@ export function WorkspaceAgentStatusMark({
 }: WorkspaceAgentStatusMarkProps) {
   const { view } = useWorkspaceAgentStatus(contextId);
   return (
-    <AgentStatusMarkView
-      view={view}
-      placement={placement}
-      size={size}
-      className={className}
-    />
+    <AgentStatusMarkView view={view} placement={placement} size={size} className={className} />
   );
 }
 

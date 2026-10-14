@@ -35,18 +35,16 @@ describe("oauth callback return helpers", () => {
     expect(sanitizeOAuthReturnTo("/settings?activeSettingTab=account", ORIGIN)).toBe(
       "/settings?activeSettingTab=account",
     );
-    expect(
-      sanitizeOAuthReturnTo("https://app.atmos.land/project?id=p1#files", ORIGIN),
-    ).toBe("/project?id=p1#files");
+    expect(sanitizeOAuthReturnTo("https://app.atmos.land/project?id=p1#files", ORIGIN)).toBe(
+      "/project?id=p1#files",
+    );
   });
 
   test("rejects open redirects and callback landings as return_to", () => {
     expect(sanitizeOAuthReturnTo("https://evil.example/", ORIGIN)).toBeNull();
     expect(sanitizeOAuthReturnTo("//evil.example/phish", ORIGIN)).toBeNull();
     expect(sanitizeOAuthReturnTo("/hub-auth/done?provider=github", ORIGIN)).toBeNull();
-    expect(
-      sanitizeOAuthReturnTo("/integrations/linear/callback", ORIGIN),
-    ).toBeNull();
+    expect(sanitizeOAuthReturnTo("/integrations/linear/callback", ORIGIN)).toBeNull();
     expect(isOAuthCallbackPath("/hub-auth/error/")).toBe(true);
   });
 
@@ -113,12 +111,8 @@ describe("oauth callback return helpers", () => {
   });
 
   test("desktop action uses atmos://open; web uses the return path", () => {
-    expect(oauthCallbackActionHref({ client: "desktop", returnTo: "/x" })).toBe(
-      "atmos://open",
-    );
-    expect(oauthCallbackActionHref({ client: "web", returnTo: "/settings" })).toBe(
-      "/settings",
-    );
+    expect(oauthCallbackActionHref({ client: "desktop", returnTo: "/x" })).toBe("atmos://open");
+    expect(oauthCallbackActionHref({ client: "web", returnTo: "/settings" })).toBe("/settings");
   });
 
   test("landing query stamps client and web return_to", () => {
@@ -135,9 +129,7 @@ describe("oauth callback return helpers", () => {
         client: "web",
         returnTo: "/settings?activeSettingTab=account",
       }),
-    ).toBe(
-      "provider=google&client=web&return_to=%2Fsettings%3FactiveSettingTab%3Daccount",
-    );
+    ).toBe("provider=google&client=web&return_to=%2Fsettings%3FactiveSettingTab%3Daccount");
   });
 
   test("desktop sign-in callback goes through Hub complete + loopback bridge", () => {
@@ -148,9 +140,7 @@ describe("oauth callback return helpers", () => {
       mode: "sign-in",
       desktop: true,
     });
-    expect(url.startsWith("https://hub.atmos.land/v1/desktop-auth/complete?")).toBe(
-      true,
-    );
+    expect(url.startsWith("https://hub.atmos.land/v1/desktop-auth/complete?")).toBe(true);
     const returnTo = new URL(url).searchParams.get("return_to") ?? "";
     const landing = new URL(returnTo);
     expect(landing.origin).toBe("http://127.0.0.1:30303");
@@ -172,9 +162,7 @@ describe("oauth callback return helpers", () => {
     const webUrl = new URL(web);
     expect(webUrl.pathname).toBe("/hub-auth/done");
     expect(webUrl.searchParams.get("client")).toBe("web");
-    expect(webUrl.searchParams.get("return_to")).toBe(
-      "/settings?activeSettingTab=account",
-    );
+    expect(webUrl.searchParams.get("return_to")).toBe("/settings?activeSettingTab=account");
 
     const desktopLink = buildHubOAuthCallbackURL({
       origin: "http://127.0.0.1:30303",

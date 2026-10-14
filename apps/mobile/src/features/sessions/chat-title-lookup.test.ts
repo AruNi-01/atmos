@@ -14,7 +14,10 @@ describe("chat title lookup", () => {
     const plan = planChatTitleLookup(freshChatTitleLookup(), missing, ["known", "old"]);
     expect(plan.requested).toEqual(["old"]);
 
-    const settled = settleChatTitleLookup(plan.state, plan.requested ?? [], titles, ["known", "old"]);
+    const settled = settleChatTitleLookup(plan.state, plan.requested ?? [], titles, [
+      "known",
+      "old",
+    ]);
     expect(settled.stalled).toBe(true);
     expect(settled.gaveUp.has("old")).toBe(true);
 
@@ -24,18 +27,8 @@ describe("chat title lookup", () => {
 
   test("a chat that appears after a missed lookup still loads", () => {
     const titles = { known: "Known" };
-    const missed = settleChatTitleLookup(
-      freshChatTitleLookup(),
-      ["old"],
-      titles,
-      ["known", "old"],
-    );
-    const withNew = missingChatTitleKey(
-      ["known", "old", "new"],
-      titles,
-      true,
-      missed.gaveUp,
-    );
+    const missed = settleChatTitleLookup(freshChatTitleLookup(), ["old"], titles, ["known", "old"]);
+    const withNew = missingChatTitleKey(["known", "old", "new"], titles, true, missed.gaveUp);
     const plan = planChatTitleLookup(missed, withNew, ["known", "old", "new"]);
     expect(plan.requested).toEqual(["new"]);
 
@@ -53,12 +46,10 @@ describe("chat title lookup", () => {
     const state = freshChatTitleLookup();
     const missing = missingChatTitleKey(["old", "new"], {}, true, state.gaveUp);
     const plan = planChatTitleLookup(state, missing, ["old", "new"]);
-    const settled = settleChatTitleLookup(
-      plan.state,
-      plan.requested ?? [],
-      { new: "New chat" },
-      ["old", "new"],
-    );
+    const settled = settleChatTitleLookup(plan.state, plan.requested ?? [], { new: "New chat" }, [
+      "old",
+      "new",
+    ]);
     expect(settled.stalled).toBe(false);
     expect([...settled.gaveUp]).toEqual(["old"]);
   });

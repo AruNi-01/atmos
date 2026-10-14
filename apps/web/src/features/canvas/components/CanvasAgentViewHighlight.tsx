@@ -1,13 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  Box,
-  SVGContainer,
-  useValue,
-  type BoxModel,
-  type Editor,
-} from "tldraw";
+import { Box, SVGContainer, useValue, type BoxModel, type Editor } from "tldraw";
 
 import type { CanvasAgentActivityStore, CanvasAgentViewState } from "../lib/canvas-agent-activity";
 import type { CanvasAgentBridgeState } from "../hooks/use-canvas-agent-bridge";
@@ -119,10 +113,7 @@ function AgentAreaHighlight({
           />
         ))}
       </SVGContainer>
-      <div
-        className="canvas-agent-view-highlight-label"
-        style={{ top: bounds.y, left: bounds.x }}
-      >
+      <div className="canvas-agent-view-highlight-label" style={{ top: bounds.y, left: bounds.x }}>
         {label}
       </div>
     </>

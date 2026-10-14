@@ -1,5 +1,5 @@
-import React from 'react';
-import { useTranslations } from 'next-intl';
+import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Button,
   DropdownMenu,
@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Skeleton,
-} from '@workspace/ui';
+} from "@workspace/ui";
 import {
   Check,
   ChevronDown,
@@ -18,9 +18,9 @@ import {
   XCircle,
 } from "lucide-react";
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
-import { cn } from '@/shared/lib/utils';
+import { cn } from "@/shared/lib/utils";
 
-export type PRMergeStrategy = 'merge' | 'squash' | 'rebase';
+export type PRMergeStrategy = "merge" | "squash" | "rebase";
 
 export interface PRActionBarModel {
   state?: string;
@@ -31,7 +31,7 @@ export interface PRActionBarModel {
 
 interface PRMergeControlsProps {
   pr: PRActionBarModel;
-  actionLoading: 'merge' | 'close' | 'reopen' | 'comment' | null;
+  actionLoading: "merge" | "close" | "reopen" | "comment" | null;
   mergeStrategy: PRMergeStrategy;
   onMergeStrategyChange: (strategy: PRMergeStrategy) => void;
   onMerge: () => void;
@@ -52,34 +52,33 @@ export function PRMergeControls({
   onMergeMenuOpenChange,
   className,
 }: PRMergeControlsProps) {
-  const t = useTranslations('github.prDetailActions');
+  const t = useTranslations("github.prDetailActions");
   const [uncontrolledMenuOpen, setUncontrolledMenuOpen] = React.useState(false);
   const isMenuOpen = mergeMenuOpen ?? uncontrolledMenuOpen;
   const setMenuOpen = onMergeMenuOpenChange ?? setUncontrolledMenuOpen;
-  const mergeDisabled =
-    !!actionLoading || pr.isDraft || pr.mergeable !== 'MERGEABLE';
+  const mergeDisabled = !!actionLoading || pr.isDraft || pr.mergeable !== "MERGEABLE";
   const mergeLabel =
-    mergeStrategy === 'merge'
-      ? t('mergeStrategies.merge.label')
-      : mergeStrategy === 'squash'
-        ? t('mergeStrategies.squash.label')
-        : t('mergeStrategies.rebase.label');
+    mergeStrategy === "merge"
+      ? t("mergeStrategies.merge.label")
+      : mergeStrategy === "squash"
+        ? t("mergeStrategies.squash.label")
+        : t("mergeStrategies.rebase.label");
 
   return (
-    <div className={cn('flex items-stretch shadow-sm', className)}>
+    <div className={cn("flex items-stretch shadow-sm", className)}>
       <Button
         variant="default"
         size="sm"
         onClick={onMerge}
         disabled={mergeDisabled}
         className={cn(
-          'h-8 sm:h-8 rounded-r-none border-0 shadow-none before:rounded-none transition-all transform active:scale-[0.98] text-white',
+          "h-8 transform rounded-r-none border-0 text-white shadow-none transition-all before:rounded-none active:scale-[0.98] sm:h-8",
           mergeDisabled
-            ? 'bg-muted text-muted-foreground cursor-not-allowed'
-            : 'bg-emerald-600 hover:bg-emerald-700',
+            ? "cursor-not-allowed bg-muted text-muted-foreground"
+            : "bg-emerald-600 hover:bg-emerald-700",
         )}
       >
-        {actionLoading === 'merge' ? (
+        {actionLoading === "merge" ? (
           <Loader2 className="mr-2 size-4 animate-spin" />
         ) : (
           <GitMerge className="mr-2 size-4" />
@@ -93,10 +92,10 @@ export function PRMergeControls({
             variant="default"
             size="sm"
             className={cn(
-              'h-8 sm:h-8 min-w-0 rounded-l-none border-0 border-l border-white/15 px-2 shadow-none before:rounded-none transition-all text-white',
+              "h-8 min-w-0 rounded-l-none border-0 border-l border-white/15 px-2 text-white shadow-none transition-all before:rounded-none sm:h-8",
               mergeDisabled
-                ? 'bg-muted text-muted-foreground cursor-not-allowed border-l-border/40'
-                : 'bg-emerald-600 hover:bg-emerald-700',
+                ? "cursor-not-allowed border-l-border/40 bg-muted text-muted-foreground"
+                : "bg-emerald-600 hover:bg-emerald-700",
             )}
             disabled={mergeDisabled}
           >
@@ -105,28 +104,28 @@ export function PRMergeControls({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[320px] p-1">
           <MergeStrategyItem
-            title={t('mergeStrategies.merge.title')}
-            description={t('mergeStrategies.merge.description')}
-            selected={mergeStrategy === 'merge'}
-            onSelect={() => onMergeStrategyChange('merge')}
+            title={t("mergeStrategies.merge.title")}
+            description={t("mergeStrategies.merge.description")}
+            selected={mergeStrategy === "merge"}
+            onSelect={() => onMergeStrategyChange("merge")}
           />
-          <div className="h-px bg-border/40 my-1" />
+          <div className="my-1 h-px bg-border/40" />
           <MergeStrategyItem
-            title={t('mergeStrategies.squash.title')}
-            description={t('mergeStrategies.squash.description', {
+            title={t("mergeStrategies.squash.title")}
+            description={t("mergeStrategies.squash.description", {
               count: pr.commits?.length || 0,
             })}
-            selected={mergeStrategy === 'squash'}
-            onSelect={() => onMergeStrategyChange('squash')}
+            selected={mergeStrategy === "squash"}
+            onSelect={() => onMergeStrategyChange("squash")}
           />
-          <div className="h-px bg-border/40 my-1" />
+          <div className="my-1 h-px bg-border/40" />
           <MergeStrategyItem
-            title={t('mergeStrategies.rebase.title')}
-            description={t('mergeStrategies.rebase.description', {
+            title={t("mergeStrategies.rebase.title")}
+            description={t("mergeStrategies.rebase.description", {
               count: pr.commits?.length || 0,
             })}
-            selected={mergeStrategy === 'rebase'}
-            onSelect={() => onMergeStrategyChange('rebase')}
+            selected={mergeStrategy === "rebase"}
+            onSelect={() => onMergeStrategyChange("rebase")}
           />
         </DropdownMenuContent>
       </DropdownMenu>
@@ -137,7 +136,7 @@ export function PRMergeControls({
 interface PRActionBarProps {
   loading: boolean;
   pr?: PRActionBarModel | null;
-  actionLoading: 'merge' | 'close' | 'reopen' | 'comment' | null;
+  actionLoading: "merge" | "close" | "reopen" | "comment" | null;
   mergeStrategy: PRMergeStrategy;
   onMergeStrategyChange: (strategy: PRMergeStrategy) => void;
   onOpenGitHub: () => void;
@@ -157,7 +156,7 @@ export function PRActionBar({
   onMerge,
   onReopen,
 }: PRActionBarProps) {
-  const t = useTranslations('github.prDetailActions');
+  const t = useTranslations("github.prDetailActions");
   const [isOpen, setIsOpen] = React.useState(false);
   const [shouldRenderToolbar, setShouldRenderToolbar] = React.useState(false);
   const [isToolbarHovered, setIsToolbarHovered] = React.useState(false);
@@ -257,21 +256,26 @@ export function PRActionBar({
             }}
             aria-hidden={!isOpen}
             className={cn(
-              "absolute bottom-full left-1/2 z-10 flex max-w-[calc(100vw-3rem)] -translate-x-1/2 items-center gap-6 whitespace-nowrap rounded-xl border border-dashed border-border/80 bg-background/90 px-4 py-2.5 shadow-xl backdrop-blur-md",
+              "absolute bottom-full left-1/2 z-10 flex max-w-[calc(100vw-3rem)] -translate-x-1/2 items-center gap-6 rounded-xl border border-dashed border-border/80 bg-background/90 px-4 py-2.5 whitespace-nowrap shadow-xl backdrop-blur-md",
               !isOpen
                 ? "pointer-events-none opacity-0 transition-opacity duration-220 ease-in"
                 : "pointer-events-auto opacity-100 transition-opacity duration-280 ease-[cubic-bezier(0.22,1,0.36,1)]",
             )}
           >
-            <div className="absolute left-1/2 top-full h-4 w-24 -translate-x-1/2" />
+            <div className="absolute top-full left-1/2 h-4 w-24 -translate-x-1/2" />
             <div className="flex gap-2.5">
-              <Button variant="outline" size="sm" onClick={onOpenGitHub} className="h-8 border-0 text-[11px] px-3 shadow-sm hover:shadow-md transition-shadow">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onOpenGitHub}
+                className="h-8 border-0 px-3 text-[11px] shadow-sm transition-shadow hover:shadow-md"
+              >
                 <Github className="mr-1.5 size-3.5" />
                 GitHub
               </Button>
             </div>
 
-            <div className="w-px h-5 bg-border/40 shrink-0 mx-1" />
+            <div className="mx-1 h-5 w-px shrink-0 bg-border/40" />
 
             <div className="flex gap-2.5">
               {loading ? (
@@ -279,17 +283,21 @@ export function PRActionBar({
                   <Skeleton className="h-8 w-24 rounded-md" />
                   <Skeleton className="h-8 w-32 rounded-md" />
                 </>
-              ) : pr?.state === 'OPEN' ? (
+              ) : pr?.state === "OPEN" ? (
                 <>
                   <Button
                     variant="destructive"
                     size="sm"
                     onClick={onClose}
                     disabled={!!actionLoading}
-                    className="h-8 sm:h-8 border-0 shadow-sm hover:shadow-md hover:bg-red-600"
+                    className="h-8 border-0 shadow-sm hover:bg-red-600 hover:shadow-md sm:h-8"
                   >
-                    {actionLoading === 'close' ? <Loader2 className="mr-2 size-4 animate-spin" /> : <XCircle className="mr-2 size-4" />}
-                    {t('closePr')}
+                    {actionLoading === "close" ? (
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                    ) : (
+                      <XCircle className="mr-2 size-4" />
+                    )}
+                    {t("closePr")}
                   </Button>
                   <PRMergeControls
                     pr={pr}
@@ -301,26 +309,30 @@ export function PRActionBar({
                     onMergeMenuOpenChange={handleMergeMenuOpenChange}
                   />
                 </>
-              ) : pr?.state === 'CLOSED' ? (
+              ) : pr?.state === "CLOSED" ? (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={onReopen}
                   disabled={!!actionLoading}
-                  className="h-8 sm:h-8 border-0 shadow-sm hover:shadow-md transition-all font-semibold"
+                  className="h-8 border-0 font-semibold shadow-sm transition-all hover:shadow-md sm:h-8"
                 >
-                  {actionLoading === 'reopen' ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <RotateCw className="mr-2 size-4" />}
-                  {t('reopenPr')}
+                  {actionLoading === "reopen" ? (
+                    <LoaderCircle className="mr-2 size-4 animate-spin" />
+                  ) : (
+                    <RotateCw className="mr-2 size-4" />
+                  )}
+                  {t("reopenPr")}
                 </Button>
-              ) : pr?.state === 'MERGED' ? (
+              ) : pr?.state === "MERGED" ? (
                 <Button
                   variant="secondary"
                   size="sm"
                   disabled
-                  className="h-8 sm:h-8 border-0 shadow-sm bg-purple-600/90 text-white opacity-100 cursor-default"
+                  className="h-8 cursor-default border-0 bg-purple-600/90 text-white opacity-100 shadow-sm sm:h-8"
                 >
                   <GitMerge className="mr-2 size-4" />
-                  {t('merged')}
+                  {t("merged")}
                 </Button>
               ) : null}
             </div>
@@ -329,12 +341,12 @@ export function PRActionBar({
 
         <button
           type="button"
-          aria-label={t('showActions')}
+          aria-label={t("showActions")}
           onClick={openToolbar}
           onFocus={openToolbar}
           onMouseEnter={openToolbar}
           className={cn(
-            "h-1.5 w-40 rounded-full border-0 bg-foreground/20 p-0 shadow-[0_1px_8px_rgba(0,0,0,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+            "h-1.5 w-40 rounded-full border-0 bg-foreground/20 p-0 shadow-[0_1px_8px_rgba(0,0,0,0.18)] focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none",
             !isOpen
               ? "pointer-events-auto opacity-100 transition-opacity duration-220 ease-in"
               : "pointer-events-none opacity-0 transition-opacity duration-280 ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -356,19 +368,17 @@ function MergeStrategyItem({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const t = useTranslations('github.prDetailActions');
+  const t = useTranslations("github.prDetailActions");
   return (
     <DropdownMenuItem
-      className="flex flex-col items-start gap-1 py-2.5 px-3 cursor-pointer"
+      className="flex cursor-pointer flex-col items-start gap-1 px-3 py-2.5"
       onClick={onSelect}
     >
-      <div className="flex items-center justify-between w-full">
-        <span className="font-bold text-[13px]">{title}</span>
-        {selected && <Check className="size-3.5 text-blue-500" aria-label={t('selected')} />}
+      <div className="flex w-full items-center justify-between">
+        <span className="text-[13px] font-bold">{title}</span>
+        {selected && <Check className="size-3.5 text-blue-500" aria-label={t("selected")} />}
       </div>
-      <p className="text-[11px] text-muted-foreground leading-normal">
-        {description}
-      </p>
+      <p className="text-[11px] leading-normal text-muted-foreground">{description}</p>
     </DropdownMenuItem>
   );
 }

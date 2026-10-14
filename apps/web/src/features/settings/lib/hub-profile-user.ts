@@ -26,9 +26,7 @@ export type HubProfileUser = {
   image?: string;
 };
 
-export function hubProfileImageUrl(
-  raw: string | null | undefined,
-): string | undefined {
+export function hubProfileImageUrl(raw: string | null | undefined): string | undefined {
   const value = (raw ?? "").trim();
   if (!value) return undefined;
   try {
@@ -57,14 +55,12 @@ export function hubProfileUser({
     (me?.name ?? "").trim() ||
     (me?.handle ?? "").trim() ||
     fallbackName;
-  const email =
-    (cookieUser?.email ?? "").trim() || (me?.email ?? "").trim() || undefined;
+  const email = (cookieUser?.email ?? "").trim() || (me?.email ?? "").trim() || undefined;
 
   return {
     id,
     name,
     email,
-    image:
-      hubProfileImageUrl(cookieUser?.image) ?? hubProfileImageUrl(me?.image),
+    image: hubProfileImageUrl(cookieUser?.image) ?? hubProfileImageUrl(me?.image),
   };
 }

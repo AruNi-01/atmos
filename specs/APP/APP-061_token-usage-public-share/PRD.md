@@ -99,23 +99,23 @@ URL gone
 
 ## Success Metrics
 
-| Metric | Direction |
-|--------|-----------|
-| Publish completion | Signed-in user can produce a working `atmos.land/tok/@handle` from Token Usage |
-| Local independence | Signed-out Token Usage still has full local charts + PNG |
-| Privacy | Snapshot has no prompts/paths; unlisted without `k` shows no data; unpublish is immediate |
-| Visual parity | Public body matches in-app overview charts for the published snapshot |
-| Storage | Typical snapshot well under a small fixed cap (see TECH) |
+| Metric             | Direction                                                                                 |
+| ------------------ | ----------------------------------------------------------------------------------------- |
+| Publish completion | Signed-in user can produce a working `atmos.land/tok/@handle` from Token Usage            |
+| Local independence | Signed-out Token Usage still has full local charts + PNG                                  |
+| Privacy            | Snapshot has no prompts/paths; unlisted without `k` shows no data; unpublish is immediate |
+| Visual parity      | Public body matches in-app overview charts for the published snapshot                     |
+| Storage            | Typical snapshot well under a small fixed cap (see TECH)                                  |
 
 ## Risks & Open Questions
 
-| Risk | Product mitigation |
-|------|--------------------|
-| Handle squatting / impersonation | Claim once; reserved words; unique; no rename |
-| Unlisted link forwarded or scraped | Capability-link copy; rotate (N1); unpublish |
-| Visitors think numbers are live billing | Footer generated date + Atmos credit |
-| Cost accidentally public | Cost off unless the user includes it |
-| Vanity URL is guessable | Public is explicit; unlisted requires `k` |
+| Risk                                    | Product mitigation                            |
+| --------------------------------------- | --------------------------------------------- |
+| Handle squatting / impersonation        | Claim once; reserved words; unique; no rename |
+| Unlisted link forwarded or scraped      | Capability-link copy; rotate (N1); unpublish  |
+| Visitors think numbers are live billing | Footer generated date + Atmos credit          |
+| Cost accidentally public                | Cost off unless the user includes it          |
+| Vanity URL is guessable                 | Public is explicit; unlisted requires `k`     |
 
 No open product forks remain from the design discussion. Cloudflare rewrite mechanics are TECH.
 

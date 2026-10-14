@@ -113,7 +113,10 @@ function MeasuredScroll({
         matchContents={false}
         style={{ flex: 1, minHeight: 0 }}
       >
-        <ScrollView modifiers={[ignoreSafeArea({ edges: "all" })]} showsIndicators={showsIndicators}>
+        <ScrollView
+          modifiers={[ignoreSafeArea({ edges: "all" })]}
+          showsIndicators={showsIndicators}
+        >
           <Group
             modifiers={[
               frame({ alignment: "topLeading", height, maxWidth: Infinity }),
@@ -174,7 +177,9 @@ export function AgentChatModelSheet(props: {
       .map((favorite): PickerModelRow => ({
         id: favorite.model,
         label: favorite.label,
-        group: props.picker.agents.find((item) => item.id === favorite.agentId)?.label || favorite.agentId,
+        group:
+          props.picker.agents.find((item) => item.id === favorite.agentId)?.label ||
+          favorite.agentId,
         multiplier: "",
         fast: false,
       }));
@@ -220,12 +225,15 @@ export function AgentChatModelSheet(props: {
       })),
     ];
   }, [favoritesOpen, props, theme.colors.label]);
-  const rowKeys = rows.length === 0
-    ? ["empty"]
-    : rows.map((row, index) => modelRowKey(row, index));
+  const rowKeys = rows.length === 0 ? ["empty"] : rows.map((row, index) => modelRowKey(row, index));
 
   return (
-    <ExpoDrawer isPresented={props.visible} matchContents={false} onDismiss={props.onClose} snapPoints={["half"]}>
+    <ExpoDrawer
+      isPresented={props.visible}
+      matchContents={false}
+      onDismiss={props.onClose}
+      snapPoints={["half"]}
+    >
       <View style={{ flex: 1, flexDirection: "row", gap: 10, minHeight: 0 }}>
         <AgentRail tabs={tabs} />
         <View style={{ flex: 1, gap: 8, minWidth: 0 }}>
@@ -237,81 +245,111 @@ export function AgentChatModelSheet(props: {
                   {favoritesOpen ? copy.noFavorites : copy.noModels}
                 </Text>
               </Measured>
-            ) : rows.map((row, index) => {
-              const key = modelRowKey(row, index);
-              if (row.type === "header") {
-                const favorite = favoritesOpen ? favoriteByRow.find((item) => {
-                  const agent = props.picker.agents.find((agent) => agent.id === item.agentId);
-                  return (agent?.label || item.agentId) === row.label;
-                }) : null;
+            ) : (
+              rows.map((row, index) => {
+                const key = modelRowKey(row, index);
+                if (row.type === "header") {
+                  const favorite = favoritesOpen
+                    ? favoriteByRow.find((item) => {
+                        const agent = props.picker.agents.find(
+                          (agent) => agent.id === item.agentId,
+                        );
+                        return (agent?.label || item.agentId) === row.label;
+                      })
+                    : null;
+                  return (
+                    <Measured id={key} key={key}>
+                      <View
+                        style={{
+                          alignItems: "center",
+                          flexDirection: "row",
+                          gap: 6,
+                          paddingBottom: 4,
+                          paddingHorizontal: ROW_INSET + 8,
+                          paddingTop: 10,
+                        }}
+                      >
+                        {favorite ? <MobileAgentIcon agentId={favorite.agentId} size={14} /> : null}
+                        <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13 }}>
+                          {row.label}
+                        </Text>
+                      </View>
+                    </Measured>
+                  );
+                }
+                const favoriteEntry = favoritesOpen
+                  ? favoriteByRow[listed.findIndex((item) => item === row.option)]
+                  : null;
+                const agentId = favoriteEntry?.agentId || props.picker.agentId;
+                const selected = favoriteEntry
+                  ? favoriteEntry.agentId === props.picker.agentId &&
+                    favoriteEntry.model === props.picker.modelId
+                  : row.option.id === props.picker.modelId;
+                const favorited = isFavoriteModel(props.favorites, agentId, row.option.id);
+                const showEffort =
+                  selected &&
+                  (props.picker.thinking.length > 1 ||
+                    props.picker.fastAvailable ||
+                    props.picker.context.length > 1);
                 return (
                   <Measured id={key} key={key}>
-                    <View style={{ alignItems: "center", flexDirection: "row", gap: 6, paddingBottom: 4, paddingHorizontal: ROW_INSET + 8, paddingTop: 10 }}>
-                      {favorite ? <MobileAgentIcon agentId={favorite.agentId} size={14} /> : null}
-                      <Text style={{ color: theme.colors.secondaryLabel, fontSize: 13 }}>{row.label}</Text>
+                    <View
+                      style={{
+                        alignItems: "center",
+                        backgroundColor: selected ? theme.colors.mutedPressed : "transparent",
+                        borderRadius: 12,
+                        flexDirection: "row",
+                        gap: 4,
+                        marginHorizontal: ROW_INSET,
+                        paddingHorizontal: 8,
+                      }}
+                    >
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => {
+                          props.onPatch(
+                            favoriteEntry
+                              ? { agentId: favoriteEntry.agentId, modelId: favoriteEntry.model }
+                              : { modelId: row.option.id },
+                          );
+                        }}
+                        style={{ flex: 1, paddingVertical: 10 }}
+                      >
+                        <Text style={{ color: theme.colors.label, fontSize: 16 }}>
+                          {row.option.label}
+                          {row.option.multiplier ? `  ${row.option.multiplier}` : ""}
+                        </Text>
+                      </Pressable>
+                      {showEffort ? (
+                        <EffortPickerButton onPatch={props.onPatch} picker={props.picker} />
+                      ) : null}
+                      <Pressable
+                        accessibilityLabel={favorited ? copy.removeFavorite : copy.addFavorite}
+                        accessibilityRole="button"
+                        hitSlop={8}
+                        onPress={() =>
+                          props.onToggleFavorite({
+                            agentId,
+                            model: row.option.id,
+                            label: row.option.label,
+                          })
+                        }
+                      >
+                        <StarIcon
+                          color={theme.colors.secondaryLabel}
+                          fill={favorited ? theme.colors.label : "transparent"}
+                          size={18}
+                          strokeWidth={2.2}
+                        />
+                      </Pressable>
+                      {selected ? (
+                        <CheckIcon color={theme.colors.label} size={18} strokeWidth={2.4} />
+                      ) : null}
                     </View>
                   </Measured>
                 );
-              }
-              const favoriteEntry = favoritesOpen ? favoriteByRow[listed.findIndex((item) => item === row.option)] : null;
-              const agentId = favoriteEntry?.agentId || props.picker.agentId;
-              const selected = favoriteEntry
-                ? favoriteEntry.agentId === props.picker.agentId && favoriteEntry.model === props.picker.modelId
-                : row.option.id === props.picker.modelId;
-              const favorited = isFavoriteModel(props.favorites, agentId, row.option.id);
-              const showEffort = selected && (props.picker.thinking.length > 1 || props.picker.fastAvailable || props.picker.context.length > 1);
-              return (
-                <Measured id={key} key={key}>
-                  <View
-                    style={{
-                      alignItems: "center",
-                      backgroundColor: selected ? theme.colors.mutedPressed : "transparent",
-                      borderRadius: 12,
-                      flexDirection: "row",
-                      gap: 4,
-                      marginHorizontal: ROW_INSET,
-                      paddingHorizontal: 8,
-                    }}
-                  >
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() => {
-                        props.onPatch(favoriteEntry
-                          ? { agentId: favoriteEntry.agentId, modelId: favoriteEntry.model }
-                          : { modelId: row.option.id });
-                      }}
-                      style={{ flex: 1, paddingVertical: 10 }}
-                    >
-                      <Text style={{ color: theme.colors.label, fontSize: 16 }}>
-                        {row.option.label}
-                        {row.option.multiplier ? `  ${row.option.multiplier}` : ""}
-                      </Text>
-                    </Pressable>
-                    {showEffort ? (
-                      <EffortPickerButton onPatch={props.onPatch} picker={props.picker} />
-                    ) : null}
-                    <Pressable
-                      accessibilityLabel={favorited ? copy.removeFavorite : copy.addFavorite}
-                      accessibilityRole="button"
-                      hitSlop={8}
-                      onPress={() => props.onToggleFavorite({
-                        agentId,
-                        model: row.option.id,
-                        label: row.option.label,
-                      })}
-                    >
-                      <StarIcon
-                        color={theme.colors.secondaryLabel}
-                        fill={favorited ? theme.colors.label : "transparent"}
-                        size={18}
-                        strokeWidth={2.2}
-                      />
-                    </Pressable>
-                    {selected ? <CheckIcon color={theme.colors.label} size={18} strokeWidth={2.4} /> : null}
-                  </View>
-                </Measured>
-              );
-            })}
+              })
+            )}
           </MeasuredScroll>
         </View>
       </View>
@@ -395,7 +433,10 @@ function AndroidModelSearchField({
 }) {
   const theme = useMobileTheme();
   return (
-    <GlassPanel shadow={false} style={{ borderRadius: radii.pill, height: 44, justifyContent: "center" }}>
+    <GlassPanel
+      shadow={false}
+      style={{ borderRadius: radii.pill, height: 44, justifyContent: "center" }}
+    >
       <TextInput
         onChangeText={onChangeText}
         placeholder={copy.searchModels}
@@ -421,7 +462,11 @@ function IosModelSearchField({
   }, [text, value]);
 
   return (
-    <Host colorScheme={theme.colorScheme} matchContents={false} style={{ height: 44, width: "100%" }}>
+    <Host
+      colorScheme={theme.colorScheme}
+      matchContents={false}
+      style={{ height: 44, width: "100%" }}
+    >
       <HStack
         alignment="center"
         modifiers={[
@@ -479,7 +524,15 @@ function EffortPickerButton({
             paddingHorizontal: 8,
           }}
         >
-          <Text numberOfLines={1} style={{ color: theme.colors.secondaryLabel, flexShrink: 1, fontSize: 13, lineHeight: 16 }}>
+          <Text
+            numberOfLines={1}
+            style={{
+              color: theme.colors.secondaryLabel,
+              flexShrink: 1,
+              fontSize: 13,
+              lineHeight: 16,
+            }}
+          >
             {label}
           </Text>
           <ChevronRightIcon color={theme.colors.secondaryLabel} size={14} strokeWidth={2.2} />
@@ -503,7 +556,10 @@ function EffortControls({
 }) {
   const theme = useMobileTheme();
   const max = Math.max(0, picker.thinking.length - 1);
-  const propIndex = Math.max(0, picker.thinking.findIndex((level) => level.id === picker.thinkingId));
+  const propIndex = Math.max(
+    0,
+    picker.thinking.findIndex((level) => level.id === picker.thinkingId),
+  );
   const [index, setIndex] = useState(propIndex);
   const committed = useRef(propIndex);
   useEffect(() => {
@@ -516,8 +572,12 @@ function EffortControls({
     <View style={{ gap: 12 }}>
       {picker.thinking.length > 1 && current ? (
         <View style={{ gap: 8 }}>
-          <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}>
-            <Text style={{ color: theme.colors.label, fontSize: 15, fontWeight: "500" }}>{copy.effort}</Text>
+          <View
+            style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}
+          >
+            <Text style={{ color: theme.colors.label, fontSize: 15, fontWeight: "500" }}>
+              {copy.effort}
+            </Text>
             <FadeLabel color={theme.colors.secondaryLabel} value={current.label} />
           </View>
           <EffortSlider
@@ -534,8 +594,18 @@ function EffortControls({
         </View>
       ) : null}
       {picker.fastAvailable ? (
-        <View style={{ alignItems: "center", backgroundColor: "transparent", flexDirection: "row", justifyContent: "space-between", minHeight: 32 }}>
-          <Text style={{ color: theme.colors.label, fontSize: 15, fontWeight: "500" }}>{copy.fast}</Text>
+        <View
+          style={{
+            alignItems: "center",
+            backgroundColor: "transparent",
+            flexDirection: "row",
+            justifyContent: "space-between",
+            minHeight: 32,
+          }}
+        >
+          <Text style={{ color: theme.colors.label, fontSize: 15, fontWeight: "500" }}>
+            {copy.fast}
+          </Text>
           <NativeSwitch
             onValueChange={(enabled) => onPatch({ fastEnabled: enabled })}
             value={picker.fastEnabled}
@@ -543,8 +613,18 @@ function EffortControls({
         </View>
       ) : null}
       {picker.context.length > 1 ? (
-        <View style={{ alignItems: "center", backgroundColor: "transparent", flexDirection: "row", justifyContent: "space-between", minHeight: 32 }}>
-          <Text style={{ color: theme.colors.label, fontSize: 15, fontWeight: "500" }}>{copy.context}</Text>
+        <View
+          style={{
+            alignItems: "center",
+            backgroundColor: "transparent",
+            flexDirection: "row",
+            justifyContent: "space-between",
+            minHeight: 32,
+          }}
+        >
+          <Text style={{ color: theme.colors.label, fontSize: 15, fontWeight: "500" }}>
+            {copy.context}
+          </Text>
           <MenuPicker
             onValueChange={(contextId) => onPatch({ contextId })}
             options={picker.context.map((level) => ({ label: level.label, value: level.id }))}

@@ -109,7 +109,10 @@ describe("agent adapters", () => {
   test("MCP lists tools and ptx get/apply auto-saves", () => {
     const file = tmpPtd();
     const mcp = createMcpServer({ file });
-    const listed = mcp.listTools().map((t) => t.name).sort();
+    const listed = mcp
+      .listTools()
+      .map((t) => t.name)
+      .sort();
     expect(listed).toEqual([...PT_DESIGN_TOOL_DEFS.map((d) => d.name)].sort());
     const applied = mcp.callTool("pt_ptx_apply", { ptx: LEGAL_PTX });
     expect(applied.isError).toBe(false);
@@ -274,7 +277,9 @@ describe("agent adapters", () => {
   });
 });
 
-async function withCapturedStdout(fn: () => Promise<number>): Promise<{ code: number; out: string }> {
+async function withCapturedStdout(
+  fn: () => Promise<number>,
+): Promise<{ code: number; out: string }> {
   const logs: string[] = [];
   const orig = process.stdout.write.bind(process.stdout);
   const origErr = process.stderr.write.bind(process.stderr);
@@ -342,13 +347,19 @@ describe("S25 CLI / MCP / headless PTX parity", () => {
     expect(mcpGot.isError).toBe(false);
     const mcpPtx = (mcpGot.data as { ptx: string }).ptx;
 
-    expect((await withCapturedStdout(() => runCli(["doc", "init", "--file", fileC, "--json"]))).code).toBe(0);
     expect(
-      (await withCapturedStdout(() =>
-        runCli(["ptx", "apply", "--ptx", LEGAL_PTX, "--file", fileC, "--json"]),
-      )).code,
+      (await withCapturedStdout(() => runCli(["doc", "init", "--file", fileC, "--json"]))).code,
     ).toBe(0);
-    const cliGet = await withCapturedStdout(() => runCli(["ptx", "get", "--file", fileC, "--json"]));
+    expect(
+      (
+        await withCapturedStdout(() =>
+          runCli(["ptx", "apply", "--ptx", LEGAL_PTX, "--file", fileC, "--json"]),
+        )
+      ).code,
+    ).toBe(0);
+    const cliGet = await withCapturedStdout(() =>
+      runCli(["ptx", "get", "--file", fileC, "--json"]),
+    );
     expect(cliGet.code).toBe(0);
     const cliPtx = JSON.parse(cliGet.out).data.ptx as string;
 
@@ -361,7 +372,9 @@ describe("S25 CLI / MCP / headless PTX parity", () => {
 describe("S26 bad PTX CLI", () => {
   test("missing .ptd is missing_file with non-zero exit", async () => {
     const missing = join(tmpdir(), `pt-missing-${Date.now()}.ptd`);
-    const result = await withCapturedStdout(() => runCli(["ptx", "get", "--file", missing, "--json"]));
+    const result = await withCapturedStdout(() =>
+      runCli(["ptx", "get", "--file", missing, "--json"]),
+    );
     expect(result.code).toBe(2);
     const parsed = JSON.parse(result.out);
     expect(parsed.ok).toBe(false);
@@ -370,9 +383,19 @@ describe("S26 bad PTX CLI", () => {
 
   test("malformed XML is invalid_ptx with non-zero exit", async () => {
     const file = tmpPtd();
-    expect((await withCapturedStdout(() => runCli(["doc", "init", "--file", file, "--json"]))).code).toBe(0);
+    expect(
+      (await withCapturedStdout(() => runCli(["doc", "init", "--file", file, "--json"]))).code,
+    ).toBe(0);
     const result = await withCapturedStdout(() =>
-      runCli(["ptx", "apply", "--ptx", `<page id="p"><nope id="a" x="0" y="0" width="1" height="1"/></page>`, "--file", file, "--json"]),
+      runCli([
+        "ptx",
+        "apply",
+        "--ptx",
+        `<page id="p"><nope id="a" x="0" y="0" width="1" height="1"/></page>`,
+        "--file",
+        file,
+        "--json",
+      ]),
     );
     expect(result.code).toBe(1);
     const parsed = JSON.parse(result.out);

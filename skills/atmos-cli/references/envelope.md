@@ -4,7 +4,7 @@
 {
   "ok": true,
   "command": "atmos project list",
-  "result": { },
+  "result": {},
   "next_actions": [
     {
       "command": "atmos workspace create --project <project-id> --name <name>",
@@ -25,10 +25,10 @@ Failure:
   "command": "…",
   "error": { "message": "…", "code": "SERVER_UNREACHABLE" },
   "fix": "Start the server: atmos runtime ensure",
-  "next_actions": [ ]
+  "next_actions": []
 }
 ```
 
-- stdout: JSON only  
-- exit `0` only when `ok: true`  
-- large lists may set `truncated: true` and `total`  
+- stdout: JSON only
+- exit `0` only when `ok: true`
+- large lists may set `truncated: true` and `total`

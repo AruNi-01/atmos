@@ -5,7 +5,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { memoryPersistence } from "../host/adapters";
 import type { HandleElement } from "../protocol";
 import { OverlayHost } from "./overlay";
-import { keepOverlayThroughEmptyLoad, sameOverlayDocument, sameOverlayViewport, toExcalidrawCompatElements } from "./scene-bridge";
+import {
+  keepOverlayThroughEmptyLoad,
+  sameOverlayDocument,
+  sameOverlayViewport,
+  toExcalidrawCompatElements,
+} from "./scene-bridge";
 import { createLiveBoard, type Capture } from "./live-board";
 
 const SEEDED_PTX = `<page id="model-config">
@@ -113,7 +118,9 @@ function createFakeApi(initial: HandleElement[] = []) {
 describe("overlay identity guards", () => {
   test("same overlay document and viewport do not count as a change", () => {
     const empty = { version: "ptx/1", pages: [{ id: "page", nodes: [] }] };
-    expect(sameOverlayDocument(empty, { version: "ptx/1", pages: [{ id: "page", nodes: [] }] })).toBe(true);
+    expect(
+      sameOverlayDocument(empty, { version: "ptx/1", pages: [{ id: "page", nodes: [] }] }),
+    ).toBe(true);
     expect(
       sameOverlayViewport(
         { scrollX: 0, scrollY: 0, zoom: { value: 1 } },
@@ -330,10 +337,9 @@ describe("ptx-only persist/load → overlay ids", () => {
     board.loadPersist(loaded);
     expect(cleared.count).toBe(1);
     expect(board.onHostChange().echo).toBe(true);
-    const edited = board.extractPtx().replace(
-      "</select>",
-      `    <option value="deepseek">DeepSeek</option>\n  </select>`,
-    );
+    const edited = board
+      .extractPtx()
+      .replace("</select>", `    <option value="deepseek">DeepSeek</option>\n  </select>`);
     board.applyPtx(edited, "IMMEDIATELY");
     expect(captures.at(-1)).toBe("IMMEDIATELY");
     expect(cleared.count).toBe(1);
@@ -382,10 +388,9 @@ describe("ptx-only persist/load → overlay ids", () => {
       ...el,
       customData: el.customData ? { pt: { ...el.customData.pt } } : el.customData,
     }));
-    const edited = board.extractPtx().replace(
-      "</select>",
-      `    <option value="deepseek">DeepSeek</option>\n  </select>`,
-    );
+    const edited = board
+      .extractPtx()
+      .replace("</select>", `    <option value="deepseek">DeepSeek</option>\n  </select>`);
     board.applyPtx(edited, "IMMEDIATELY");
     expect(captures.at(-1)).toBe("IMMEDIATELY");
     expect(board.extractPtx()).toContain("deepseek");
@@ -416,10 +421,9 @@ describe("ptx-only persist/load → overlay ids", () => {
     expect(cleared.count).toBe(1);
     expect(board.onHostChange().echo).toBe(true);
     const preApply = api.getSceneElementsIncludingDeleted().map((el) => ({ ...el }));
-    const edited = board.extractPtx().replace(
-      "</select>",
-      `    <option value="deepseek">DeepSeek</option>\n  </select>`,
-    );
+    const edited = board
+      .extractPtx()
+      .replace("</select>", `    <option value="deepseek">DeepSeek</option>\n  </select>`);
     board.applyPtx(edited, "IMMEDIATELY");
     expect(captures.at(-1)).toBe("IMMEDIATELY");
     expect(board.extractPtx()).toContain("deepseek");

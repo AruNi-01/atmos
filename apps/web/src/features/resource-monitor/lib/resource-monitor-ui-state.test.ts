@@ -2,7 +2,10 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ResourceMonitorSnapshot } from "@atmos/api-types/ws/dto/resource-monitor";
-import { testHostMetrics, testSnapshot } from "@/features/resource-monitor/lib/resource-monitor-test-host";
+import {
+  testHostMetrics,
+  testSnapshot,
+} from "@/features/resource-monitor/lib/resource-monitor-test-host";
 import {
   resolveResourceMonitorUiState,
   resourceMonitorStatusBanners,
@@ -13,9 +16,7 @@ import {
 
 const usage = { cpu_percent: 4, memory_rss_bytes: 2048, process_count: 1 };
 
-function snapshot(
-  overrides: Partial<ResourceMonitorSnapshot> = {},
-): ResourceMonitorSnapshot {
+function snapshot(overrides: Partial<ResourceMonitorSnapshot> = {}): ResourceMonitorSnapshot {
   return testSnapshot({
     collected_at_ms: Date.now(),
     host: testHostMetrics({ logical_cpu_count: 10, cpu_percent: 18 }),
@@ -135,22 +136,13 @@ describe("resolveResourceMonitorUiState", () => {
 describe("resourceMonitorStatusBanners", () => {
   it("shows stale and partial together only when the snapshot is stale and partial", () => {
     expect(
-      resourceMonitorStatusBanners(
-        "stale",
-        snapshot({ attribution_status: "partial" }),
-      ),
+      resourceMonitorStatusBanners("stale", snapshot({ attribution_status: "partial" })),
     ).toEqual(["stale", "partial"]);
     expect(
-      resourceMonitorStatusBanners(
-        "partial",
-        snapshot({ attribution_status: "partial" }),
-      ),
+      resourceMonitorStatusBanners("partial", snapshot({ attribution_status: "partial" })),
     ).toEqual(["partial"]);
     expect(
-      resourceMonitorStatusBanners(
-        "stale",
-        snapshot({ attribution_status: "complete" }),
-      ),
+      resourceMonitorStatusBanners("stale", snapshot({ attribution_status: "complete" })),
     ).toEqual(["stale"]);
     expect(resourceMonitorStatusBanners("ready", snapshot())).toEqual([]);
   });
@@ -181,9 +173,7 @@ describe("resourceMonitorStatusTone", () => {
     expect(resourceMonitorStatusTone("unsupported")).toBe("muted");
     expect(resourceMonitorStatusTone("loading")).toBe("secondary");
     expect(resourceMonitorStatusTone("empty")).toBe("secondary");
-    expect(resourceMonitorStatusTone("stale")).not.toBe(
-      resourceMonitorStatusTone("loading"),
-    );
+    expect(resourceMonitorStatusTone("stale")).not.toBe(resourceMonitorStatusTone("loading"));
   });
 });
 
@@ -193,7 +183,7 @@ describe("ResourceMonitorPopover structure", () => {
       join(import.meta.dir, "../components/ResourceMonitorHierarchy.tsx"),
       "utf8",
     );
-    expect(popoverSrc).toContain('data-resource-monitor-state={state}');
+    expect(popoverSrc).toContain("data-resource-monitor-state={state}");
     expect(popoverSrc).toContain("ResourceMonitorHostSection");
     expect(popoverSrc).toContain("ResourceMonitorDiskSection");
     expect(popoverSrc).toContain("showDesktop");
@@ -207,9 +197,7 @@ describe("ResourceMonitorPopover structure", () => {
     );
     expect(popoverSrc).toContain("min-h-0");
     expect(popoverSrc).toContain("flex-1");
-    expect(popoverSrc).toContain(
-      "max-h-[min(620px,calc(100vh-1.5rem))]",
-    );
+    expect(popoverSrc).toContain("max-h-[min(620px,calc(100vh-1.5rem))]");
     expect(popoverSrc).toContain("ResourceMonitorHostSection");
     expect(popoverSrc).not.toContain("border-b border-border");
     expect(popoverSrc.indexOf("<ScrollArea")).toBeLessThan(
@@ -234,20 +222,16 @@ describe("ResourceMonitorPopover structure", () => {
     expect(hierarchySrc).toContain("sumAtmosUsage");
     expect(hierarchySrc).toContain("data-resource-monitor-kill-leaked");
     expect(popoverSrc).toContain("killLeaked");
-    expect(hierarchySrc).toContain(
-      "showDesktop && desktop?.supported ? desktop.total : undefined",
-    );
+    expect(hierarchySrc).toContain("showDesktop && desktop?.supported ? desktop.total : undefined");
     expect(hierarchySrc).toContain("atmosDefaultOpen");
     expect(hierarchySrc).toContain("sticky top-0");
     expect(hierarchySrc).not.toContain("border-b border-border");
     expect(hierarchySrc).toContain('t("desktop")');
     expect(hierarchySrc).toContain('t("server")');
     expect(hierarchySrc).toContain('t("desktopUse")');
-    expect(hierarchySrc).toMatch(
-      /name=\{t\("desktopUse"\)\}[\s\S]*?indent=\{1\}/,
-    );
+    expect(hierarchySrc).toMatch(/name=\{t\("desktopUse"\)\}[\s\S]*?indent=\{1\}/);
     expect(hierarchySrc).toContain("RM_NESTED_COPY");
-    expect(hierarchySrc).toContain("<SectionLabel indent={1}>{t(\"desktop\")}</SectionLabel>");
+    expect(hierarchySrc).toContain('<SectionLabel indent={1}>{t("desktop")}</SectionLabel>');
     expect(hierarchySrc).toContain('t("sharedRuntime")');
     expect(hierarchySrc).toContain('t("projects")');
     expect(hierarchySrc).toContain('t("projectResources")');

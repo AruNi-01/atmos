@@ -26,9 +26,10 @@ export function sanitizeRunConfig(
   if (!value) return null;
   const model = value.model?.trim() || null;
   const reasoningValue = value.reasoning?.value?.trim() || null;
-  const reasoning = value.reasoning && reasoningValue
-    ? { mode: value.reasoning.mode, value: reasoningValue }
-    : null;
+  const reasoning =
+    value.reasoning && reasoningValue
+      ? { mode: value.reasoning.mode, value: reasoningValue }
+      : null;
   const extraArgs = (value.extra_args ?? []).map((item) => item.trim()).filter(Boolean);
   const fast = value.fast === true;
   if (!model && !reasoning && extraArgs.length === 0 && !fast) {
@@ -111,10 +112,7 @@ export function rememberTerminalAgentCatalog(
   for (const model of models) {
     const modelId = model.id.trim();
     if (!modelId) continue;
-    rows.set(
-      modelId,
-      (model.thinking?.options ?? []).map((item) => item.trim()).filter(Boolean),
-    );
+    rows.set(modelId, (model.thinking?.options ?? []).map((item) => item.trim()).filter(Boolean));
   }
   rememberedModelEfforts.set(id, rows);
 }
@@ -145,12 +143,7 @@ export function buildStructuredRunConfigArgs(
   if (!config) return [];
   const support = reasoningSupportForAgent(agentId);
   const resolvedProbe = probedEffort ?? probedEffortForStoredModel(agentId, config.model);
-  const effort = acceptedEffortValue(
-    agentId,
-    config.reasoning?.value,
-    resolvedProbe,
-    config.model,
-  );
+  const effort = acceptedEffortValue(agentId, config.reasoning?.value, resolvedProbe, config.model);
   const variant = openCodeVariantValue(agentId, config.reasoning?.value, resolvedProbe);
   const extraArgs = config.extra_args ?? [];
   const modelFlag = modelFlagForAgent(agentId);
@@ -333,12 +326,7 @@ export function effortLevelsForTerminalRow(
   const options = row
     ? (row.thinking?.options ?? []).map((item) => item.trim()).filter(Boolean)
     : undefined;
-  return visibleEffortOptions(
-    agentId,
-    options,
-    terminalEffortProbeSource(agentId),
-    modelId,
-  );
+  return visibleEffortOptions(agentId, options, terminalEffortProbeSource(agentId), modelId);
 }
 
 export function visibleEffortOptions(

@@ -1,16 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import {
-  desktopInvoke,
-  isDesktopRuntime,
-  isTauriShell,
-} from "@/shared/lib/desktop-bridge";
+import { desktopInvoke, isDesktopRuntime, isTauriShell } from "@/shared/lib/desktop-bridge";
 import { subscribeDesktopFullscreen } from "@/shared/lib/desktop-fullscreen-bus";
 
 export function useHeaderFullscreen() {
   const [isDesktopFullscreen, setIsDesktopFullscreen] = useState(false);
-  const [isDesktopFullscreenExiting, setIsDesktopFullscreenExiting] =
-    useState(false);
+  const [isDesktopFullscreenExiting, setIsDesktopFullscreenExiting] = useState(false);
   const desktopFullscreenRef = useRef<boolean | null>(null);
   const desktopFullscreenExitRafRef = useRef<number | null>(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -38,13 +33,11 @@ export function useHeaderFullscreen() {
       // Brief exit animation for traffic-light padding restore (Header opacity).
       if (previous === true && !fullscreen) {
         setIsDesktopFullscreenExiting(true);
-        desktopFullscreenExitRafRef.current = window.requestAnimationFrame(
-          () => {
-            if (!disposed) {
-              setIsDesktopFullscreenExiting(false);
-            }
-          },
-        );
+        desktopFullscreenExitRafRef.current = window.requestAnimationFrame(() => {
+          if (!disposed) {
+            setIsDesktopFullscreenExiting(false);
+          }
+        });
         return;
       }
 
@@ -139,9 +132,7 @@ export function useHeaderFullscreen() {
     isDesktopFullscreenExiting,
     // Desktop shells (Tauri + Electron) use native window fullscreen for
     // traffic-light hide/show; plain web uses document fullscreen.
-    isFullScreenActive: isDesktopRuntime()
-      ? isDesktopFullscreen || isFullScreen
-      : isFullScreen,
+    isFullScreenActive: isDesktopRuntime() ? isDesktopFullscreen || isFullScreen : isFullScreen,
     toggleFullScreen,
   };
 }

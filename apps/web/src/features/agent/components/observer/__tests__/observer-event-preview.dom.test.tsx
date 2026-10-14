@@ -28,7 +28,9 @@ mock.module("../../../../../../../../packages/ui/src/index.ts", () => loadWorksp
 mock.module("@workspace/ui", () => loadWorkspaceUiStub());
 
 function workspaceUiStub() {
-  const CollapsibleContext = React.createContext<{ open: boolean; toggle: () => void } | null>(null);
+  const CollapsibleContext = React.createContext<{ open: boolean; toggle: () => void } | null>(
+    null,
+  );
 
   function cn(...inputs: Array<string | false | null | undefined>) {
     return inputs.filter((value) => typeof value === "string" && value.length > 0).join(" ");
@@ -93,7 +95,9 @@ function workspaceUiStub() {
       ctx?.toggle();
     };
     if (asChild && React.isValidElement(children)) {
-      const child = children as React.ReactElement<{ onClick?: (event: React.MouseEvent<HTMLElement>) => void }>;
+      const child = children as React.ReactElement<{
+        onClick?: (event: React.MouseEvent<HTMLElement>) => void;
+      }>;
       return React.cloneElement(child, {
         ...rest,
         "data-slot": "collapsible-trigger",
@@ -105,7 +109,13 @@ function workspaceUiStub() {
       });
     }
     return (
-      <button type="button" data-slot="collapsible-trigger" data-state={ctx?.open ? "open" : "closed"} onClick={handle} {...rest}>
+      <button
+        type="button"
+        data-slot="collapsible-trigger"
+        data-state={ctx?.open ? "open" : "closed"}
+        onClick={handle}
+        {...rest}
+      >
         {children}
       </button>
     );
@@ -170,7 +180,13 @@ function workspaceUiStub() {
     SelectTrigger: Pass,
     SelectValue: Pass,
     ImageGeneration: Pass,
-    toastManager: { add() {}, close() {}, promise() { return Promise.resolve(); } },
+    toastManager: {
+      add() {},
+      close() {},
+      promise() {
+        return Promise.resolve();
+      },
+    },
     getFileIconProps: () => ({ alt: "file" }),
   };
 }
@@ -234,47 +250,72 @@ describe("ObserverEventPreview", () => {
 
   it("uses a chat bubble, a visible reply, and collapsed chat tools", async () => {
     const opened: string[] = [];
-    const container = renderPreview(activity({
-      turns: [
-        {
-          turn_id: 1,
-          prompt: "scan the repo",
-          reply: "The specs live under specs/.",
-          started_at: "t",
-          ended_at: "t2",
-          tools: [
-            line({ name: "Bash", kind: "execute", detail: "ls", output: "observer-out" }),
-            line({ name: "Edit", kind: "edit", path: "src/b.ts", detail: "src/b.ts", diff: PATCH, output: PATCH }),
-            line({ name: "Read", kind: "read", path: "README.md", detail: "README.md", output: "hello" }),
-          ],
-          todos: [],
-          spawned_child_ids: ["sa-a"],
-        },
-      ],
-      children: [
-        {
-          child_id: "sa-a",
-          name: "Explore · scan specs",
-          agent_type: "Explore",
-          description: "scan specs",
-          prompt: "You are exploring the Atmos monorepo at /tmp",
-          reply: "Found the specs index.",
-          state: "idle",
-          recent_tools: [
-            line({ name: "Edit", kind: "edit", path: "src/nested.ts", detail: "src/nested.ts", diff: PATCH }),
-          ],
-          started_at: "t",
-          last_event_at: "t",
-          parent_child_id: undefined,
-        },
-      ],
-    }), undefined, (id) => {
-      opened.push(id);
-    });
+    const container = renderPreview(
+      activity({
+        turns: [
+          {
+            turn_id: 1,
+            prompt: "scan the repo",
+            reply: "The specs live under specs/.",
+            started_at: "t",
+            ended_at: "t2",
+            tools: [
+              line({ name: "Bash", kind: "execute", detail: "ls", output: "observer-out" }),
+              line({
+                name: "Edit",
+                kind: "edit",
+                path: "src/b.ts",
+                detail: "src/b.ts",
+                diff: PATCH,
+                output: PATCH,
+              }),
+              line({
+                name: "Read",
+                kind: "read",
+                path: "README.md",
+                detail: "README.md",
+                output: "hello",
+              }),
+            ],
+            todos: [],
+            spawned_child_ids: ["sa-a"],
+          },
+        ],
+        children: [
+          {
+            child_id: "sa-a",
+            name: "Explore · scan specs",
+            agent_type: "Explore",
+            description: "scan specs",
+            prompt: "You are exploring the Atmos monorepo at /tmp",
+            reply: "Found the specs index.",
+            state: "idle",
+            recent_tools: [
+              line({
+                name: "Edit",
+                kind: "edit",
+                path: "src/nested.ts",
+                detail: "src/nested.ts",
+                diff: PATCH,
+              }),
+            ],
+            started_at: "t",
+            last_event_at: "t",
+            parent_child_id: undefined,
+          },
+        ],
+      }),
+      undefined,
+      (id) => {
+        opened.push(id);
+      },
+    );
 
     const prompt = container.querySelector("[data-observer-prompt]");
     expect(prompt?.className).toContain("is-user");
-    expect(prompt?.querySelector("[data-user-message-body]")?.textContent).toContain("scan the repo");
+    expect(prompt?.querySelector("[data-user-message-body]")?.textContent).toContain(
+      "scan the repo",
+    );
     expect(container.textContent).toContain("The specs live under specs/.");
     expect(container.querySelectorAll("[data-observer-reply]").length).toBe(1);
 
@@ -319,54 +360,58 @@ describe("ObserverEventPreview", () => {
   });
 
   it("keeps earlier turns and puts each child on the turn that spawned it", () => {
-    const container = renderPreview(activity({
-      current_turn_id: 2,
-      current_tool: line({ name: "Bash", kind: "execute", detail: "ls" }),
-      turns: [
-        {
-          turn_id: 1,
-          prompt: "delegate",
-          reply: "Sent the scan.",
-          started_at: "t",
-          ended_at: "t2",
-          tools: [line({ name: "Edit", kind: "edit", path: "src/b.ts", diff: PATCH, output: PATCH })],
-          todos: [],
-          spawned_child_ids: ["sa-a"],
-        },
-        {
-          turn_id: 2,
-          prompt: "please refactor the observer drawer and keep the cards",
-          started_at: "t3",
-          tools: [],
-          todos: [],
-          spawned_child_ids: [],
-        },
-      ],
-      children: [
-        {
-          child_id: "sa-a",
-          name: "Explore · scan specs",
-          agent_type: "Explore",
-          description: "scan specs",
-          prompt: "You are exploring the Atmos monorepo at /tmp",
-          reply: "Found the specs index.",
-          state: "idle",
-          recent_tools: [],
-          started_at: "t",
-          last_event_at: "t",
-        },
-        {
-          child_id: "orphan",
-          name: "General",
-          agent_type: "general",
-          description: "still loose",
-          state: "running",
-          recent_tools: [],
-          started_at: "t",
-          last_event_at: "t",
-        },
-      ],
-    }));
+    const container = renderPreview(
+      activity({
+        current_turn_id: 2,
+        current_tool: line({ name: "Bash", kind: "execute", detail: "ls" }),
+        turns: [
+          {
+            turn_id: 1,
+            prompt: "delegate",
+            reply: "Sent the scan.",
+            started_at: "t",
+            ended_at: "t2",
+            tools: [
+              line({ name: "Edit", kind: "edit", path: "src/b.ts", diff: PATCH, output: PATCH }),
+            ],
+            todos: [],
+            spawned_child_ids: ["sa-a"],
+          },
+          {
+            turn_id: 2,
+            prompt: "please refactor the observer drawer and keep the cards",
+            started_at: "t3",
+            tools: [],
+            todos: [],
+            spawned_child_ids: [],
+          },
+        ],
+        children: [
+          {
+            child_id: "sa-a",
+            name: "Explore · scan specs",
+            agent_type: "Explore",
+            description: "scan specs",
+            prompt: "You are exploring the Atmos monorepo at /tmp",
+            reply: "Found the specs index.",
+            state: "idle",
+            recent_tools: [],
+            started_at: "t",
+            last_event_at: "t",
+          },
+          {
+            child_id: "orphan",
+            name: "General",
+            agent_type: "general",
+            description: "still loose",
+            state: "running",
+            recent_tools: [],
+            started_at: "t",
+            last_event_at: "t",
+          },
+        ],
+      }),
+    );
 
     const first = container.querySelector("[data-observer-turn='1']");
     const second = container.querySelector("[data-observer-turn='2']");
@@ -387,20 +432,22 @@ describe("ObserverEventPreview", () => {
   });
 
   it("hides the files card while the lead turn is still open", () => {
-    const container = renderPreview(activity({
-      turns: [
-        {
-          turn_id: 1,
-          prompt: "scan the repo",
-          started_at: "t",
-          tools: [
-            line({ name: "Edit", kind: "edit", path: "src/b.ts", diff: PATCH, output: PATCH }),
-          ],
-          todos: [],
-          spawned_child_ids: [],
-        },
-      ],
-    }));
+    const container = renderPreview(
+      activity({
+        turns: [
+          {
+            turn_id: 1,
+            prompt: "scan the repo",
+            started_at: "t",
+            tools: [
+              line({ name: "Edit", kind: "edit", path: "src/b.ts", diff: PATCH, output: PATCH }),
+            ],
+            todos: [],
+            spawned_child_ids: [],
+          },
+        ],
+      }),
+    );
     expect(container.querySelector("[data-observer-tool='Edit']")).toBeTruthy();
     expect(container.querySelector("[data-observer-files]")).toBeNull();
     expect(container.querySelector("[data-observer-file]")).toBeNull();
@@ -422,16 +469,21 @@ describe("ObserverEventPreview", () => {
     };
     const summary = collectTurnFileChanges([chatEdit], { includeRanges: false });
     const settled = renderPreview(activity({ children: [child] }), "sa-a");
-    expect(settled.querySelector("[data-user-message-body]")?.textContent).toContain("scan specs for the files card");
+    expect(settled.querySelector("[data-user-message-body]")?.textContent).toContain(
+      "scan specs for the files card",
+    );
     expect(settled.textContent).not.toContain("+new");
     const file = settled.querySelector('[data-observer-file="src/b.ts"]');
     expect(file?.getAttribute("data-observer-additions")).toBe(String(summary[0]?.additions));
     expect(file?.getAttribute("data-observer-deletions")).toBe(String(summary[0]?.deletions));
 
     cleanupMounted();
-    const running = renderPreview(activity({
-      children: [{ ...child, state: "running" }],
-    }), "sa-a");
+    const running = renderPreview(
+      activity({
+        children: [{ ...child, state: "running" }],
+      }),
+      "sa-a",
+    );
     expect(running.querySelector("[data-observer-tool='Edit']")).toBeTruthy();
     expect(running.querySelector("[data-observer-files]")).toBeNull();
   });

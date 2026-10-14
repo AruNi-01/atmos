@@ -190,22 +190,12 @@ export function TerminalChrome({
               }}
             >
               {onCreateNew && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="default"
-                  onClick={onCreateNew}
-                >
+                <Button type="button" size="sm" variant="default" onClick={onCreateNew}>
                   New
                 </Button>
               )}
               {onRetry && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={onRetry}
-                >
+                <Button type="button" size="sm" variant="outline" onClick={onRetry}>
                   Retry
                 </Button>
               )}
@@ -334,13 +324,11 @@ function TerminalSearchOverlay({
           spellCheck={false}
           className={cn(
             "terminal-search-input",
-            searchHasMatch === false && "terminal-search-input-miss"
+            searchHasMatch === false && "terminal-search-input-miss",
           )}
         />
         <div className="terminal-search-meta">
-          {searchQuery.trim()
-            ? `${searchStats.current}/${searchStats.total}`
-            : "0/0"}
+          {searchQuery.trim() ? `${searchStats.current}/${searchStats.total}` : "0/0"}
         </div>
         <Button
           type="button"

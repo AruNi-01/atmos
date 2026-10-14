@@ -4,10 +4,7 @@ import {
   deriveAgentActivity,
   shouldShowAssistantTurnEndedChrome,
 } from "@/features/agent/lib/chat-helpers";
-import {
-  foldMessagesFromEvent,
-  textFromParts,
-} from "@/features/agent/lib/agent-chat-events";
+import { foldMessagesFromEvent, textFromParts } from "@/features/agent/lib/agent-chat-events";
 import type { AgentChatEvent } from "@atmos/api-types/ws/dto/agent-chat";
 
 function chatEvent(
@@ -25,12 +22,14 @@ function assistant(parts: AgentPart[], extra: Partial<AgentMessage> = {}): Agent
 describe("assistant turn ended chrome after session create", () => {
   it("hides ended footer for create-session chrome even when streaming is false and worked_ms is live", () => {
     const message = assistant(
-      [{
-        type: "session_lifecycle",
-        action: "create",
-        status: "completed",
-        duration_ms: 3000,
-      }],
+      [
+        {
+          type: "session_lifecycle",
+          action: "create",
+          status: "completed",
+          duration_ms: 3000,
+        },
+      ],
       {
         streaming: false,
         worked_ms: 3000,
@@ -44,12 +43,14 @@ describe("assistant turn ended chrome after session create", () => {
     const messages: AgentMessage[] = [
       { id: "u1", role: "user", parts: [{ type: "text", text: "plan" }] },
       assistant(
-        [{
-          type: "session_lifecycle",
-          action: "create",
-          status: "completed",
-          duration_ms: 3000,
-        }],
+        [
+          {
+            type: "session_lifecycle",
+            action: "create",
+            status: "completed",
+            duration_ms: 3000,
+          },
+        ],
         { streaming: false, worked_ms: 3000 },
       ),
     ];
@@ -115,7 +116,9 @@ describe("assistant turn ended chrome after session create", () => {
     const streaming = messages.at(-1)!;
     expect(streaming.streaming).toBe(true);
     expect(streaming.completed_at).toBeFalsy();
-    expect(shouldShowAssistantTurnEndedChrome(streaming, textFromParts(streaming.parts))).toBe(false);
+    expect(shouldShowAssistantTurnEndedChrome(streaming, textFromParts(streaming.parts))).toBe(
+      false,
+    );
     expect(deriveAgentActivity(messages, true)).toMatchObject({ busy: true, label: "Streaming" });
 
     messages = foldMessagesFromEvent(
@@ -156,10 +159,9 @@ describe("assistant turn ended chrome after session create", () => {
         worked_ms: 24000,
       },
     );
-    expect(shouldShowAssistantTurnEndedChrome(
-      betweenToolsAndFinal,
-      "先从官方架构文档读起。",
-    )).toBe(false);
+    expect(shouldShowAssistantTurnEndedChrome(betweenToolsAndFinal, "先从官方架构文档读起。")).toBe(
+      false,
+    );
     expect(deriveAgentActivity([betweenToolsAndFinal], true)).toMatchObject({
       busy: true,
       kind: "working",

@@ -5,14 +5,7 @@
  * Desktop Use engine-manifest.json (pin authority for this Desktop build),
  * and a gitignored CLI floor overlay (never mutate the tracked pin).
  */
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,11 +21,9 @@ const repoRoot = join(appRoot, "../..");
 const require = createRequire(join(appRoot, "package.json"));
 
 /** Committed default pin. Packaging must not overwrite this path. */
-export const TRACKED_CLI_REQUIREMENT_REL =
-  "resources/desktop-use/cli-requirement.json";
+export const TRACKED_CLI_REQUIREMENT_REL = "resources/desktop-use/cli-requirement.json";
 /** Package-time overlay from apps/cli/Cargo.toml; gitignored. */
-export const STAGED_CLI_REQUIREMENT_REL =
-  "resources/desktop-use-stage/cli-requirement.json";
+export const STAGED_CLI_REQUIREMENT_REL = "resources/desktop-use-stage/cli-requirement.json";
 
 export function parseCliVersionFromCargoToml(cliCargoText: string): string {
   const match = cliCargoText.match(/^version\s*=\s*"([^"]+)"/m);
@@ -56,9 +47,7 @@ export function resolveMinCliVersion(opts: {
 }): string {
   return (
     parseCliVersionFromCargoToml(opts.cliCargoText) ||
-    (opts.fallbackJsonText
-      ? readFallbackMinCliVersion(opts.fallbackJsonText)
-      : "")
+    (opts.fallbackJsonText ? readFallbackMinCliVersion(opts.fallbackJsonText) : "")
   );
 }
 
@@ -72,10 +61,7 @@ export function stagedCliRequirementPayload(minCliVersion: string): {
   };
 }
 
-export function writeStagedCliRequirement(
-  destAppRoot: string,
-  minCliVersion: string,
-): string {
+export function writeStagedCliRequirement(destAppRoot: string, minCliVersion: string): string {
   const dest = join(destAppRoot, STAGED_CLI_REQUIREMENT_REL);
   mkdirSync(dirname(dest), { recursive: true });
   writeFileSync(
@@ -100,10 +86,7 @@ function requireCookieHelper(): boolean {
 }
 
 function main() {
-  const srcRuntime = join(
-    repoRoot,
-    "apps/desktop/src-tauri/binaries/runtime/current",
-  );
+  const srcRuntime = join(repoRoot, "apps/desktop/src-tauri/binaries/runtime/current");
   const destRuntime = join(appRoot, "resources/runtime/current");
   const apiCandidates = [
     join(srcRuntime, "bin/Atmos Server"),
@@ -125,49 +108,31 @@ function main() {
   mkdirSync(dirname(destRuntime), { recursive: true });
   cpSync(srcRuntime, destRuntime, { recursive: true });
 
-  writeFileSync(
-    join(destRuntime, "version.txt"),
-    `${packageVersion()}\n`,
-    "utf8",
-  );
+  writeFileSync(join(destRuntime, "version.txt"), `${packageVersion()}\n`, "utf8");
 
   console.log(`[prepare-package] staged runtime → ${destRuntime}`);
 
   // Desktop Use pin authority for this Desktop build (APP-052 optimal design).
   // Runtime injects ATMOS_DESKTOP_USE_MANIFEST → process.resourcesPath/desktop-use/...
-  const manifestSrc = join(
-    repoRoot,
-    "crates/desktop-use/manifest/default.json",
-  );
+  const manifestSrc = join(repoRoot, "crates/desktop-use/manifest/default.json");
   const manifestDestDir = join(appRoot, "resources/desktop-use");
   if (!existsSync(manifestSrc)) {
-    throw new Error(
-      `[prepare-package] missing engine manifest at ${manifestSrc}`,
-    );
+    throw new Error(`[prepare-package] missing engine manifest at ${manifestSrc}`);
   }
   mkdirSync(manifestDestDir, { recursive: true });
   cpSync(manifestSrc, join(manifestDestDir, "engine-manifest.json"));
-  console.log(
-    `[prepare-package] staged engine-manifest.json → ${manifestDestDir}`,
-  );
+  console.log(`[prepare-package] staged engine-manifest.json → ${manifestDestDir}`);
 
   // CLI floor for this Desktop build: min Atmos CLI version Desktop Use expects.
   // Binary is never bundled (ADR-005); only the version pin ships in the package.
   // Write to a gitignored overlay — do not mutate the tracked pin under
   // resources/desktop-use/cli-requirement.json.
   const cliCargo = join(repoRoot, "apps/cli/Cargo.toml");
-  const cliCargoText = existsSync(cliCargo)
-    ? readFileSync(cliCargo, "utf8")
-    : "";
-  const fallback = join(
-    repoRoot,
-    "crates/desktop-use/manifest/cli-requirement.json",
-  );
+  const cliCargoText = existsSync(cliCargo) ? readFileSync(cliCargo, "utf8") : "";
+  const fallback = join(repoRoot, "crates/desktop-use/manifest/cli-requirement.json");
   const minCliVersion = resolveMinCliVersion({
     cliCargoText,
-    fallbackJsonText: existsSync(fallback)
-      ? readFileSync(fallback, "utf8")
-      : undefined,
+    fallbackJsonText: existsSync(fallback) ? readFileSync(fallback, "utf8") : undefined,
   });
   if (!minCliVersion) {
     throw new Error(
@@ -175,9 +140,7 @@ function main() {
     );
   }
   const stagedCliReq = writeStagedCliRequirement(appRoot, minCliVersion);
-  console.log(
-    `[prepare-package] staged ${stagedCliReq} min_cli_version=${minCliVersion}`,
-  );
+  console.log(`[prepare-package] staged ${stagedCliReq} min_cli_version=${minCliVersion}`);
 
   // CLI is never staged into the Desktop package (ADR-005). Sole install path
   // is ~/.atmos/bin/atmos — managed by installers / API self-heal / Settings.
@@ -185,9 +148,7 @@ function main() {
   const runtimeAtmos = join(destRuntime, "bin", atmosName);
   if (existsSync(runtimeAtmos)) {
     rmSync(runtimeAtmos, { force: true });
-    console.log(
-      `[prepare-package] removed staged atmos CLI (use ~/.atmos/bin only)`,
-    );
+    console.log(`[prepare-package] removed staged atmos CLI (use ~/.atmos/bin only)`);
   }
 
   // Native dual-shift dylib (macOS CGEventTap on dedicated thread).
@@ -220,9 +181,7 @@ function main() {
     if (helperSrc.path !== dest) {
       cpSync(helperSrc.path, dest);
     }
-    console.log(
-      `[prepare-package] staged cookie helper → ${dest} (from ${helperSrc.source})`,
-    );
+    console.log(`[prepare-package] staged cookie helper → ${dest} (from ${helperSrc.source})`);
   } else {
     const tried = listCookieHelperCandidates({
       repoRoot,

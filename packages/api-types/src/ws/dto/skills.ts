@@ -8,12 +8,7 @@ export type SkillFile = {
   symlink_target?: string | null;
 };
 
-export type SkillScope =
-  | "global"
-  | "project"
-  | "workspace"
-  | "inside_project"
-  | "system";
+export type SkillScope = "global" | "project" | "workspace" | "inside_project" | "system";
 
 export type SkillPlacement = {
   id: string;

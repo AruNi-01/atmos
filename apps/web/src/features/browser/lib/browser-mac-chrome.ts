@@ -6,11 +6,7 @@
  * acquire/release so multi-tab BrowserSession mounts do not thrash variants.
  */
 
-import {
-  desktopInvoke,
-  isDesktopRuntime,
-  isTauriShell,
-} from "@/shared/lib/desktop-bridge";
+import { desktopInvoke, isDesktopRuntime, isTauriShell } from "@/shared/lib/desktop-bridge";
 
 /**
  * Extra left pad on the morphing tab rail when traffic lights are visible.
@@ -31,11 +27,9 @@ function isMacDesktop(): boolean {
 }
 
 function setMacChromeVariant(variant: MacChromeVariant): void {
-  void desktopInvoke("window_set_mac_chrome_variant", { variant }).catch(
-    () => {
-      /* unsupported shell / pre-IPC — ignore */
-    },
-  );
+  void desktopInvoke("window_set_mac_chrome_variant", { variant }).catch(() => {
+    /* unsupported shell / pre-IPC — ignore */
+  });
 }
 
 /**

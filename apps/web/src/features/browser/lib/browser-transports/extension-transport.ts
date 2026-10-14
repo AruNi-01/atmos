@@ -2,8 +2,8 @@ import type {
   BrowserBridgeCommandMessage,
   BrowserBridgeController,
   BrowserBridgeEventHandlers,
-} from '../browser-bridge/types';
-import type { PreviewHelperMessage } from '../browser-helper/types';
+} from "../browser-bridge/types";
+import type { PreviewHelperMessage } from "../browser-helper/types";
 
 interface ConnectExtensionPreviewTransportOptions extends BrowserBridgeEventHandlers {
   frameWindow: Window;
@@ -20,9 +20,9 @@ const KEEP_ALIVE_INTERVAL_MS = 2500;
 const KEEP_ALIVE_STALE_MS = 8000;
 
 function isPreviewHelperMessage(value: unknown): value is PreviewHelperMessage {
-  if (!value || typeof value !== 'object') return false;
+  if (!value || typeof value !== "object") return false;
   const typed = value as { type?: unknown; sessionId?: unknown };
-  return typeof typed.type === 'string' && typeof typed.sessionId === 'string';
+  return typeof typed.type === "string" && typeof typed.sessionId === "string";
 }
 
 export function connectExtensionPreviewTransport(
@@ -67,7 +67,7 @@ export function connectExtensionPreviewTransport(
 
   const sendHostInit = () => {
     post({
-      type: 'atmos-browser:host-init',
+      type: "atmos-browser:host-init",
       sessionId: options.sessionId,
       pageUrl: options.pageUrl,
       parentOrigin: options.parentOrigin,
@@ -86,7 +86,7 @@ export function connectExtensionPreviewTransport(
       cleanupHandshakeTimers();
       if (ready || destroyed) return;
       options.onError?.(
-        'Cross-port element selection requires the Atmos Inspector extension. Pages that reject iframe embedding must use the desktop Browser.',
+        "Cross-port element selection requires the Atmos Inspector extension. Pages that reject iframe embedding must use the desktop Browser.",
       );
     }, HANDSHAKE_TIMEOUT_MS);
   };
@@ -101,7 +101,7 @@ export function connectExtensionPreviewTransport(
         return;
       }
       post({
-        type: 'atmos-browser:ping',
+        type: "atmos-browser:ping",
         sessionId: options.sessionId,
       });
     }, KEEP_ALIVE_INTERVAL_MS);
@@ -116,7 +116,7 @@ export function connectExtensionPreviewTransport(
     markAlive();
 
     switch (event.data.type) {
-      case 'atmos-browser:ready': {
+      case "atmos-browser:ready": {
         ready = true;
         cleanupHandshakeTimers();
         startKeepAlive();
@@ -129,16 +129,16 @@ export function connectExtensionPreviewTransport(
         );
         if (pickModeDesired) {
           post({
-            type: 'atmos-browser:enter-pick-mode',
+            type: "atmos-browser:enter-pick-mode",
             sessionId: options.sessionId,
           });
         }
         break;
       }
-      case 'atmos-browser:selected':
+      case "atmos-browser:selected":
         options.onSelected?.(event.data);
         break;
-      case 'atmos-browser:hover':
+      case "atmos-browser:hover":
         options.onHover?.(
           event.data.label && event.data.rect && event.data.cursor
             ? {
@@ -149,37 +149,41 @@ export function connectExtensionPreviewTransport(
             : null,
         );
         break;
-      case 'atmos-browser:cleared':
+      case "atmos-browser:cleared":
         options.onCleared?.();
         break;
-      case 'atmos-browser:error':
+      case "atmos-browser:error":
         options.onError?.(event.data.error);
         break;
-      case 'atmos-browser:navigation-changed':
-        options.onNavigationChanged?.(event.data.pageUrl, event.data.pageTitle, event.data.faviconUrl);
+      case "atmos-browser:navigation-changed":
+        options.onNavigationChanged?.(
+          event.data.pageUrl,
+          event.data.pageTitle,
+          event.data.faviconUrl,
+        );
         break;
-      case 'atmos-browser:title-changed':
+      case "atmos-browser:title-changed":
         options.onTitleChanged?.(event.data.pageTitle, event.data.faviconUrl, event.data.pageUrl);
         break;
-      case 'atmos-browser:open-tab':
+      case "atmos-browser:open-tab":
         options.onOpenTab?.(event.data.targetUrl, event.data.pageUrl);
         break;
-      case 'atmos-browser:toolbar-action':
+      case "atmos-browser:toolbar-action":
         options.onToolbarAction?.(event.data.action, event.data.note, event.data.annotationId);
         break;
-      case 'atmos-browser:pong':
+      case "atmos-browser:pong":
         break;
       default:
         break;
     }
   };
 
-  window.addEventListener('message', handleMessage);
+  window.addEventListener("message", handleMessage);
 
   startHandshake();
 
   return {
-    mode: 'extension',
+    mode: "extension",
     enterPickMode() {
       pickModeDesired = true;
       if (!ready) {
@@ -187,7 +191,7 @@ export function connectExtensionPreviewTransport(
         return;
       }
       post({
-        type: 'atmos-browser:enter-pick-mode',
+        type: "atmos-browser:enter-pick-mode",
         sessionId: options.sessionId,
       });
     },
@@ -195,29 +199,29 @@ export function connectExtensionPreviewTransport(
       pickModeDesired = false;
       if (!ready) return;
       post({
-        type: 'atmos-browser:exit-pick-mode',
+        type: "atmos-browser:exit-pick-mode",
         sessionId: options.sessionId,
       });
       // Fallback for older extension versions that don't handle exit-pick-mode:
       // clear-selection at least removes the visible overlay.
       post({
-        type: 'atmos-browser:clear-selection',
+        type: "atmos-browser:clear-selection",
         sessionId: options.sessionId,
       });
     },
     clearSelection() {
       if (!ready) return;
       post({
-        type: 'atmos-browser:clear-selection',
+        type: "atmos-browser:clear-selection",
         sessionId: options.sessionId,
       });
     },
     destroy() {
       cleanupHandshakeTimers();
       cleanupKeepAlive();
-      window.removeEventListener('message', handleMessage);
+      window.removeEventListener("message", handleMessage);
       post({
-        type: 'atmos-browser:destroy',
+        type: "atmos-browser:destroy",
         sessionId: options.sessionId,
       });
       destroyed = true;

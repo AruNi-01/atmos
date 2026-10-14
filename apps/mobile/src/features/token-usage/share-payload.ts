@@ -4,7 +4,10 @@ const TOP = 5;
 
 type Dim = { id: string; total_tokens: number; cost_usd?: number };
 
-export function mapOverviewToSharePayload(overview: TokenUsageOverviewResponse, includeCost: boolean) {
+export function mapOverviewToSharePayload(
+  overview: TokenUsageOverviewResponse,
+  includeCost: boolean,
+) {
   const clientTotals = new Map<string, number>();
   const clientCost = new Map<string, number>();
   const clientMessages = new Map<string, number>();
@@ -27,7 +30,11 @@ export function mapOverviewToSharePayload(overview: TokenUsageOverviewResponse, 
     if (!modelProvider.has(id)) modelProvider.set(id, row.provider_id);
   }
   const top = (totals: Map<string, number>) =>
-    [...totals.entries()].filter(([id]) => id !== "other").sort((a, b) => b[1] - a[1]).slice(0, TOP).map(([id]) => id);
+    [...totals.entries()]
+      .filter(([id]) => id !== "other")
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, TOP)
+      .map(([id]) => id);
   const agentKeys = new Set(top(clientTotals));
   const modelKeys = new Set(top(modelTotals));
   const mix = { input: 0, output: 0, cache_read: 0, cache_write: 0, reasoning: 0 };
@@ -49,7 +56,12 @@ export function mapOverviewToSharePayload(overview: TokenUsageOverviewResponse, 
       }
     }
     const out = [...kept.values()];
-    if (otherTokens > 0) out.push({ id: "other", total_tokens: otherTokens, ...(includeCost ? { cost_usd: otherCost } : {}) });
+    if (otherTokens > 0)
+      out.push({
+        id: "other",
+        total_tokens: otherTokens,
+        ...(includeCost ? { cost_usd: otherCost } : {}),
+      });
     return out;
   };
   return {

@@ -44,11 +44,7 @@ export function AgentChatCwdProvider({
       roots: uniqueRoots([projectOrWorkspacePath]),
     };
   }, [cwd, projectOrWorkspacePath]);
-  return (
-    <AgentChatCwdContext.Provider value={value}>
-      {children}
-    </AgentChatCwdContext.Provider>
-  );
+  return <AgentChatCwdContext.Provider value={value}>{children}</AgentChatCwdContext.Provider>;
 }
 
 export function useAgentChatCwd(): string | null {

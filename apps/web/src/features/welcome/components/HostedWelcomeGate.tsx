@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { useTranslations } from 'next-intl';
-import { useShallow } from 'zustand/react/shallow';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useTranslations } from "next-intl";
+import { useShallow } from "zustand/react/shallow";
 import {
   Badge,
   Button,
@@ -15,7 +15,7 @@ import {
   TabsList,
   TabsTrigger,
   toastManager,
-} from '@workspace/ui';
+} from "@workspace/ui";
 import {
   Check,
   CheckCircle2,
@@ -27,35 +27,35 @@ import {
   LogIn,
   RefreshCw,
   Server,
-} from 'lucide-react';
-import { HubSignInDialog } from '@/features/settings/components/HubSignInDialog';
-import { hubConfigured } from '@/api/hub-client';
-import { ensureLocalHubDevice } from '@/features/connection/lib/ensure-local-hub-device';
-import WelcomePage from '@/features/welcome/components/WelcomePage';
-import { AtmosWordmark } from '@/shared/components/ui/AtmosWordmark';
-import { HostedSloganShimmer } from '@/shared/components/ui/HostedSloganShimmer';
-import { RemoteComputerSetupBlock } from '@/features/atmos-computer/components/RemoteComputerSetupBlock';
-import { useHostedConnectionStore } from '@/features/connection/store/hosted-connection-store';
+} from "lucide-react";
+import { HubSignInDialog } from "@/features/settings/components/HubSignInDialog";
+import { hubConfigured } from "@/api/hub-client";
+import { ensureLocalHubDevice } from "@/features/connection/lib/ensure-local-hub-device";
+import WelcomePage from "@/features/welcome/components/WelcomePage";
+import { AtmosWordmark } from "@/shared/components/ui/AtmosWordmark";
+import { HostedSloganShimmer } from "@/shared/components/ui/HostedSloganShimmer";
+import { RemoteComputerSetupBlock } from "@/features/atmos-computer/components/RemoteComputerSetupBlock";
+import { useHostedConnectionStore } from "@/features/connection/store/hosted-connection-store";
 import {
   resolveRelayUrl,
   useAtmosComputerStore,
-} from '@/features/connection/lib/atmos-computer-store';
+} from "@/features/connection/lib/atmos-computer-store";
 import {
   createHostedRemoteSession,
   detectHostedLocalServer,
   listHostedRemoteComputers,
-} from '@/features/connection/lib/hosted-connection';
-import { REMOTE_COMPUTER_INSTALL_SCRIPT_URL } from '@/features/connection/lib/remote-computer-setup-commands';
+} from "@/features/connection/lib/hosted-connection";
+import { REMOTE_COMPUTER_INSTALL_SCRIPT_URL } from "@/features/connection/lib/remote-computer-setup-commands";
 import {
   activateHostedLocalConnection,
   activateHostedRemoteConnection,
-} from '@/features/connection/lib/hosted-connection-actions';
-import { isHostedAtmosOrigin } from '@/shared/lib/desktop-runtime';
-import { saveComputerClientSettings } from '@/features/connection/lib/sync-computer-client-settings';
-import { applyIdentityBearingComputerSettings } from '@/features/connection/lib/query-identity-lifecycle';
-import { HostedLandingLoading } from '@/app-shell/HostedLandingLoading';
-import { useInitialProjectsLoading } from '@/features/project/store/use-initial-projects-loading';
-import { useAppRouter } from '@/shared/hooks/use-app-router';
+} from "@/features/connection/lib/hosted-connection-actions";
+import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
+import { saveComputerClientSettings } from "@/features/connection/lib/sync-computer-client-settings";
+import { applyIdentityBearingComputerSettings } from "@/features/connection/lib/query-identity-lifecycle";
+import { HostedLandingLoading } from "@/app-shell/HostedLandingLoading";
+import { useInitialProjectsLoading } from "@/features/project/store/use-initial-projects-loading";
+import { useAppRouter } from "@/shared/hooks/use-app-router";
 
 type HostedWelcomeGateProps = {
   onAddProject?: () => void;
@@ -75,7 +75,7 @@ function subscribeMounted(listener: () => void): () => void {
     queueMicrotask(() => {
       mountedSnapshot = true;
       mountedNotificationScheduled = false;
-      mountedListeners.forEach(notify => notify());
+      mountedListeners.forEach((notify) => notify());
     });
   }
   return () => {
@@ -93,7 +93,7 @@ function getMountedServerSnapshot(): boolean {
 
 export function HostedWelcomeGate(props: HostedWelcomeGateProps) {
   const mounted = useMounted();
-  const bootstrapState = useHostedConnectionStore(s => s.bootstrapState);
+  const bootstrapState = useHostedConnectionStore((s) => s.bootstrapState);
   const isInitialProjectsLoading = useInitialProjectsLoading();
 
   if (!mounted || isInitialProjectsLoading) {
@@ -101,18 +101,18 @@ export function HostedWelcomeGate(props: HostedWelcomeGateProps) {
   }
 
   const hosted = isHostedAtmosOrigin();
-  const showOnboarding = hosted && bootstrapState !== 'connected';
+  const showOnboarding = hosted && bootstrapState !== "connected";
 
   if (showOnboarding) {
     return (
-      <div className="size-full animate-in fade-in slide-in-from-bottom-2 duration-200">
+      <div className="size-full animate-in duration-200 fade-in slide-in-from-bottom-2">
         <HostedConnectionOnboarding />
       </div>
     );
   }
 
   return (
-    <div className="size-full animate-in fade-in slide-in-from-bottom-1 duration-200">
+    <div className="size-full animate-in duration-200 fade-in slide-in-from-bottom-1">
       <WelcomePage {...props} />
     </div>
   );
@@ -125,10 +125,7 @@ export function HostedConnectionSetupPage() {
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-background">
       {mounted ? (
-        <HostedConnectionOnboarding
-          defaultTab="remote"
-          onConnected={() => router.replace('/')}
-        />
+        <HostedConnectionOnboarding defaultTab="remote" onConnected={() => router.replace("/")} />
       ) : (
         <HostedLandingLoading />
       )}
@@ -137,11 +134,7 @@ export function HostedConnectionSetupPage() {
 }
 
 function useMounted(): boolean {
-  return useSyncExternalStore(
-    subscribeMounted,
-    getMountedSnapshot,
-    getMountedServerSnapshot,
-  );
+  return useSyncExternalStore(subscribeMounted, getMountedSnapshot, getMountedServerSnapshot);
 }
 
 function HostedLocalCommandField({
@@ -159,39 +152,35 @@ function HostedLocalCommandField({
 }) {
   return (
     <div className="relative">
-      <pre className="overflow-x-auto rounded-md border border-border/70 bg-muted/30 py-2 pl-3 pr-11 font-mono text-xs leading-relaxed text-foreground">
+      <pre className="overflow-x-auto rounded-md border border-border/70 bg-muted/30 py-2 pr-11 pl-3 font-mono text-xs leading-relaxed text-foreground">
         {command}
       </pre>
       <Button
         type="button"
         variant="ghost"
         size="icon"
-        className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2"
+        className="absolute top-1/2 right-0.5 size-8 -translate-y-1/2"
         onClick={onCopy}
         title={copied ? copiedLabel : copyLabel}
         aria-label={copied ? copiedLabel : copyLabel}
       >
-        {copied ? (
-          <Check className="size-4 text-emerald-500" />
-        ) : (
-          <Copy className="size-4" />
-        )}
+        {copied ? <Check className="size-4 text-emerald-500" /> : <Copy className="size-4" />}
       </Button>
     </div>
   );
 }
 
 function HostedConnectionOnboarding({
-  defaultTab = 'local',
+  defaultTab = "local",
   onConnected,
 }: {
-  defaultTab?: 'local' | 'remote';
+  defaultTab?: "local" | "remote";
   onConnected?: () => void;
 }) {
   const t = useTranslations("Welcome.components");
   const localInstallCommand = `curl -fsSL ${REMOTE_COMPUTER_INSTALL_SCRIPT_URL} | bash`;
   /** Installer appends ~/.atmos/bin to the default shell rc (see install-local-web-runtime.sh). */
-  const localStartCommand = 'atmos runtime ensure';
+  const localStartCommand = "atmos runtime ensure";
   const {
     localProbeState,
     localApiConfig,
@@ -230,7 +219,7 @@ function HostedConnectionOnboarding({
     setComputers,
   } = useAtmosComputerStore();
 
-  const [activeTab, setActiveTab] = useState<'local' | 'remote'>(defaultTab);
+  const [activeTab, setActiveTab] = useState<"local" | "remote">(defaultTab);
   const [relayUrlDraft, setRelayUrlDraft] = useState(relayUrl);
   const [relaySecretDraft, setRelaySecretDraft] = useState(relaySecretKey);
   const [listRefreshing, setListRefreshing] = useState(false);
@@ -241,10 +230,10 @@ function HostedConnectionOnboarding({
   const localProbeStartedRef = useRef(false);
   const accountSyncStartedRef = useRef(false);
 
-  const activeComputers = useMemo(() => computers.filter(row => !row.revoked), [computers]);
+  const activeComputers = useMemo(() => computers.filter((row) => !row.revoked), [computers]);
   const hasAccountDevice = accessToken.trim().length >= 32;
   const connectedRemoteServerId =
-    connectionMode === 'relay' && relayWebSocketUrl ? selectedServerId : null;
+    connectionMode === "relay" && relayWebSocketUrl ? selectedServerId : null;
 
   useEffect(() => {
     setRelayUrlDraft(relayUrl);
@@ -269,7 +258,7 @@ function HostedConnectionOnboarding({
       setLocalAvailable(local.config, local.status);
     } catch (err) {
       setLocalUnavailable(
-        err instanceof Error ? err.message : t('hosted.local.errors.cannotReachServer'),
+        err instanceof Error ? err.message : t("hosted.local.errors.cannotReachServer"),
       );
     } finally {
       setOnboarding();
@@ -277,7 +266,7 @@ function HostedConnectionOnboarding({
   }, [setLocalAvailable, setLocalUnavailable, setOnboarding, startChecking]);
 
   useEffect(() => {
-    if (localProbeStartedRef.current || localProbeState !== 'idle') {
+    if (localProbeStartedRef.current || localProbeState !== "idle") {
       return;
     }
     localProbeStartedRef.current = true;
@@ -300,12 +289,13 @@ function HostedConnectionOnboarding({
         setComputers(rows);
         setRemoteError(null);
       } catch (err) {
-        const message = err instanceof Error ? err.message : t('hosted.remote.errors.couldNotLoadComputers');
+        const message =
+          err instanceof Error ? err.message : t("hosted.remote.errors.couldNotLoadComputers");
         setRemoteError(message);
         toastManager.add({
-          title: t('hosted.remote.toast.couldNotLoadComputersTitle'),
+          title: t("hosted.remote.toast.couldNotLoadComputersTitle"),
           description: message,
-          type: 'error',
+          type: "error",
         });
       } finally {
         setListRefreshing(false);
@@ -321,10 +311,10 @@ function HostedConnectionOnboarding({
     void refreshRemoteList(accessToken, relayUrl, relaySecretKey);
   }, [accessToken, relayUrl, refreshRemoteList, relaySecretKey]);
 
-  const copyLocalCommand = async (text: string, which: 'install' | 'start') => {
+  const copyLocalCommand = async (text: string, which: "install" | "start") => {
     try {
       await navigator.clipboard.writeText(text);
-      if (which === 'install') {
+      if (which === "install") {
         setCopiedInstall(true);
         window.setTimeout(() => setCopiedInstall(false), 2000);
       } else {
@@ -332,7 +322,7 @@ function HostedConnectionOnboarding({
         window.setTimeout(() => setCopiedStart(false), 2000);
       }
     } catch {
-      toastManager.add({ title: t('hosted.common.copyFailed'), type: 'error' });
+      toastManager.add({ title: t("hosted.common.copyFailed"), type: "error" });
     }
   };
 
@@ -344,16 +334,16 @@ function HostedConnectionOnboarding({
     if (!localApiConfig) {
       return;
     }
-    setBusyAction('connect-local');
+    setBusyAction("connect-local");
     try {
       await activateHostedLocalConnection(localApiConfig);
-      setConnected('local');
+      setConnected("local");
       onConnected?.();
     } catch (err) {
       toastManager.add({
-        title: t('hosted.local.toast.couldNotConnectTitle'),
-        description: err instanceof Error ? err.message : t('hosted.common.tryAgain'),
-        type: 'error',
+        title: t("hosted.local.toast.couldNotConnectTitle"),
+        description: err instanceof Error ? err.message : t("hosted.common.tryAgain"),
+        type: "error",
       });
     } finally {
       setBusyAction(null);
@@ -380,15 +370,15 @@ function HostedConnectionOnboarding({
         nextRelaySecret,
       );
       await activateHostedRemoteConnection(serverId, session);
-      setConnected('relay');
+      setConnected("relay");
       onConnected?.();
     } catch (err) {
-      const message = err instanceof Error ? err.message : t('hosted.common.tryAgain');
+      const message = err instanceof Error ? err.message : t("hosted.common.tryAgain");
       setRemoteError(message);
       toastManager.add({
-        title: t('hosted.remote.toast.couldNotConnectTitle'),
+        title: t("hosted.remote.toast.couldNotConnectTitle"),
         description: message,
-        type: 'error',
+        type: "error",
       });
     } finally {
       setBusyAction(null);
@@ -398,7 +388,7 @@ function HostedConnectionOnboarding({
   const localComputerName =
     localStatus?.computer_name?.trim() ||
     localStatus?.hostname?.trim() ||
-    t('hosted.local.thisComputer');
+    t("hosted.local.thisComputer");
 
   return (
     <main className="size-full overflow-y-auto bg-background px-6 py-6 sm:px-10 sm:py-8 lg:px-16 lg:py-10">
@@ -411,24 +401,24 @@ function HostedConnectionOnboarding({
           />
           <HostedSloganShimmer />
           <p className="mt-8 max-w-2xl text-base leading-7 text-muted-foreground sm:mt-10 sm:text-lg">
-            {t('hosted.hero.description')}
+            {t("hosted.hero.description")}
           </p>
         </div>
 
         <div className="mx-auto w-full max-w-3xl min-w-0">
           <Tabs
             value={activeTab}
-            onValueChange={value => setActiveTab(value as 'local' | 'remote')}
+            onValueChange={(value) => setActiveTab(value as "local" | "remote")}
             className="flex flex-col space-y-7"
           >
             <TabsList className="grid h-12 w-full shrink-0 grid-cols-2 rounded-lg border border-border/70 bg-muted/30 p-1">
               <TabsTrigger value="local" className="gap-2 rounded-md text-sm">
                 <Laptop className="size-4" />
-                {t('hosted.tabs.local')}
+                {t("hosted.tabs.local")}
               </TabsTrigger>
               <TabsTrigger value="remote" className="gap-2 rounded-md text-sm">
                 <Server className="size-4" />
-                {t('hosted.tabs.remote')}
+                {t("hosted.tabs.remote")}
               </TabsTrigger>
             </TabsList>
 
@@ -438,19 +428,21 @@ function HostedConnectionOnboarding({
                   <div>
                     <div className="flex flex-wrap items-center gap-3">
                       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                        <h2 className="text-base font-medium text-foreground">{t('hosted.local.title')}</h2>
-                        {localProbeState === 'available' ? (
+                        <h2 className="text-base font-medium text-foreground">
+                          {t("hosted.local.title")}
+                        </h2>
+                        {localProbeState === "available" ? (
                           <Badge variant="secondary" className="gap-1">
                             <CheckCircle2 className="size-3.5" />
-                            {t('hosted.local.status.available')}
+                            {t("hosted.local.status.available")}
                           </Badge>
-                        ) : localProbeState === 'checking' ? (
+                        ) : localProbeState === "checking" ? (
                           <Badge variant="secondary" className="gap-1">
                             <LoaderCircle className="size-3.5 animate-spin" />
-                            {t('hosted.local.status.checking')}
+                            {t("hosted.local.status.checking")}
                           </Badge>
                         ) : (
-                          <Badge variant="secondary">{t('hosted.local.status.notFound')}</Badge>
+                          <Badge variant="secondary">{t("hosted.local.status.notFound")}</Badge>
                         )}
                       </div>
                       <Button
@@ -459,70 +451,75 @@ function HostedConnectionOnboarding({
                         size="sm"
                         className="ml-auto shrink-0"
                         onClick={() => void onRefreshLocal()}
-                        disabled={localProbeState === 'checking' || busyAction !== null}
+                        disabled={localProbeState === "checking" || busyAction !== null}
                       >
-                        {localProbeState === 'checking' ? (
+                        {localProbeState === "checking" ? (
                           <LoaderCircle className="mr-2 size-4 animate-spin" />
                         ) : (
                           <RefreshCw className="mr-2 size-4" />
                         )}
-                        {t('hosted.local.checkAgain')}
+                        {t("hosted.local.checkAgain")}
                       </Button>
                     </div>
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                      {t('hosted.local.description')}
+                      {t("hosted.local.description")}
                     </p>
-                    {localProbeState === 'unavailable' && localError ? (
+                    {localProbeState === "unavailable" && localError ? (
                       <p className="mt-3 rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-sm leading-6 text-muted-foreground">
                         {localError}
                       </p>
                     ) : null}
                   </div>
 
-                  {localProbeState === 'available' ? (
+                  {localProbeState === "available" ? (
                     <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-foreground">{localComputerName}</p>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          {t('hosted.local.loopbackFoundAt', {
+                          {t("hosted.local.loopbackFoundAt", {
                             provider: `${localApiConfig?.host}:${localApiConfig?.port}`,
                           })}
                         </p>
                       </div>
-                      <Button onClick={() => void onConnectLocal()} disabled={busyAction === 'connect-local'}>
-                        {busyAction === 'connect-local' ? (
+                      <Button
+                        onClick={() => void onConnectLocal()}
+                        disabled={busyAction === "connect-local"}
+                      >
+                        {busyAction === "connect-local" ? (
                           <LoaderCircle className="mr-2 size-4 animate-spin" />
                         ) : (
                           <Link2 className="mr-2 size-4" />
                         )}
-                        {t('hosted.common.connect')}
+                        {t("hosted.common.connect")}
                       </Button>
                     </div>
                   ) : (
                     <div className="mt-5 space-y-4 rounded-lg border border-border/70 bg-background/70 p-4">
                       <div>
-                        <p className="text-sm font-medium text-foreground">{t('hosted.local.installStartTitle')}</p>
+                        <p className="text-sm font-medium text-foreground">
+                          {t("hosted.local.installStartTitle")}
+                        </p>
                         <p className="mt-1 text-sm text-muted-foreground">
-                          {t('hosted.local.installStartDescription')}
+                          {t("hosted.local.installStartDescription")}
                         </p>
                       </div>
                       <div className="space-y-3">
                         <HostedLocalCommandField
                           command={localInstallCommand}
                           copied={copiedInstall}
-                          onCopy={() => void copyLocalCommand(localInstallCommand, 'install')}
-                          copiedLabel={t('hosted.common.copied')}
-                          copyLabel={t('hosted.common.copyCommand')}
+                          onCopy={() => void copyLocalCommand(localInstallCommand, "install")}
+                          copiedLabel={t("hosted.common.copied")}
+                          copyLabel={t("hosted.common.copyCommand")}
                         />
                         <p className="text-xs text-muted-foreground">
-                          {t('hosted.local.alreadyInstalled')}
+                          {t("hosted.local.alreadyInstalled")}
                         </p>
                         <HostedLocalCommandField
                           command={localStartCommand}
                           copied={copiedStart}
-                          onCopy={() => void copyLocalCommand(localStartCommand, 'start')}
-                          copiedLabel={t('hosted.common.copied')}
-                          copyLabel={t('hosted.common.copyCommand')}
+                          onCopy={() => void copyLocalCommand(localStartCommand, "start")}
+                          copiedLabel={t("hosted.common.copied")}
+                          copyLabel={t("hosted.common.copyCommand")}
                         />
                       </div>
                     </div>
@@ -540,10 +537,10 @@ function HostedConnectionOnboarding({
                     </div>
                     <div className="min-w-0 flex-1">
                       <h2 className="text-base font-medium text-foreground">
-                        {t('hosted.remote.signInTitle')}
+                        {t("hosted.remote.signInTitle")}
                       </h2>
                       <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                        {t('hosted.remote.signInDescription')}
+                        {t("hosted.remote.signInDescription")}
                       </p>
                     </div>
                   </div>
@@ -551,11 +548,11 @@ function HostedConnectionOnboarding({
                   <div className="mt-4">
                     {!hubConfigured() ? (
                       <p className="text-sm leading-6 text-muted-foreground">
-                        {t('hosted.remote.hubNotConfigured')}
+                        {t("hosted.remote.hubNotConfigured")}
                       </p>
                     ) : hasAccountDevice ? (
                       <p className="text-sm leading-6 text-muted-foreground">
-                        {t('hosted.remote.signedInHint')}
+                        {t("hosted.remote.signedInHint")}
                       </p>
                     ) : (
                       <Button
@@ -564,46 +561,48 @@ function HostedConnectionOnboarding({
                         disabled={busyAction !== null}
                       >
                         <LogIn className="mr-2 size-4" />
-                        {t('hosted.remote.signIn')}
+                        {t("hosted.remote.signIn")}
                       </Button>
                     )}
                   </div>
 
                   <Collapsible className="mt-4 overflow-hidden rounded-lg border border-border/70 bg-background/70">
                     <CollapsibleTrigger className="group flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left">
-                        <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
-                          <Link2 className="absolute size-4 transition-opacity duration-150 group-hover:opacity-0" />
-                          <ChevronDown className="absolute size-4 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+                      <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
+                        <Link2 className="absolute size-4 transition-opacity duration-150 group-hover:opacity-0" />
+                        <ChevronDown className="absolute size-4 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium text-foreground">
+                          {t("hosted.remote.privateRelayTitle")}
                         </span>
-                        <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-medium text-foreground">{t('hosted.remote.privateRelayTitle')}</span>
                         <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                          {t('hosted.remote.privateRelayDescription')}
+                          {t("hosted.remote.privateRelayDescription")}
                         </span>
                       </span>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <div className="grid gap-3 border-t border-border/70 px-4 py-4 md:grid-cols-2">
                         <label className="space-y-2">
-                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            {t('hosted.remote.relayUrlLabel')}
+                          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                            {t("hosted.remote.relayUrlLabel")}
                           </span>
                           <Input
                             value={relayUrlDraft}
-                            onChange={event => setRelayUrlDraft(event.target.value)}
-                            placeholder={t('hosted.remote.relayUrlPlaceholder')}
+                            onChange={(event) => setRelayUrlDraft(event.target.value)}
+                            placeholder={t("hosted.remote.relayUrlPlaceholder")}
                             autoComplete="off"
                           />
                         </label>
                         <label className="space-y-2">
-                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            {t('hosted.remote.privateRelayTokenLabel')}
+                          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                            {t("hosted.remote.privateRelayTokenLabel")}
                           </span>
                           <Input
                             type="password"
                             value={relaySecretDraft}
-                            onChange={event => setRelaySecretDraft(event.target.value)}
-                            placeholder={t('hosted.remote.privateRelayTokenPlaceholder')}
+                            onChange={(event) => setRelaySecretDraft(event.target.value)}
+                            placeholder={t("hosted.remote.privateRelayTokenPlaceholder")}
                             autoComplete="off"
                           />
                         </label>
@@ -619,9 +618,11 @@ function HostedConnectionOnboarding({
                 <section className="rounded-xl border border-border/70 bg-background/70 p-5">
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-base font-medium text-foreground">{t('hosted.remote.availableComputersTitle')}</h3>
+                      <h3 className="text-base font-medium text-foreground">
+                        {t("hosted.remote.availableComputersTitle")}
+                      </h3>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        {t('hosted.remote.availableComputersDescription')}
+                        {t("hosted.remote.availableComputersDescription")}
                       </p>
                     </div>
                     <Button
@@ -635,14 +636,14 @@ function HostedConnectionOnboarding({
                       ) : (
                         <RefreshCw className="mr-2 size-4" />
                       )}
-                      {t('hosted.common.refresh')}
+                      {t("hosted.common.refresh")}
                     </Button>
                   </div>
 
                   <div className="space-y-4">
                     {activeComputers.length > 0 ? (
                       <div className="space-y-3">
-                        {activeComputers.map(computer => {
+                        {activeComputers.map((computer) => {
                           const isConnected = connectedRemoteServerId === computer.server_id;
                           return (
                             <div
@@ -654,22 +655,32 @@ function HostedConnectionOnboarding({
                                   <p className="truncate text-sm font-medium text-foreground">
                                     {computer.display_name?.trim() || computer.server_id}
                                   </p>
-                                  {computer.online ? <Badge variant="secondary">{t('hosted.remote.badge.online')}</Badge> : null}
-                                  {isConnected ? <Badge variant="secondary">{t('hosted.remote.badge.connected')}</Badge> : null}
+                                  {computer.online ? (
+                                    <Badge variant="secondary">
+                                      {t("hosted.remote.badge.online")}
+                                    </Badge>
+                                  ) : null}
+                                  {isConnected ? (
+                                    <Badge variant="secondary">
+                                      {t("hosted.remote.badge.connected")}
+                                    </Badge>
+                                  ) : null}
                                 </div>
                                 <p className="mt-1 truncate text-xs text-muted-foreground">
                                   {computer.server_id}
                                 </p>
                               </div>
                               <Button
-                                variant={isConnected ? 'outline' : 'default'}
+                                variant={isConnected ? "outline" : "default"}
                                 onClick={() => void onConnectRemote(computer.server_id)}
                                 disabled={!hasAccountDevice || busyAction !== null}
                               >
                                 {busyAction === `connect-${computer.server_id}` ? (
                                   <LoaderCircle className="mr-2 size-4 animate-spin" />
                                 ) : null}
-                                {isConnected ? t('hosted.remote.reconnect') : t('hosted.common.connect')}
+                                {isConnected
+                                  ? t("hosted.remote.reconnect")
+                                  : t("hosted.common.connect")}
                               </Button>
                             </div>
                           );
@@ -678,12 +689,12 @@ function HostedConnectionOnboarding({
                     ) : (
                       <div className="rounded-lg border border-dashed border-border/80 bg-muted/10 px-4 py-5 text-sm text-muted-foreground">
                         {hasAccountDevice
-                          ? t('hosted.remote.emptySignedIn')
-                          : t('hosted.remote.emptySignedOut')}
+                          ? t("hosted.remote.emptySignedIn")
+                          : t("hosted.remote.emptySignedOut")}
                       </div>
                     )}
                     <RemoteComputerSetupBlock
-                      active={activeTab === 'remote'}
+                      active={activeTab === "remote"}
                       hasAccessToken={hasAccountDevice}
                       relayUrl={relayUrlDraft}
                       accessToken={accessToken}

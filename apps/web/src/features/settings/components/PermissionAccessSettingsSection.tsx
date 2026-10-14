@@ -12,10 +12,7 @@ import { SettingsToggleRow } from "@/features/settings/components/settings/Setti
 
 import { useQueryClient } from "@tanstack/react-query";
 
-import {
-  permissionAccessApi,
-  type PermissionAccessStatus,
-} from "@/api/ws/permission-access-api";
+import { permissionAccessApi, type PermissionAccessStatus } from "@/api/ws/permission-access-api";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { invalidateTokenUsageQueries } from "@/features/quota-usage/lib/token-usage-query-options";
 import { tokenUsageApi } from "@/api/ws/token-usage-api";
@@ -29,8 +26,7 @@ export function PermissionAccessSettingsSection() {
   const [error, setError] = React.useState<string | null>(null);
   const [browserCookiesOpen, setBrowserCookiesOpen] = React.useState(false);
   const [atmosHeaderEnd, setAtmosHeaderEnd] = React.useState<React.ReactNode>(null);
-  const [desktopUseHeaderEnd, setDesktopUseHeaderEnd] =
-    React.useState<React.ReactNode>(null);
+  const [desktopUseHeaderEnd, setDesktopUseHeaderEnd] = React.useState<React.ReactNode>(null);
 
   const load = React.useCallback(async () => {
     try {
@@ -73,9 +69,7 @@ export function PermissionAccessSettingsSection() {
         title={t("title")}
         description={t("description")}
       >
-        {error ? (
-          <p className="px-2 py-3 text-xs text-destructive">{error}</p>
-        ) : null}
+        {error ? <p className="px-2 py-3 text-xs text-destructive">{error}</p> : null}
         {resources.length === 0 && !error ? (
           <p className="px-2 py-3 text-xs text-muted-foreground">{t("empty")}</p>
         ) : null}

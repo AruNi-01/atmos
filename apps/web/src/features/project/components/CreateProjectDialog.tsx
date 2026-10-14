@@ -1,43 +1,40 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useTranslations } from 'next-intl';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import React, { useState, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogFooter,
   Button,
   Label,
-  Input
-} from '@workspace/ui';
-import { useProjectStore } from '@/features/project/store/use-project-store';
-import { wsProjectApi } from '@/api/ws-api';
-import { FileBrowser } from '@/features/files/components/FileBrowser';
-import { useWebSocket } from '@/features/connection/hooks/use-websocket';
-import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
-import { pickLocalDirectory } from '@/shared/lib/desktop-directory-picker';
+  Input,
+} from "@workspace/ui";
+import { useProjectStore } from "@/features/project/store/use-project-store";
+import { wsProjectApi } from "@/api/ws-api";
+import { FileBrowser } from "@/features/files/components/FileBrowser";
+import { useWebSocket } from "@/features/connection/hooks/use-websocket";
+import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
+import { pickLocalDirectory } from "@/shared/lib/desktop-directory-picker";
 
 interface CreateProjectDialogProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({ 
-  isOpen, 
-  onClose 
-}) => {
-  const t = useTranslations('project.createProjectDialog');
-  const addProject = useProjectStore(s => s.addProject);
+export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({ isOpen, onClose }) => {
+  const t = useTranslations("project.createProjectDialog");
+  const addProject = useProjectStore((s) => s.addProject);
   const { isConnected, connectionState } = useWebSocket();
   const connectionMode = useAtmosComputerStore((s) => s.connectionMode);
   // OS picker first when talking to the local machine. Atmos FileBrowser is
   // the fallback (and the only option for relay / remote computers).
-  const preferOsPicker = connectionMode === 'local';
-  
-  const [path, setPath] = useState('');
-  const [name, setName] = useState('');
+  const preferOsPicker = connectionMode === "local";
+
+  const [path, setPath] = useState("");
+  const [name, setName] = useState("");
   const [isValidating, setIsValidating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -60,14 +57,14 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
 
   const handleValidate = async () => {
     if (!path) return;
-    
+
     setIsValidating(true);
     setValidationError(null);
     setValidationInfo(null);
-    
+
     try {
       const result = await wsProjectApi.validatePath(path);
-      
+
       if (result.is_valid) {
         if (result.suggested_name && !name) {
           setName(result.suggested_name);
@@ -76,24 +73,24 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
           isGitRepo: result.is_git_repo,
           defaultBranch: result.default_branch,
         });
-        
+
         if (!result.is_git_repo) {
-          setValidationError(t('validation.warningNotGitRepo'));
+          setValidationError(t("validation.warningNotGitRepo"));
         }
       } else {
-        setValidationError(result.error || t('validation.invalidPath'));
+        setValidationError(result.error || t("validation.invalidPath"));
       }
     } catch (e) {
-      setValidationError(e instanceof Error ? e.message : t('validation.failed'));
+      setValidationError(e instanceof Error ? e.message : t("validation.failed"));
     } finally {
       setIsValidating(false);
     }
   };
 
   const handleFileBrowserSelect = (
-    selectedPath: string, 
-    isGitRepo: boolean, 
-    suggestedName: string | null
+    selectedPath: string,
+    isGitRepo: boolean,
+    suggestedName: string | null,
   ) => {
     setPath(selectedPath);
     if (suggestedName) {
@@ -112,15 +109,15 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
       try {
         const selected = await pickLocalDirectory({
           defaultPath: path || undefined,
-          title: t('fileBrowser.title'),
+          title: t("fileBrowser.title"),
         });
-        if (selected.status === 'picked') {
+        if (selected.status === "picked") {
           setPath(selected.path);
           setValidationInfo(null);
           setValidationError(null);
           return;
         }
-        if (selected.status === 'cancelled') {
+        if (selected.status === "cancelled") {
           return;
         }
       } finally {
@@ -141,20 +138,20 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
         mainFilePath: path,
       });
       onClose();
-      setPath('');
-      setName('');
+      setPath("");
+      setName("");
       setValidationError(null);
       setValidationInfo(null);
     } catch (e) {
-      setValidationError(e instanceof Error ? e.message : t('submit.failed'));
+      setValidationError(e instanceof Error ? e.message : t("submit.failed"));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleClose = () => {
-    setPath('');
-    setName('');
+    setPath("");
+    setName("");
     setValidationError(null);
     setValidationInfo(null);
     onClose();
@@ -165,112 +162,117 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>{t('title')}</DialogTitle>
+            <DialogTitle>{t("title")}</DialogTitle>
           </DialogHeader>
-          
+
           {/* 连接状态提示 */}
-          {connectionState !== 'connected' && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3 text-sm mb-4">
+          {connectionState !== "connected" && (
+            <div className="mb-4 rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm dark:border-yellow-800 dark:bg-yellow-900/20">
               <span className="text-yellow-700 dark:text-yellow-300">
-                {connectionState === 'connecting' && t('connection.connecting')}
-                {connectionState === 'reconnecting' && t('connection.reconnecting')}
-                {connectionState === 'disconnected' && t('connection.disconnected')}
+                {connectionState === "connecting" && t("connection.connecting")}
+                {connectionState === "reconnecting" && t("connection.reconnecting")}
+                {connectionState === "disconnected" && t("connection.disconnected")}
               </span>
             </div>
           )}
-          
+
           <form onSubmit={handleSubmit} className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="path">{t('fields.path.label')}</Label>
+              <Label htmlFor="path">{t("fields.path.label")}</Label>
               <div className="flex items-stretch gap-2">
                 <Input
                   id="path"
                   value={path}
                   onChange={(e) => setPath(e.target.value)}
-                  placeholder={t('fields.path.placeholder')}
+                  placeholder={t("fields.path.placeholder")}
                   className="min-w-0 flex-1 font-mono text-sm"
                 />
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => void handleBrowse()}
                   disabled={preferOsPicker ? isPickingDirectory : !isConnected}
-                  className="h-9 sm:h-9 cursor-pointer shrink-0"
+                  className="h-9 shrink-0 cursor-pointer sm:h-9"
                 >
-                  {t('fields.path.browse')}
+                  {t("fields.path.browse")}
                 </Button>
               </div>
-              
+
               {/* 验证状态 */}
               {isValidating && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <span className="animate-spin">⏳</span> {t('validation.validating')}
+                <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="animate-spin">⏳</span> {t("validation.validating")}
                 </p>
               )}
-              
+
               {/* 验证信息 */}
               {validationInfo && !validationError && (
-                <div className="text-xs space-y-1">
+                <div className="space-y-1 text-xs">
                   {validationInfo.isGitRepo ? (
-                    <p className="text-green-600 dark:text-green-400 flex items-center gap-1">
-                      <span>✓</span> {t('validation.gitRepoDetected')}
+                    <p className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                      <span>✓</span> {t("validation.gitRepoDetected")}
                       {validationInfo.defaultBranch && (
                         <span className="text-muted-foreground">
-                          {t('validation.branch', { branch: validationInfo.defaultBranch })}
+                          {t("validation.branch", { branch: validationInfo.defaultBranch })}
                         </span>
                       )}
                     </p>
                   ) : (
-                    <p className="text-yellow-600 dark:text-yellow-400 flex items-center gap-1">
-                      <span>⚠</span> {t('validation.notGitRepo')}
+                    <p className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400">
+                      <span>⚠</span> {t("validation.notGitRepo")}
                     </p>
                   )}
                 </div>
               )}
-              
+
               {/* 错误信息 */}
               {validationError && (
-                <p className="text-xs text-destructive flex items-center gap-1">
+                <p className="flex items-center gap-1 text-xs text-destructive">
                   <span>✗</span> {validationError}
                 </p>
               )}
             </div>
-            
+
             <div className="grid gap-2">
-              <Label htmlFor="name">{t('fields.name.label')}</Label>
+              <Label htmlFor="name">{t("fields.name.label")}</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder={t('fields.name.placeholder')}
+                placeholder={t("fields.name.placeholder")}
               />
-              <p className="text-xs text-muted-foreground">
-                {t('fields.name.help')}
-              </p>
+              <p className="text-xs text-muted-foreground">{t("fields.name.help")}</p>
             </div>
-            
+
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose} className="cursor-pointer">
-                {t('actions.cancel')}
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={isSubmitting || !name || !path || Boolean(validationError && !validationInfo)}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
                 className="cursor-pointer"
               >
-                {isSubmitting ? t('actions.importing') : t('actions.import')}
+                {t("actions.cancel")}
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  isSubmitting || !name || !path || Boolean(validationError && !validationInfo)
+                }
+                className="cursor-pointer"
+              >
+                {isSubmitting ? t("actions.importing") : t("actions.import")}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-      
+
       <FileBrowser
         open={showFileBrowser}
         onOpenChange={setShowFileBrowser}
         onSelect={handleFileBrowserSelect}
-        title={t('fileBrowser.title')}
-        selectLabel={t('fileBrowser.select')}
+        title={t("fileBrowser.title")}
+        selectLabel={t("fileBrowser.select")}
         dirsOnly={true}
       />
     </>

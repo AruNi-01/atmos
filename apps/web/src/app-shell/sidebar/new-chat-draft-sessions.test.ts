@@ -57,10 +57,12 @@ function tab(overrides: Partial<AgentChatCenterTab> = {}): AgentChatCenterTab {
 
 describe("new chat draft sessions", () => {
   test("an empty new chat tab is not a session", () => {
-    expect(newChatDraftSessionRows({
-      projects: [project()],
-      tabsByContext: { "workspace-1": [tab()] },
-    })).toEqual([]);
+    expect(
+      newChatDraftSessionRows({
+        projects: [project()],
+        tabsByContext: { "workspace-1": [tab()] },
+      }),
+    ).toEqual([]);
   });
 
   test("unsent text becomes a truncated session row", () => {
@@ -82,11 +84,13 @@ describe("new chat draft sessions", () => {
   });
 
   test("a created chat is not listed as a draft", () => {
-    expect(newChatDraftSessionRows({
-      projects: [project()],
-      tabsByContext: {
-        "workspace-1": [tab({ chatId: "conv-1", draftPrompt: "already sent" })],
-      },
-    })).toEqual([]);
+    expect(
+      newChatDraftSessionRows({
+        projects: [project()],
+        tabsByContext: {
+          "workspace-1": [tab({ chatId: "conv-1", draftPrompt: "already sent" })],
+        },
+      }),
+    ).toEqual([]);
   });
 });

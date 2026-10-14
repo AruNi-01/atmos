@@ -5,11 +5,7 @@ import {
   type PtDesignScope,
   type PtPersistV2,
 } from "./adapters";
-import {
-  contentBoundsFromPersist,
-  isLiveRasterPreview,
-  previewNeedsRegen,
-} from "./preview";
+import { contentBoundsFromPersist, isLiveRasterPreview, previewNeedsRegen } from "./preview";
 import { deletePreviewBlob } from "./preview-blob";
 
 export type PtDesignHostContext =
@@ -88,7 +84,10 @@ export function inferPtDesignIdentity(id: string): Pick<PtDesignMeta, "scope" | 
   return { scope: "workspace", openMode: "center-tab" };
 }
 
-function fittedPreview(doc: PtPersistV2 | null | undefined, stored?: PtDesignMeta): {
+function fittedPreview(
+  doc: PtPersistV2 | null | undefined,
+  stored?: PtDesignMeta,
+): {
   preview?: string;
   previewFit?: "content";
 } {
@@ -124,7 +123,10 @@ export function inferPtDesignMeta(id: string, doc?: PtPersistV2 | null): PtDesig
   return meta;
 }
 
-export function withEnsuredMeta(id: string, doc: PtPersistV2): { doc: PtPersistV2; changed: boolean } {
+export function withEnsuredMeta(
+  id: string,
+  doc: PtPersistV2,
+): { doc: PtPersistV2; changed: boolean } {
   const nextMeta = inferPtDesignMeta(id, doc);
   const same =
     doc.meta &&
@@ -149,15 +151,19 @@ export function designListedInHost(
 ): boolean {
   if (host.kind === "global") return true;
   if (host.kind === "project") {
-    return meta.scope === "project" && (meta.projectId === host.projectId || meta.id === host.projectId);
+    return (
+      meta.scope === "project" && (meta.projectId === host.projectId || meta.id === host.projectId)
+    );
   }
-  return meta.scope === "workspace" && (meta.workspaceId === host.workspaceId || meta.id === host.workspaceId);
+  return (
+    meta.scope === "workspace" &&
+    (meta.workspaceId === host.workspaceId || meta.id === host.workspaceId)
+  );
 }
 
-export function filterPtDesignsByHost<T extends { meta: Pick<PtDesignMeta, "id" | "scope" | "projectId" | "workspaceId"> }>(
-  items: T[],
-  host: PtDesignHostContext,
-): T[] {
+export function filterPtDesignsByHost<
+  T extends { meta: Pick<PtDesignMeta, "id" | "scope" | "projectId" | "workspaceId"> },
+>(items: T[], host: PtDesignHostContext): T[] {
   if (host.kind === "global") return items;
   return items.filter((item) => designListedInHost(item.meta, host));
 }
@@ -207,9 +213,9 @@ export function filterPtDesigns<T extends { meta: Pick<PtDesignMeta, "scope"> }>
   return items.filter((item) => item.meta.scope === scope);
 }
 
-export function groupPinnedPtDesigns<T extends { meta: Pick<PtDesignMeta, "pinned" | "pinOrder" | "updatedAt"> }>(
-  items: T[],
-): PinGroup<T> {
+export function groupPinnedPtDesigns<
+  T extends { meta: Pick<PtDesignMeta, "pinned" | "pinOrder" | "updatedAt"> },
+>(items: T[]): PinGroup<T> {
   const pinned = items
     .filter((item) => item.meta.pinned)
     .sort((a, b) => {
@@ -272,9 +278,7 @@ export function setPtDesignPinned(
   }));
 }
 
-export type PtDesignMoveTarget =
-  | { scope: "global" }
-  | { scope: "project"; projectId: string };
+export type PtDesignMoveTarget = { scope: "global" } | { scope: "project"; projectId: string };
 
 export function movePtDesign(
   id: string,
@@ -371,9 +375,10 @@ export function mergePtDesignMeta(
       : isLiveRasterPreview(inferred.preview)
         ? inferred.preview
         : undefined,
-    previewFit: isLiveRasterPreview(stored?.preview) || isLiveRasterPreview(inferred.preview)
-      ? "content"
-      : undefined,
+    previewFit:
+      isLiveRasterPreview(stored?.preview) || isLiveRasterPreview(inferred.preview)
+        ? "content"
+        : undefined,
     updatedAt: stored?.updatedAt ?? inferred.updatedAt,
   };
 }

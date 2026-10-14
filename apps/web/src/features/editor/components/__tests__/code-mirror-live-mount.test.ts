@@ -37,7 +37,7 @@ describe("CodeMirrorEditor live mount", () => {
     expect(findPanel).toContain("cm-atmos-search");
     expect(findPanel).not.toContain("replaceAll");
     expect(source).toContain('data-editor-search=""');
-    expect(source).toContain('useHotkeys(');
+    expect(source).toContain("useHotkeys(");
     expect(source).toContain('"mod+f"');
     expect(source).not.toContain("{!isLive && !isPreview ? (");
   });
@@ -49,6 +49,8 @@ describe("CodeMirrorEditor live mount", () => {
     expect(source).toContain("jumpWantsSource");
     expect(source).toContain("!jumpWantsSource");
     expect(source).toContain("setMarkdownView('source')");
-    expect(source).toContain("setPreviewFilePath((current) => (current === file.path ? null : current))");
+    expect(source).toContain(
+      "setPreviewFilePath((current) => (current === file.path ? null : current))",
+    );
   });
 });

@@ -11,9 +11,7 @@ export type PaneSlotBox = {
 };
 
 /** Stable key for mosaic tree geometry so slot remasure follows split resize. */
-export function centerPaneTreeKey(
-  tree: CenterPaneTree | null | undefined,
-): string {
+export function centerPaneTreeKey(tree: CenterPaneTree | null | undefined): string {
   if (tree == null) return "";
   if (typeof tree === "string") return tree;
   const pct =
@@ -24,18 +22,12 @@ export function centerPaneTreeKey(
 }
 
 /** Changes when a pane gains or loses its content slot (empty ↔ first tab). */
-export function centerPaneSlotOccupancyKey(
-  layout: CenterPaneLayout | null | undefined,
-): string {
+export function centerPaneSlotOccupancyKey(layout: CenterPaneLayout | null | undefined): string {
   if (!layout) return "";
-  return layout.panes
-    .map((pane) => `${pane.id}:${pane.tabIds.length > 0 ? "1" : "0"}`)
-    .join(",");
+  return layout.panes.map((pane) => `${pane.id}:${pane.tabIds.length > 0 ? "1" : "0"}`).join(",");
 }
 
-export function isUsablePaneSlotBox(
-  box: PaneSlotBox | null | undefined,
-): box is PaneSlotBox {
+export function isUsablePaneSlotBox(box: PaneSlotBox | null | undefined): box is PaneSlotBox {
   return Boolean(box && box.width > 0 && box.height > 0);
 }
 
@@ -89,8 +81,7 @@ export function retainSlotBoxesDuringSpaceOverview(input: {
   cached?: Record<string, PaneSlotBox>;
 }): { contextId: string; boxes: Record<string, PaneSlotBox> } | null {
   const cached = input.cached;
-  const boxes =
-    cached && Object.keys(cached).length > 0 ? cached : input.previous.boxes;
+  const boxes = cached && Object.keys(cached).length > 0 ? cached : input.previous.boxes;
   if (
     input.previous.contextId === input.contextId &&
     (boxes === input.previous.boxes || paneSlotBoxesEqual(input.previous.boxes, boxes))
@@ -134,11 +125,7 @@ export function shouldWithholdUnmeasuredPaneTerminal(input: {
   isPaneActive: boolean;
   slotBox: PaneSlotBox | null | undefined;
 }): boolean {
-  return (
-    input.applySlotGeometry &&
-    input.isPaneActive &&
-    !isUsablePaneSlotBox(input.slotBox)
-  );
+  return input.applySlotGeometry && input.isPaneActive && !isUsablePaneSlotBox(input.slotBox);
 }
 
 const EMPTY_PANE_SLOT_BOXES: Record<string, PaneSlotBox> = {};
@@ -153,10 +140,7 @@ export function paneSlotBoxesForContextSwitch(input: {
   cache: Record<string, Record<string, PaneSlotBox>>;
   boxes: Record<string, PaneSlotBox>;
 } {
-  if (
-    !input.nextContextId ||
-    input.prevContextId === input.nextContextId
-  ) {
+  if (!input.nextContextId || input.prevContextId === input.nextContextId) {
     return { cache: input.cache, boxes: input.currentBoxes };
   }
   const cache = { ...input.cache };
@@ -203,9 +187,7 @@ export function useCenterPaneSlotBoxes(
       prevContextId: prevContextRef.current,
       nextContextId: contextId,
       currentBoxes:
-        snapshot.contextId === prevContextRef.current
-          ? snapshot.boxes
-          : EMPTY_PANE_SLOT_BOXES,
+        snapshot.contextId === prevContextRef.current ? snapshot.boxes : EMPTY_PANE_SLOT_BOXES,
       cache: cacheRef.current,
     });
     prevContextRef.current = contextId ?? "";
@@ -310,9 +292,7 @@ export function useCenterPaneSlotBoxes(
         `[data-center-pane-content-slot="${paneId}"]`,
       );
       if (slot) ro.observe(slot);
-      const leaf = document.querySelector<HTMLElement>(
-        `[data-center-split-leaf="${paneId}"]`,
-      );
+      const leaf = document.querySelector<HTMLElement>(`[data-center-split-leaf="${paneId}"]`);
       if (leaf) ro.observe(leaf);
     }
     window.addEventListener("resize", measure);
@@ -322,16 +302,7 @@ export function useCenterPaneSlotBoxes(
       window.removeEventListener("resize", measure);
     };
     // Depend on stable string keys only — never the layout object identity.
-  }, [
-    contextId,
-    enabled,
-    fractionKey,
-    hostRef,
-    occupancyKey,
-    orderKey,
-    remeasureKey,
-    treeKey,
-  ]);
+  }, [contextId, enabled, fractionKey, hostRef, occupancyKey, orderKey, remeasureKey, treeKey]);
 
   return { boxes, cache: cacheRef.current };
 }

@@ -103,9 +103,9 @@ async function fetchLatestStableDesktopTagFromAtom(): Promise<string | null> {
 
     const xml = await res.text();
     // Atom entry order is newest-first. Prefer production Electron, then legacy Tauri.
-    const tags = Array.from(xml.matchAll(/desktop-electron-[0-9A-Za-z.-]+|desktop-[0-9A-Za-z.-]+/g)).map(
-      (match) => match[0],
-    );
+    const tags = Array.from(
+      xml.matchAll(/desktop-electron-[0-9A-Za-z.-]+|desktop-[0-9A-Za-z.-]+/g),
+    ).map((match) => match[0]);
 
     const electron = tags.find((tag) => DESKTOP_ELECTRON_STABLE_TAG_RE.test(tag));
     if (electron) {

@@ -38,19 +38,19 @@ External dependencies:
 
 ## Product decisions resolved in TECH
 
-| Fork | Decision |
-|------|----------|
-| Public ingress | Use Atmos Relay. GitHub triggers require a registered Computer. |
-| GitHub integration type | Use an official Atmos GitHub App. Do not require users to create their own App. |
-| Setup identity | Browser/Desktop owns the user's Atmos Relay Access Token. Relay mints a short-lived GitHub setup session and uses GitHub user OAuth during App installation to bind the installation safely. |
-| Token lifecycle | GitHub installations and routes use the same tenant identity as Atmos Computers. Directly replacing the local Access Token is an identity switch; preserving existing rows requires an explicit rotation authorized by the current token. |
-| Local-only fallback | Deferred. Manual/scheduled triggers remain available without Relay. |
-| Offline delivery | Record as missed/offline. Do not replay in v1. |
-| Duplicate delivery | Deduplicate by `github_delivery_id + route_id`. One GitHub delivery may intentionally trigger multiple routes. |
-| Payload trust | Treat GitHub user-authored text as untrusted event context, not instructions. |
-| Route ownership | Relay stores route metadata; local Computer stores full automation definition. |
-| Trigger activation | Add provider-neutral trigger enablement/status fields. APP-017 schedule pause/resume remains scheduled-only; GitHub route activation is controlled through trigger status and route sync. |
-| Workflow completion | v1 uses GitHub Actions `workflow_run.completed`. `check_run` and `check_suite` are future scope. |
+| Fork                    | Decision                                                                                                                                                                                                                                  |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public ingress          | Use Atmos Relay. GitHub triggers require a registered Computer.                                                                                                                                                                           |
+| GitHub integration type | Use an official Atmos GitHub App. Do not require users to create their own App.                                                                                                                                                           |
+| Setup identity          | Browser/Desktop owns the user's Atmos Relay Access Token. Relay mints a short-lived GitHub setup session and uses GitHub user OAuth during App installation to bind the installation safely.                                              |
+| Token lifecycle         | GitHub installations and routes use the same tenant identity as Atmos Computers. Directly replacing the local Access Token is an identity switch; preserving existing rows requires an explicit rotation authorized by the current token. |
+| Local-only fallback     | Deferred. Manual/scheduled triggers remain available without Relay.                                                                                                                                                                       |
+| Offline delivery        | Record as missed/offline. Do not replay in v1.                                                                                                                                                                                            |
+| Duplicate delivery      | Deduplicate by `github_delivery_id + route_id`. One GitHub delivery may intentionally trigger multiple routes.                                                                                                                            |
+| Payload trust           | Treat GitHub user-authored text as untrusted event context, not instructions.                                                                                                                                                             |
+| Route ownership         | Relay stores route metadata; local Computer stores full automation definition.                                                                                                                                                            |
+| Trigger activation      | Add provider-neutral trigger enablement/status fields. APP-017 schedule pause/resume remains scheduled-only; GitHub route activation is controlled through trigger status and route sync.                                                 |
+| Workflow completion     | v1 uses GitHub Actions `workflow_run.completed`. `check_run` and `check_suite` are future scope.                                                                                                                                          |
 
 ## Module-by-module design
 
@@ -196,15 +196,15 @@ Do not log these values.
 
 Use REST in Relay because GitHub calls public HTTPS webhooks and setup callbacks:
 
-| Method | Path | Auth | Purpose |
-|--------|------|------|---------|
-| `POST` | `/v1/github/webhook` | GitHub signature | Receive GitHub App webhooks. |
-| `POST` | `/v1/github/setup_sessions` | Atmos Bearer Access Token | Create a short-lived setup state and GitHub App install URL. |
-| `GET` | `/v1/github/callback` | GitHub OAuth callback + setup state | Complete install/update callback and bind installation to tenant/server. |
-| `GET` | `/v1/github/installations` | Atmos Bearer Access Token | List tenant installations. |
-| `GET` | `/v1/github/installations/:id/repositories` | Atmos Bearer Access Token | List repositories available to an installation. |
-| `POST` | `/v1/github/event_routes` | Atmos Bearer Access Token | Create or update route metadata. |
-| `DELETE` | `/v1/github/event_routes/:route_id` | Atmos Bearer Access Token | Disable/remove route metadata. |
+| Method   | Path                                        | Auth                                | Purpose                                                                  |
+| -------- | ------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------ |
+| `POST`   | `/v1/github/webhook`                        | GitHub signature                    | Receive GitHub App webhooks.                                             |
+| `POST`   | `/v1/github/setup_sessions`                 | Atmos Bearer Access Token           | Create a short-lived setup state and GitHub App install URL.             |
+| `GET`    | `/v1/github/callback`                       | GitHub OAuth callback + setup state | Complete install/update callback and bind installation to tenant/server. |
+| `GET`    | `/v1/github/installations`                  | Atmos Bearer Access Token           | List tenant installations.                                               |
+| `GET`    | `/v1/github/installations/:id/repositories` | Atmos Bearer Access Token           | List repositories available to an installation.                          |
+| `POST`   | `/v1/github/event_routes`                   | Atmos Bearer Access Token           | Create or update route metadata.                                         |
+| `DELETE` | `/v1/github/event_routes/:route_id`         | Atmos Bearer Access Token           | Disable/remove route metadata.                                           |
 
 #### Control-plane identity and setup flow
 

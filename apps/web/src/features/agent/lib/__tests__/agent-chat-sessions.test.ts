@@ -16,9 +16,7 @@ import {
 
 const ROOT = join(import.meta.dir, "../..");
 
-function entry(
-  overrides: Partial<AgentChatIndexEntry> = {},
-): AgentChatIndexEntry {
+function entry(overrides: Partial<AgentChatIndexEntry> = {}): AgentChatIndexEntry {
   return {
     id: "chat-1",
     title: "Fix auth",
@@ -144,16 +142,10 @@ describe("agent chat sessions helpers", () => {
       "/workspace?id=ws-1&tab=agent-chat%3Achat-1",
     );
     expect(
-      buildAgentChatHistoryHref(
-        entry({ workspace_id: null, project_id: "proj-1" }),
-        projects,
-      ),
+      buildAgentChatHistoryHref(entry({ workspace_id: null, project_id: "proj-1" }), projects),
     ).toBe("/project?id=proj-1&tab=agent-chat%3Achat-1");
     expect(
-      buildAgentChatHistoryHref(
-        entry({ workspace_id: null, project_id: null }),
-        projects,
-      ),
+      buildAgentChatHistoryHref(entry({ workspace_id: null, project_id: null }), projects),
     ).toBe("/agent-chat?chatId=chat-1");
     expect(routeKindForAgentChatContext("proj-1", projects)).toBe("project");
     expect(sameStringSet(["a", "b"], ["b", "a"])).toBe(true);
@@ -242,10 +234,7 @@ describe("agents sessions page uses Atmos chat history", () => {
     expect(composer).toContain('t("agentKind.native")');
     expect(composer).toContain('t("agentKind.acp")');
 
-    const view = readFileSync(
-      join(ROOT, "components/AgentChatSessionsView.tsx"),
-      "utf8",
-    );
+    const view = readFileSync(join(ROOT, "components/AgentChatSessionsView.tsx"), "utf8");
     expect(view).toContain("agentChatApi.list");
     expect(view).toContain("all: true");
     expect(view).toContain("openAgentChatHistoryRow");

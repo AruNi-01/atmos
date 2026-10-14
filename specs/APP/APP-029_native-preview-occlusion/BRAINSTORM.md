@@ -15,12 +15,14 @@ Track the native preview surface rectangle and compare it against visible app ov
 This keeps the responsibility centralized and avoids enumerating each feature.
 
 Benefits:
+
 - Covers current and future app overlays without feature-specific preview code.
 - Preserves the existing Tauri child-webview implementation.
 - Uses existing hide/show viewport plumbing.
 - Fits the current React architecture.
 
 Risks:
+
 - DOM heuristics must be conservative enough to avoid hiding preview for ordinary layout elements.
 - Moving or animating overlays needs low-latency rechecks.
 
@@ -31,11 +33,13 @@ When the native webview is temporarily hidden, render a non-interactive React fa
 The first version can be a frozen, preview-shaped surface with current page title, URL, and status copy. A true bitmap snapshot can be added later only if it becomes necessary.
 
 Benefits:
+
 - Dialogs and popovers can render above the right sidebar area.
 - Users keep spatial context that preview is paused, not closed.
 - No native screenshot capture dependency is required for the first fix.
 
 Risks:
+
 - It is not a live preview while occluded.
 - It is not pixel-identical to the page unless a future screenshot path is added.
 
@@ -44,10 +48,12 @@ Risks:
 Move React overlays into a separate native always-on-top or sibling overlay window.
 
 Benefits:
+
 - Could preserve the live preview behind overlays.
 - Could support native stacking directly.
 
 Rejected for this scope:
+
 - High implementation cost across focus, input routing, accessibility, dragging, window lifecycle, and multi-monitor edge cases.
 - High maintenance cost for every overlay primitive.
 - More invasive than the current bug requires.

@@ -15,11 +15,7 @@ import {
   niceAxisMax,
   type DitherTheme,
 } from "../../lib/dither/math";
-import {
-  createGridMorph,
-  gridSignature,
-  type GridMorph,
-} from "../../lib/dither/morph";
+import { createGridMorph, gridSignature, type GridMorph } from "../../lib/dither/morph";
 import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 import {
   DitherTooltip,
@@ -105,8 +101,7 @@ export function DitherStackedBars({
 
   // Retarget during render so the first paint already has morph state (ref-only).
   const barsKey = gridSignature(bars.map((b) => b.segments));
-  const domainChanged =
-    domainKey !== undefined && domainRef.current !== domainKey;
+  const domainChanged = domainKey !== undefined && domainRef.current !== domainKey;
   if (domainKey !== undefined) domainRef.current = domainKey;
   if (sigRef.current !== barsKey || domainChanged) {
     const next = bars.map((b) => b.segments);
@@ -159,9 +154,7 @@ export function DitherStackedBars({
       const prog = morphRef.current!.progress(reducedMotion);
       const targetMaxTotal = Math.max(
         1,
-        ...meta.map((bar) =>
-          bar.segments.reduce((s, v) => s + Math.max(0, v), 0),
-        ),
+        ...meta.map((bar) => bar.segments.reduce((s, v) => s + Math.max(0, v), 0)),
       );
       const toAxis = toAxisRef.current || niceAxisMax(targetMaxTotal);
       const fromAxis = fromAxisRef.current || toAxis;
@@ -177,26 +170,17 @@ export function DitherStackedBars({
         barWeightsRef.current = Array.from({ length: n }, () => 0);
       }
       if (bandWeightsRef.current.length !== n) {
-        bandWeightsRef.current = segsGrid
-          .slice(0, n)
-          .map((segs) => segs.map(() => 0));
+        bandWeightsRef.current = segsGrid.slice(0, n).map((segs) => segs.map(() => 0));
       }
 
       const tb = targetRef.current.b;
       const tband = targetRef.current.band;
       let maxBarW = 0;
       for (let i = 0; i < n; i++) {
-        barWeightsRef.current[i] = smoothToward(
-          barWeightsRef.current[i]!,
-          tb === i ? 1 : 0,
-          rate,
-        );
+        barWeightsRef.current[i] = smoothToward(barWeightsRef.current[i]!, tb === i ? 1 : 0, rate);
         maxBarW = Math.max(maxBarW, barWeightsRef.current[i]!);
         const segs = segsGrid[i]!;
-        if (
-          !bandWeightsRef.current[i] ||
-          bandWeightsRef.current[i]!.length !== segs.length
-        ) {
+        if (!bandWeightsRef.current[i] || bandWeightsRef.current[i]!.length !== segs.length) {
           bandWeightsRef.current[i] = segs.map(() => 0);
         }
         for (let j = 0; j < segs.length; j++) {
@@ -230,9 +214,7 @@ export function DitherStackedBars({
                 value: formatRef.current(val),
                 sliding: formatSlidingRef.current?.(val) ?? undefined,
                 icon: segIcon,
-                color: segIcon
-                  ? undefined
-                  : (palette?.[tband] ?? bandColor(tband, theme)),
+                color: segIcon ? undefined : (palette?.[tband] ?? bandColor(tband, theme)),
               },
               {
                 label: totalLabelRef.current,
@@ -257,8 +239,7 @@ export function DitherStackedBars({
         setTooltip(null);
       }
 
-      ctx.strokeStyle =
-        theme === "dark" ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.05)";
+      ctx.strokeStyle = theme === "dark" ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.05)";
       ctx.beginPath();
       ctx.moveTo(0, plotH);
       ctx.lineTo(w, plotH);
@@ -290,10 +271,7 @@ export function DitherStackedBars({
             else alpha = 0.85 + bandWgt * 0.15;
           }
 
-          const color =
-            bandWgt > 0.55
-              ? HIGHLIGHT
-              : (palette?.[j] ?? bandColor(j, theme));
+          const color = bandWgt > 0.55 ? HIGHLIGHT : (palette?.[j] ?? bandColor(j, theme));
 
           ctx.save();
           drawRoundedRect(ctx, x0, yTop, barW, segH, rTop, rBottom);
@@ -319,8 +297,7 @@ export function DitherStackedBars({
         }
 
         ctx.globalAlpha = 1;
-        ctx.fillStyle =
-          theme === "dark" ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)";
+        ctx.fillStyle = theme === "dark" ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)";
         ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
         ctx.textAlign = "center";
         ctx.fillText(meta[i]!.label, cx, h - 3);

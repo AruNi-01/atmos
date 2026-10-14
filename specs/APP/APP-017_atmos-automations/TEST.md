@@ -13,25 +13,25 @@ APP-017 spans persistence, scheduler logic, terminal execution, WebSocket transp
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 · Management entry | S1, S2 |
-| M2 · Creation flow | S3, S4 |
-| M3 · Instructions composer | S3, S4, S31, S32 |
-| M4 · Agent selection | S5, S6 |
-| M5 · Trigger configuration | S7, S8, S20 |
-| M6 · Local-per-Computer ownership | S9, S25 |
-| M7 · Metadata persistence | S9, S10, S18 |
-| M8 · Artifact persistence | S11, S12, S16 |
-| M9 · Terminal execution | S11, S15, S19 |
-| M10 · File-based result | S11, S12, S16, S22 |
-| M11 · Run environments | S11, S13, S14, S15, S17 |
-| M12 · Automation-created workspaces | S17, S18 |
-| M13 · Run history | S12, S16, S21, S22, S30 |
-| M14 · Run controls | S19, S20, S23, S30 |
-| M15 · Notifications | S24, S25, S30 |
-| M16 · Remote Computer behavior | S26, S27 |
-| N1-N5 | Deferred; see Non-coverage |
+| PRD item                            | Scenario IDs               |
+| ----------------------------------- | -------------------------- |
+| M1 · Management entry               | S1, S2                     |
+| M2 · Creation flow                  | S3, S4                     |
+| M3 · Instructions composer          | S3, S4, S31, S32           |
+| M4 · Agent selection                | S5, S6                     |
+| M5 · Trigger configuration          | S7, S8, S20                |
+| M6 · Local-per-Computer ownership   | S9, S25                    |
+| M7 · Metadata persistence           | S9, S10, S18               |
+| M8 · Artifact persistence           | S11, S12, S16              |
+| M9 · Terminal execution             | S11, S15, S19              |
+| M10 · File-based result             | S11, S12, S16, S22         |
+| M11 · Run environments              | S11, S13, S14, S15, S17    |
+| M12 · Automation-created workspaces | S17, S18                   |
+| M13 · Run history                   | S12, S16, S21, S22, S30    |
+| M14 · Run controls                  | S19, S20, S23, S30         |
+| M15 · Notifications                 | S24, S25, S30              |
+| M16 · Remote Computer behavior      | S26, S27                   |
+| N1-N5                               | Deferred; see Non-coverage |
 
 ## Coverage Status
 

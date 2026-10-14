@@ -15,15 +15,15 @@
 
 BRAINSTORM forks resolved here (see [BRAINSTORM.md](./BRAINSTORM.md)):
 
-| Fork | Decision |
-|------|----------|
+| Fork                              | Decision                                                                                                                                    |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | Who owns create / boot / shutdown | **Atmos.** One inventory API. Input is platform + device type + runtime/image. serve-sim and serve-emu do **not** each implement a catalog. |
-| Inventory vs preview | List every Computer simulator/AVD. **Preview stays one exclusive claim + iframe.** |
-| Boot vs Preview | **Two verbs.** Boot starts the VM. Preview is existing `simulator_start` (claim + helper, boot if needed). |
-| Appearance / camera target | **This workspace’s claimed device**, same as APP-071 HID. |
-| Download runtimes / system images | **Out of v1.** Only installed catalogs. Missing → typed error with a next step. |
-| Delete | **In.** Create without delete is a disk leak. |
-| Helper duplicate tools | Atmos chrome is the product. Hiding helper duplicates is Nice to Have. |
+| Inventory vs preview              | List every Computer simulator/AVD. **Preview stays one exclusive claim + iframe.**                                                          |
+| Boot vs Preview                   | **Two verbs.** Boot starts the VM. Preview is existing `simulator_start` (claim + helper, boot if needed).                                  |
+| Appearance / camera target        | **This workspace’s claimed device**, same as APP-071 HID.                                                                                   |
+| Download runtimes / system images | **Out of v1.** Only installed catalogs. Missing → typed error with a next step.                                                             |
+| Delete                            | **In.** Create without delete is a disk leak.                                                                                               |
+| Helper duplicate tools            | Atmos chrome is the product. Hiding helper duplicates is Nice to Have.                                                                      |
 
 ## Goals
 

@@ -30,7 +30,14 @@ export function useTerminalCandidates({
   workspaceName,
 }: UseTerminalCandidatesOptions) {
   const candidates = useQuery({
-    queryKey: ["terminal-candidates", selectedServerId, workspaceId, projectName, workspaceName, appWsState],
+    queryKey: [
+      "terminal-candidates",
+      selectedServerId,
+      workspaceId,
+      projectName,
+      workspaceName,
+      appWsState,
+    ],
     enabled: Boolean(appWsClient && appWsState === "open"),
     queryFn: () =>
       wsActions.terminalWorkspaceCandidates(appWsClient!, {
@@ -43,7 +50,11 @@ export function useTerminalCandidates({
   useEffect(() => {
     if (!candidates.isSuccess) return;
 
-    const serverEntries = mergeTerminalCandidateEntries(workspaceId, candidates.data.candidates, entries);
+    const serverEntries = mergeTerminalCandidateEntries(
+      workspaceId,
+      candidates.data.candidates,
+      entries,
+    );
     if (serverEntries.length > 0) {
       if (!sameTerminalEntries(entries, serverEntries)) {
         setEntries(workspaceId, serverEntries);

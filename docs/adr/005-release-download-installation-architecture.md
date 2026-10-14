@@ -39,12 +39,12 @@ Atmos 采用 **三条独立发布线 + 一个 canonical CLI 安装路径 + R2 �
 
 ## 发布线 (Release Lines)
 
-| 发布线 | Tag | 版本源 | 主要 workflow | 产物 | 是否包含 CLI |
-| --- | --- | --- | --- | --- | --- |
-| CLI | `cli-<version>` | `apps/cli/Cargo.toml` | `.github/workflows/release-cli.yml` | `atmos-cli-<target>.tar.gz` | 是,这是唯一 CLI 发布线 |
-| Local Runtime | `local-web-runtime-<version>` | `resources/local-runtime/version.json` | `.github/workflows/release-local-runtime.yml` | `atmos-local-runtime-<target>.tar.gz` | 否 |
-| Local Model Runtime | `local-model-runtime-<version>` | release tag | `.github/workflows/release-local-model-runtime.yml` | `atmos-llama-server-<target>` archives, `manifest.json` | 否 |
-| Desktop | `desktop-<version>` | `apps/desktop/package.json`, `apps/desktop/src-tauri/Cargo.toml`, `apps/desktop/src-tauri/tauri.conf.json` | `.github/workflows/release-desktop.yml` | Tauri installers, updater metadata | 否 |
+| 发布线              | Tag                             | 版本源                                                                                                     | 主要 workflow                                       | 产物                                                    | 是否包含 CLI           |
+| ------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------- | ---------------------- |
+| CLI                 | `cli-<version>`                 | `apps/cli/Cargo.toml`                                                                                      | `.github/workflows/release-cli.yml`                 | `atmos-cli-<target>.tar.gz`                             | 是,这是唯一 CLI 发布线 |
+| Local Runtime       | `local-web-runtime-<version>`   | `resources/local-runtime/version.json`                                                                     | `.github/workflows/release-local-runtime.yml`       | `atmos-local-runtime-<target>.tar.gz`                   | 否                     |
+| Local Model Runtime | `local-model-runtime-<version>` | release tag                                                                                                | `.github/workflows/release-local-model-runtime.yml` | `atmos-llama-server-<target>` archives, `manifest.json` | 否                     |
+| Desktop             | `desktop-<version>`             | `apps/desktop/package.json`, `apps/desktop/src-tauri/Cargo.toml`, `apps/desktop/src-tauri/tauri.conf.json` | `.github/workflows/release-desktop.yml`             | Tauri installers, updater metadata                      | 否                     |
 
 稳定 tag-push release 必须来自已进入 `origin/main` 的 commit。分支验证和真实资产测试使用 workflow dispatch + prerelease tag,例如 `cli-2026.7.2-rc.1`。
 
@@ -170,10 +170,12 @@ R2 流量主要来自:
 **描述**: 每个 runtime bundle 都携带一个 `bin/atmos`,Desktop 也携带 `binaries/atmos-cli`。
 
 **优点**:
+
 - 离线启动路径更简单。
 - 单个包里东西齐全,安装器不需要额外下载 CLI。
 
 **缺点**:
+
 - CLI 版本会被 Desktop/Runtime release 锁死。
 - CLI-only 修复需要重新发 Desktop 或 Runtime 才能覆盖对应用户。
 - 用户机器上容易出现多个 `atmos`,PATH 和排障复杂。
@@ -188,10 +190,12 @@ R2 流量主要来自:
 **描述**: CLI、安装器、API 启动都直接访问 GitHub Releases API 来解析最新版本。
 
 **优点**:
+
 - 不需要维护 R2 manifest。
 - GitHub release 数据完整。
 
 **缺点**:
+
 - 容易触发未认证 GitHub API rate limit。
 - 国内或企业网络下 GitHub 可达性不稳定。
 - 更新检查和下载流量不可控。
@@ -205,6 +209,7 @@ R2 流量主要来自:
 **描述**: CLI 独立发布和更新,Local Runtime/Desktop 只发布自己的 runtime/app 产物;安装器和 API 启动通过 R2 CLI manifest 补齐 canonical CLI。
 
 **优点**:
+
 - CLI 可以独立快速修复。
 - Desktop 和 Local Runtime 不会携带过期 CLI。
 - 用户机器上只有一个官方 CLI path。
@@ -212,6 +217,7 @@ R2 流量主要来自:
 - GitHub API rate limit 不影响主路径。
 
 **缺点**:
+
 - 首次安装 Desktop/Runtime 时可能需要额外下载 CLI。
 - R2 sync workflow 和 manifest 正确性变成发布链路的一部分。
 - API 启动时会多一次非阻断 CLI manifest 检查。
@@ -236,13 +242,13 @@ R2 流量主要来自:
 
 ### 风险和缓解措施
 
-| 风险 | 严重程度 | 概率 | 缓解措施 |
-| --- | --- | --- | --- |
-| R2 sync 没有刷新 `cli/latest.json` | 高 | 中 | release 后验证 `https://install.atmos.land/cli/latest.json`; `atmos update --check` 作为 smoke test |
-| R2 最新路径缺少某个平台 asset | 高 | 中 | `sync-r2.yml` 从 GitHub Release assets 生成 manifest; 安装器校验平台 asset |
-| 用户 PATH 仍指向旧 `atmos` | 中 | 中 | 安装器和 API 启动都把 `~/.atmos/bin` 加入 PATH; 文档要求检查 `which atmos` |
-| GitHub fallback 被 rate limited | 低 | 中 | fallback 只在 R2 主路径失败时使用; 主路径不依赖 GitHub |
-| Desktop updater 与 CLI update 语义混淆 | 中 | 中 | 明确 Desktop updater 只更新 app; CLI 由 `atmos update`、安装器、API 自愈管理 |
+| 风险                                   | 严重程度 | 概率 | 缓解措施                                                                                            |
+| -------------------------------------- | -------- | ---- | --------------------------------------------------------------------------------------------------- |
+| R2 sync 没有刷新 `cli/latest.json`     | 高       | 中   | release 后验证 `https://install.atmos.land/cli/latest.json`; `atmos update --check` 作为 smoke test |
+| R2 最新路径缺少某个平台 asset          | 高       | 中   | `sync-r2.yml` 从 GitHub Release assets 生成 manifest; 安装器校验平台 asset                          |
+| 用户 PATH 仍指向旧 `atmos`             | 中       | 中   | 安装器和 API 启动都把 `~/.atmos/bin` 加入 PATH; 文档要求检查 `which atmos`                          |
+| GitHub fallback 被 rate limited        | 低       | 中   | fallback 只在 R2 主路径失败时使用; 主路径不依赖 GitHub                                              |
+| Desktop updater 与 CLI update 语义混淆 | 中       | 中   | 明确 Desktop updater 只更新 app; CLI 由 `atmos update`、安装器、API 自愈管理                        |
 
 ## 实施状态
 
@@ -268,16 +274,16 @@ R2 流量主要来自:
 
 ## 相关文件
 
-| 文件 | 用途 |
-| --- | --- |
-| `.github/workflows/release-cli.yml` | 构建并发布 standalone CLI |
-| `.github/workflows/release-local-runtime.yml` | 构建 Local Runtime archive |
-| `.github/workflows/release-desktop.yml` | 构建 Desktop app 和 updater artifacts |
-| `.github/workflows/sync-r2.yml` | 同步 GitHub Release assets 到 Cloudflare R2 |
-| `apps/cli/src/commands/update.rs` | CLI update/check 和 24 小时缓存 |
-| `apps/api/src/api/system/cli.rs` | API 内的 CLI 检查、安装和启动自愈 |
-| `crates/infra/src/utils/atmos_cli.rs` | canonical CLI path 和 PATH setup |
-| `crates/runtime-manager/src/supervisor.rs` | Local Runtime 启停,不再持有 CLI binary path |
-| `install-local-web-runtime.sh` | shell Local Runtime installer |
-| `install-desktop.sh` | shell Desktop installer |
-| `docs/release.md` | 操作型 release guide |
+| 文件                                          | 用途                                        |
+| --------------------------------------------- | ------------------------------------------- |
+| `.github/workflows/release-cli.yml`           | 构建并发布 standalone CLI                   |
+| `.github/workflows/release-local-runtime.yml` | 构建 Local Runtime archive                  |
+| `.github/workflows/release-desktop.yml`       | 构建 Desktop app 和 updater artifacts       |
+| `.github/workflows/sync-r2.yml`               | 同步 GitHub Release assets 到 Cloudflare R2 |
+| `apps/cli/src/commands/update.rs`             | CLI update/check 和 24 小时缓存             |
+| `apps/api/src/api/system/cli.rs`              | API 内的 CLI 检查、安装和启动自愈           |
+| `crates/infra/src/utils/atmos_cli.rs`         | canonical CLI path 和 PATH setup            |
+| `crates/runtime-manager/src/supervisor.rs`    | Local Runtime 启停,不再持有 CLI binary path |
+| `install-local-web-runtime.sh`                | shell Local Runtime installer               |
+| `install-desktop.sh`                          | shell Desktop installer                     |
+| `docs/release.md`                             | 操作型 release guide                        |

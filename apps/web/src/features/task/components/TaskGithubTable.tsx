@@ -15,10 +15,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { enUS, zhCN } from "date-fns/locale";
-import type {
-  GithubLinkedRefPayload,
-  GithubSearchItemPayload,
-} from "@/api/ws/github-api";
+import type { GithubLinkedRefPayload, GithubSearchItemPayload } from "@/api/ws/github-api";
 import { ChecksStatusRing } from "@/features/github/components/ChecksStatusRing";
 import type { StatusCheck } from "@/features/github/lib/pr-detail-parts";
 import { GithubUserAvatar } from "@/features/github/components/GithubUserHoverCard";
@@ -124,7 +121,7 @@ function LinkedRefsCell({
             type="button"
             title={title}
             aria-label={title}
-            className="inline-flex items-center gap-0.5 rounded px-0.5 py-px text-[11px] font-mono tabular-nums text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="inline-flex items-center gap-0.5 rounded px-0.5 py-px font-mono text-[11px] text-muted-foreground tabular-nums hover:bg-muted hover:text-foreground"
             onClick={(e) => {
               e.stopPropagation();
               onOpen?.(ref);
@@ -137,7 +134,7 @@ function LinkedRefsCell({
       })}
       {overflow > 0 ? (
         <span
-          className="text-[10px] tabular-nums text-muted-foreground"
+          className="text-[10px] text-muted-foreground tabular-nums"
           title={refs
             .slice(MAX_LINKED_REFS)
             .map((r) => `#${r.number}`)
@@ -179,14 +176,13 @@ function AssigneesCell({ assignees }: { assignees: AssigneeLike[] }) {
 
   const visible = assignees.slice(0, MAX_STACKED_ASSIGNEES);
   const overflow = assignees.length - visible.length;
-  const names = assignees.map((a) => a.login).filter(Boolean).join(", ");
+  const names = assignees
+    .map((a) => a.login)
+    .filter(Boolean)
+    .join(", ");
 
   return (
-    <div
-      className="flex items-center"
-      title={names}
-      aria-label={names}
-    >
+    <div className="flex items-center" title={names} aria-label={names}>
       {visible.map((a, index) => {
         const login = a.login!.trim();
         return (
@@ -207,7 +203,7 @@ function AssigneesCell({ assignees }: { assignees: AssigneeLike[] }) {
       })}
       {overflow > 0 ? (
         <span
-          className="-ml-1.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2 border-background bg-muted text-[9px] font-medium tabular-nums text-muted-foreground"
+          className="-ml-1.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2 border-background bg-muted text-[9px] font-medium text-muted-foreground tabular-nums"
           style={{ zIndex: visible.length + 1 }}
         >
           +{overflow}
@@ -217,11 +213,7 @@ function AssigneesCell({ assignees }: { assignees: AssigneeLike[] }) {
   );
 }
 
-export type TaskGithubTableBodyState =
-  | "ready"
-  | "loading"
-  | "empty"
-  | "error";
+export type TaskGithubTableBodyState = "ready" | "loading" | "empty" | "error";
 
 type TaskGithubTableProps = {
   items: GithubSearchItemPayload[];
@@ -231,10 +223,7 @@ type TaskGithubTableProps = {
   bodyMessage?: string;
   onOpenItem: (item: GithubSearchItemPayload) => void;
   /** Open a linked issue/PR from the Linked column (same owner/repo as the row). */
-  onOpenLinkedRef?: (
-    parent: GithubSearchItemPayload,
-    ref: GithubLinkedRefPayload,
-  ) => void;
+  onOpenLinkedRef?: (parent: GithubSearchItemPayload, ref: GithubLinkedRefPayload) => void;
   onCreateWorkspace: (item: GithubSearchItemPayload) => void;
   onEnterWorkspace: (workspaceId: string) => void;
   /** Resolve existing workspace for a row (explicit GitHub link or PR branch). */
@@ -281,9 +270,7 @@ export function TaskGithubTable({
         <div className="min-w-0 flex-1">
           {kind === "issues" ? t("tabs.issues") : t("tabs.pullRequests")}
         </div>
-        {showCi ? (
-          <div className={checksColClass}>{t("table.checks")}</div>
-        ) : null}
+        {showCi ? <div className={checksColClass}>{t("table.checks")}</div> : null}
         <div className={cn(assigneesColClass, "truncate")}>{t("table.assignees")}</div>
         <div className={cn(linkedColClass, "truncate")}>{t("table.linked")}</div>
         <div className={cn(commentsColClass, "truncate")}>{t("table.comments")}</div>
@@ -303,198 +290,197 @@ export function TaskGithubTable({
         </div>
       ) : bodyState === "empty" ? (
         <div className="flex min-h-0 flex-1 items-center justify-center px-4 py-10 text-center text-sm text-muted-foreground">
-          {bodyMessage ??
-            (kind === "issues" ? t("empty.noIssues") : t("empty.noPrs"))}
+          {bodyMessage ?? (kind === "issues" ? t("empty.noIssues") : t("empty.noPrs"))}
         </div>
       ) : (
-      <ScrollArea className="min-h-0 min-w-0 flex-1" scrollFade>
-      <ul className="m-0 min-w-0 list-none px-1 py-1">
-        {items.map((item) => {
-          const fullName = `${item.owner}/${item.repo}`;
-          const login = item.author?.login ?? null;
-          const avatarUrl = authorAvatarUrl(item.author);
-          const assignees = (item.assignees ?? []).filter((a) => a.login?.trim());
-          const comments = item.comments_count ?? 0;
-          const linked = resolveLinkedWorkspace(item);
-          const checks = showCi ? toStatusChecks(item) : [];
-          const timeLabel = item.updated_at
-            ? formatDistanceToNow(new Date(item.updated_at), {
-                addSuffix: true,
-                locale: relativeTimeLocale,
-              })
-            : null;
+        <ScrollArea className="min-h-0 min-w-0 flex-1" scrollFade>
+          <ul className="m-0 min-w-0 list-none px-1 py-1">
+            {items.map((item) => {
+              const fullName = `${item.owner}/${item.repo}`;
+              const login = item.author?.login ?? null;
+              const avatarUrl = authorAvatarUrl(item.author);
+              const assignees = (item.assignees ?? []).filter((a) => a.login?.trim());
+              const comments = item.comments_count ?? 0;
+              const linked = resolveLinkedWorkspace(item);
+              const checks = showCi ? toStatusChecks(item) : [];
+              const timeLabel = item.updated_at
+                ? formatDistanceToNow(new Date(item.updated_at), {
+                    addSuffix: true,
+                    locale: relativeTimeLocale,
+                  })
+                : null;
 
-          return (
-            <li key={`${item.kind}:${fullName}#${item.number}`}>
-              <div
-                role="button"
-                tabIndex={0}
-                className="group flex min-w-0 cursor-pointer items-center gap-3 rounded-md px-2 py-2.5 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                onClick={() => onOpenItem(item)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onOpenItem(item);
-                  }
-                }}
-              >
-                <div className="flex w-5 shrink-0 justify-center">
-                  <StatusIcon item={item} />
-                </div>
-
-                <div className="min-w-0 flex-1 overflow-hidden">
-                  {/* Title row: #number + title + Draft badge */}
-                  <div className="flex min-w-0 items-center gap-1.5">
-                    <span className="shrink-0 font-mono text-[13px] tabular-nums text-muted-foreground">
-                      #{item.number}
-                    </span>
-                    <span className="min-w-0 truncate text-[13px] font-medium text-foreground group-hover:text-primary">
-                      {item.title}
-                    </span>
-                    {item.is_draft ? (
-                      <span className="shrink-0 rounded border border-border px-1 py-px text-[10px] leading-none text-muted-foreground">
-                        {t("draft")}
-                      </span>
-                    ) : null}
-                  </div>
-
-                  {/* Meta: repo · labels · avatar user */}
-                  <div className="mt-0.5 flex min-w-0 items-center gap-x-1.5 overflow-hidden text-[11px] text-muted-foreground">
-                    <span className="min-w-0 truncate font-medium text-foreground/70">
-                      {fullName}
-                    </span>
-                    {(item.labels ?? []).slice(0, 2).map((label) => (
-                      <span
-                        key={label.name}
-                        className="hidden max-w-[4.5rem] shrink-0 truncate rounded-full px-1.5 py-px text-[10px] font-medium md:inline-block"
-                        style={{
-                          backgroundColor: label.color
-                            ? `#${label.color.replace(/^#/, "")}20`
-                            : "var(--muted)",
-                          color: label.color
-                            ? `#${label.color.replace(/^#/, "")}`
-                            : "var(--muted-foreground)",
-                        }}
-                      >
-                        {label.name}
-                      </span>
-                    ))}
-                    {login ? (
-                      <span className="inline-flex min-w-0 shrink-0 items-center gap-1">
-                        <span className="shrink-0 text-border">·</span>
-                        {/* label shares the same hover hit area as the avatar */}
-                        <GithubUserAvatar
-                          username={login}
-                          avatarUrl={avatarUrl}
-                          label={login}
-                          labelClassName="hidden max-w-[6rem] sm:inline"
-                          className="size-3.5 shrink-0 border border-border/50"
-                          fallbackClassName="text-[6px]"
-                          triggerClassName="inline-flex min-w-0 shrink-0 items-center gap-1"
-                        />
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-
-                {/* CI ring (PRs only) — left of assignees, matching GitHub list */}
-                {showCi ? (
+              return (
+                <li key={`${item.kind}:${fullName}#${item.number}`}>
                   <div
-                    className={cn(checksColClass, "flex items-center justify-center")}
-                    title={t("table.checks")}
+                    role="button"
+                    tabIndex={0}
+                    className="group flex min-w-0 cursor-pointer items-center gap-3 rounded-md px-2 py-2.5 hover:bg-muted/50 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+                    onClick={() => onOpenItem(item)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onOpenItem(item);
+                      }
+                    }}
                   >
-                    {checks.length > 0 ? (
-                      <ChecksStatusRing checks={checks} size={16} strokeWidth={2.25} />
-                    ) : (
-                      <span className="size-4" aria-hidden />
-                    )}
+                    <div className="flex w-5 shrink-0 justify-center">
+                      <StatusIcon item={item} />
+                    </div>
+
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      {/* Title row: #number + title + Draft badge */}
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className="shrink-0 font-mono text-[13px] text-muted-foreground tabular-nums">
+                          #{item.number}
+                        </span>
+                        <span className="min-w-0 truncate text-[13px] font-medium text-foreground group-hover:text-primary">
+                          {item.title}
+                        </span>
+                        {item.is_draft ? (
+                          <span className="shrink-0 rounded border border-border px-1 py-px text-[10px] leading-none text-muted-foreground">
+                            {t("draft")}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {/* Meta: repo · labels · avatar user */}
+                      <div className="mt-0.5 flex min-w-0 items-center gap-x-1.5 overflow-hidden text-[11px] text-muted-foreground">
+                        <span className="min-w-0 truncate font-medium text-foreground/70">
+                          {fullName}
+                        </span>
+                        {(item.labels ?? []).slice(0, 2).map((label) => (
+                          <span
+                            key={label.name}
+                            className="hidden max-w-[4.5rem] shrink-0 truncate rounded-full px-1.5 py-px text-[10px] font-medium md:inline-block"
+                            style={{
+                              backgroundColor: label.color
+                                ? `#${label.color.replace(/^#/, "")}20`
+                                : "var(--muted)",
+                              color: label.color
+                                ? `#${label.color.replace(/^#/, "")}`
+                                : "var(--muted-foreground)",
+                            }}
+                          >
+                            {label.name}
+                          </span>
+                        ))}
+                        {login ? (
+                          <span className="inline-flex min-w-0 shrink-0 items-center gap-1">
+                            <span className="shrink-0 text-border">·</span>
+                            {/* label shares the same hover hit area as the avatar */}
+                            <GithubUserAvatar
+                              username={login}
+                              avatarUrl={avatarUrl}
+                              label={login}
+                              labelClassName="hidden max-w-[6rem] sm:inline"
+                              className="size-3.5 shrink-0 border border-border/50"
+                              fallbackClassName="text-[6px]"
+                              triggerClassName="inline-flex min-w-0 shrink-0 items-center gap-1"
+                            />
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {/* CI ring (PRs only) — left of assignees, matching GitHub list */}
+                    {showCi ? (
+                      <div
+                        className={cn(checksColClass, "flex items-center justify-center")}
+                        title={t("table.checks")}
+                      >
+                        {checks.length > 0 ? (
+                          <ChecksStatusRing checks={checks} size={16} strokeWidth={2.25} />
+                        ) : (
+                          <span className="size-4" aria-hidden />
+                        )}
+                      </div>
+                    ) : null}
+
+                    {/* Assignees — before linked / comments */}
+                    <div
+                      className={cn(assigneesColClass, "flex min-w-0 items-center")}
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <AssigneesCell assignees={assignees} />
+                    </div>
+
+                    {/* Linked issues (on PR) / linked PRs (on issue) */}
+                    <div
+                      className={cn(linkedColClass, "flex min-w-0 items-center")}
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <LinkedRefsCell
+                        refs={item.linked_refs ?? []}
+                        onOpen={(ref) => onOpenLinkedRef?.(item, ref)}
+                      />
+                    </div>
+
+                    <div
+                      className={cn(
+                        commentsColClass,
+                        "flex items-center gap-0.5 text-[11px] text-muted-foreground tabular-nums",
+                      )}
+                    >
+                      <MessageSquare className="size-3.5 shrink-0 opacity-70" />
+                      {comments}
+                    </div>
+
+                    <div
+                      className={cn(
+                        updatedColClass,
+                        "truncate text-right text-[11px] text-muted-foreground tabular-nums",
+                      )}
+                      title={
+                        item.updated_at
+                          ? new Date(item.updated_at).toLocaleString(locale)
+                          : undefined
+                      }
+                    >
+                      {timeLabel ?? "—"}
+                    </div>
+
+                    <div
+                      className={cn(actionColClass, "flex justify-end")}
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      {linked ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="default"
+                          className="h-7 gap-1.5 px-2 text-[11px] font-medium whitespace-nowrap"
+                          onClick={() => onEnterWorkspace(linked.workspace.id)}
+                          title={t("enterWorkspace")}
+                          aria-label={t("enterWorkspace")}
+                        >
+                          <ArrowRight className="size-3.5 shrink-0" />
+                          <span>{t("enter")}</span>
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="default"
+                          className="h-7 gap-1.5 px-2 text-[11px] font-medium whitespace-nowrap"
+                          onClick={() => onCreateWorkspace(item)}
+                          title={t("createWorkspace")}
+                          aria-label={t("createWorkspace")}
+                        >
+                          <Rocket className="size-3.5 shrink-0" />
+                          <span>{t("create")}</span>
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                ) : null}
-
-                {/* Assignees — before linked / comments */}
-                <div
-                  className={cn(assigneesColClass, "flex min-w-0 items-center")}
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
-                >
-                  <AssigneesCell assignees={assignees} />
-                </div>
-
-                {/* Linked issues (on PR) / linked PRs (on issue) */}
-                <div
-                  className={cn(linkedColClass, "flex min-w-0 items-center")}
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
-                >
-                  <LinkedRefsCell
-                    refs={item.linked_refs ?? []}
-                    onOpen={(ref) => onOpenLinkedRef?.(item, ref)}
-                  />
-                </div>
-
-                <div
-                  className={cn(
-                    commentsColClass,
-                    "flex items-center gap-0.5 text-[11px] tabular-nums text-muted-foreground",
-                  )}
-                >
-                  <MessageSquare className="size-3.5 shrink-0 opacity-70" />
-                  {comments}
-                </div>
-
-                <div
-                  className={cn(
-                    updatedColClass,
-                    "truncate text-right text-[11px] tabular-nums text-muted-foreground",
-                  )}
-                  title={
-                    item.updated_at
-                      ? new Date(item.updated_at).toLocaleString(locale)
-                      : undefined
-                  }
-                >
-                  {timeLabel ?? "—"}
-                </div>
-
-                <div
-                  className={cn(actionColClass, "flex justify-end")}
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
-                >
-                  {linked ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="default"
-                      className="h-7 whitespace-nowrap gap-1.5 px-2 text-[11px] font-medium"
-                      onClick={() => onEnterWorkspace(linked.workspace.id)}
-                      title={t("enterWorkspace")}
-                      aria-label={t("enterWorkspace")}
-                    >
-                      <ArrowRight className="size-3.5 shrink-0" />
-                      <span>{t("enter")}</span>
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="default"
-                      className="h-7 whitespace-nowrap gap-1.5 px-2 text-[11px] font-medium"
-                      onClick={() => onCreateWorkspace(item)}
-                      title={t("createWorkspace")}
-                      aria-label={t("createWorkspace")}
-                    >
-                      <Rocket className="size-3.5 shrink-0" />
-                      <span>{t("create")}</span>
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-      </ScrollArea>
+                </li>
+              );
+            })}
+          </ul>
+        </ScrollArea>
       )}
     </div>
   );

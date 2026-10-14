@@ -39,35 +39,35 @@ External/runtime dependencies:
 
 ## Product decisions resolved in TECH
 
-| PRD fork | Decision |
-|----------|----------|
-| Missed scheduled runs | Do not catch up missed ticks. If Atmos Server was not running or the Computer was asleep/offline, no run row exists. On startup, compute the next future `next_run_at` and continue from there. |
-| Concurrency | Different automations do not block each other, even when they target the same Project or Workspace. Only the same automation is prevented from re-entering while one of its runs is still active. |
-| Terminal tab policy | Each run creates its own terminal window named **Automations**. Runs are tracked by tmux session + window index, so concurrent runs do not rely on unique visible tab names. |
-| Memory layout | No separate memory file in M1. The automation definition stores only `instructions.md`; recurring context should be written by the user into those instructions. Long-lived editable memory can be added later if product usage proves it is needed. |
-| Required run artifacts | M1 writes only `prompt.md`, `final.md`, and `run.json`. `run.json` is also the runner sentinel/status file. |
-| Execution permissions | No separate permission mode. Automation runs the selected terminal agent with its configured non-interactive auto-accept/yolo flags so scheduled work is not blocked by permission prompts. |
+| PRD fork               | Decision                                                                                                                                                                                                                                             |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Missed scheduled runs  | Do not catch up missed ticks. If Atmos Server was not running or the Computer was asleep/offline, no run row exists. On startup, compute the next future `next_run_at` and continue from there.                                                      |
+| Concurrency            | Different automations do not block each other, even when they target the same Project or Workspace. Only the same automation is prevented from re-entering while one of its runs is still active.                                                    |
+| Terminal tab policy    | Each run creates its own terminal window named **Automations**. Runs are tracked by tmux session + window index, so concurrent runs do not rely on unique visible tab names.                                                                         |
+| Memory layout          | No separate memory file in M1. The automation definition stores only `instructions.md`; recurring context should be written by the user into those instructions. Long-lived editable memory can be added later if product usage proves it is needed. |
+| Required run artifacts | M1 writes only `prompt.md`, `final.md`, and `run.json`. `run.json` is also the runner sentinel/status file.                                                                                                                                          |
+| Execution permissions  | No separate permission mode. Automation runs the selected terminal agent with its configured non-interactive auto-accept/yolo flags so scheduled work is not blocked by permission prompts.                                                          |
 
 ## PRD coverage map
 
-| Requirement | Technical coverage |
-|-------------|--------------------|
-| M1 | `apps/web/src/app-shell/LeftSidebarManagementCenter.tsx` adds Automations route. |
-| M2 | `apps/web/src/features/automations/components/AutomationSetup.tsx` reuses the welcome composer layout with display-name input. |
-| M3 | Setup uses `PromptComposer` from `apps/web/src/features/welcome/components/PromptComposer.tsx`, keeps file-only `@` mentions in `AutomationSetup`, removes welcome GitHub issue/PR mention suggestions there, and scopes `/skill` results to the currently selected Project/Workspace context. |
-| M4 | Backend automation agent resolver reuses shared terminal agent definitions plus user terminal-agent settings, then returns only installed + non-interactive-capable agents as selectable. |
-| M5 | `AutomationSchedule` model supports manual run plus hourly/daily/weekly/monthly/custom cron scheduled trigger. |
-| M6 | Scheduler and data live in the connected Atmos Server process; no hosted scheduler or cross-Computer sync. |
-| M7 | `automation` and `automation_run` SQLite tables persist definitions and run status. |
-| M8 | Artifact helper writes prompt, final result, and run metadata under `~/.atmos/automations/`. Live output chunks are delivered through WebSocket events and are not persisted as a separate artifact. |
-| M9 | Runner creates a per-run **Automations** terminal window and runs a non-interactive agent command in the chosen cwd. |
-| M10 | `final.md` is required and linked from run detail. |
-| M11 | `target_kind` covers `project`, `workspace`, `new_workspace`, and `standalone`. |
-| M12 | Workspace creation path passes `create_source = "automation"` and frontend displays the automation label. |
-| M13 | WS list/detail APIs expose definitions, latest status, next run, and historical runs with `running`, `completed`, `failed`, `cancelled`, or `interrupted` outcomes. |
-| M14 | WS run controls map to service methods: run now, pause, resume, cancel. |
-| M15 | `NotificationService` gets automation outcome settings and emits local and optional push notifications. |
-| M16 | Relay/local connection choice is transparent; actions execute on whichever Atmos Server the UI is connected to. |
+| Requirement | Technical coverage                                                                                                                                                                                                                                                                             |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M1          | `apps/web/src/app-shell/LeftSidebarManagementCenter.tsx` adds Automations route.                                                                                                                                                                                                               |
+| M2          | `apps/web/src/features/automations/components/AutomationSetup.tsx` reuses the welcome composer layout with display-name input.                                                                                                                                                                 |
+| M3          | Setup uses `PromptComposer` from `apps/web/src/features/welcome/components/PromptComposer.tsx`, keeps file-only `@` mentions in `AutomationSetup`, removes welcome GitHub issue/PR mention suggestions there, and scopes `/skill` results to the currently selected Project/Workspace context. |
+| M4          | Backend automation agent resolver reuses shared terminal agent definitions plus user terminal-agent settings, then returns only installed + non-interactive-capable agents as selectable.                                                                                                      |
+| M5          | `AutomationSchedule` model supports manual run plus hourly/daily/weekly/monthly/custom cron scheduled trigger.                                                                                                                                                                                 |
+| M6          | Scheduler and data live in the connected Atmos Server process; no hosted scheduler or cross-Computer sync.                                                                                                                                                                                     |
+| M7          | `automation` and `automation_run` SQLite tables persist definitions and run status.                                                                                                                                                                                                            |
+| M8          | Artifact helper writes prompt, final result, and run metadata under `~/.atmos/automations/`. Live output chunks are delivered through WebSocket events and are not persisted as a separate artifact.                                                                                           |
+| M9          | Runner creates a per-run **Automations** terminal window and runs a non-interactive agent command in the chosen cwd.                                                                                                                                                                           |
+| M10         | `final.md` is required and linked from run detail.                                                                                                                                                                                                                                             |
+| M11         | `target_kind` covers `project`, `workspace`, `new_workspace`, and `standalone`.                                                                                                                                                                                                                |
+| M12         | Workspace creation path passes `create_source = "automation"` and frontend displays the automation label.                                                                                                                                                                                      |
+| M13         | WS list/detail APIs expose definitions, latest status, next run, and historical runs with `running`, `completed`, `failed`, `cancelled`, or `interrupted` outcomes.                                                                                                                            |
+| M14         | WS run controls map to service methods: run now, pause, resume, cancel.                                                                                                                                                                                                                        |
+| M15         | `NotificationService` gets automation outcome settings and emits local and optional push notifications.                                                                                                                                                                                        |
+| M16         | Relay/local connection choice is transparent; actions execute on whichever Atmos Server the UI is connected to.                                                                                                                                                                                |
 
 ## Module-by-module design
 
@@ -690,7 +690,15 @@ Event payloads:
 ```ts
 type AutomationDefinitionUpdatedEvent = {
   automation_guid: string;
-  change: "created" | "updated" | "deleted" | "paused" | "resumed" | "schedule_normalized" | "next_run_advanced" | "paused_after_start_failure";
+  change:
+    | "created"
+    | "updated"
+    | "deleted"
+    | "paused"
+    | "resumed"
+    | "schedule_normalized"
+    | "next_run_advanced"
+    | "paused_after_start_failure";
   automation?: AutomationSummary;
 };
 

@@ -2,18 +2,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
-const setup = readFileSync(
-  join(import.meta.dir, "../AutomationSetup.tsx"),
-  "utf8",
-);
-const memory = readFileSync(
-  join(import.meta.dir, "../AutomationMemoryEditor.tsx"),
-  "utf8",
-);
-const expand = readFileSync(
-  join(import.meta.dir, "../automation-editor-expand.tsx"),
-  "utf8",
-);
+const setup = readFileSync(join(import.meta.dir, "../AutomationSetup.tsx"), "utf8");
+const memory = readFileSync(join(import.meta.dir, "../AutomationMemoryEditor.tsx"), "utf8");
+const expand = readFileSync(join(import.meta.dir, "../automation-editor-expand.tsx"), "utf8");
 const form = readFileSync(
   join(import.meta.dir, "../../hooks/use-automation-setup-form.ts"),
   "utf8",
@@ -23,10 +14,10 @@ describe("automation markdown live editors", () => {
   test("setup instructions and memories use embedded live-md", () => {
     expect(setup).toContain("AutomationMemoryEditor");
     expect(setup).toContain("AutomationEditorExpandHost");
-    expect(setup).toContain("automationMdLivePath(\"instructions\"");
-    expect(setup).toContain("automationMdLivePath(\"memory\"");
-    expect(setup).toContain("expandId=\"instructions\"");
-    expect(setup).toContain("expandId=\"memory\"");
+    expect(setup).toContain('automationMdLivePath("instructions"');
+    expect(setup).toContain('automationMdLivePath("memory"');
+    expect(setup).toContain('expandId="instructions"');
+    expect(setup).toContain('expandId="memory"');
     expect(setup).toContain("chrome={false}");
     expect(setup).not.toContain("PromptComposer");
     expect(setup).not.toContain("WelcomeMentionPopover");
@@ -51,7 +42,7 @@ describe("automation markdown live editors", () => {
     expect(expand).toContain("boxRelativeToClip");
     expect(expand).toContain("fillVisibleClipBox");
     expect(memory).toContain('zoom.expanded ? "md-live--page-column"');
-    expect(memory).toContain("canExpand && !zoom.expanded && \"pr-8\"");
+    expect(memory).toContain('canExpand && !zoom.expanded && "pr-8"');
     expect(memory).not.toContain("resolveAutomationEditorExpandCaret");
     expect(memory).toContain("Maximize2");
     expect(memory).toContain("Minimize2");

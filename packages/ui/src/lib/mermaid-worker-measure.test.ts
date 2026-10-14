@@ -66,7 +66,7 @@ describe("mermaidShimBBox", () => {
     const rect = {
       tagName: "rect",
       getAttribute: (name: string) =>
-        ({ width: "40", height: "20", x: "-20", y: "-10" }[name] ?? null),
+        ({ width: "40", height: "20", x: "-20", y: "-10" })[name] ?? null,
     };
     const group = {
       tagName: "g",
@@ -90,11 +90,11 @@ describe("mermaidShimBBox", () => {
   });
 
   test("sums inline inner tspans instead of overlapping them at x=0", () => {
-    const row = tspan("spawn / 复用", { "text-anchor": "middle", x: "0", class: "text-outer-tspan row" }, [
-      tspan("spawn"),
-      tspan(" /"),
-      tspan(" 复用"),
-    ]);
+    const row = tspan(
+      "spawn / 复用",
+      { "text-anchor": "middle", x: "0", class: "text-outer-tspan row" },
+      [tspan("spawn"), tspan(" /"), tspan(" 复用")],
+    );
     const spawn = mermaidShimBBox(tspan("spawn"));
     const box = mermaidShimBBox(row);
     expect(box.width).toBeGreaterThan(spawn.width * 1.4);

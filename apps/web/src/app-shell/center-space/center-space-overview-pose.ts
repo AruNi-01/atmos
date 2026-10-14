@@ -106,8 +106,7 @@ function revealLiveSurface(root: ParentNode) {
     }
     const top = offsetWithin(slot, node, "offsetTop");
     const left = offsetWithin(slot, node, "offsetLeft");
-    node.style.clipPath =
-      top == null || left == null ? "" : centerSpaceLeafClipPath(top, left);
+    node.style.clipPath = top == null || left == null ? "" : centerSpaceLeafClipPath(top, left);
   }
 }
 
@@ -196,10 +195,7 @@ function elementLayoutBox(el: HTMLElement, allowHostFallback = true): CenterSpac
   };
 }
 
-function slotPose(
-  el: HTMLElement,
-  slot: HTMLElement,
-): { transform: string; scale: number } | null {
+function slotPose(el: HTMLElement, slot: HTMLElement): { transform: string; scale: number } | null {
   const from = elementLayoutBox(el);
   if (!from) return null;
   const to = slot.getBoundingClientRect();

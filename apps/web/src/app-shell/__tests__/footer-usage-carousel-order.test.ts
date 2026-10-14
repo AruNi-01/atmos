@@ -2,10 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const footerSrc = readFileSync(
-  join(import.meta.dir, "../Footer.tsx"),
-  "utf8",
-);
+const footerSrc = readFileSync(join(import.meta.dir, "../Footer.tsx"), "utf8");
 
 describe("footer usage carousel order", () => {
   test("places the usage carousel after local services in the left cluster", () => {

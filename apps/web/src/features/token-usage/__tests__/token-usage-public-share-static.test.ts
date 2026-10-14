@@ -13,19 +13,13 @@ describe("APP-061 static wiring", () => {
   it("public page composes the same overview view and shell", () => {
     expect(existsSync(join(root, "apps/web/src/app/tok/page.tsx"))).toBe(true);
     expect(existsSync(join(root, "apps/landing/src/app/tok"))).toBe(false);
-    expect(existsSync(join(root, "apps/landing/functions/_middleware.ts"))).toBe(
-      true,
-    );
-    const landingProxy = read(
-      "apps/landing/functions/_lib/tok-app-proxy.ts",
-    );
+    expect(existsSync(join(root, "apps/landing/functions/_middleware.ts"))).toBe(true);
+    const landingProxy = read("apps/landing/functions/_lib/tok-app-proxy.ts");
     expect(landingProxy).toContain("https://app.atmos.land");
     expect(landingProxy).toContain("isTokPath");
     expect(landingProxy).not.toContain("rewriteTokHtml");
     const landingRedirects = read("scripts/pages/build-pages-landing.mjs");
-    expect(landingRedirects).not.toContain(
-      "/tok/* https://app.atmos.land/tok/:splat 302",
-    );
+    expect(landingRedirects).not.toContain("/tok/* https://app.atmos.land/tok/:splat 302");
     const landingRoutes = read("apps/landing/public/_routes.json");
     expect(landingRoutes).toContain('"/tok/*"');
     expect(landingRoutes).toContain('"/_next/*"');
@@ -46,9 +40,7 @@ describe("APP-061 static wiring", () => {
     expect(page).not.toContain("PublicTokLeaderboards");
     expect(page).toContain("leaderboardLink");
     expect(page).toContain("/tok/leaderboard");
-    const boards = read(
-      "apps/web/src/features/token-usage/PublicTokLeaderboards.tsx",
-    );
+    const boards = read("apps/web/src/features/token-usage/PublicTokLeaderboards.tsx");
     expect(boards).toContain("HandleComputerCount");
     expect(boards).toContain("Crown");
     expect(boards).toContain("GithubUserHoverCard");
@@ -91,9 +83,7 @@ describe("APP-061 static wiring", () => {
   });
 
   it("share URL copy uses atmos.land/tok/@", () => {
-    const publish = read(
-      "apps/web/src/features/token-usage/TokenUsagePublishControls.tsx",
-    );
+    const publish = read("apps/web/src/features/token-usage/TokenUsagePublishControls.tsx");
     expect(publish).toContain("https://atmos.land/tok/@");
     expect(publish).toContain('prefix="atmos.land/tok/ @"');
     expect(publish).toContain("InputGroup");
@@ -113,9 +103,7 @@ describe("APP-061 static wiring", () => {
     expect(share).toContain("@workspace/ui/components/motion/tabs");
     expect(share).toContain('useState("share")');
     expect(share).toContain("takeTokenUsageShareResume");
-    expect(share.indexOf('value="share"')).toBeLessThan(
-      share.indexOf('value="publish"'),
-    );
+    expect(share.indexOf('value="share"')).toBeLessThan(share.indexOf('value="publish"'));
     expect(share).toContain('sticky="always"');
     expect(share).toContain("clampBelowHeader");
     expect(share).toContain("data-token-usage-page-scroll");

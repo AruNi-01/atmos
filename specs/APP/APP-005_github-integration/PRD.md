@@ -77,14 +77,14 @@ gh pr list \
 
 **每条 PR 展示字段：**
 
-| 字段 | 说明 |
-|------|------|
-| PR 标题 | 可点击，打开浏览器跳转 GitHub PR 页 |
-| PR 状态 | `open` / `merged` / `closed`，用色块区分 |
-| 是否可合并 | 仅 open 状态显示：`mergeable` / `conflicting` / `unknown` |
+| 字段        | 说明                                                                   |
+| ----------- | ---------------------------------------------------------------------- |
+| PR 标题     | 可点击，打开浏览器跳转 GitHub PR 页                                    |
+| PR 状态     | `open` / `merged` / `closed`，用色块区分                               |
+| 是否可合并  | 仅 open 状态显示：`mergeable` / `conflicting` / `unknown`              |
 | Review 状态 | 仅 open 状态显示：`approved` / `changes_requested` / `review_required` |
-| 基础分支 | base branch 名称 |
-| 创建时间 | 相对时间，如"3 hours ago" |
+| 基础分支    | base branch 名称                                                       |
+| 创建时间    | 相对时间，如"3 hours ago"                                              |
 
 #### 1.4 PR 详情获取
 
@@ -171,13 +171,13 @@ gh pr create \
 
 #### 2.2 角标状态定义
 
-| 角标样式 | 触发条件 | 颜色 |
-|---------|---------|------|
-| 旋转圆圈 | `status == "in_progress"` 或 `"queued"` | 黄色 |
-| ✓ | `status == "completed"` 且 `conclusion == "success"` | 绿色 |
-| ✕ | `status == "completed"` 且 `conclusion == "failure"` | 红色 |
-| ー | `conclusion == "cancelled"` 或 `"skipped"` | 灰色 |
-| 不显示 | 无 CI 记录 / 非 GitHub 仓库 | — |
+| 角标样式 | 触发条件                                             | 颜色 |
+| -------- | ---------------------------------------------------- | ---- |
+| 旋转圆圈 | `status == "in_progress"` 或 `"queued"`              | 黄色 |
+| ✓        | `status == "completed"` 且 `conclusion == "success"` | 绿色 |
+| ✕        | `status == "completed"` 且 `conclusion == "failure"` | 红色 |
+| ー       | `conclusion == "cancelled"` 或 `"skipped"`           | 灰色 |
+| 不显示   | 无 CI 记录 / 非 GitHub 仓库                          | —    |
 
 #### 2.3 数据获取
 
@@ -255,57 +255,61 @@ gh run list \
 新增 `hooks/use-github.ts`，通过 `useWebSocketStore().send` 发送请求：
 
 ```typescript
-import { useWebSocketStore } from './use-websocket'
+import { useWebSocketStore } from "./use-websocket";
 
 interface GithubContext {
-  owner: string
-  repo: string
-  branch: string
+  owner: string;
+  repo: string;
+  branch: string;
 }
 
 // PR 列表
 export function useGithubPRList({ owner, repo, branch }: GithubContext) {
-  const send = useWebSocketStore(s => s.send)
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(false)
+  const send = useWebSocketStore((s) => s.send);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const fetch = useCallback(async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const result = await send('github_pr_list', { owner, repo, branch })
-      setData(result)
+      const result = await send("github_pr_list", { owner, repo, branch });
+      setData(result);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [owner, repo, branch])
+  }, [owner, repo, branch]);
 
-  useEffect(() => { fetch() }, [fetch])
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
 
-  return { data, loading, refresh: fetch }
+  return { data, loading, refresh: fetch };
 }
 
 // CI 状态（in_progress 时自动轮询）
 export function useGithubCIStatus({ owner, repo, branch }: GithubContext) {
-  const send = useWebSocketStore(s => s.send)
-  const [data, setData] = useState(null)
+  const send = useWebSocketStore((s) => s.send);
+  const [data, setData] = useState(null);
 
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
     const fetch = async () => {
-      const result = await send('github_ci_status', { owner, repo, branch }) as any
-      setData(result)
+      const result = (await send("github_ci_status", { owner, repo, branch })) as any;
+      setData(result);
       // in_progress / queued 时继续轮询
-      if (result?.status === 'in_progress' || result?.status === 'queued') {
-        timer = setTimeout(fetch, 30_000)
+      if (result?.status === "in_progress" || result?.status === "queued") {
+        timer = setTimeout(fetch, 30_000);
       }
-    }
+    };
 
-    fetch()
-    return () => { if (timer) clearTimeout(timer) }
-  }, [owner, repo, branch])
+    fetch();
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [owner, repo, branch]);
 
-  return data
+  return data;
 }
 ```
 
@@ -373,24 +377,24 @@ fn parse_github_remote(remote_url: &str) -> Option<(String, String)> {
 
 ### 后端：错误码定义
 
-| 错误码 | 触发条件 | 前端处理 |
-|--------|---------|---------|
-| `GH_CLI_NOT_FOUND` | `gh` 未安装 | 展示安装引导 |
-| `GH_NOT_AUTHENTICATED` | `gh` 未登录 | 展示 `gh auth login` 引导 |
-| `NOT_GITHUB_REPO` | remote 非 GitHub | 隐藏所有 GitHub UI |
-| `GH_COMMAND_FAILED` | gh 命令执行失败 | 展示错误信息（toast） |
+| 错误码                 | 触发条件         | 前端处理                  |
+| ---------------------- | ---------------- | ------------------------- |
+| `GH_CLI_NOT_FOUND`     | `gh` 未安装      | 展示安装引导              |
+| `GH_NOT_AUTHENTICATED` | `gh` 未登录      | 展示 `gh auth login` 引导 |
+| `NOT_GITHUB_REPO`      | remote 非 GitHub | 隐藏所有 GitHub UI        |
+| `GH_COMMAND_FAILED`    | gh 命令执行失败  | 展示错误信息（toast）     |
 
 错误通过现有 WS `error` 消息类型返回，复用 `toastManager` 自动展示，无需额外处理。
 
 ### 前端：新增组件
 
-| 组件 | 路径 | 说明 |
-|------|------|------|
-| `<PRPanel />` | `components/github/PRPanel.tsx` | PR 列表面板，含创建入口 |
-| `<PRCard />` | `components/github/PRCard.tsx` | 单条 PR 展示，含操作按钮 |
-| `<PRForm />` | `components/github/PRForm.tsx` | 创建 PR 的内联表单 |
-| `<MergeDialog />` | `components/github/MergeDialog.tsx` | Merge 策略选择确认 |
-| `<CIBadge />` | `components/github/CIBadge.tsx` | 列表项 CI 角标 |
+| 组件              | 路径                                | 说明                     |
+| ----------------- | ----------------------------------- | ------------------------ |
+| `<PRPanel />`     | `components/github/PRPanel.tsx`     | PR 列表面板，含创建入口  |
+| `<PRCard />`      | `components/github/PRCard.tsx`      | 单条 PR 展示，含操作按钮 |
+| `<PRForm />`      | `components/github/PRForm.tsx`      | 创建 PR 的内联表单       |
+| `<MergeDialog />` | `components/github/MergeDialog.tsx` | Merge 策略选择确认       |
+| `<CIBadge />`     | `components/github/CIBadge.tsx`     | 列表项 CI 角标           |
 
 ### 前端：调用方式
 

@@ -8,10 +8,7 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 
 const repoRoot = resolve(import.meta.dirname, "../../../..");
-const electronRelease = resolve(
-  repoRoot,
-  "scripts/release/release-desktop-electron.mjs",
-);
+const electronRelease = resolve(repoRoot, "scripts/release/release-desktop-electron.mjs");
 
 function printUsage() {
   console.log(`Atmos desktop release helper (production)
@@ -47,7 +44,12 @@ if (argv.includes("--help") || argv.includes("-h") || argv.length === 0) {
 const forwarded = [];
 for (let i = 0; i < argv.length; i += 1) {
   const a = argv[i];
-  if (a === "--no-push-tag" || a === "--no-push-commit" || a === "--no-tag" || a === "--no-commit") {
+  if (
+    a === "--no-push-tag" ||
+    a === "--no-push-commit" ||
+    a === "--no-tag" ||
+    a === "--no-commit"
+  ) {
     // electron script uses --skip-push for "no remote push"
     if (!forwarded.includes("--skip-push")) forwarded.push("--skip-push");
     continue;

@@ -17,12 +17,7 @@ export type ResourceUsageView = {
   process_count: number;
 };
 
-export type DesktopShellGroupKind =
-  | "main"
-  | "renderer"
-  | "gpu"
-  | "utility"
-  | "other";
+export type DesktopShellGroupKind = "main" | "renderer" | "gpu" | "utility" | "other";
 
 export type DesktopShellGroupMetrics = {
   kind: DesktopShellGroupKind;
@@ -166,34 +161,29 @@ export function collectDesktopShellMetrics(
     const workingSetKb = nonNegativeFinite(metric.memory?.workingSetSize);
     const cpu = nonNegativeFinite(metric.cpu?.percentCPUUsage);
     rawCpu.set(kind, (rawCpu.get(kind) ?? 0) + cpu);
-    memoryBytes.set(
-      kind,
-      (memoryBytes.get(kind) ?? 0) + Math.round(workingSetKb * 1024),
-    );
+    memoryBytes.set(kind, (memoryBytes.get(kind) ?? 0) + Math.round(workingSetKb * 1024));
     processCount.set(kind, (processCount.get(kind) ?? 0) + 1);
   }
 
   let totalRawCpu = 0;
   let totalMemory = 0;
   let totalCount = 0;
-  const groups: DesktopShellGroupMetrics[] = DESKTOP_SHELL_GROUP_KINDS.map(
-    (kind) => {
-      const cpu = rawCpu.get(kind) ?? 0;
-      const memory = memoryBytes.get(kind) ?? 0;
-      const count = processCount.get(kind) ?? 0;
-      totalRawCpu += cpu;
-      totalMemory += memory;
-      totalCount += count;
-      return {
-        kind,
-        usage: {
-          cpu_percent: toPerCoreCpu(cpu, logicalCpuCount),
-          memory_rss_bytes: memory,
-          process_count: count,
-        },
-      };
-    },
-  );
+  const groups: DesktopShellGroupMetrics[] = DESKTOP_SHELL_GROUP_KINDS.map((kind) => {
+    const cpu = rawCpu.get(kind) ?? 0;
+    const memory = memoryBytes.get(kind) ?? 0;
+    const count = processCount.get(kind) ?? 0;
+    totalRawCpu += cpu;
+    totalMemory += memory;
+    totalCount += count;
+    return {
+      kind,
+      usage: {
+        cpu_percent: toPerCoreCpu(cpu, logicalCpuCount),
+        memory_rss_bytes: memory,
+        process_count: count,
+      },
+    };
+  });
 
   return {
     supported: true,

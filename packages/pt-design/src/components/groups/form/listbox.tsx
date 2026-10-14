@@ -45,12 +45,11 @@ const optionStyle = (selected: boolean, hovered: boolean): CSSProperties => ({
   padding: "8px 10px",
   borderRadius: SKETCH_RADIUS_CSS,
   cursor: "pointer",
-  background:
-    selected
-      ? "color-mix(in srgb, var(--pt-ink, #1e1e1e) 14%, var(--pt-paper, #fffef7))"
-      : hovered
-        ? "color-mix(in srgb, var(--pt-ink, #1e1e1e) 8%, var(--pt-paper, #fffef7))"
-        : "transparent",
+  background: selected
+    ? "color-mix(in srgb, var(--pt-ink, #1e1e1e) 14%, var(--pt-paper, #fffef7))"
+    : hovered
+      ? "color-mix(in srgb, var(--pt-ink, #1e1e1e) 8%, var(--pt-paper, #fffef7))"
+      : "transparent",
   fontFamily: FONT,
   fontSize: 14,
 });
@@ -78,7 +77,8 @@ export function InTreeListbox({
   const filtered =
     kind === "combobox" && needle
       ? options.filter(
-          (opt) => opt.label.toLowerCase().includes(needle) || opt.value.toLowerCase().includes(needle),
+          (opt) =>
+            opt.label.toLowerCase().includes(needle) || opt.value.toLowerCase().includes(needle),
         )
       : options;
   const shown = filtered.length > 0 ? filtered : options;

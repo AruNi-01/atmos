@@ -19,7 +19,9 @@ mock.module("@workspace/ui", () => ({
   PopoverContent: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   Skeleton: (props: React.HTMLAttributes<HTMLDivElement>) => <div {...props} />,
   Tooltip: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
-  TooltipTrigger: ({ children }: { children?: React.ReactNode; asChild?: boolean }) => <>{children}</>,
+  TooltipTrigger: ({ children }: { children?: React.ReactNode; asChild?: boolean }) => (
+    <>{children}</>
+  ),
   TooltipContent: ({ children }: { children?: React.ReactNode }) => (
     <div data-testid="command-tooltip">{children}</div>
   ),
@@ -121,11 +123,7 @@ describe("LocalServiceRow command meta", () => {
     root = createRoot(container);
 
     await act(async () => {
-      root?.render(
-        <LocalServiceRow
-          service={{ ...service, command_preview: null }}
-        />,
-      );
+      root?.render(<LocalServiceRow service={{ ...service, command_preview: null }} />);
     });
 
     const line = container.querySelector("[data-slot=local-service-command]");

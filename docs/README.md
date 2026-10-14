@@ -30,7 +30,9 @@ docs/
 ## 📄 Documentation Files
 
 ### `architecture.md`
+
 System architecture overview including:
+
 - Monorepo structure
 - Frontend/Backend separation
 - Code sharing strategy
@@ -41,7 +43,9 @@ System architecture overview including:
 ---
 
 ### `development.md`
+
 Development workflow and guidelines:
+
 - Setting up development environment
 - Coding standards and conventions
 - Git workflow
@@ -52,7 +56,9 @@ Development workflow and guidelines:
 ---
 
 ### `deployment.md`
+
 Deployment processes and infrastructure:
+
 - Build process
 - CI/CD pipeline
 - Environment configuration
@@ -66,7 +72,9 @@ See also: [`desktop-release.md`](./desktop-release.md) for the desktop release r
 ---
 
 ### `release.md`
+
 Atmos release model and operations:
+
 - CLI, Local Runtime, and Desktop release lines
 - Stable vs prerelease/test release rules
 - Release helper skills and workflows
@@ -77,7 +85,9 @@ Atmos release model and operations:
 ---
 
 ### `api-design.md`
+
 API design principles and standards:
+
 - REST API conventions
 - GraphQL schema design
 - Error handling
@@ -88,7 +98,9 @@ API design principles and standards:
 ---
 
 ### `justfile`
+
 Task runner (Just) command documentation:
+
 - Available commands
 - Command usage examples
 - Custom task definitions
@@ -104,12 +116,14 @@ The `adr/` directory contains Architecture Decision Records documenting importan
 See [adr/README.md](adr/README.md) for details.
 
 **Format**: Each ADR follows a standard template:
+
 - Context
 - Decision
 - Consequences
 - Status
 
 **Examples**:
+
 - `001-monorepo-structure.md` - Why we chose monorepo
 - `002-ui-component-strategy.md` - shadcn/ui adoption
 - `003-internationalization.md` - next-intl choice
@@ -138,19 +152,19 @@ Level 4: Component README.md
 
 ## 📝 When to Read What?
 
-| You Want To... | Read This |
-|----------------|-----------|
-| Understand overall project | [Root README.md](../README.md) |
-| Navigate as AI agent | [Root AGENTS.md](../AGENTS.md) |
-| Understand architecture | `architecture.md` |
-| Set up development | `development.md` |
-| Deploy the system | `deployment.md` |
-| Release Atmos | [`release.md`](./release.md) |
-| Run a desktop release | [`desktop-release.md`](./desktop-release.md) |
-| Design APIs | `api-design.md` |
-| Understand a decision | `adr/*.md` |
-| Work on specific component | Component's AGENTS.md |
-| Understand code structure | Component's README.md |
+| You Want To...             | Read This                                    |
+| -------------------------- | -------------------------------------------- |
+| Understand overall project | [Root README.md](../README.md)               |
+| Navigate as AI agent       | [Root AGENTS.md](../AGENTS.md)               |
+| Understand architecture    | `architecture.md`                            |
+| Set up development         | `development.md`                             |
+| Deploy the system          | `deployment.md`                              |
+| Release Atmos              | [`release.md`](./release.md)                 |
+| Run a desktop release      | [`desktop-release.md`](./desktop-release.md) |
+| Design APIs                | `api-design.md`                              |
+| Understand a decision      | `adr/*.md`                                   |
+| Work on specific component | Component's AGENTS.md                        |
+| Understand code structure  | Component's README.md                        |
 
 ---
 
@@ -167,6 +181,7 @@ cp 000-template.md 00X-my-decision.md
 ### Updating Architecture Docs
 
 When making significant architectural changes:
+
 1. Update relevant `.md` file in `docs/`
 2. Create ADR if it's a major decision
 3. Update component AGENTS.md if it affects usage

@@ -22,9 +22,7 @@ describe("resolveTerminalAgentPrompt", () => {
       text: `Please review [#appshot:${timestamp}] carefully`,
     });
 
-    expect(resolved).toBe(
-      `Please review ${formatAppshotPrompt(timestamp)} carefully`,
-    );
+    expect(resolved).toBe(`Please review ${formatAppshotPrompt(timestamp)} carefully`);
     expect(resolved).toContain(`~/.atmos/appshots/records/${timestamp}/`);
   });
 

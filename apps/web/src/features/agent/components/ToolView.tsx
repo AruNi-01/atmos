@@ -34,8 +34,6 @@ export const ToolView = React.memo(function ToolView({
       break;
   }
   return (
-    <AgentToolExpandIdProvider toolCallId={part.tool_call_id}>
-      {body}
-    </AgentToolExpandIdProvider>
+    <AgentToolExpandIdProvider toolCallId={part.tool_call_id}>{body}</AgentToolExpandIdProvider>
   );
 });

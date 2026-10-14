@@ -86,15 +86,9 @@ export function useLeftSidebarFileTreeSync({
     setCenterExplorerCollapsed("files", false);
     const openFiles = useEditorStore.getState().workspaceStates[targetContextId]?.openFiles;
     const hasRegularFile = (openFiles ?? []).some(
-      (file) =>
-        !isDiffEditorPath(file.path) && !isConflictResolveEditorPath(file.path),
+      (file) => !isDiffEditorPath(file.path) && !isConflictResolveEditorPath(file.path),
     );
     if (hasRegularFile) return;
     activateCenterChromeTab(targetContextId, "files", { placement: "focused" });
-  }, [
-    currentEffectivePath,
-    effectiveContextId,
-    fileTreeRevealTarget,
-    paintContextId,
-  ]);
+  }, [currentEffectivePath, effectiveContextId, fileTreeRevealTarget, paintContextId]);
 }

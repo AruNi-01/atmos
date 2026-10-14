@@ -35,47 +35,45 @@ interface SessionListSnapshotState {
   clearAll: () => void;
 }
 
-export const useSessionListSnapshotStore = create<SessionListSnapshotState>(
-  (set, get) => ({
-    entries: {},
+export const useSessionListSnapshotStore = create<SessionListSnapshotState>((set, get) => ({
+  entries: {},
 
-    get: <T,>(key: string): T | undefined => {
-      return get().entries[key]?.data as T | undefined;
-    },
+  get: <T>(key: string): T | undefined => {
+    return get().entries[key]?.data as T | undefined;
+  },
 
-    getUpdatedAt: (key: string) => get().entries[key]?.updatedAt,
+  getUpdatedAt: (key: string) => get().entries[key]?.updatedAt,
 
-    has: (key: string) => Boolean(get().entries[key]),
+  has: (key: string) => Boolean(get().entries[key]),
 
-    set: <T,>(key: string, data: T, updatedAt = Date.now()) => {
-      set((state) => {
-        const prev = state.entries[key];
-        // Avoid subscriber churn when data is referentially equal.
-        if (prev && prev.data === data && prev.updatedAt === updatedAt) {
-          return state;
-        }
-        return {
-          entries: {
-            ...state.entries,
-            [key]: { data, updatedAt },
-          },
-        };
-      });
-    },
+  set: <T>(key: string, data: T, updatedAt = Date.now()) => {
+    set((state) => {
+      const prev = state.entries[key];
+      // Avoid subscriber churn when data is referentially equal.
+      if (prev && prev.data === data && prev.updatedAt === updatedAt) {
+        return state;
+      }
+      return {
+        entries: {
+          ...state.entries,
+          [key]: { data, updatedAt },
+        },
+      };
+    });
+  },
 
-    remove: (key: string) => {
-      set((state) => {
-        if (!(key in state.entries)) return state;
-        const { [key]: _removed, ...rest } = state.entries;
-        return { entries: rest };
-      });
-    },
+  remove: (key: string) => {
+    set((state) => {
+      if (!(key in state.entries)) return state;
+      const { [key]: _removed, ...rest } = state.entries;
+      return { entries: rest };
+    });
+  },
 
-    clearAll: () => {
-      set({ entries: {} });
-    },
-  }),
-);
+  clearAll: () => {
+    set({ entries: {} });
+  },
+}));
 
 /** Stable string keys for session list snapshots. */
 export const sessionListKeys = {
@@ -83,12 +81,8 @@ export const sessionListKeys = {
   gitBranches: (repoPath: string) => `git:branches:${repoPath}`,
   gitChangedFiles: (repoPath: string, paramsKey: string) =>
     `git:changedFiles:${repoPath}:${paramsKey}`,
-  gitLog: (
-    repoPath: string,
-    branchKey: string | null,
-    page: number,
-    limit: number,
-  ) => `git:log:${repoPath}:${branchKey ?? ""}:p${page}:l${limit}`,
+  gitLog: (repoPath: string, branchKey: string | null, page: number, limit: number) =>
+    `git:log:${repoPath}:${branchKey ?? ""}:p${page}:l${limit}`,
   fileTree: (rootPath: string, showHidden: boolean) =>
     `files:tree:${rootPath}:h${showHidden ? 1 : 0}`,
   branchPrList: (input: {

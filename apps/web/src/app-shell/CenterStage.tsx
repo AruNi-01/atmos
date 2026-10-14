@@ -48,10 +48,7 @@ import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-set
 import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
 import { useCenterAgentChatComposerHotkey } from "@/app-shell/use-center-agent-chat-composer-hotkey";
 import { useOverviewCenterTabStore } from "@/app-shell/center-overview-tab";
-import {
-  scheduleAfterPaint,
-  scheduleIdle,
-} from "@/app-shell/workspace-surface-switch";
+import { scheduleAfterPaint, scheduleIdle } from "@/app-shell/workspace-surface-switch";
 
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
 import { invalidateGitQueries } from "@/features/git/hooks/use-git-changed-files-query";
@@ -95,9 +92,7 @@ import {
 } from "@/app-shell/center-stage-tabs";
 
 import { CenterStageTabBar } from "@/app-shell/CenterStageTabBar";
-import {
-  CenterStageTabContextMenu,
-} from "@/app-shell/center-stage-tab-menu";
+import { CenterStageTabContextMenu } from "@/app-shell/center-stage-tab-menu";
 import type {
   CenterTabContextMenuState,
   CenterTabDescriptor,
@@ -114,10 +109,7 @@ import {
   recordCenterTabActivation,
   removeCenterTabFromActivationStack,
 } from "@/app-shell/center-stage-tab-activation-stack";
-import {
-  TerminalCloseConfirmDialog,
-  UnsavedChangesDialog,
-} from "@/app-shell/center-stage-dialogs";
+import { TerminalCloseConfirmDialog, UnsavedChangesDialog } from "@/app-shell/center-stage-dialogs";
 
 import { CENTER_STAGE_FULLSCREEN_Z_INDEX } from "@/app-shell/center-stage-fullscreen";
 import {
@@ -125,10 +117,7 @@ import {
   useCenterStageFullscreenStore,
 } from "@/app-shell/use-center-stage-fullscreen";
 import { CenterStagePanels } from "@/app-shell/CenterStagePanels";
-import {
-  CenterPaneContentSlot,
-  CenterPaneGrid,
-} from "@/app-shell/center-pane/CenterPaneGrid";
+import { CenterPaneContentSlot, CenterPaneGrid } from "@/app-shell/center-pane/CenterPaneGrid";
 import { syncCenterLayoutFromDisk } from "@/app-shell/center-layout/center-layout-persist";
 import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
 import {
@@ -292,8 +281,7 @@ function resolveAgentChatCenterTabCloseTarget(
 ): { chatId: string | null; title: string } {
   const tab = useAgentChatCenterTabsStore
     .getState()
-    .tabsByContext[contextId]
-    ?.find((item) => item.value === tabId);
+    .tabsByContext[contextId]?.find((item) => item.value === tabId);
   return {
     chatId: tab?.chatId ?? parseAgentChatTabValue(tabId),
     title: tab?.title?.trim() || "",
@@ -306,17 +294,18 @@ function agentChatNeedsCloseConfirm(chatId: string | null | undefined): boolean 
   return shouldConfirmCloseAgentChat({
     chatId: id,
     occupancy: useAgentStatusStore.getState().getAgentStateForChatId(id),
-    attentionReason: resolveAgentChatAttentionReason(
-      id,
-      useAgentAttentionStore.getState().panes,
-    ),
+    attentionReason: resolveAgentChatAttentionReason(id, useAgentAttentionStore.getState().panes),
   });
 }
 
-function useZustandPersistHydrated(persistApi: {
-  hasHydrated: () => boolean;
-  onFinishHydration: (cb: () => void) => () => void;
-} | undefined): boolean {
+function useZustandPersistHydrated(
+  persistApi:
+    | {
+        hasHydrated: () => boolean;
+        onFinishHydration: (cb: () => void) => () => void;
+      }
+    | undefined,
+): boolean {
   const [hydrated, setHydrated] = React.useState(() => persistApi?.hasHydrated() ?? true);
   React.useEffect(() => {
     if (!persistApi || persistApi.hasHydrated()) return;
@@ -335,11 +324,7 @@ const EMPTY_TERMINAL_TABS: Array<{
 }> = [];
 
 /** Drop the store entry only after the last pane that listed this tab is gone. */
-function closeSurfaceIfUnowned(
-  contextId: string,
-  tabId: string,
-  closeSurface: () => void,
-): void {
+function closeSurfaceIfUnowned(contextId: string, tabId: string, closeSurface: () => void): void {
   const layout = useCenterPaneLayoutStore.getState().getLayout(contextId);
   if (!layout || !layoutOwnsTab(layout, tabId)) {
     closeSurface();
@@ -356,7 +341,9 @@ const CenterStage: React.FC = () => {
   const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
   const terminalGridRef = React.useRef<TerminalGridHandle>(null);
   const terminalGridRefs = React.useRef<Record<string, TerminalGridHandle | null>>({});
-  const [mountedTerminalTabsByContext, setMountedTerminalTabsByContext] = React.useState<Record<string, string[]>>({});
+  const [mountedTerminalTabsByContext, setMountedTerminalTabsByContext] = React.useState<
+    Record<string, string[]>
+  >({});
   const projectWikiTerminalGridRef = React.useRef<TerminalGridHandle>(null);
   const [projectWikiPendingCommand, setProjectWikiPendingCommand] =
     React.useState<PendingNamedTerminalRun | null>(null);
@@ -425,9 +412,7 @@ const CenterStage: React.FC = () => {
     hydrateCenterSpaces();
   }, [hydrateCenterSpaces]);
   const liveActiveSpaceId = useCenterSpaceStore((s) =>
-    liveHostContextId
-      ? s.getActiveSpaceId(liveHostContextId)
-      : DEFAULT_CENTER_SPACE_ID,
+    liveHostContextId ? s.getActiveSpaceId(liveHostContextId) : DEFAULT_CENTER_SPACE_ID,
   );
   const liveCenterContextId = liveHostContextId
     ? makeCenterSpaceKey(liveHostContextId, liveActiveSpaceId)
@@ -440,8 +425,7 @@ const CenterStage: React.FC = () => {
     lastLiveCenterContextIdRef.current = liveCenterContextId;
   }
   const isLaunchpadCenter = !liveHostContextId;
-  const keepAliveCenterContextId =
-    liveCenterContextId ?? lastLiveCenterContextIdRef.current;
+  const keepAliveCenterContextId = liveCenterContextId ?? lastLiveCenterContextIdRef.current;
   const isExtraCenterSpace = Boolean(
     liveHostContextId && liveCenterContextId && liveCenterContextId !== liveHostContextId,
   );
@@ -471,20 +455,16 @@ const CenterStage: React.FC = () => {
 
   const githubTabs = useGithubCenterTabsStore((state) =>
     effectiveContextId
-      ? state.tabsByContext[effectiveContextId] ?? EMPTY_GITHUB_TABS
+      ? (state.tabsByContext[effectiveContextId] ?? EMPTY_GITHUB_TABS)
       : EMPTY_GITHUB_TABS,
   );
-  const openGithubPullRequest = useGithubCenterTabsStore(
-    (state) => state.openPullRequest,
-  );
+  const openGithubPullRequest = useGithubCenterTabsStore((state) => state.openPullRequest);
   const openGithubIssue = useGithubCenterTabsStore((state) => state.openIssue);
-  const openGithubActionRun = useGithubCenterTabsStore(
-    (state) => state.openActionRun,
-  );
+  const openGithubActionRun = useGithubCenterTabsStore((state) => state.openActionRun);
   const closeGithubTab = useGithubCenterTabsStore((state) => state.closeTab);
   const gitCommitTabs = useGitCommitCenterTabsStore((state) =>
     effectiveContextId
-      ? state.tabsByContext[effectiveContextId] ?? EMPTY_GIT_COMMIT_TABS
+      ? (state.tabsByContext[effectiveContextId] ?? EMPTY_GIT_COMMIT_TABS)
       : EMPTY_GIT_COMMIT_TABS,
   );
   const openGitCommit = useGitCommitCenterTabsStore((state) => state.openCommit);
@@ -494,7 +474,7 @@ const CenterStage: React.FC = () => {
   );
   const browserTabs = useBrowserCenterTabsStore((state) =>
     effectiveContextId
-      ? state.tabsByContext[effectiveContextId] ?? EMPTY_BROWSER_TABS
+      ? (state.tabsByContext[effectiveContextId] ?? EMPTY_BROWSER_TABS)
       : EMPTY_BROWSER_TABS,
   );
   const openBrowserCenterTab = useBrowserCenterTabsStore((state) => state.openBrowser);
@@ -535,7 +515,7 @@ const CenterStage: React.FC = () => {
       setTabCustomTitle: state.setTabCustomTitle,
       primeWorkspace: state.primeWorkspace,
       evictWorkspaceRuntime: state.evictWorkspaceRuntime,
-    }))
+    })),
   );
   const isTerminalWorkspaceReady = useTerminalStore((state) => {
     if (!effectiveContextId) return false;
@@ -543,7 +523,8 @@ const CenterStage: React.FC = () => {
       state.workspaceContexts[effectiveContextId] ?? currentView === "project";
     const workspaceScopeKey = getTerminalWorkspaceScopeKey(effectiveContextId, isProjectContext);
     const contextTerminalTabs = state.workspaceTerminalTabs[effectiveContextId];
-    const hasNoTerminalTabs = Array.isArray(contextTerminalTabs) && contextTerminalTabs.length === 0;
+    const hasNoTerminalTabs =
+      Array.isArray(contextTerminalTabs) && contextTerminalTabs.length === 0;
     return (
       state.loadedWorkspaces.has(workspaceScopeKey) &&
       (hasNoTerminalTabs || state.hydratedTerminalScopes.has(effectiveContextId))
@@ -555,7 +536,7 @@ const CenterStage: React.FC = () => {
     return state.getActiveTerminalTabId(effectiveContextId);
   });
   const currentSetupProgress = useProjectStore((s) =>
-    workspaceId ? s.setupProgress[workspaceId] ?? null : null,
+    workspaceId ? (s.setupProgress[workspaceId] ?? null) : null,
   );
   const isSetupBlocking = isWorkspaceSetupBlocking(currentSetupProgress);
   const visibleTerminalTabs = React.useMemo(() => {
@@ -569,8 +550,8 @@ const CenterStage: React.FC = () => {
       ? workspaceActiveTerminalTabId
       : visibleTerminalTabs[0]?.id) ?? "";
   const mountedTerminalTabs = React.useMemo(
-    () => (effectiveContextId ? mountedTerminalTabsByContext[effectiveContextId] ?? [] : []),
-    [effectiveContextId, mountedTerminalTabsByContext]
+    () => (effectiveContextId ? (mountedTerminalTabsByContext[effectiveContextId] ?? []) : []),
+    [effectiveContextId, mountedTerminalTabsByContext],
   );
   // When the workspace/project context changes, hold off on persisting the transient
   // fallback tab until we've tried to restore the last active center tab for that context.
@@ -586,8 +567,7 @@ const CenterStage: React.FC = () => {
   const ignoreLeftoverDeepLinkRef = React.useRef(false);
   const blockedUrlTabRef = React.useRef<string | null>(null);
   const paintContextJustChanged =
-    Boolean(effectiveContextId) &&
-    lastSeenCenterContextIdRef.current !== effectiveContextId;
+    Boolean(effectiveContextId) && lastSeenCenterContextIdRef.current !== effectiveContextId;
   const previousPaintIdForUrl = lastSeenCenterContextIdRef.current ?? null;
   if (paintContextJustChanged) {
     lastSeenCenterContextIdRef.current = effectiveContextId;
@@ -625,11 +605,7 @@ const CenterStage: React.FC = () => {
     ) {
       ignoreLeftoverDeepLinkRef.current = true;
     }
-    if (
-      previousPaintIdForUrl &&
-      tabFromUrl &&
-      tabFromUrl !== lastTabForPaint
-    ) {
+    if (previousPaintIdForUrl && tabFromUrl && tabFromUrl !== lastTabForPaint) {
       blockedUrlTabRef.current = tabFromUrl;
     }
   }
@@ -638,9 +614,7 @@ const CenterStage: React.FC = () => {
   const honorUrlTab = shouldHonorUrlTabForPaintContext({
     tabFromUrl,
     paintId: effectiveContextId,
-    previousPaintId: paintContextJustChanged
-      ? previousPaintIdForUrl
-      : effectiveContextId,
+    previousPaintId: paintContextJustChanged ? previousPaintIdForUrl : effectiveContextId,
     lastTab: lastTabForPaint,
     terminalTmux,
     sideChat,
@@ -653,8 +627,7 @@ const CenterStage: React.FC = () => {
     tmux: terminalTmux ?? null,
     sideChat: sideChat ?? null,
   };
-  const followUrlToolTab =
-    honorUrlTab && !(isExtraCenterSpace && liveExtraSpaceEmpty);
+  const followUrlToolTab = honorUrlTab && !(isExtraCenterSpace && liveExtraSpaceEmpty);
 
   React.useEffect(() => {
     bindCenterPaintTabUrlWriter((patch) => {
@@ -951,7 +924,13 @@ const CenterStage: React.FC = () => {
       if (!contextId) return;
       activateCenterChromeTab(contextId, tab);
     },
-    [resolvedTab, experimentPrefsLoaded, centerWikiTabEnabled, effectiveContextId, liveCenterContextId]
+    [
+      resolvedTab,
+      experimentPrefsLoaded,
+      centerWikiTabEnabled,
+      effectiveContextId,
+      liveCenterContextId,
+    ],
   );
 
   const setWikiPage = React.useCallback(
@@ -962,7 +941,7 @@ const CenterStage: React.FC = () => {
       setCenterStageWikiPage(contextId, page);
       activateCenterChromeTab(contextId, "wiki");
     },
-    [experimentPrefsLoaded, centerWikiTabEnabled, effectiveContextId, liveCenterContextId]
+    [experimentPrefsLoaded, centerWikiTabEnabled, effectiveContextId, liveCenterContextId],
   );
 
   const {
@@ -974,7 +953,7 @@ const CenterStage: React.FC = () => {
     pinFile,
     reloadFileContent,
   } = useEditorStore(
-    useShallow(s => ({
+    useShallow((s) => ({
       setWorkspaceId: s.setWorkspaceId,
       getOpenFiles: s.getOpenFiles,
       getActiveFilePath: s.getActiveFilePath,
@@ -982,13 +961,13 @@ const CenterStage: React.FC = () => {
       closeFile: s.closeFile,
       pinFile: s.pinFile,
       reloadFileContent: s.reloadFileContent,
-    }))
+    })),
   );
-  const setCreateProjectOpen = useDialogStore(s => s.setCreateProjectOpen);
-  const isCodeReviewDialogOpen = useDialogStore(s => s.isCodeReviewDialogOpen);
-  const setCodeReviewDialogOpen = useDialogStore(s => s.setCodeReviewDialogOpen);
+  const setCreateProjectOpen = useDialogStore((s) => s.setCreateProjectOpen);
+  const isCodeReviewDialogOpen = useDialogStore((s) => s.isCodeReviewDialogOpen);
+  const setCodeReviewDialogOpen = useDialogStore((s) => s.setCodeReviewDialogOpen);
   const projects = useProjectsWithStandaloneAutomations();
-  const clearSetupProgress = useProjectStore(s => s.clearSetupProgress);
+  const clearSetupProgress = useProjectStore((s) => s.clearSetupProgress);
   const centerStageRepoPath = useGitStore((s) => s.currentRepoPath);
   const setCurrentRepoPath = useGitStore((s) => s.setCurrentRepoPath);
   const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
@@ -1003,28 +982,28 @@ const CenterStage: React.FC = () => {
    * reordering half of CenterStage.
    */
   const activateNextAfterClosingRef = React.useRef<
-    (
-      closed: string | string[],
-      opts?: { paneId?: string },
-    ) => void
+    (closed: string | string[], opts?: { paneId?: string }) => void
   >(() => {});
 
-  const handleCloseFile = React.useCallback((file: OpenFile, paneId?: string) => {
-    if (file.isDirty) {
-      setFileToClose(file);
-    } else {
-      const contextId = liveCenterContextId ?? effectiveContextId;
-      if (contextId) {
-        // Remove from this pane with MRU next — do not snap to visual neighbor
-        // first. Shareable editor tabs may still live on a sibling pane.
-        activateNextAfterClosingRef.current(file.path, { paneId });
-        closeSurfaceIfUnowned(contextId, file.path, () => closeFile(file.path, contextId));
-        return;
+  const handleCloseFile = React.useCallback(
+    (file: OpenFile, paneId?: string) => {
+      if (file.isDirty) {
+        setFileToClose(file);
+      } else {
+        const contextId = liveCenterContextId ?? effectiveContextId;
+        if (contextId) {
+          // Remove from this pane with MRU next — do not snap to visual neighbor
+          // first. Shareable editor tabs may still live on a sibling pane.
+          activateNextAfterClosingRef.current(file.path, { paneId });
+          closeSurfaceIfUnowned(contextId, file.path, () => closeFile(file.path, contextId));
+          return;
+        }
+        closeFile(file.path, liveCenterContextId ?? effectiveContextId ?? undefined);
+        activateNextAfterClosingRef.current(file.path);
       }
-      closeFile(file.path, liveCenterContextId ?? effectiveContextId ?? undefined);
-      activateNextAfterClosingRef.current(file.path);
-    }
-  }, [closeFile, effectiveContextId, liveCenterContextId]);
+    },
+    [closeFile, effectiveContextId, liveCenterContextId],
+  );
 
   const advancePendingCloseQueue = React.useCallback(() => {
     const next = pendingCloseQueueRef.current.shift();
@@ -1202,9 +1181,7 @@ const CenterStage: React.FC = () => {
     (tabId: string, writeContextId?: string | null) => {
       const id = writeContextId || liveCenterContextId || effectiveContextId;
       if (!id) {
-        handleTabStripOrderChange(
-          appendCenterTabToStripOrder([], defaultStripTabIds, tabId),
-        );
+        handleTabStripOrderChange(appendCenterTabToStripOrder([], defaultStripTabIds, tabId));
         return;
       }
       const current =
@@ -1212,10 +1189,7 @@ const CenterStage: React.FC = () => {
           ? [...contextStripOrderRef.current]
           : readCenterStageTabStripOrder(id);
       const visual = id === effectiveContextId ? defaultStripTabIds : current;
-      handleTabStripOrderChange(
-        appendCenterTabToStripOrder(current, visual, tabId),
-        id,
-      );
+      handleTabStripOrderChange(appendCenterTabToStripOrder(current, visual, tabId), id);
     },
     [
       defaultStripTabIds,
@@ -1231,9 +1205,9 @@ const CenterStage: React.FC = () => {
   const activeValueRef = React.useRef(activeValue);
   activeValueRef.current = activeValue;
   /** Set after handleCenterStageTabChange is defined; used by close handlers above it. */
-  const navigateCenterTabRef = React.useRef<
-    (val: string, options?: { attach?: boolean }) => void
-  >(() => {});
+  const navigateCenterTabRef = React.useRef<(val: string, options?: { attach?: boolean }) => void>(
+    () => {},
+  );
 
   const extraOpenCenterTabValues = React.useMemo(() => {
     const ids: string[] = [];
@@ -1281,9 +1255,7 @@ const CenterStage: React.FC = () => {
             isExtraCenterSpaceKey(effectiveContextId) &&
             liveExtraSpaceEmpty
           ) &&
-          (mosaicHasWiki ||
-            storedLastTab === "wiki" ||
-            (honorUrlTab && tabFromUrl === "wiki")),
+          (mosaicHasWiki || storedLastTab === "wiki" || (honorUrlTab && tabFromUrl === "wiki")),
         fixedAlwaysOpen:
           overviewTabVisible &&
           !(
@@ -1318,16 +1290,12 @@ const CenterStage: React.FC = () => {
    * tab without stealing a sibling pane's surface.
    */
   const activateNextAfterClosing = React.useCallback(
-    (
-      closedValues: string | string[],
-      opts?: { paneId?: string },
-    ) => {
+    (closedValues: string | string[], opts?: { paneId?: string }) => {
       if (!effectiveContextId) return;
       const closedList = Array.isArray(closedValues) ? closedValues : [closedValues];
       if (closedList.length === 0) return;
 
-      const layoutBefore =
-        useCenterPaneLayoutStore.getState().getLayout(effectiveContextId);
+      const layoutBefore = useCenterPaneLayoutStore.getState().getLayout(effectiveContextId);
       const active = activeValueRef.current;
 
       for (const value of closedList) {
@@ -1356,12 +1324,7 @@ const CenterStage: React.FC = () => {
       const store = useCenterPaneLayoutStore.getState();
       for (const value of closedList) {
         if (opts?.paneId) {
-          store.removeTabFromPane(
-            effectiveContextId,
-            opts.paneId,
-            value,
-            fallback.nextTabId,
-          );
+          store.removeTabFromPane(effectiveContextId, opts.paneId, value, fallback.nextTabId);
         } else {
           store.removeTab(effectiveContextId, value, fallback.nextTabId);
         }
@@ -1378,10 +1341,7 @@ const CenterStage: React.FC = () => {
       if (next && next !== active) {
         navigateCenterTabRef.current(next, { attach: false });
       } else if (!open.has(active) && (liveTerminalIds[0] || open.has(OVERVIEW_TAB_ID))) {
-        navigateCenterTabRef.current(
-          liveTerminalIds[0] ?? OVERVIEW_TAB_ID,
-          { attach: false },
-        );
+        navigateCenterTabRef.current(liveTerminalIds[0] ?? OVERVIEW_TAB_ID, { attach: false });
       }
     },
     [collectOpenCenterTabValues, effectiveContextId, fallbackCenterTab],
@@ -1527,10 +1487,7 @@ const CenterStage: React.FC = () => {
     (value: string, paneId?: string, options?: { force?: boolean }) => {
       if (!effectiveContextId) return;
       if (!options?.force) {
-        const { chatId, title } = resolveAgentChatCenterTabCloseTarget(
-          effectiveContextId,
-          value,
-        );
+        const { chatId, title } = resolveAgentChatCenterTabCloseTarget(effectiveContextId, value);
         if (agentChatNeedsCloseConfirm(chatId)) {
           setAgentChatTabCloseConfirm({
             tabId: value,
@@ -1552,73 +1509,72 @@ const CenterStage: React.FC = () => {
     requestBrowserContextUrlFocus(tab.browserContextId);
     activateCenterChromeTab(contextId, tab.value, { placement: "focused" });
     appendTabToStripOrder(tab.value, contextId);
-  }, [
-    appendTabToStripOrder,
-    effectiveContextId,
-    liveCenterContextId,
-    openBrowserCenterTab,
-  ]);
+  }, [appendTabToStripOrder, effectiveContextId, liveCenterContextId, openBrowserCenterTab]);
 
   const handleCreateSimulatorCenterTab = React.useCallback(() => {
     const contextId = liveCenterContextId ?? effectiveContextId;
     if (!contextId) return;
     activateCenterChromeTab(contextId, SIMULATOR_TAB_VALUE, { placement: "focused" });
     appendTabToStripOrder(SIMULATOR_TAB_VALUE, contextId);
-  }, [
-    appendTabToStripOrder,
-    effectiveContextId,
-    liveCenterContextId,
-  ]);
+  }, [appendTabToStripOrder, effectiveContextId, liveCenterContextId]);
 
-  const handleCloseSimulatorTab = React.useCallback((paneId?: string) => {
-    if (!effectiveContextId) return;
-    activateNextAfterClosing(SIMULATOR_TAB_VALUE, { paneId });
-    closeSurfaceIfUnowned(effectiveContextId, SIMULATOR_TAB_VALUE, () => {
-      closeSimulatorTab(effectiveContextId);
-      const runtime = useSimulatorRuntimeStore.getState();
-      runtime.setRunning(effectiveContextId, false);
-      runtime.setPlatform(effectiveContextId, null);
-      void simulatorApi.stop(effectiveContextId).catch(() => {});
-    });
-  }, [activateNextAfterClosing, closeSimulatorTab, effectiveContextId]);
+  const handleCloseSimulatorTab = React.useCallback(
+    (paneId?: string) => {
+      if (!effectiveContextId) return;
+      activateNextAfterClosing(SIMULATOR_TAB_VALUE, { paneId });
+      closeSurfaceIfUnowned(effectiveContextId, SIMULATOR_TAB_VALUE, () => {
+        closeSimulatorTab(effectiveContextId);
+        const runtime = useSimulatorRuntimeStore.getState();
+        runtime.setRunning(effectiveContextId, false);
+        runtime.setPlatform(effectiveContextId, null);
+        void simulatorApi.stop(effectiveContextId).catch(() => {});
+      });
+    },
+    [activateNextAfterClosing, closeSimulatorTab, effectiveContextId],
+  );
 
-  const handleCloseGitHistoryTab = React.useCallback((paneId?: string) => {
-    if (!effectiveContextId) return;
-    activateNextAfterClosing(GIT_HISTORY_TAB_VALUE, { paneId });
-    closeSurfaceIfUnowned(effectiveContextId, GIT_HISTORY_TAB_VALUE, () => {
-      closeGitHistoryTab(effectiveContextId);
-    });
-  }, [activateNextAfterClosing, closeGitHistoryTab, effectiveContextId]);
+  const handleCloseGitHistoryTab = React.useCallback(
+    (paneId?: string) => {
+      if (!effectiveContextId) return;
+      activateNextAfterClosing(GIT_HISTORY_TAB_VALUE, { paneId });
+      closeSurfaceIfUnowned(effectiveContextId, GIT_HISTORY_TAB_VALUE, () => {
+        closeGitHistoryTab(effectiveContextId);
+      });
+    },
+    [activateNextAfterClosing, closeGitHistoryTab, effectiveContextId],
+  );
 
-  const handleCreateToolCenterTab = React.useCallback((tab: CenterToolTabValue) => {
-    const contextId = liveCenterContextId ?? effectiveContextId;
-    if (!contextId) return;
-    activateCenterChromeTab(contextId, tab, { placement: "focused" });
-    appendTabToStripOrder(tab, contextId);
-  }, [
-    appendTabToStripOrder,
-    effectiveContextId,
-    liveCenterContextId,
-  ]);
+  const handleCreateToolCenterTab = React.useCallback(
+    (tab: CenterToolTabValue) => {
+      const contextId = liveCenterContextId ?? effectiveContextId;
+      if (!contextId) return;
+      activateCenterChromeTab(contextId, tab, { placement: "focused" });
+      appendTabToStripOrder(tab, contextId);
+    },
+    [appendTabToStripOrder, effectiveContextId, liveCenterContextId],
+  );
 
-  const handleCloseToolTab = React.useCallback((
-    tab: CenterToolTabValue,
-    paneId?: string,
-  ) => {
-    if (!effectiveContextId) return;
-    activateNextAfterClosing(tab, { paneId });
-    closeSurfaceIfUnowned(effectiveContextId, tab, () => {
-      closeToolTab(effectiveContextId, tab);
-    });
-  }, [activateNextAfterClosing, closeToolTab, effectiveContextId]);
+  const handleCloseToolTab = React.useCallback(
+    (tab: CenterToolTabValue, paneId?: string) => {
+      if (!effectiveContextId) return;
+      activateNextAfterClosing(tab, { paneId });
+      closeSurfaceIfUnowned(effectiveContextId, tab, () => {
+        closeToolTab(effectiveContextId, tab);
+      });
+    },
+    [activateNextAfterClosing, closeToolTab, effectiveContextId],
+  );
 
-  const handleCloseOverview = React.useCallback((paneId?: string) => {
-    if (!effectiveContextId) return;
-    activateNextAfterClosing(OVERVIEW_TAB_ID, { paneId });
-    closeSurfaceIfUnowned(effectiveContextId, OVERVIEW_TAB_ID, () => {
-      useOverviewCenterTabStore.getState().close(effectiveContextId);
-    });
-  }, [activateNextAfterClosing, effectiveContextId]);
+  const handleCloseOverview = React.useCallback(
+    (paneId?: string) => {
+      if (!effectiveContextId) return;
+      activateNextAfterClosing(OVERVIEW_TAB_ID, { paneId });
+      closeSurfaceIfUnowned(effectiveContextId, OVERVIEW_TAB_ID, () => {
+        useOverviewCenterTabStore.getState().close(effectiveContextId);
+      });
+    },
+    [activateNextAfterClosing, effectiveContextId],
+  );
 
   React.useEffect(() => {
     registerBrowserHostChrome({
@@ -1682,7 +1638,12 @@ const CenterStage: React.FC = () => {
     // center context (launchpad pages own their own params) there is nothing
     // to strip — clearing here would eat pages' writes and pin them to defaults.
     if (!isCenterContextSettled || !effectiveContextId || honorUrlTab) return;
-    if (tabFromUrl || wikiPageFromUrl || (terminalTmux && ignoreLeftoverDeepLinkRef.current) || (sideChat && ignoreLeftoverDeepLinkRef.current)) {
+    if (
+      tabFromUrl ||
+      wikiPageFromUrl ||
+      (terminalTmux && ignoreLeftoverDeepLinkRef.current) ||
+      (sideChat && ignoreLeftoverDeepLinkRef.current)
+    ) {
       void setUrlParams({
         tab: null,
         wikiPage: null,
@@ -1732,33 +1693,36 @@ const CenterStage: React.FC = () => {
     return existingTab?.id ?? createTerminalTab(contextId).id;
   }, [createTerminalTab, effectiveContextId, liveCenterContextId]);
 
-  const runWhenTerminalGridReady = React.useCallback((
-    targetTerminalTabId: string,
-    callback: (grid: TerminalGridHandle) => void,
-    attemptsLeft = 20,
-  ) => {
-    const attempt = (remaining: number) => {
-      const targetGrid =
-        targetTerminalTabId === FIXED_TERMINAL_TAB_VALUE
-          ? terminalGridRef.current
-          : terminalGridRefs.current[targetTerminalTabId];
+  const runWhenTerminalGridReady = React.useCallback(
+    (
+      targetTerminalTabId: string,
+      callback: (grid: TerminalGridHandle) => void,
+      attemptsLeft = 20,
+    ) => {
+      const attempt = (remaining: number) => {
+        const targetGrid =
+          targetTerminalTabId === FIXED_TERMINAL_TAB_VALUE
+            ? terminalGridRef.current
+            : terminalGridRefs.current[targetTerminalTabId];
 
-      if (targetGrid) {
-        callback(targetGrid);
-        return;
-      }
+        if (targetGrid) {
+          callback(targetGrid);
+          return;
+        }
 
-      if (remaining <= 0) {
-        return;
-      }
+        if (remaining <= 0) {
+          return;
+        }
 
-      window.setTimeout(() => {
-        attempt(remaining - 1);
-      }, 50);
-    };
+        window.setTimeout(() => {
+          attempt(remaining - 1);
+        }, 50);
+      };
 
-    attempt(attemptsLeft);
-  }, []);
+      attempt(attemptsLeft);
+    },
+    [],
+  );
 
   React.useEffect(() => {
     return subscribeMdLiveTerminalGridMount(() => {
@@ -1773,28 +1737,35 @@ const CenterStage: React.FC = () => {
         if (ids.includes(tabId)) return current;
         return { ...current, [contextId]: [...ids, tabId] };
       });
-      runWhenTerminalGridReady(tabId, (grid) => {
-        registerMdLiveTerminalGrid(grid);
-      }, 40);
+      runWhenTerminalGridReady(
+        tabId,
+        (grid) => {
+          registerMdLiveTerminalGrid(grid);
+        },
+        40,
+      );
     });
   }, [createTerminalTab, effectiveContextId, liveCenterContextId, runWhenTerminalGridReady]);
 
   // Try to focus pane by tmux window name across all terminal tabs
-  const focusPaneByTmuxAcrossAllTabs = React.useCallback((tmuxWindowName: string) => {
-    // Try fixed terminal grid first
-    if (terminalGridRef.current?.focusPaneByTmuxWindowName(tmuxWindowName)) {
-      return true;
-    }
-    // Try all other terminal tabs
-    for (const tab of visibleTerminalTabs) {
-      if (tab.id === FIXED_TERMINAL_TAB_VALUE) continue;
-      const grid = terminalGridRefs.current[tab.id];
-      if (grid?.focusPaneByTmuxWindowName(tmuxWindowName)) {
+  const focusPaneByTmuxAcrossAllTabs = React.useCallback(
+    (tmuxWindowName: string) => {
+      // Try fixed terminal grid first
+      if (terminalGridRef.current?.focusPaneByTmuxWindowName(tmuxWindowName)) {
         return true;
       }
-    }
-    return false;
-  }, [visibleTerminalTabs]);
+      // Try all other terminal tabs
+      for (const tab of visibleTerminalTabs) {
+        if (tab.id === FIXED_TERMINAL_TAB_VALUE) continue;
+        const grid = terminalGridRefs.current[tab.id];
+        if (grid?.focusPaneByTmuxWindowName(tmuxWindowName)) {
+          return true;
+        }
+      }
+      return false;
+    },
+    [visibleTerminalTabs],
+  );
 
   React.useEffect(() => {
     const tmux = terminalTmux?.trim();
@@ -1816,10 +1787,7 @@ const CenterStage: React.FC = () => {
         });
         return;
       }
-      if (
-        targetSpaceExists &&
-        parseCenterSpaceKey(effectiveContextId).spaceId !== targetSpaceId
-      ) {
+      if (targetSpaceExists && parseCenterSpaceKey(effectiveContextId).spaceId !== targetSpaceId) {
         return;
       }
     }
@@ -1846,8 +1814,8 @@ const CenterStage: React.FC = () => {
       return;
     }
 
-    const tabForGrid = owningTab
-      ?? (isTerminalCenterTabValue(resolvedTab) ? resolvedTab : FIXED_TERMINAL_TAB_VALUE);
+    const tabForGrid =
+      owningTab ?? (isTerminalCenterTabValue(resolvedTab) ? resolvedTab : FIXED_TERMINAL_TAB_VALUE);
 
     let cancelled = false;
     runWhenTerminalGridReady(
@@ -1887,46 +1855,49 @@ const CenterStage: React.FC = () => {
       (currentView !== "workspace" && currentView !== "project") ||
       isSetupBlocking ||
       !isTerminalWorkspaceReady ||
-      (pendingWorkspaceAgentRun?.workspaceId ?? pendingWorkspaceAgentRun?.projectId) !== effectiveContextId
+      (pendingWorkspaceAgentRun?.workspaceId ?? pendingWorkspaceAgentRun?.projectId) !==
+        effectiveContextId
     ) {
       return;
     }
 
     const pending = consumeWorkspaceAgentRun(effectiveContextId);
     if (!pending) return;
-    const selectedAgent =
-      pending.agent
-        ? { agent: pending.agent, command: pending.agent.command }
-        : terminalQuickOpenAgents.find(({ agent }) => agent.id === defaultAgentId) ??
-          terminalQuickOpenAgents[0];
+    const selectedAgent = pending.agent
+      ? { agent: pending.agent, command: pending.agent.command }
+      : (terminalQuickOpenAgents.find(({ agent }) => agent.id === defaultAgentId) ??
+        terminalQuickOpenAgents[0]);
     if (!selectedAgent) return;
 
     const prompt = pending.prompt.trim();
-    const plan =
-      pending.command?.trim()
-        ? {
-            launchCommand: pending.command.trim(),
-            tuiFollowUpPrompt: undefined,
-          }
-        : buildInteractiveAgentRunPlan({
-            agentId: selectedAgent.agent.id,
-            launchCommand: selectedAgent.command.trim(),
-            prompt,
-            runConfig: pending.agentRunConfig,
-          });
+    const plan = pending.command?.trim()
+      ? {
+          launchCommand: pending.command.trim(),
+          tuiFollowUpPrompt: undefined,
+        }
+      : buildInteractiveAgentRunPlan({
+          agentId: selectedAgent.agent.id,
+          launchCommand: selectedAgent.command.trim(),
+          prompt,
+          runConfig: pending.agentRunConfig,
+        });
 
     const targetTerminalTabId = ensureRunnableTerminalTab();
     if (!targetTerminalTabId) return;
     activateCenterChromeTab(effectiveContextId, targetTerminalTabId);
-    runWhenTerminalGridReady(targetTerminalTabId, (grid) => {
-      void grid.createAndRunTerminal({
-        label: selectedAgent.agent.label,
-        command: plan.launchCommand,
-        tuiFollowUpPrompt: plan.tuiFollowUpPrompt,
-        agent: selectedAgent.agent,
-        reuseIdlePane: pending.reuseIdlePane,
-      });
-    }, 40);
+    runWhenTerminalGridReady(
+      targetTerminalTabId,
+      (grid) => {
+        void grid.createAndRunTerminal({
+          label: selectedAgent.agent.label,
+          command: plan.launchCommand,
+          tuiFollowUpPrompt: plan.tuiFollowUpPrompt,
+          agent: selectedAgent.agent,
+          reuseIdlePane: pending.reuseIdlePane,
+        });
+      },
+      40,
+    );
   }, [
     consumeWorkspaceAgentRun,
     currentView,
@@ -2055,12 +2026,7 @@ const CenterStage: React.FC = () => {
     appendTabToStripOrder(tab.value, contextId);
     activateCenterChromeTab(contextId, tab.value, { placement: "focused" });
     return tab.value;
-  }, [
-    appendTabToStripOrder,
-    effectiveContextId,
-    liveCenterContextId,
-    tabBarT,
-  ]);
+  }, [appendTabToStripOrder, effectiveContextId, liveCenterContextId, tabBarT]);
 
   const pendingAgentChatActivate = useAgentChatCenterTabsStore((state) => state.pendingActivate);
   const pendingAgentChatCreate = useAgentChatCenterTabsStore((state) => state.pendingNewChat);
@@ -2072,10 +2038,7 @@ const CenterStage: React.FC = () => {
 
   React.useEffect(() => {
     if (!pendingAgentChatActivate) return;
-    appendTabToStripOrder(
-      pendingAgentChatActivate.value,
-      pendingAgentChatActivate.contextId,
-    );
+    appendTabToStripOrder(pendingAgentChatActivate.value, pendingAgentChatActivate.contextId);
     activateCenterChromeTab(pendingAgentChatActivate.contextId, pendingAgentChatActivate.value, {
       placement: "focused",
     });
@@ -2104,62 +2067,68 @@ const CenterStage: React.FC = () => {
     runWhenTerminalGridReady,
   ]);
 
-  const handleRenameTerminalCenterTab = React.useCallback((tabId: string, title: string) => {
-    if (!effectiveContextId) return;
-    setTabCustomTitle(effectiveContextId, tabId, title);
-  }, [effectiveContextId, setTabCustomTitle]);
+  const handleRenameTerminalCenterTab = React.useCallback(
+    (tabId: string, title: string) => {
+      if (!effectiveContextId) return;
+      setTabCustomTitle(effectiveContextId, tabId, title);
+    },
+    [effectiveContextId, setTabCustomTitle],
+  );
 
-  const cleanupCanvasTerminalsForClosedTerminal = React.useCallback(async ({
-    contextScope,
-    pinKeys,
-    sourceTerminalTabIds,
-    tmuxWindowNames,
-    workspaceId,
-  }: {
-    contextScope: "project" | "workspace";
-    pinKeys: string[];
-    sourceTerminalTabIds?: string[];
-    tmuxWindowNames?: string[];
-    workspaceId: string;
-  }) => {
-    try {
-      const { fileName, document } = await loadPinTargetDocument();
-      const result = removeCanvasTerminalShapesFromDocument(document.tldrawDocument, {
-        contextScope,
-        workspaceId,
-        sourceTerminalTabIds,
-        pinKeys,
-        tmuxWindowNames,
-      });
+  const cleanupCanvasTerminalsForClosedTerminal = React.useCallback(
+    async ({
+      contextScope,
+      pinKeys,
+      sourceTerminalTabIds,
+      tmuxWindowNames,
+      workspaceId,
+    }: {
+      contextScope: "project" | "workspace";
+      pinKeys: string[];
+      sourceTerminalTabIds?: string[];
+      tmuxWindowNames?: string[];
+      workspaceId: string;
+    }) => {
+      try {
+        const { fileName, document } = await loadPinTargetDocument();
+        const result = removeCanvasTerminalShapesFromDocument(document.tldrawDocument, {
+          contextScope,
+          workspaceId,
+          sourceTerminalTabIds,
+          pinKeys,
+          tmuxWindowNames,
+        });
 
-      if (!result.changed) {
-        return;
+        if (!result.changed) {
+          return;
+        }
+
+        dispatchCanvasTerminalShapesRemoved(result.removedShapeIds);
+        await savePinTargetDocument(fileName, {
+          ...document,
+          tldrawDocument: result.document as typeof document.tldrawDocument,
+        });
+
+        for (const pinKey of result.removedPinKeys) {
+          clearLastPinnedTerminal(fileName, pinKey);
+          dispatchCanvasTerminalPinStateChange(pinKey, false);
+        }
+      } catch (error) {
+        console.warn("Failed to clean up Canvas terminals for closed terminal", error);
+        toastManager.add({
+          title: t("canvas.title"),
+          description: t("canvas.cleanupFailed"),
+          type: "error",
+        });
       }
-
-      dispatchCanvasTerminalShapesRemoved(result.removedShapeIds);
-      await savePinTargetDocument(fileName, {
-        ...document,
-        tldrawDocument: result.document as typeof document.tldrawDocument,
-      });
-
-      for (const pinKey of result.removedPinKeys) {
-        clearLastPinnedTerminal(fileName, pinKey);
-        dispatchCanvasTerminalPinStateChange(pinKey, false);
-      }
-    } catch (error) {
-      console.warn("Failed to clean up Canvas terminals for closed terminal", error);
-      toastManager.add({
-        title: t("canvas.title"),
-        description: t("canvas.cleanupFailed"),
-        type: "error",
-      });
-    }
-  }, [t]);
+    },
+    [t],
+  );
 
   const getTerminalGridForTab = React.useCallback((tabId: string) => {
     return tabId === FIXED_TERMINAL_TAB_VALUE
       ? terminalGridRef.current
-      : terminalGridRefs.current[tabId] ?? null;
+      : (terminalGridRefs.current[tabId] ?? null);
   }, []);
 
   const removeMountedTerminalTab = React.useCallback((contextId: string, tabId: string) => {
@@ -2179,71 +2148,77 @@ const CenterStage: React.FC = () => {
     });
   }, []);
 
-  const getTerminalTabPanes = React.useCallback((workspaceId: string, tabId: string): TerminalPaneProps[] => {
-    const terminalState = useTerminalStore.getState();
-    const livePanes = Object.values(terminalState.getPanes(workspaceId, tabId));
-    if (livePanes.length > 0) {
-      return livePanes;
-    }
-
-    const isProjectContext =
-      terminalState.workspaceContexts[workspaceId] ?? currentView === "project";
-    const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
-    const persistedTab = terminalState.persistedTerminalLayouts[workspaceScopeKey]?.tabs.find(
-      (tab) => tab.id === tabId,
-    );
-    return Object.values(persistedTab?.panes ?? {}) as TerminalPaneProps[];
-  }, [currentView]);
-
-  const performCloseTerminalCenterTab = React.useCallback((
-    tabId: string,
-    options?: { skipActivation?: boolean },
-  ) => {
-    if (!effectiveContextId) return;
-    const terminalState = useTerminalStore.getState();
-    const tabPanes = getTerminalTabPanes(effectiveContextId, tabId);
-    const isProjectContext =
-      terminalState.workspaceContexts[effectiveContextId] ?? currentView === "project";
-    const contextScope = isProjectContext ? "project" : "workspace";
-    const tmuxWindowNames = tabPanes
-      .map((pane) => pane.tmuxWindowName)
-      .filter((tmuxWindowName): tmuxWindowName is string => Boolean(tmuxWindowName));
-    const pinKeys = tmuxWindowNames
-      .map((tmuxWindowName) => buildCanvasTerminalPinKey(contextScope, effectiveContextId, tmuxWindowName));
-    void cleanupCanvasTerminalsForClosedTerminal({
-      contextScope,
-      pinKeys,
-      sourceTerminalTabIds: [tabId],
-      tmuxWindowNames,
-      workspaceId: effectiveContextId,
-    });
-
-    const grid = getTerminalGridForTab(tabId);
-    if (grid) {
-      grid.destroyAllTerminals();
-    } else {
-      for (const tmuxWindowName of tmuxWindowNames) {
-        void systemApi.killTmuxWindow(hostIdFromCenterKey(effectiveContextId), tmuxWindowName).catch((error) => {
-          console.warn("Failed to kill tmux window for closed terminal tab", error);
-        });
+  const getTerminalTabPanes = React.useCallback(
+    (workspaceId: string, tabId: string): TerminalPaneProps[] => {
+      const terminalState = useTerminalStore.getState();
+      const livePanes = Object.values(terminalState.getPanes(workspaceId, tabId));
+      if (livePanes.length > 0) {
+        return livePanes;
       }
-    }
 
-    closeTerminalTab(effectiveContextId, tabId);
-    removeMountedTerminalTab(effectiveContextId, tabId);
-    if (!options?.skipActivation) {
-      activateNextAfterClosing(tabId);
-    }
-  }, [
-    activateNextAfterClosing,
-    cleanupCanvasTerminalsForClosedTerminal,
-    closeTerminalTab,
-    currentView,
-    effectiveContextId,
-    getTerminalGridForTab,
-    getTerminalTabPanes,
-    removeMountedTerminalTab,
-  ]);
+      const isProjectContext =
+        terminalState.workspaceContexts[workspaceId] ?? currentView === "project";
+      const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
+      const persistedTab = terminalState.persistedTerminalLayouts[workspaceScopeKey]?.tabs.find(
+        (tab) => tab.id === tabId,
+      );
+      return Object.values(persistedTab?.panes ?? {}) as TerminalPaneProps[];
+    },
+    [currentView],
+  );
+
+  const performCloseTerminalCenterTab = React.useCallback(
+    (tabId: string, options?: { skipActivation?: boolean }) => {
+      if (!effectiveContextId) return;
+      const terminalState = useTerminalStore.getState();
+      const tabPanes = getTerminalTabPanes(effectiveContextId, tabId);
+      const isProjectContext =
+        terminalState.workspaceContexts[effectiveContextId] ?? currentView === "project";
+      const contextScope = isProjectContext ? "project" : "workspace";
+      const tmuxWindowNames = tabPanes
+        .map((pane) => pane.tmuxWindowName)
+        .filter((tmuxWindowName): tmuxWindowName is string => Boolean(tmuxWindowName));
+      const pinKeys = tmuxWindowNames.map((tmuxWindowName) =>
+        buildCanvasTerminalPinKey(contextScope, effectiveContextId, tmuxWindowName),
+      );
+      void cleanupCanvasTerminalsForClosedTerminal({
+        contextScope,
+        pinKeys,
+        sourceTerminalTabIds: [tabId],
+        tmuxWindowNames,
+        workspaceId: effectiveContextId,
+      });
+
+      const grid = getTerminalGridForTab(tabId);
+      if (grid) {
+        grid.destroyAllTerminals();
+      } else {
+        for (const tmuxWindowName of tmuxWindowNames) {
+          void systemApi
+            .killTmuxWindow(hostIdFromCenterKey(effectiveContextId), tmuxWindowName)
+            .catch((error) => {
+              console.warn("Failed to kill tmux window for closed terminal tab", error);
+            });
+        }
+      }
+
+      closeTerminalTab(effectiveContextId, tabId);
+      removeMountedTerminalTab(effectiveContextId, tabId);
+      if (!options?.skipActivation) {
+        activateNextAfterClosing(tabId);
+      }
+    },
+    [
+      activateNextAfterClosing,
+      cleanupCanvasTerminalsForClosedTerminal,
+      closeTerminalTab,
+      currentView,
+      effectiveContextId,
+      getTerminalGridForTab,
+      getTerminalTabPanes,
+      removeMountedTerminalTab,
+    ],
+  );
 
   const buildTerminalCloseConfirmPayload = React.useCallback(
     (
@@ -2277,42 +2252,38 @@ const CenterStage: React.FC = () => {
     [t, terminalQuickOpenAgents],
   );
 
-  const handleCloseTerminalCenterTab = React.useCallback(async (
-    tabId: string,
-    options?: { force?: boolean },
-  ) => {
-    if (!effectiveContextId) return;
+  const handleCloseTerminalCenterTab = React.useCallback(
+    async (tabId: string, options?: { force?: boolean }) => {
+      if (!effectiveContextId) return;
 
-    if (!options?.force) {
-      const tabPanes = getTerminalTabPanes(effectiveContextId, tabId);
-      let tmuxWindows: Awaited<ReturnType<typeof systemApi.listTmuxWindows>>["windows"] | null = null;
-      try {
-        const response = await systemApi.listTmuxWindows(hostIdFromCenterKey(effectiveContextId));
-        tmuxWindows = response.windows;
-      } catch (error) {
-        console.warn("Failed to inspect terminal foreground commands before tab close", error);
+      if (!options?.force) {
+        const tabPanes = getTerminalTabPanes(effectiveContextId, tabId);
+        let tmuxWindows: Awaited<ReturnType<typeof systemApi.listTmuxWindows>>["windows"] | null =
+          null;
+        try {
+          const response = await systemApi.listTmuxWindows(hostIdFromCenterKey(effectiveContextId));
+          tmuxWindows = response.windows;
+        } catch (error) {
+          console.warn("Failed to inspect terminal foreground commands before tab close", error);
+        }
+
+        if (hasNonIdleTerminalPanes(tabPanes, tmuxWindows)) {
+          setTerminalTabCloseConfirm(
+            buildTerminalCloseConfirmPayload(effectiveContextId, tabId, tabPanes, tmuxWindows),
+          );
+          return;
+        }
       }
 
-      if (hasNonIdleTerminalPanes(tabPanes, tmuxWindows)) {
-        setTerminalTabCloseConfirm(
-          buildTerminalCloseConfirmPayload(
-            effectiveContextId,
-            tabId,
-            tabPanes,
-            tmuxWindows,
-          ),
-        );
-        return;
-      }
-    }
-
-    performCloseTerminalCenterTab(tabId);
-  }, [
-    buildTerminalCloseConfirmPayload,
-    effectiveContextId,
-    getTerminalTabPanes,
-    performCloseTerminalCenterTab,
-  ]);
+      performCloseTerminalCenterTab(tabId);
+    },
+    [
+      buildTerminalCloseConfirmPayload,
+      effectiveContextId,
+      getTerminalTabPanes,
+      performCloseTerminalCenterTab,
+    ],
+  );
 
   const handleConfirmCloseTerminalCenterTab = React.useCallback(() => {
     if (!terminalTabCloseConfirm) return;
@@ -2328,261 +2299,286 @@ const CenterStage: React.FC = () => {
   const handleConfirmCloseAgentChatCenterTab = React.useCallback(() => {
     if (!agentChatTabCloseConfirm) return;
     advancingCloseQueueRef.current = true;
-    performCloseAgentChatCenterTab(
-      agentChatTabCloseConfirm.tabId,
-      agentChatTabCloseConfirm.paneId,
-    );
+    performCloseAgentChatCenterTab(agentChatTabCloseConfirm.tabId, agentChatTabCloseConfirm.paneId);
     setAgentChatTabCloseConfirm(null);
     advancePendingCloseQueue();
     queueMicrotask(() => {
       advancingCloseQueueRef.current = false;
     });
-  }, [
-    advancePendingCloseQueue,
-    agentChatTabCloseConfirm,
-    performCloseAgentChatCenterTab,
-  ]);
+  }, [advancePendingCloseQueue, agentChatTabCloseConfirm, performCloseAgentChatCenterTab]);
 
   /**
    * Close many center tabs: safe ones immediately; dirty files, busy terminals,
    * and non-idle Agent Chat (plus project-wiki / code-review) go through the
    * same confirm modals as single close.
    */
-  const closeTabsSafely = React.useCallback(async (tabs: CenterTabDescriptor[]) => {
-    if (tabs.length === 0) return;
+  const closeTabsSafely = React.useCallback(
+    async (tabs: CenterTabDescriptor[]) => {
+      if (tabs.length === 0) return;
 
-    pendingCloseQueueRef.current = [];
-    const confirmQueue: PendingCenterTabClose[] = [];
-    /** Closed immediately (no confirm) — used for a single MRU activation at the end. */
-    const closedImmediately: string[] = [];
+      pendingCloseQueueRef.current = [];
+      const confirmQueue: PendingCenterTabClose[] = [];
+      /** Closed immediately (no confirm) — used for a single MRU activation at the end. */
+      const closedImmediately: string[] = [];
 
-    let tmuxWindows: Awaited<ReturnType<typeof systemApi.listTmuxWindows>>["windows"] | null = null;
-    const needsTmux = tabs.some((tab) => tab.kind === "terminal");
-    if (needsTmux && effectiveContextId) {
-      try {
-        const response = await systemApi.listTmuxWindows(hostIdFromCenterKey(effectiveContextId));
-        tmuxWindows = response.windows;
-      } catch (error) {
-        console.warn("Failed to inspect terminal foreground commands before bulk close", error);
-      }
-    }
-
-    for (const tab of tabs) {
-      if (isFileLikeCenterTabKind(tab.kind) && tab.file) {
-        if (tab.file.isDirty) {
-          confirmQueue.push({ kind: "file", file: tab.file });
-        } else {
-          closeFile(tab.file.path, effectiveContextId || undefined);
-          closedImmediately.push(tab.file.path);
+      let tmuxWindows: Awaited<ReturnType<typeof systemApi.listTmuxWindows>>["windows"] | null =
+        null;
+      const needsTmux = tabs.some((tab) => tab.kind === "terminal");
+      if (needsTmux && effectiveContextId) {
+        try {
+          const response = await systemApi.listTmuxWindows(hostIdFromCenterKey(effectiveContextId));
+          tmuxWindows = response.windows;
+        } catch (error) {
+          console.warn("Failed to inspect terminal foreground commands before bulk close", error);
         }
-        continue;
       }
 
-      if (tab.kind === "terminal") {
-        if (!effectiveContextId) continue;
-        const tabPanes = getTerminalTabPanes(effectiveContextId, tab.value);
-        if (hasNonIdleTerminalPanes(tabPanes, tmuxWindows)) {
-          const payload = buildTerminalCloseConfirmPayload(
+      for (const tab of tabs) {
+        if (isFileLikeCenterTabKind(tab.kind) && tab.file) {
+          if (tab.file.isDirty) {
+            confirmQueue.push({ kind: "file", file: tab.file });
+          } else {
+            closeFile(tab.file.path, effectiveContextId || undefined);
+            closedImmediately.push(tab.file.path);
+          }
+          continue;
+        }
+
+        if (tab.kind === "terminal") {
+          if (!effectiveContextId) continue;
+          const tabPanes = getTerminalTabPanes(effectiveContextId, tab.value);
+          if (hasNonIdleTerminalPanes(tabPanes, tmuxWindows)) {
+            const payload = buildTerminalCloseConfirmPayload(
+              effectiveContextId,
+              tab.value,
+              tabPanes,
+              tmuxWindows,
+            );
+            confirmQueue.push({
+              kind: "terminal",
+              ...payload,
+            });
+          } else {
+            performCloseTerminalCenterTab(tab.value, { skipActivation: true });
+            closedImmediately.push(tab.value);
+          }
+          continue;
+        }
+
+        if (tab.kind === "project-wiki") {
+          confirmQueue.push({ kind: "project-wiki" });
+          continue;
+        }
+
+        if (tab.kind === "code-review") {
+          confirmQueue.push({ kind: "code-review" });
+          continue;
+        }
+
+        if (
+          tab.kind === "github-pr" ||
+          tab.kind === "github-issue" ||
+          tab.kind === "github-action"
+        ) {
+          if (effectiveContextId) {
+            closeGithubTab(effectiveContextId, tab.value);
+            closedImmediately.push(tab.value);
+          }
+          continue;
+        }
+
+        if (tab.kind === "overview") {
+          if (effectiveContextId) {
+            useOverviewCenterTabStore.getState().close(effectiveContextId);
+            closedImmediately.push(OVERVIEW_TAB_ID);
+          }
+          continue;
+        }
+
+        if (tab.kind === "git-commit") {
+          if (effectiveContextId) {
+            closeGitCommitTab(effectiveContextId, tab.value);
+            closedImmediately.push(tab.value);
+          }
+          continue;
+        }
+
+        if (tab.kind === "browser") {
+          if (effectiveContextId) {
+            closeBrowserCenterTab(effectiveContextId, tab.value);
+            closedImmediately.push(tab.value);
+          }
+          continue;
+        }
+
+        if (tab.kind === "agent-chat") {
+          if (!effectiveContextId) continue;
+          const { chatId, title } = resolveAgentChatCenterTabCloseTarget(
             effectiveContextId,
             tab.value,
-            tabPanes,
-            tmuxWindows,
           );
-          confirmQueue.push({
-            kind: "terminal",
-            ...payload,
+          if (agentChatNeedsCloseConfirm(chatId)) {
+            confirmQueue.push({
+              kind: "agent-chat",
+              tabId: tab.value,
+              title: title || tab.label || t("fallbackAgentChatTitle"),
+            });
+          } else {
+            performCloseAgentChatCenterTab(tab.value, undefined, { skipActivation: true });
+            closedImmediately.push(tab.value);
+          }
+          continue;
+        }
+
+        if (tab.kind === "simulator") {
+          if (effectiveContextId) {
+            closeSimulatorTab(effectiveContextId);
+            void simulatorApi.stop(effectiveContextId).catch(() => {});
+            closedImmediately.push(SIMULATOR_TAB_VALUE);
+          }
+          continue;
+        }
+
+        if (tab.kind === "git-history") {
+          if (effectiveContextId) {
+            closeGitHistoryTab(effectiveContextId);
+            closedImmediately.push(GIT_HISTORY_TAB_VALUE);
+          }
+          continue;
+        }
+
+        if (isCenterToolTabValue(tab.kind)) {
+          if (effectiveContextId) {
+            closeToolTab(effectiveContextId, tab.kind);
+            closedImmediately.push(tab.kind);
+          }
+          continue;
+        }
+      }
+
+      if (closedImmediately.length > 0) {
+        activateNextAfterClosing(closedImmediately);
+      }
+
+      pendingCloseQueueRef.current = confirmQueue;
+      advancePendingCloseQueue();
+    },
+    [
+      activateNextAfterClosing,
+      advancePendingCloseQueue,
+      buildTerminalCloseConfirmPayload,
+      closeBrowserCenterTab,
+      closeFile,
+      closeGithubTab,
+      closeGitCommitTab,
+      closeSimulatorTab,
+      closeGitHistoryTab,
+      closeToolTab,
+      effectiveContextId,
+      getTerminalTabPanes,
+      performCloseAgentChatCenterTab,
+      performCloseTerminalCenterTab,
+      t,
+    ],
+  );
+
+  const handleCloseCenterTabFromMenu = React.useCallback(
+    (tab: CenterTabDescriptor) => {
+      void closeTabsSafely([tab]);
+    },
+    [closeTabsSafely],
+  );
+
+  const handleTerminalPaneClosed = React.useCallback(
+    (event: {
+      paneId: string;
+      pane: TerminalPaneProps;
+      terminalTabId: string;
+      isLastPane: boolean;
+    }) => {
+      if (!effectiveContextId) return;
+
+      if (event.isLastPane) {
+        // Pane close already confirmed busy state for the last remaining pane.
+        void handleCloseTerminalCenterTab(event.terminalTabId, { force: true });
+        return;
+      }
+
+      const terminalState = useTerminalStore.getState();
+      const isProjectContext =
+        terminalState.workspaceContexts[effectiveContextId] ?? currentView === "project";
+      const contextScope = isProjectContext ? "project" : "workspace";
+      const tmuxWindowName = event.pane.tmuxWindowName;
+      const pinKeys = tmuxWindowName
+        ? [buildCanvasTerminalPinKey(contextScope, effectiveContextId, tmuxWindowName)]
+        : [];
+
+      void cleanupCanvasTerminalsForClosedTerminal({
+        contextScope,
+        pinKeys,
+        tmuxWindowNames: tmuxWindowName ? [tmuxWindowName] : [],
+        workspaceId: effectiveContextId,
+      });
+      removeTerminal(effectiveContextId, event.paneId, event.terminalTabId);
+    },
+    [
+      cleanupCanvasTerminalsForClosedTerminal,
+      currentView,
+      effectiveContextId,
+      handleCloseTerminalCenterTab,
+      removeTerminal,
+    ],
+  );
+
+  const handleCanvasTerminalCloseRequest = React.useCallback(
+    async (detail: CanvasTerminalCloseRequestDetail) => {
+      if (!detail.workspaceId || !detail.tmuxWindowName) {
+        return;
+      }
+
+      const target = resolveCanvasTerminalSourceTarget({
+        workspaceId: detail.workspaceId,
+        tmuxWindowName: detail.tmuxWindowName,
+        contextScope: detail.contextScope,
+        sourceTerminalTabId: detail.sourceTerminalTabId,
+      });
+      const terminalState = useTerminalStore.getState();
+      const hit = findWorkspacePaneIdsByTmuxWindowName(
+        terminalState,
+        target.paintContextId,
+        target.tmuxWindowName,
+        target.contextScope === "project",
+      );
+      const terminalTabId = hit?.terminalTabId || target.sourceTerminalTabId;
+      const panes = terminalState.getPanes(target.paintContextId, terminalTabId);
+      const paneId =
+        hit?.paneId ??
+        Object.entries(panes).find(
+          ([, pane]) =>
+            pane.tmuxWindowName === target.tmuxWindowName || pane.label === target.tmuxWindowName,
+        )?.[0];
+
+      if (!paneId) {
+        try {
+          await systemApi.killTmuxWindow(target.hostId, target.tmuxWindowName);
+        } catch (error) {
+          console.warn("Failed to kill tmux window from Canvas close", error);
+          toastManager.add({
+            title: t("errors.failedToCloseTerminal"),
+            description: error instanceof Error ? error.message : t("errors.unknown"),
+            type: "error",
           });
-        } else {
-          performCloseTerminalCenterTab(tab.value, { skipActivation: true });
-          closedImmediately.push(tab.value);
         }
-        continue;
+        return;
       }
 
-      if (tab.kind === "project-wiki") {
-        confirmQueue.push({ kind: "project-wiki" });
-        continue;
-      }
-
-      if (tab.kind === "code-review") {
-        confirmQueue.push({ kind: "code-review" });
-        continue;
-      }
-
-      if (
-        tab.kind === "github-pr" ||
-        tab.kind === "github-issue" ||
-        tab.kind === "github-action"
-      ) {
-        if (effectiveContextId) {
-          closeGithubTab(effectiveContextId, tab.value);
-          closedImmediately.push(tab.value);
+      if (target.paintContextId === effectiveContextId) {
+        const grid = getTerminalGridForTab(terminalTabId);
+        if (grid?.removeTerminalByTmuxWindowName(target.tmuxWindowName)) {
+          return;
         }
-        continue;
       }
 
-      if (tab.kind === "overview") {
-        if (effectiveContextId) {
-          useOverviewCenterTabStore.getState().close(effectiveContextId);
-          closedImmediately.push(OVERVIEW_TAB_ID);
-        }
-        continue;
-      }
-
-      if (tab.kind === "git-commit") {
-        if (effectiveContextId) {
-          closeGitCommitTab(effectiveContextId, tab.value);
-          closedImmediately.push(tab.value);
-        }
-        continue;
-      }
-
-      if (tab.kind === "browser") {
-        if (effectiveContextId) {
-          closeBrowserCenterTab(effectiveContextId, tab.value);
-          closedImmediately.push(tab.value);
-        }
-        continue;
-      }
-
-      if (tab.kind === "agent-chat") {
-        if (!effectiveContextId) continue;
-        const { chatId, title } = resolveAgentChatCenterTabCloseTarget(
-          effectiveContextId,
-          tab.value,
-        );
-        if (agentChatNeedsCloseConfirm(chatId)) {
-          confirmQueue.push({
-            kind: "agent-chat",
-            tabId: tab.value,
-            title: title || tab.label || t("fallbackAgentChatTitle"),
-          });
-        } else {
-          performCloseAgentChatCenterTab(tab.value, undefined, { skipActivation: true });
-          closedImmediately.push(tab.value);
-        }
-        continue;
-      }
-
-      if (tab.kind === "simulator") {
-        if (effectiveContextId) {
-          closeSimulatorTab(effectiveContextId);
-          void simulatorApi.stop(effectiveContextId).catch(() => {});
-          closedImmediately.push(SIMULATOR_TAB_VALUE);
-        }
-        continue;
-      }
-
-      if (tab.kind === "git-history") {
-        if (effectiveContextId) {
-          closeGitHistoryTab(effectiveContextId);
-          closedImmediately.push(GIT_HISTORY_TAB_VALUE);
-        }
-        continue;
-      }
-
-      if (isCenterToolTabValue(tab.kind)) {
-        if (effectiveContextId) {
-          closeToolTab(effectiveContextId, tab.kind);
-          closedImmediately.push(tab.kind);
-        }
-        continue;
-      }
-    }
-
-    if (closedImmediately.length > 0) {
-      activateNextAfterClosing(closedImmediately);
-    }
-
-    pendingCloseQueueRef.current = confirmQueue;
-    advancePendingCloseQueue();
-  }, [
-    activateNextAfterClosing,
-    advancePendingCloseQueue,
-    buildTerminalCloseConfirmPayload,
-    closeBrowserCenterTab,
-    closeFile,
-    closeGithubTab,
-    closeGitCommitTab,
-    closeSimulatorTab,
-    closeGitHistoryTab,
-    closeToolTab,
-    effectiveContextId,
-    getTerminalTabPanes,
-    performCloseAgentChatCenterTab,
-    performCloseTerminalCenterTab,
-    t,
-  ]);
-
-
-  const handleCloseCenterTabFromMenu = React.useCallback((tab: CenterTabDescriptor) => {
-    void closeTabsSafely([tab]);
-  }, [closeTabsSafely]);
-
-  const handleTerminalPaneClosed = React.useCallback((event: {
-    paneId: string;
-    pane: TerminalPaneProps;
-    terminalTabId: string;
-    isLastPane: boolean;
-  }) => {
-    if (!effectiveContextId) return;
-
-    if (event.isLastPane) {
-      // Pane close already confirmed busy state for the last remaining pane.
-      void handleCloseTerminalCenterTab(event.terminalTabId, { force: true });
-      return;
-    }
-
-    const terminalState = useTerminalStore.getState();
-    const isProjectContext =
-      terminalState.workspaceContexts[effectiveContextId] ?? currentView === "project";
-    const contextScope = isProjectContext ? "project" : "workspace";
-    const tmuxWindowName = event.pane.tmuxWindowName;
-    const pinKeys = tmuxWindowName
-      ? [buildCanvasTerminalPinKey(contextScope, effectiveContextId, tmuxWindowName)]
-      : [];
-
-    void cleanupCanvasTerminalsForClosedTerminal({
-      contextScope,
-      pinKeys,
-      tmuxWindowNames: tmuxWindowName ? [tmuxWindowName] : [],
-      workspaceId: effectiveContextId,
-    });
-    removeTerminal(effectiveContextId, event.paneId, event.terminalTabId);
-  }, [
-    cleanupCanvasTerminalsForClosedTerminal,
-    currentView,
-    effectiveContextId,
-    handleCloseTerminalCenterTab,
-    removeTerminal,
-  ]);
-
-  const handleCanvasTerminalCloseRequest = React.useCallback(async (detail: CanvasTerminalCloseRequestDetail) => {
-    if (!detail.workspaceId || !detail.tmuxWindowName) {
-      return;
-    }
-
-    const target = resolveCanvasTerminalSourceTarget({
-      workspaceId: detail.workspaceId,
-      tmuxWindowName: detail.tmuxWindowName,
-      contextScope: detail.contextScope,
-      sourceTerminalTabId: detail.sourceTerminalTabId,
-    });
-    const terminalState = useTerminalStore.getState();
-    const hit = findWorkspacePaneIdsByTmuxWindowName(
-      terminalState,
-      target.paintContextId,
-      target.tmuxWindowName,
-      target.contextScope === "project",
-    );
-    const terminalTabId = hit?.terminalTabId || target.sourceTerminalTabId;
-    const panes = terminalState.getPanes(target.paintContextId, terminalTabId);
-    const paneId = hit?.paneId ?? Object.entries(panes).find(([, pane]) =>
-      pane.tmuxWindowName === target.tmuxWindowName ||
-      pane.label === target.tmuxWindowName
-    )?.[0];
-
-    if (!paneId) {
       try {
         await systemApi.killTmuxWindow(target.hostId, target.tmuxWindowName);
       } catch (error) {
@@ -2593,39 +2589,21 @@ const CenterStage: React.FC = () => {
           type: "error",
         });
       }
-      return;
-    }
 
-    if (target.paintContextId === effectiveContextId) {
-      const grid = getTerminalGridForTab(terminalTabId);
-      if (grid?.removeTerminalByTmuxWindowName(target.tmuxWindowName)) {
+      if (Object.keys(panes).length <= 1) {
+        if (target.paintContextId === effectiveContextId) {
+          // Pane already closed from canvas; force tab teardown without a second confirm.
+          void handleCloseTerminalCenterTab(terminalTabId, { force: true });
+        } else {
+          terminalState.closeTerminalTab(target.paintContextId, terminalTabId);
+        }
         return;
       }
-    }
 
-    try {
-      await systemApi.killTmuxWindow(target.hostId, target.tmuxWindowName);
-    } catch (error) {
-      console.warn("Failed to kill tmux window from Canvas close", error);
-      toastManager.add({
-        title: t("errors.failedToCloseTerminal"),
-        description: error instanceof Error ? error.message : t("errors.unknown"),
-        type: "error",
-      });
-    }
-
-    if (Object.keys(panes).length <= 1) {
-      if (target.paintContextId === effectiveContextId) {
-        // Pane already closed from canvas; force tab teardown without a second confirm.
-        void handleCloseTerminalCenterTab(terminalTabId, { force: true });
-      } else {
-        terminalState.closeTerminalTab(target.paintContextId, terminalTabId);
-      }
-      return;
-    }
-
-    terminalState.removeTerminal(target.paintContextId, paneId, terminalTabId);
-  }, [effectiveContextId, getTerminalGridForTab, handleCloseTerminalCenterTab, t]);
+      terminalState.removeTerminal(target.paintContextId, paneId, terminalTabId);
+    },
+    [effectiveContextId, getTerminalGridForTab, handleCloseTerminalCenterTab, t],
+  );
 
   React.useEffect(() => {
     const onCanvasTerminalCloseRequest = (event: Event) => {
@@ -2639,57 +2617,53 @@ const CenterStage: React.FC = () => {
     };
   }, [handleCanvasTerminalCloseRequest]);
 
-  const handleCenterStageTabChange = React.useCallback((
-    val: string,
-    options?: { attach?: boolean; placement?: "focused" | "reveal" },
-  ) => {
-    const attach = options?.attach !== false;
-    const writeContextId = liveCenterContextId ?? effectiveContextId;
-    if (!writeContextId || !val) return;
-    if (val === "wiki" && experimentPrefsLoaded && !centerWikiTabEnabled) {
-      if (fallbackCenterTab) {
-        activateCenterChromeTab(writeContextId, fallbackCenterTab, {
-          attach,
-          placement: options?.placement,
+  const handleCenterStageTabChange = React.useCallback(
+    (val: string, options?: { attach?: boolean; placement?: "focused" | "reveal" }) => {
+      const attach = options?.attach !== false;
+      const writeContextId = liveCenterContextId ?? effectiveContextId;
+      if (!writeContextId || !val) return;
+      if (val === "wiki" && experimentPrefsLoaded && !centerWikiTabEnabled) {
+        if (fallbackCenterTab) {
+          activateCenterChromeTab(writeContextId, fallbackCenterTab, {
+            attach,
+            placement: options?.placement,
+          });
+        }
+        return;
+      }
+      activateCenterChromeTab(writeContextId, val, {
+        attach,
+        placement: options?.placement,
+      });
+      if (isTerminalCenterTabValue(val)) {
+        // Defer focus until after React paints the active panel and surfaceActive
+        // re-attaches. Immediate focus races keepalive→active layout and can
+        // SIGWINCH Grok mid-hop (full-frame flash). Double rAF matches Terminal's
+        // reveal settle window.
+        const focusTerminalPane = () => {
+          if (val === FIXED_TERMINAL_TAB_VALUE) {
+            terminalGridRef.current?.focusActivePane();
+          } else {
+            runWhenTerminalGridReady(val, (grid) => grid.focusActivePane());
+          }
+        };
+        requestAnimationFrame(() => {
+          requestAnimationFrame(focusTerminalPane);
         });
       }
-      return;
-    }
-    activateCenterChromeTab(writeContextId, val, {
-      attach,
-      placement: options?.placement,
-    });
-    if (isTerminalCenterTabValue(val)) {
-      // Defer focus until after React paints the active panel and surfaceActive
-      // re-attaches. Immediate focus races keepalive→active layout and can
-      // SIGWINCH Grok mid-hop (full-frame flash). Double rAF matches Terminal's
-      // reveal settle window.
-      const focusTerminalPane = () => {
-        if (val === FIXED_TERMINAL_TAB_VALUE) {
-          terminalGridRef.current?.focusActivePane();
-        } else {
-          runWhenTerminalGridReady(val, (grid) => grid.focusActivePane());
-        }
-      };
-      requestAnimationFrame(() => {
-        requestAnimationFrame(focusTerminalPane);
-      });
-    }
-  }, [
-    centerWikiTabEnabled,
-    effectiveContextId,
-    experimentPrefsLoaded,
-    fallbackCenterTab,
-    liveCenterContextId,
-    runWhenTerminalGridReady,
-  ]);
+    },
+    [
+      centerWikiTabEnabled,
+      effectiveContextId,
+      experimentPrefsLoaded,
+      fallbackCenterTab,
+      liveCenterContextId,
+      runWhenTerminalGridReady,
+    ],
+  );
   navigateCenterTabRef.current = handleCenterStageTabChange;
 
-  const {
-    groupedTabItems,
-    handleTabGroupDragEnd,
-    orderGroupsForPane,
-  } = useCenterStageTabGroups({
+  const { groupedTabItems, handleTabGroupDragEnd, orderGroupsForPane } = useCenterStageTabGroups({
     browserTabs,
     codeReviewTabVisible,
     effectiveContextId,
@@ -2719,92 +2693,92 @@ const CenterStage: React.FC = () => {
     }
   }, [currentRepoPath]);
 
-  const handleCloseTabGroupItem = React.useCallback((
-    tab: TabGroupItem,
-    paneId?: string,
-  ) => {
-    if (tab.kind === "overview") {
-      handleCloseOverview(paneId);
-      return;
-    }
-
-    if (tab.kind === "terminal") {
-      handleCloseTerminalCenterTab(tab.value);
-      return;
-    }
-
-    if (tab.kind === "project-wiki") {
-      setProjectWikiCloseConfirmOpen(true);
-      return;
-    }
-
-    if (tab.kind === "code-review") {
-      setCodeReviewCloseConfirmOpen(true);
-      return;
-    }
-
-    if (tab.kind === "github-pr" || tab.kind === "github-issue" || tab.kind === "github-action") {
-      handleCloseGithubTab(tab.value);
-      return;
-    }
-
-    if (tab.kind === "git-commit") {
-      handleCloseGitCommitTab(tab.value);
-      return;
-    }
-
-    if (tab.kind === "agent-chat") {
-      handleCloseAgentChatTab(tab.value, paneId);
-      return;
-    }
-
-    if (tab.kind === "simulator") {
-      handleCloseSimulatorTab(paneId);
-      return;
-    }
-
-    if (tab.kind === "git-history") {
-      handleCloseGitHistoryTab(paneId);
-      return;
-    }
-
-    if (isCenterToolTabValue(tab.kind)) {
-      handleCloseToolTab(tab.kind, paneId);
-      return;
-    }
-
-    if (tab.kind === "browser") {
-      if (tab.browserContextId && tab.browserTabId) {
-        const context = previewBrowserPrefs.byContext[tab.browserContextId];
-        const tabCount = context?.tabs?.length ?? 0;
-        if (tabCount <= 1) {
-          handleCloseBrowserTab(tab.value);
-          return;
-        }
-        closeBrowserInternalTab(tab.browserContextId, tab.browserTabId);
+  const handleCloseTabGroupItem = React.useCallback(
+    (tab: TabGroupItem, paneId?: string) => {
+      if (tab.kind === "overview") {
+        handleCloseOverview(paneId);
         return;
       }
-      handleCloseBrowserTab(tab.value);
-      return;
-    }
 
-    if (tab.file) {
-      handleCloseFile(tab.file, paneId);
-    }
-  }, [
-    closeBrowserInternalTab,
-    handleCloseAgentChatTab,
-    handleCloseBrowserTab,
-    handleCloseFile,
-    handleCloseGithubTab,
-    handleCloseGitCommitTab,
-    handleCloseOverview,
-    handleCloseSimulatorTab,
-    handleCloseGitHistoryTab,
-    handleCloseToolTab,
-    handleCloseTerminalCenterTab,
-    previewBrowserPrefs,
-  ]);
+      if (tab.kind === "terminal") {
+        handleCloseTerminalCenterTab(tab.value);
+        return;
+      }
+
+      if (tab.kind === "project-wiki") {
+        setProjectWikiCloseConfirmOpen(true);
+        return;
+      }
+
+      if (tab.kind === "code-review") {
+        setCodeReviewCloseConfirmOpen(true);
+        return;
+      }
+
+      if (tab.kind === "github-pr" || tab.kind === "github-issue" || tab.kind === "github-action") {
+        handleCloseGithubTab(tab.value);
+        return;
+      }
+
+      if (tab.kind === "git-commit") {
+        handleCloseGitCommitTab(tab.value);
+        return;
+      }
+
+      if (tab.kind === "agent-chat") {
+        handleCloseAgentChatTab(tab.value, paneId);
+        return;
+      }
+
+      if (tab.kind === "simulator") {
+        handleCloseSimulatorTab(paneId);
+        return;
+      }
+
+      if (tab.kind === "git-history") {
+        handleCloseGitHistoryTab(paneId);
+        return;
+      }
+
+      if (isCenterToolTabValue(tab.kind)) {
+        handleCloseToolTab(tab.kind, paneId);
+        return;
+      }
+
+      if (tab.kind === "browser") {
+        if (tab.browserContextId && tab.browserTabId) {
+          const context = previewBrowserPrefs.byContext[tab.browserContextId];
+          const tabCount = context?.tabs?.length ?? 0;
+          if (tabCount <= 1) {
+            handleCloseBrowserTab(tab.value);
+            return;
+          }
+          closeBrowserInternalTab(tab.browserContextId, tab.browserTabId);
+          return;
+        }
+        handleCloseBrowserTab(tab.value);
+        return;
+      }
+
+      if (tab.file) {
+        handleCloseFile(tab.file, paneId);
+      }
+    },
+    [
+      closeBrowserInternalTab,
+      handleCloseAgentChatTab,
+      handleCloseBrowserTab,
+      handleCloseFile,
+      handleCloseGithubTab,
+      handleCloseGitCommitTab,
+      handleCloseOverview,
+      handleCloseSimulatorTab,
+      handleCloseGitHistoryTab,
+      handleCloseToolTab,
+      handleCloseTerminalCenterTab,
+      previewBrowserPrefs,
+    ],
+  );
 
   const { currentProject, currentWorkspace } = resolveCenterStageProjectContext(
     projects,
@@ -2815,8 +2789,10 @@ const CenterStage: React.FC = () => {
     if (effectiveContextId) {
       try {
         await systemApi.killProjectWikiWindow(effectiveContextId);
-        projectWikiTerminalGridRef.current?.removeTerminalByTmuxWindowName(PROJECT_WIKI_WINDOW_NAME);
-        setProjectWikiVisibleMap(prev => ({ ...prev, [effectiveContextId]: false }));
+        projectWikiTerminalGridRef.current?.removeTerminalByTmuxWindowName(
+          PROJECT_WIKI_WINDOW_NAME,
+        );
+        setProjectWikiVisibleMap((prev) => ({ ...prev, [effectiveContextId]: false }));
         activateNextAfterClosing("project-wiki");
       } catch (err) {
         toastManager.add({
@@ -2839,7 +2815,7 @@ const CenterStage: React.FC = () => {
       try {
         await systemApi.killCodeReviewWindow(effectiveContextId);
         codeReviewTerminalGridRef.current?.removeTerminalByTmuxWindowName(CODE_REVIEW_WINDOW_NAME);
-        setCodeReviewVisibleMap(prev => ({ ...prev, [effectiveContextId]: false }));
+        setCodeReviewVisibleMap((prev) => ({ ...prev, [effectiveContextId]: false }));
         activateNextAfterClosing("code-review");
       } catch (err) {
         toastManager.add({
@@ -3081,10 +3057,9 @@ const CenterStage: React.FC = () => {
   }, [paneCount, renderContextId]);
   React.useLayoutEffect(() => {
     if (!mosaicContextId) return;
-    useCenterStageFullscreenStore.getState().syncFromLayout(
-      mosaicContextId,
-      activeFullscreenPaneId,
-    );
+    useCenterStageFullscreenStore
+      .getState()
+      .syncFromLayout(mosaicContextId, activeFullscreenPaneId);
   }, [activeFullscreenPaneId, mosaicContextId]);
   // Always overlay-host keep-alive panels (even for one pane). Switching
   // them between in-flow Tabs and the overlay remounts xterm/webview.
@@ -3172,12 +3147,7 @@ const CenterStage: React.FC = () => {
       // exclusive tabs (Agent Chat, terminal) back to the sibling that owns them.
       handleCenterStageTabChange(tabValue, { attach: false });
     },
-    [
-      focusCenterPane,
-      handleCenterStageTabChange,
-      mosaicWriteContextId,
-      setPaneActiveTab,
-    ],
+    [focusCenterPane, handleCenterStageTabChange, mosaicWriteContextId, setPaneActiveTab],
   );
 
   const handleSaveCenterLayout = React.useCallback(
@@ -3203,78 +3173,77 @@ const CenterStage: React.FC = () => {
       const saved = useCenterPaneSavedLayoutStore.getState().getById(layoutId);
       if (!saved) return;
       void (async () => {
-      const space = await openNewCenterSpace(liveHostContextId, saved.name);
-      if (!space) return;
-      const paintId = makeCenterSpaceKey(liveHostContextId, space.id);
+        const space = await openNewCenterSpace(liveHostContextId, saved.name);
+        if (!space) return;
+        const paintId = makeCenterSpaceKey(liveHostContextId, space.id);
 
-      const surfaces = collectSavedSurfaces(saved);
-      let browserTabValue: string | null = null;
-      let terminalTabId: string | null = null;
-      const agentChatTabIdByPane = new Map<string, string>();
+        const surfaces = collectSavedSurfaces(saved);
+        let browserTabValue: string | null = null;
+        let terminalTabId: string | null = null;
+        const agentChatTabIdByPane = new Map<string, string>();
 
-      if (surfaces.includes("browser")) {
-        const tab = openBrowserCenterTab(paintId);
-        browserTabValue = tab.value;
-        requestBrowserContextUrlFocus(tab.browserContextId);
-      }
-      if (surfaces.includes("terminal")) {
-        terminalTabId = createTerminalTab(paintId).id;
-      }
-      if (surfaces.includes("simulator")) {
-        openSimulatorTab(paintId);
-      }
-      if (surfaces.includes("overview")) {
-        useOverviewCenterTabStore.getState().open(paintId);
-      }
-      if (surfaces.includes("git-history")) {
-        useGitHistoryCenterTabStore.getState().open(paintId);
-      }
-      if (surfaces.includes("project-wiki")) {
-        setProjectWikiVisibleMap((prev) => ({ ...prev, [paintId]: true }));
-      }
-      if (surfaces.includes("code-review")) {
-        setCodeReviewVisibleMap((prev) => ({ ...prev, [paintId]: true }));
-      }
-      for (const surface of surfaces) {
-        if (isToolSurfaceKind(surface)) {
-          openToolTab(paintId, surface);
+        if (surfaces.includes("browser")) {
+          const tab = openBrowserCenterTab(paintId);
+          browserTabValue = tab.value;
+          requestBrowserContextUrlFocus(tab.browserContextId);
         }
-      }
-      if (surfaces.includes("agent-chat")) {
-        for (const pane of saved.panes) {
-          const wantsChat =
-            pane.surfaces.includes("agent-chat") || pane.activeSurface === "agent-chat";
-          if (!wantsChat) continue;
-          const tab = useAgentChatCenterTabsStore.getState().openDraftTab({
-            contextId: paintId,
-            title: tabBarT("newAgentChat"),
-          });
-          agentChatTabIdByPane.set(pane.id, tab.value);
+        if (surfaces.includes("terminal")) {
+          terminalTabId = createTerminalTab(paintId).id;
         }
-      }
+        if (surfaces.includes("simulator")) {
+          openSimulatorTab(paintId);
+        }
+        if (surfaces.includes("overview")) {
+          useOverviewCenterTabStore.getState().open(paintId);
+        }
+        if (surfaces.includes("git-history")) {
+          useGitHistoryCenterTabStore.getState().open(paintId);
+        }
+        if (surfaces.includes("project-wiki")) {
+          setProjectWikiVisibleMap((prev) => ({ ...prev, [paintId]: true }));
+        }
+        if (surfaces.includes("code-review")) {
+          setCodeReviewVisibleMap((prev) => ({ ...prev, [paintId]: true }));
+        }
+        for (const surface of surfaces) {
+          if (isToolSurfaceKind(surface)) {
+            openToolTab(paintId, surface);
+          }
+        }
+        if (surfaces.includes("agent-chat")) {
+          for (const pane of saved.panes) {
+            const wantsChat =
+              pane.surfaces.includes("agent-chat") || pane.activeSurface === "agent-chat";
+            if (!wantsChat) continue;
+            const tab = useAgentChatCenterTabsStore.getState().openDraftTab({
+              contextId: paintId,
+              title: tabBarT("newAgentChat"),
+            });
+            agentChatTabIdByPane.set(pane.id, tab.value);
+          }
+        }
 
-      const resolveTabId = (kind: CenterSurfaceKind, paneId: string) => {
-        if (kind === "terminal") {
-          return terminalTabId || FIXED_TERMINAL_TAB_VALUE;
-        }
-        if (kind === "agent-chat") {
-          return (
-            agentChatTabIdByPane.get(paneId) ||
-            resolveSurfaceTabId(kind, { browserTabId: browserTabValue })
-          );
-        }
-        return resolveSurfaceTabId(kind, { browserTabId: browserTabValue });
-      };
-      const liveLayout = materializeSavedLayout(saved, resolveTabId);
-      setCenterPaneLayout(paintId, liveLayout);
-      useWorkspaceSurfaceCacheStore.getState().beginVisualSwitch(paintId);
+        const resolveTabId = (kind: CenterSurfaceKind, paneId: string) => {
+          if (kind === "terminal") {
+            return terminalTabId || FIXED_TERMINAL_TAB_VALUE;
+          }
+          if (kind === "agent-chat") {
+            return (
+              agentChatTabIdByPane.get(paneId) ||
+              resolveSurfaceTabId(kind, { browserTabId: browserTabValue })
+            );
+          }
+          return resolveSurfaceTabId(kind, { browserTabId: browserTabValue });
+        };
+        const liveLayout = materializeSavedLayout(saved, resolveTabId);
+        setCenterPaneLayout(paintId, liveLayout);
+        useWorkspaceSurfaceCacheStore.getState().beginVisualSwitch(paintId);
 
-      const focused =
-        liveLayout.panes.find((p) => p.id === liveLayout.focusedPaneId) ??
-        liveLayout.panes[0];
-      if (focused?.activeTabId) {
-        activateCenterChromeTab(paintId, focused.activeTabId);
-      }
+        const focused =
+          liveLayout.panes.find((p) => p.id === liveLayout.focusedPaneId) ?? liveLayout.panes[0];
+        if (focused?.activeTabId) {
+          activateCenterChromeTab(paintId, focused.activeTabId);
+        }
       })();
     },
     [
@@ -3301,7 +3270,7 @@ const CenterStage: React.FC = () => {
         ptDesignOpen={storedLastTab === "pt-design" || tabFromUrl === "pt-design"}
         onAddProject={() => setCreateProjectOpen(true)}
         onConnectAgent={() => {
-          router.push('/agents');
+          router.push("/agents");
         }}
       />
     );
@@ -3349,11 +3318,9 @@ const CenterStage: React.FC = () => {
         tabStripOrder={paneStripOrder}
         onTabStripOrderChange={(order) => {
           if (layoutPaneId && mosaicWriteContextId && isMultiPane) {
-            useCenterPaneLayoutStore.getState().reorderTabs(
-              mosaicWriteContextId,
-              layoutPaneId,
-              order,
-            );
+            useCenterPaneLayoutStore
+              .getState()
+              .reorderTabs(mosaicWriteContextId, layoutPaneId, order);
             return;
           }
           handleTabStripOrderChange(order, mosaicWriteContextId);
@@ -3361,11 +3328,9 @@ const CenterStage: React.FC = () => {
             layoutPaneId ??
             (resolvedPaneLayout.order.length === 1 ? resolvedPaneLayout.order[0] : undefined);
           if (singlePaneId && mosaicWriteContextId) {
-            useCenterPaneLayoutStore.getState().reorderTabs(
-              mosaicWriteContextId,
-              singlePaneId,
-              order,
-            );
+            useCenterPaneLayoutStore
+              .getState()
+              .reorderTabs(mosaicWriteContextId, singlePaneId, order);
           }
         }}
         previewBrowserPrefs={previewBrowserPrefs}
@@ -3384,9 +3349,7 @@ const CenterStage: React.FC = () => {
         wikiCenterEligible={
           wikiCenterEligible &&
           !liveExtraSpaceEmpty &&
-          (has("wiki") ||
-            !isMultiPane ||
-            layoutPaneId === resolvedPaneLayout.focusedPaneId)
+          (has("wiki") || !isMultiPane || layoutPaneId === resolvedPaneLayout.focusedPaneId)
         }
         writeContextId={liveCenterContextId ?? effectiveContextId}
         wikiRefreshing={wikiRefreshing}
@@ -3395,27 +3358,15 @@ const CenterStage: React.FC = () => {
         handleCloseTabGroupItem={(tab) => handleCloseTabGroupItem(tab, layoutPaneId)}
         handleCloseBrowserTab={handleCloseBrowserTab}
         handleCloseFile={(file) => handleCloseFile(file, layoutPaneId)}
-        handleCloseAgentChatTab={(value) =>
-          handleCloseAgentChatTab(value, layoutPaneId)
-        }
+        handleCloseAgentChatTab={(value) => handleCloseAgentChatTab(value, layoutPaneId)}
         handleCloseGithubTab={handleCloseGithubTab}
         handleCloseGitCommitTab={handleCloseGitCommitTab}
         handleCloseTerminalCenterTab={handleCloseTerminalCenterTab}
-        handleCreateBrowserCenterTab={() =>
-          runOnThisPane(handleCreateBrowserCenterTab)
-        }
-        handleCreateSimulatorCenterTab={() =>
-          runOnThisPane(handleCreateSimulatorCenterTab)
-        }
-        handleCreateTerminalCenterTab={() =>
-          runOnThisPane(handleCreateTerminalCenterTab)
-        }
-        handleCreateAgentChatCenterTab={() =>
-          runOnThisPane(handleCreateAgentChatCenterTab)
-        }
-        handleCreateToolCenterTab={(tab) =>
-          runOnThisPane(() => handleCreateToolCenterTab(tab))
-        }
+        handleCreateBrowserCenterTab={() => runOnThisPane(handleCreateBrowserCenterTab)}
+        handleCreateSimulatorCenterTab={() => runOnThisPane(handleCreateSimulatorCenterTab)}
+        handleCreateTerminalCenterTab={() => runOnThisPane(handleCreateTerminalCenterTab)}
+        handleCreateAgentChatCenterTab={() => runOnThisPane(handleCreateAgentChatCenterTab)}
+        handleCreateToolCenterTab={(tab) => runOnThisPane(() => handleCreateToolCenterTab(tab))}
         handleCreateOverview={() =>
           runOnThisPane(() => {
             const contextId = liveCenterContextId ?? effectiveContextId;
@@ -3448,9 +3399,7 @@ const CenterStage: React.FC = () => {
         paneId={layoutPaneId}
         allowedTabIds={allowed}
         stripShortcutTabIds={
-          !isMultiPane ||
-          !layoutPaneId ||
-          layoutPaneId === resolvedPaneLayout.focusedPaneId
+          !isMultiPane || !layoutPaneId || layoutPaneId === resolvedPaneLayout.focusedPaneId
             ? focusedStripTabIds
             : []
         }
@@ -3529,10 +3478,7 @@ const CenterStage: React.FC = () => {
   if (currentSetupProgress && isSetupBlocking) {
     return (
       <CenterStageSurface>
-        <WorkspaceSetupProgressView
-          progress={currentSetupProgress}
-          onFinish={handleFinishSetup}
-        />
+        <WorkspaceSetupProgressView progress={currentSetupProgress} onFinish={handleFinishSetup} />
       </CenterStageSurface>
     );
   }
@@ -3540,10 +3486,7 @@ const CenterStage: React.FC = () => {
   return (
     // Inset + rounded cards so all four corners read as a floating main stage.
     // Padding gutters use shell `bg-sidebar` so `bg-background` center pops.
-    <div
-      data-center-stage-fullscreen-slot=""
-      className="relative h-full min-h-0 w-full"
-    >
+    <div data-center-stage-fullscreen-slot="" className="relative h-full min-h-0 w-full">
       <main
         ref={centerStageFullscreenRef}
         className={cn(
@@ -3554,7 +3497,7 @@ const CenterStage: React.FC = () => {
         aria-hidden={isLaunchpadCenter || undefined}
         inert={isLaunchpadCenter || undefined}
       >
-      <div data-center-stage-card="" className="desktop-no-drag relative min-h-0 flex-1 isolate">
+        <div data-center-stage-card="" className="desktop-no-drag relative isolate min-h-0 flex-1">
           <div data-center-stage-mosaic="" className="absolute inset-0 min-h-0">
             <CenterPaneGrid
               layout={resolvedPaneLayout}
@@ -3582,12 +3525,11 @@ const CenterStage: React.FC = () => {
                 const allowed = new Set(pane.tabIds);
                 // Overview is opt-in per context, then each pane lists it independently.
                 if (!overviewTabVisible) allowed.delete(OVERVIEW_TAB_ID);
-                const activeTabId =
-                  empty
-                    ? ""
-                    : !overviewTabVisible && pane.activeTabId === OVERVIEW_TAB_ID
-                      ? (pane.tabIds.find((id) => id !== OVERVIEW_TAB_ID) ?? "")
-                      : pane.activeTabId;
+                const activeTabId = empty
+                  ? ""
+                  : !overviewTabVisible && pane.activeTabId === OVERVIEW_TAB_ID
+                    ? (pane.tabIds.find((id) => id !== OVERVIEW_TAB_ID) ?? "")
+                    : pane.activeTabId;
 
                 const openInThisPane = (run: () => void) => {
                   if (mosaicWriteContextId) {
@@ -3618,25 +3560,18 @@ const CenterStage: React.FC = () => {
                   includeOverview: true,
                   overviewLabel: tabBarT("overview"),
                   hideGitChrome: hideStandaloneGitChrome,
-                  onCreateTerminal: () =>
-                    openInThisPane(handleCreateTerminalCenterTab),
-                  onCreateAgentChat: () =>
-                    openInThisPane(handleCreateAgentChatCenterTab),
+                  onCreateTerminal: () => openInThisPane(handleCreateTerminalCenterTab),
+                  onCreateAgentChat: () => openInThisPane(handleCreateAgentChatCenterTab),
                   onCreateMarkdownNote: () =>
                     openInThisPane(() => {
                       const contextId = liveCenterContextId ?? effectiveContextId;
                       if (!contextId) return;
-                      const path = useEditorStore
-                        .getState()
-                        .openUntitledMarkdown(contextId);
+                      const path = useEditorStore.getState().openUntitledMarkdown(contextId);
                       if (path) handleCenterStageTabChange(path);
                     }),
-                  onCreateBrowser: () =>
-                    openInThisPane(handleCreateBrowserCenterTab),
-                  onCreateToolTab: (tab) =>
-                    openInThisPane(() => handleCreateToolCenterTab(tab)),
-                  onCreateSimulator: () =>
-                    openInThisPane(handleCreateSimulatorCenterTab),
+                  onCreateBrowser: () => openInThisPane(handleCreateBrowserCenterTab),
+                  onCreateToolTab: (tab) => openInThisPane(() => handleCreateToolCenterTab(tab)),
+                  onCreateSimulator: () => openInThisPane(handleCreateSimulatorCenterTab),
                   onOpenOverview: () =>
                     openInThisPane(() => {
                       const contextId = liveCenterContextId ?? effectiveContextId;
@@ -3657,8 +3592,7 @@ const CenterStage: React.FC = () => {
                           paneId: pane.id,
                           activeTabId: "",
                           allowedTabIds: allowed,
-                          onTabChange: (value) =>
-                            handlePaneTabChange(pane.id, value),
+                          onTabChange: (value) => handlePaneTabChange(pane.id, value),
                         })}
                       </div>
                       <CenterPaneEmptyState
@@ -3703,9 +3637,7 @@ const CenterStage: React.FC = () => {
             data-center-panel-host=""
             className="pointer-events-none absolute inset-0 min-h-0"
             style={
-              activeFullscreenPaneId
-                ? { zIndex: CENTER_STAGE_FULLSCREEN_Z_INDEX + 1 }
-                : undefined
+              activeFullscreenPaneId ? { zIndex: CENTER_STAGE_FULLSCREEN_Z_INDEX + 1 } : undefined
             }
             onPointerDownCapture={handleOverlayPaneInteraction}
             onFocusCapture={handleOverlayPaneInteraction}
@@ -3714,118 +3646,116 @@ const CenterStage: React.FC = () => {
           </div>
         </div>
 
-      <CenterStageTabContextMenu
-        tabContextMenu={tabContextMenu}
-        setTabContextMenu={setTabContextMenu}
-        basePath={currentWorkspace?.localPath || currentProject?.mainFilePath}
-        onCloseTab={handleCloseCenterTabFromMenu}
-        onCloseTabs={(tabs) => {
-          void closeTabsSafely(tabs);
-        }}
-        onRenameTerminalTab={handleRenameTerminalCenterTab}
-      />
-
-      <TerminalCloseConfirmDialog
-        open={projectWikiCloseConfirmOpen}
-        onOpenChange={(open) => {
-          if (!open) dismissCloseConfirmDialog();
-        }}
-        title={t("dialogs.closeProjectWikiTerminal.title")}
-        description={t("dialogs.closeProjectWikiTerminal.description")}
-        onConfirm={handleConfirmCloseProjectWikiTerminal}
-      />
-
-      <TerminalCloseConfirmDialog
-        open={codeReviewCloseConfirmOpen}
-        onOpenChange={(open) => {
-          if (!open) dismissCloseConfirmDialog();
-        }}
-        title={t("dialogs.closeCodeReviewTerminal.title")}
-        description={t("dialogs.closeCodeReviewTerminal.description")}
-        onConfirm={handleConfirmCloseCodeReviewTerminal}
-      />
-
-      <TerminalCloseConfirmDialog
-        open={!!terminalTabCloseConfirm}
-        onOpenChange={(open) => {
-          if (!open) dismissCloseConfirmDialog();
-        }}
-        title={t("dialogs.closeTerminalTab.title")}
-        description={t("dialogs.closeTerminalTab.description", {
-          title: terminalTabCloseConfirm?.title ?? t("fallbackTerminalTitle"),
-        })}
-        items={terminalTabCloseConfirm?.runningPaneNames}
-        onConfirm={handleConfirmCloseTerminalCenterTab}
-      />
-
-      <TerminalCloseConfirmDialog
-        open={!!agentChatTabCloseConfirm}
-        onOpenChange={(open) => {
-          if (!open) dismissCloseConfirmDialog();
-        }}
-        title={t("dialogs.closeAgentChatTab.title")}
-        description={t("dialogs.closeAgentChatTab.description", {
-          title: agentChatTabCloseConfirm?.title ?? t("fallbackAgentChatTitle"),
-        })}
-        onConfirm={handleConfirmCloseAgentChatCenterTab}
-      />
-
-      {/* Code Review Dialog */}
-      {effectiveContextId && (
-        <CodeReviewDialog
-          open={isCodeReviewDialogOpen}
-          onOpenChange={setCodeReviewDialogOpen}
-          workspaceId={effectiveContextId}
-          reviewTarget={reviewTarget ?? undefined}
-          projectName={currentProject?.name}
-          workspacePath={currentWorkspace?.localPath || currentProject?.mainFilePath || ""}
-          projectMainPath={currentProject?.mainFilePath}
-          currentBranch={currentBranch ?? undefined}
-          onStartTerminalMode={(command) => {
-            if (!effectiveContextId) return;
-            codeReviewUserTriggeredRef.current = true;
-            setCodeReviewPendingCommand({ command });
-            setCodeReviewVisibleMap(prev => ({ ...prev, [effectiveContextId]: true }));
-            setFixedTab("code-review");
+        <CenterStageTabContextMenu
+          tabContextMenu={tabContextMenu}
+          setTabContextMenu={setTabContextMenu}
+          basePath={currentWorkspace?.localPath || currentProject?.mainFilePath}
+          onCloseTab={handleCloseCenterTabFromMenu}
+          onCloseTabs={(tabs) => {
+            void closeTabsSafely(tabs);
           }}
-          onReplaceTerminalAndRun={async (command) => {
-            if (!effectiveContextId) return;
-            try {
-              await systemApi.killCodeReviewWindow(effectiveContextId);
-              codeReviewTerminalGridRef.current?.removeTerminalByTmuxWindowName(CODE_REVIEW_WINDOW_NAME);
+          onRenameTerminalTab={handleRenameTerminalCenterTab}
+        />
+
+        <TerminalCloseConfirmDialog
+          open={projectWikiCloseConfirmOpen}
+          onOpenChange={(open) => {
+            if (!open) dismissCloseConfirmDialog();
+          }}
+          title={t("dialogs.closeProjectWikiTerminal.title")}
+          description={t("dialogs.closeProjectWikiTerminal.description")}
+          onConfirm={handleConfirmCloseProjectWikiTerminal}
+        />
+
+        <TerminalCloseConfirmDialog
+          open={codeReviewCloseConfirmOpen}
+          onOpenChange={(open) => {
+            if (!open) dismissCloseConfirmDialog();
+          }}
+          title={t("dialogs.closeCodeReviewTerminal.title")}
+          description={t("dialogs.closeCodeReviewTerminal.description")}
+          onConfirm={handleConfirmCloseCodeReviewTerminal}
+        />
+
+        <TerminalCloseConfirmDialog
+          open={!!terminalTabCloseConfirm}
+          onOpenChange={(open) => {
+            if (!open) dismissCloseConfirmDialog();
+          }}
+          title={t("dialogs.closeTerminalTab.title")}
+          description={t("dialogs.closeTerminalTab.description", {
+            title: terminalTabCloseConfirm?.title ?? t("fallbackTerminalTitle"),
+          })}
+          items={terminalTabCloseConfirm?.runningPaneNames}
+          onConfirm={handleConfirmCloseTerminalCenterTab}
+        />
+
+        <TerminalCloseConfirmDialog
+          open={!!agentChatTabCloseConfirm}
+          onOpenChange={(open) => {
+            if (!open) dismissCloseConfirmDialog();
+          }}
+          title={t("dialogs.closeAgentChatTab.title")}
+          description={t("dialogs.closeAgentChatTab.description", {
+            title: agentChatTabCloseConfirm?.title ?? t("fallbackAgentChatTitle"),
+          })}
+          onConfirm={handleConfirmCloseAgentChatCenterTab}
+        />
+
+        {/* Code Review Dialog */}
+        {effectiveContextId && (
+          <CodeReviewDialog
+            open={isCodeReviewDialogOpen}
+            onOpenChange={setCodeReviewDialogOpen}
+            workspaceId={effectiveContextId}
+            reviewTarget={reviewTarget ?? undefined}
+            projectName={currentProject?.name}
+            workspacePath={currentWorkspace?.localPath || currentProject?.mainFilePath || ""}
+            projectMainPath={currentProject?.mainFilePath}
+            currentBranch={currentBranch ?? undefined}
+            onStartTerminalMode={(command) => {
+              if (!effectiveContextId) return;
               codeReviewUserTriggeredRef.current = true;
               setCodeReviewPendingCommand({ command });
-              setCodeReviewVisibleMap(prev => ({ ...prev, [effectiveContextId]: true }));
+              setCodeReviewVisibleMap((prev) => ({ ...prev, [effectiveContextId]: true }));
               setFixedTab("code-review");
-              toastManager.add({
-                title: t("toasts.codeReviewStarted.title"),
-                description: t("toasts.codeReviewStarted.description"),
-                type: "info",
-              });
-            } catch (err) {
-              setCodeReviewPendingCommand(null);
-              toastManager.add({
-                title: t("errors.failedToClosePreviousTerminal"),
-                description: err instanceof Error ? err.message : t("errors.unknown"),
-                type: "error",
-              });
-            }
-          }}
+            }}
+            onReplaceTerminalAndRun={async (command) => {
+              if (!effectiveContextId) return;
+              try {
+                await systemApi.killCodeReviewWindow(effectiveContextId);
+                codeReviewTerminalGridRef.current?.removeTerminalByTmuxWindowName(
+                  CODE_REVIEW_WINDOW_NAME,
+                );
+                codeReviewUserTriggeredRef.current = true;
+                setCodeReviewPendingCommand({ command });
+                setCodeReviewVisibleMap((prev) => ({ ...prev, [effectiveContextId]: true }));
+                setFixedTab("code-review");
+                toastManager.add({
+                  title: t("toasts.codeReviewStarted.title"),
+                  description: t("toasts.codeReviewStarted.description"),
+                  type: "info",
+                });
+              } catch (err) {
+                setCodeReviewPendingCommand(null);
+                toastManager.add({
+                  title: t("errors.failedToClosePreviousTerminal"),
+                  description: err instanceof Error ? err.message : t("errors.unknown"),
+                  type: "error",
+                });
+              }
+            }}
+          />
+        )}
+
+        <UnsavedChangesDialog
+          fileToClose={fileToClose}
+          onCancel={dismissCloseConfirmDialog}
+          onConfirm={confirmClose}
         />
-      )}
-
-      <UnsavedChangesDialog
-        fileToClose={fileToClose}
-        onCancel={dismissCloseConfirmDialog}
-        onConfirm={confirmClose}
-      />
-
       </main>
       {isLaunchpadCenter ? (
-        <div
-          className="absolute inset-0 z-20 min-h-0"
-          data-launchpad-center-overlay=""
-        >
+        <div className="absolute inset-0 z-20 min-h-0" data-launchpad-center-overlay="">
           <CenterStageNoContextView
             currentView={currentView}
             automationsEnabled={automationsEnabled}

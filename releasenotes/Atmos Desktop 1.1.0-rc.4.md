@@ -3,15 +3,18 @@
 ## Changes Since 1.1.0-rc.3
 
 ### New Features
+
 - **Local Model Download Progress**: Added topbar download progress indicator for local model runtime downloads
 - **TerminalGrid Enhancements**: Updated TerminalGrid component with more features and improved user experience for working tree changes
 - **Project-Level Review Sessions**: Implemented project-level review sessions (APP-013) with improved code review workflow
 
 ### Bug Fixes
+
 - **Double Popover Fix**: Prevented double popover from appearing when a directory has a single file in the changes tree
 - **Code Review Fixes**: Addressed additional code review findings for project-level sessions
 
 ### Other Changes
+
 - Updated dependencies
 - Ignored atmos-cli binaries in desktop sidecar to prevent conflicts
 - Fixed CI issue where prerelease was stealing the latest tag

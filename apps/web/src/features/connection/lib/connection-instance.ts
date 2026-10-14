@@ -2,9 +2,9 @@
  * Connection instance — isolates browser UI prefs per Atmos Server target.
  */
 
-export type ConnectionInstanceId = 'local' | `computer:${string}`;
+export type ConnectionInstanceId = "local" | `computer:${string}`;
 
-export type ConnectionInstanceMode = 'local' | 'relay';
+export type ConnectionInstanceMode = "local" | "relay";
 
 export interface ConnectionInstance {
   id: ConnectionInstanceId;
@@ -12,7 +12,7 @@ export interface ConnectionInstance {
   serverId: string | null;
 }
 
-export const LOCAL_INSTANCE_ID: ConnectionInstanceId = 'local';
+export const LOCAL_INSTANCE_ID: ConnectionInstanceId = "local";
 
 export function computerInstanceId(serverId: string): ConnectionInstanceId {
   return `computer:${serverId}`;
@@ -22,19 +22,19 @@ export function instanceIdFromRelaySelection(
   mode: ConnectionInstanceMode,
   selectedServerId: string | null,
 ): ConnectionInstanceId {
-  if (mode === 'relay' && selectedServerId?.trim()) {
+  if (mode === "relay" && selectedServerId?.trim()) {
     return computerInstanceId(selectedServerId.trim());
   }
   return LOCAL_INSTANCE_ID;
 }
 
 export function parseConnectionInstanceId(raw: string | null | undefined): ConnectionInstanceId {
-  const t = (raw ?? '').trim();
-  if (!t || t === 'local') {
+  const t = (raw ?? "").trim();
+  if (!t || t === "local") {
     return LOCAL_INSTANCE_ID;
   }
-  if (t.startsWith('computer:')) {
-    const serverId = t.slice('computer:'.length).trim();
+  if (t.startsWith("computer:")) {
+    const serverId = t.slice("computer:".length).trim();
     if (serverId) {
       return computerInstanceId(serverId);
     }
@@ -46,5 +46,5 @@ export function getServerIdFromInstanceId(id: ConnectionInstanceId): string | nu
   if (id === LOCAL_INSTANCE_ID) {
     return null;
   }
-  return id.slice('computer:'.length) || null;
+  return id.slice("computer:".length) || null;
 }

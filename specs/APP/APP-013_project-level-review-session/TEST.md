@@ -13,19 +13,19 @@ The feature is mostly a **shape-change** (new schema nullability + new `ReviewTa
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 — Create project session | S1, S10 |
-| M2 — base_ref resolution with fallback | S2, S3, S4 |
-| M3 — Empty-changeset error | S5 |
-| M4 — Full review surface for project sessions | S6 |
-| M5 — Project route lists only project sessions | S7 |
-| M6 — Workspace flow unchanged | S8 |
-| M7 — Coexistence | S9 |
-| M8 — AI fix write-back parity | S6 (signal: working-tree mutation observed) |
-| N2 — Scope badge | S11 |
-| Migration | S12 |
-| WS payload validation | S10 |
+| PRD item                                       | Scenario IDs                                |
+| ---------------------------------------------- | ------------------------------------------- |
+| M1 — Create project session                    | S1, S10                                     |
+| M2 — base_ref resolution with fallback         | S2, S3, S4                                  |
+| M3 — Empty-changeset error                     | S5                                          |
+| M4 — Full review surface for project sessions  | S6                                          |
+| M5 — Project route lists only project sessions | S7                                          |
+| M6 — Workspace flow unchanged                  | S8                                          |
+| M7 — Coexistence                               | S9                                          |
+| M8 — AI fix write-back parity                  | S6 (signal: working-tree mutation observed) |
+| N2 — Scope badge                               | S11                                         |
+| Migration                                      | S12                                         |
+| WS payload validation                          | S10                                         |
 
 ## Scenarios
 
@@ -208,20 +208,20 @@ Deliberately out of scope for this round; will need their own scenarios when add
 
 > Appended after implementation run on 2026-05-07.
 
-| Scenario | Level | Test file / name | Status |
-|----------|-------|-----------------|--------|
-| S1 — Happy path: user creates a project-scoped review session | Manual E2E | — | **Manual** — requires a running Atmos instance with a real git project. See "Manual verification steps" §1. |
-| S2 — base_ref happy: target_branch is set | Rust unit | `crates/core-service/src/service/review.rs` → `tests::s2_resolve_repo_context_project_target_branch` | ✅ Automated |
-| S3 — base_ref fallback: target_branch NULL, origin/HEAD resolves | Rust unit | `crates/core-service/src/service/review.rs` → `tests::s3_resolve_repo_context_fallback_to_default_branch` | ✅ Automated |
-| S4 — base_ref hard failure: both missing | Rust unit | `crates/core-service/src/service/review.rs` → `tests::s4_resolve_repo_context_hard_fail` | ✅ Automated |
-| S5 — Empty changeset error | Rust integration | `crates/core-service/src/service/review.rs` → `tests::s5_create_session_empty_changeset` | ✅ Automated |
-| S6 — Full review surface on a project session | Manual E2E | — | **Manual** — requires a running Atmos instance. See "Manual verification steps" §1. |
-| S7 — Project route lists only project-scoped sessions | Rust unit | `crates/core-service/src/service/review.rs` → `tests::s7_list_sessions_by_project_excludes_workspace_sessions` | ✅ Automated |
-| S8 — Regression: workspace flow unchanged | Rust unit + Manual | `crates/core-service/src/service/review.rs` → `tests::s8_workspace_session_has_workspace_guid` (automated); visual side requires running instance | ✅ Automated (logic) / **Manual** (visual) |
-| S9 — Coexistence: project + workspace sessions active simultaneously | Rust unit + Manual | `crates/core-service/src/service/review.rs` → `tests::s9_project_and_workspace_sessions_coexist` (automated); visual side requires running instance | ✅ Automated (logic) / **Manual** (visual) |
-| S10 — WS payload validation in `parse_target` | Rust unit | `crates/core-service/src/service/ws_message.rs` → `tests::s10_parse_target_*` (4 tests) | ✅ Automated |
-| S11 — N2: scope badge in session header | Frontend unit | `apps/web/src/components/diff/__tests__/ReviewView.scope-badge.test.ts` | ✅ Automated |
-| S12 — Migration: applies on fresh and seeded DB | Rust integration | `crates/infra/src/db/migration/mod.rs` → `tests::s12_migration_applies_on_fresh_db`, `tests::s12_migration_applies_on_seeded_db_preserves_existing_rows` | ✅ Automated |
+| Scenario                                                             | Level              | Test file / name                                                                                                                                         | Status                                                                                                      |
+| -------------------------------------------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| S1 — Happy path: user creates a project-scoped review session        | Manual E2E         | —                                                                                                                                                        | **Manual** — requires a running Atmos instance with a real git project. See "Manual verification steps" §1. |
+| S2 — base_ref happy: target_branch is set                            | Rust unit          | `crates/core-service/src/service/review.rs` → `tests::s2_resolve_repo_context_project_target_branch`                                                     | ✅ Automated                                                                                                |
+| S3 — base_ref fallback: target_branch NULL, origin/HEAD resolves     | Rust unit          | `crates/core-service/src/service/review.rs` → `tests::s3_resolve_repo_context_fallback_to_default_branch`                                                | ✅ Automated                                                                                                |
+| S4 — base_ref hard failure: both missing                             | Rust unit          | `crates/core-service/src/service/review.rs` → `tests::s4_resolve_repo_context_hard_fail`                                                                 | ✅ Automated                                                                                                |
+| S5 — Empty changeset error                                           | Rust integration   | `crates/core-service/src/service/review.rs` → `tests::s5_create_session_empty_changeset`                                                                 | ✅ Automated                                                                                                |
+| S6 — Full review surface on a project session                        | Manual E2E         | —                                                                                                                                                        | **Manual** — requires a running Atmos instance. See "Manual verification steps" §1.                         |
+| S7 — Project route lists only project-scoped sessions                | Rust unit          | `crates/core-service/src/service/review.rs` → `tests::s7_list_sessions_by_project_excludes_workspace_sessions`                                           | ✅ Automated                                                                                                |
+| S8 — Regression: workspace flow unchanged                            | Rust unit + Manual | `crates/core-service/src/service/review.rs` → `tests::s8_workspace_session_has_workspace_guid` (automated); visual side requires running instance        | ✅ Automated (logic) / **Manual** (visual)                                                                  |
+| S9 — Coexistence: project + workspace sessions active simultaneously | Rust unit + Manual | `crates/core-service/src/service/review.rs` → `tests::s9_project_and_workspace_sessions_coexist` (automated); visual side requires running instance      | ✅ Automated (logic) / **Manual** (visual)                                                                  |
+| S10 — WS payload validation in `parse_target`                        | Rust unit          | `crates/core-service/src/service/ws_message.rs` → `tests::s10_parse_target_*` (4 tests)                                                                  | ✅ Automated                                                                                                |
+| S11 — N2: scope badge in session header                              | Frontend unit      | `apps/web/src/components/diff/__tests__/ReviewView.scope-badge.test.ts`                                                                                  | ✅ Automated                                                                                                |
+| S12 — Migration: applies on fresh and seeded DB                      | Rust integration   | `crates/infra/src/db/migration/mod.rs` → `tests::s12_migration_applies_on_fresh_db`, `tests::s12_migration_applies_on_seeded_db_preserves_existing_rows` | ✅ Automated                                                                                                |
 
 ### Test commands
 

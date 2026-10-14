@@ -12,20 +12,20 @@ Addresses **M1–M16**. N1–N5 deferred. Does not reopen APP-067 M1–M18 produ
 
 ## Decisions locked here
 
-| Fork | Decision |
-|------|----------|
-| Runtime width | Core: `send`, `cancel`, `close`, `next_event`. Product extras: typed `AgentAction` (`Steer`, `RespondPermission`, `SetConfig`). No method union. |
-| Capability encoding | Closed `AgentCapabilities` struct. Not `Vec<String>`. Not ACP `AgentCapabilitiesSnapshot` on the wire. |
-| Descriptor | `identity` + `capabilities` + `supported_options` + `current_config`. Catalog fills options before spawn; live session may refresh options/config. |
-| Events | Tagged `AgentEvent` (Atmos kinds). Unmapped vendor events are omitted or a single unknown event. No native sidecar on mapped events. |
-| Tools | `AgentTool` with `kind` + `params` + `result` only. Mapped tools store Atmos typed fields. Unmapped tools are `other` with vendor params/result as those fields. Never dual-write. `web_search` and `fetch` are first-class. |
-| Turn | Host **control epoch** (`turn_id` for send → complete). Persistence SOT is chat files + event log. Messages/parts remain projections. |
-| Storage | Keep `~/.atmos/data/agent/chats/` from APP-067. Do not add SQLite chat tables. |
-| Action dispatch | `AgentAction` enum. Reject `execute(capability: &str, json)`. |
-| Providers this spec | Native adapters for `claude`, `codex`, `opencode`, `pi`. ACP adapter for every other Chat-capable registry agent. Do not wrap TypeScript SDKs. |
-| APP-067 wire | Keep `agent_chat_*` action names. Replace tool/meta payloads with descriptor + tool contract. No dual-write of old fields. |
-| Old transcripts | **No compatibility.** New jsonl envelope only. No migrator, no remap-on-read, no client fallback for `input`/`output` parts. |
-| Crate root leak | Stop re-exporting ACP session types from `crates/agent/src/lib.rs` as the Chat API. |
+| Fork                | Decision                                                                                                                                                                                                                     |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime width       | Core: `send`, `cancel`, `close`, `next_event`. Product extras: typed `AgentAction` (`Steer`, `RespondPermission`, `SetConfig`). No method union.                                                                             |
+| Capability encoding | Closed `AgentCapabilities` struct. Not `Vec<String>`. Not ACP `AgentCapabilitiesSnapshot` on the wire.                                                                                                                       |
+| Descriptor          | `identity` + `capabilities` + `supported_options` + `current_config`. Catalog fills options before spawn; live session may refresh options/config.                                                                           |
+| Events              | Tagged `AgentEvent` (Atmos kinds). Unmapped vendor events are omitted or a single unknown event. No native sidecar on mapped events.                                                                                         |
+| Tools               | `AgentTool` with `kind` + `params` + `result` only. Mapped tools store Atmos typed fields. Unmapped tools are `other` with vendor params/result as those fields. Never dual-write. `web_search` and `fetch` are first-class. |
+| Turn                | Host **control epoch** (`turn_id` for send → complete). Persistence SOT is chat files + event log. Messages/parts remain projections.                                                                                        |
+| Storage             | Keep `~/.atmos/data/agent/chats/` from APP-067. Do not add SQLite chat tables.                                                                                                                                               |
+| Action dispatch     | `AgentAction` enum. Reject `execute(capability: &str, json)`.                                                                                                                                                                |
+| Providers this spec | Native adapters for `claude`, `codex`, `opencode`, `pi`. ACP adapter for every other Chat-capable registry agent. Do not wrap TypeScript SDKs.                                                                               |
+| APP-067 wire        | Keep `agent_chat_*` action names. Replace tool/meta payloads with descriptor + tool contract. No dual-write of old fields.                                                                                                   |
+| Old transcripts     | **No compatibility.** New jsonl envelope only. No migrator, no remap-on-read, no client fallback for `input`/`output` parts.                                                                                                 |
+| Crate root leak     | Stop re-exporting ACP session types from `crates/agent/src/lib.rs` as the Chat API.                                                                                                                                          |
 
 ## Architecture overview
 
@@ -48,7 +48,7 @@ crates/agent
     providers/acp/        ACP → Atmos (other registry agents)
 ```
 
-Two *Atmos* transports stay distinct (APP-067):
+Two _Atmos_ transports stay distinct (APP-067):
 
 - **Client ↔ Atmos**: main `/ws`.
 - **Atmos ↔ provider**: native vendor wires inside `providers/{claude,codex,opencode,pi}` plus ACP stdio JSON-RPC in `providers/acp`. Never on the web wire.
@@ -113,20 +113,20 @@ Rule: **Don't normalize what you don't need.** If Chat has a typed card, persist
 
 ## Reference slices
 
-| Slice | File |
-|-------|------|
-| Descriptor (M1–M4) | [reference/descriptor.md](./reference/descriptor.md) |
-| Runtime + routing (M5) | [reference/runtime.md](./reference/runtime.md) |
-| Events (M6) | [reference/events.md](./reference/events.md) |
-| Tools (M7–M9, M11) | [reference/tools.md](./reference/tools.md) |
-| Persistence (M12) | [reference/persistence.md](./reference/persistence.md) |
-| WS DTOs (M14) | [reference/ws-contract.md](./reference/ws-contract.md) |
-| Web client (M10) | [reference/web.md](./reference/web.md) |
-| ACP adapter | [reference/acp-adapter.md](./reference/acp-adapter.md) |
-| Claude Code native | [reference/native-claude.md](./reference/native-claude.md) |
-| Codex native | [reference/native-codex.md](./reference/native-codex.md) |
-| OpenCode native | [reference/native-opencode.md](./reference/native-opencode.md) |
-| Pi native | [reference/native-pi.md](./reference/native-pi.md) |
+| Slice                  | File                                                           |
+| ---------------------- | -------------------------------------------------------------- |
+| Descriptor (M1–M4)     | [reference/descriptor.md](./reference/descriptor.md)           |
+| Runtime + routing (M5) | [reference/runtime.md](./reference/runtime.md)                 |
+| Events (M6)            | [reference/events.md](./reference/events.md)                   |
+| Tools (M7–M9, M11)     | [reference/tools.md](./reference/tools.md)                     |
+| Persistence (M12)      | [reference/persistence.md](./reference/persistence.md)         |
+| WS DTOs (M14)          | [reference/ws-contract.md](./reference/ws-contract.md)         |
+| Web client (M10)       | [reference/web.md](./reference/web.md)                         |
+| ACP adapter            | [reference/acp-adapter.md](./reference/acp-adapter.md)         |
+| Claude Code native     | [reference/native-claude.md](./reference/native-claude.md)     |
+| Codex native           | [reference/native-codex.md](./reference/native-codex.md)       |
+| OpenCode native        | [reference/native-opencode.md](./reference/native-opencode.md) |
+| Pi native              | [reference/native-pi.md](./reference/native-pi.md)             |
 
 Index and locked cross-slice rules: [reference/README.md](./reference/README.md).
 
@@ -142,13 +142,13 @@ Terminal APP-024 keeps today’s catalog argv. Chat native adapters **override s
 
 Canonicalize catalog/ACP aliases **before** the kind match ([acp-adapter.md](./reference/acp-adapter.md)). Exact id after fold — not argv or parser. Custom names like `my-claude` stay ACP.
 
-| Incoming `provider_id` | Chat provider |
-|------------------------|---------------|
-| `claude`, `claude-code`, `claude_code`, `claude-acp`, `claude-code-acp`, `claude-agent-acp` | `ClaudeNativeProvider` |
-| `codex`, `codex-acp` | `CodexNativeProvider` |
-| `opencode` | `OpenCodeNativeProvider` |
-| `pi`, `pi-acp` | `PiNativeProvider` |
-| anything else (`grok`, `gemini`, `cursor`, custom, …) | `AcpAgentProvider` |
+| Incoming `provider_id`                                                                      | Chat provider            |
+| ------------------------------------------------------------------------------------------- | ------------------------ |
+| `claude`, `claude-code`, `claude_code`, `claude-acp`, `claude-code-acp`, `claude-agent-acp` | `ClaudeNativeProvider`   |
+| `codex`, `codex-acp`                                                                        | `CodexNativeProvider`    |
+| `opencode`                                                                                  | `OpenCodeNativeProvider` |
+| `pi`, `pi-acp`                                                                              | `PiNativeProvider`       |
+| anything else (`grok`, `gemini`, `cursor`, custom, …)                                       | `AcpAgentProvider`       |
 
 `capabilities_for_provider` must use the same canonicalize so pre-spawn `meta.descriptor` steer honesty matches spawn.
 
@@ -158,14 +158,14 @@ Canonicalize catalog/ACP aliases **before** the kind match ([acp-adapter.md](./r
 
 <!-- updated: Claude / OpenCode / Grok steer are vendor same-turn inject; Atmos `followup_policy` chooses steer vs `queue.json`. Generic ACP stays Unsupported. -->
 
-| Atmos | Claude Code | Codex | OpenCode | Pi |
-|-------|-------------|-------|----------|----|
-| send | stdin user NDJSON | `turn/start` | `POST …/prompt_async` | `prompt` |
-| cancel | `control_request` `interrupt` | `turn/interrupt` | `POST …/abort` | `abort` |
-| steer | stdin user NDJSON (same `running_turn`) | `turn/steer` (`expectedTurnId` = vendor turn id) | `POST …/prompt_async` `delivery:"steer"` | `steer` |
-| resume | `session_id` / `--resume` | `thread/resume` | same `ses_…` | `switch_session` |
-| permission | `can_use_tool` | `item/*/requestApproval` | `permission.asked` | `extension_ui_request` only |
-| configure | `set_model` / thinking tokens | `model/list` + turn settings | `/config/providers` + `variant` | `set_model` / `set_thinking_level` |
+| Atmos      | Claude Code                             | Codex                                            | OpenCode                                 | Pi                                 |
+| ---------- | --------------------------------------- | ------------------------------------------------ | ---------------------------------------- | ---------------------------------- |
+| send       | stdin user NDJSON                       | `turn/start`                                     | `POST …/prompt_async`                    | `prompt`                           |
+| cancel     | `control_request` `interrupt`           | `turn/interrupt`                                 | `POST …/abort`                           | `abort`                            |
+| steer      | stdin user NDJSON (same `running_turn`) | `turn/steer` (`expectedTurnId` = vendor turn id) | `POST …/prompt_async` `delivery:"steer"` | `steer`                            |
+| resume     | `session_id` / `--resume`               | `thread/resume`                                  | same `ses_…`                             | `switch_session`                   |
+| permission | `can_use_tool`                          | `item/*/requestApproval`                         | `permission.asked`                       | `extension_ui_request` only        |
+| configure  | `set_model` / thinking tokens           | `model/list` + turn settings                     | `/config/providers` + `variant`          | `set_model` / `set_thinking_level` |
 
 Native Grok (APP-069): `action(Steer)` is `_x.ai/interject` during the in-flight `session/prompt`. Do not send a second `session/prompt`. Do not use the host TUI follow-up setting.
 
@@ -516,11 +516,11 @@ No ER diagram: still no SQL chat schema.
 
 Existing actions (no new names for v1):
 
-| Action | Change |
-|--------|--------|
-| `agent_chat_create` / `get` / `configure` | `meta.descriptor` |
+| Action                                                        | Change                                                                                       |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `agent_chat_create` / `get` / `configure`                     | `meta.descriptor`                                                                            |
 | `agent_chat_send` / `cancel` / `steer` / `permission_respond` | host calls `send` / `cancel` / `AgentAction`; errors `unsupported` when descriptor disagrees |
-| `agent_options_get` | still cache-first; maps into `supported_options` |
+| `agent_options_get`                                           | still cache-first; maps into `supported_options`                                             |
 
 Event payload (conceptual):
 

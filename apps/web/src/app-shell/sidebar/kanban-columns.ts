@@ -77,9 +77,7 @@ export function columnBackgroundTint(color: string | null | undefined): string {
   return `light-dark(${light}, ${dark})`;
 }
 
-function parseCssColorToRgb(
-  color: string,
-): { r: number; g: number; b: number } | null {
+function parseCssColorToRgb(color: string): { r: number; g: number; b: number } | null {
   const raw = color.trim().toLowerCase().replace(/\s+/g, "");
   if (!raw || raw === "transparent" || raw === "black") {
     return raw === "black" ? { r: 0, g: 0, b: 0 } : null;
@@ -139,9 +137,7 @@ export function resolveBoardColor(color: string | null | undefined): string {
     return NEUTRAL_COLUMN_COLOR;
   }
 
-  return candidate.startsWith("#") || candidate.startsWith("rgb")
-    ? candidate
-    : `#${withoutHash}`;
+  return candidate.startsWith("#") || candidate.startsWith("rgb") ? candidate : `#${withoutHash}`;
 }
 
 /** Effective group for a workspace: workspace membership wins, else project membership. */
@@ -196,7 +192,8 @@ export function buildKanbanBoardColumns(params: {
     }));
     const hasNoStatusWorkspace = projects.some((project) =>
       project.workspaces.some(
-        (workspace) => getWorkspaceStatusGroupKey(workspace.workflowStatus) === NO_STATUS_WORKSPACE_GROUP_KEY,
+        (workspace) =>
+          getWorkspaceStatusGroupKey(workspace.workflowStatus) === NO_STATUS_WORKSPACE_GROUP_KEY,
       ),
     );
     if (hasNoStatusWorkspace) {
@@ -213,8 +210,7 @@ export function buildKanbanBoardColumns(params: {
   if (groupingMode === "priority") {
     return [...WORKSPACE_PRIORITY_OPTIONS]
       .sort(
-        (a, b) =>
-          WORKSPACE_PRIORITY_SORT_WEIGHT[b.value] - WORKSPACE_PRIORITY_SORT_WEIGHT[a.value],
+        (a, b) => WORKSPACE_PRIORITY_SORT_WEIGHT[b.value] - WORKSPACE_PRIORITY_SORT_WEIGHT[a.value],
       )
       .map((option) => ({
         key: option.value,

@@ -12,13 +12,10 @@ import type { AutomationRunUpdatedEvent } from "@/features/automations/types";
  */
 export function useAutomationRunSurfaceSync() {
   React.useEffect(() => {
-    const off = useWebSocketStore.getState().onEvent(
-      "automation_run_updated",
-      (event) => {
-        const payload = event as AutomationRunUpdatedEvent;
-        if (payload?.run) applyAutomationRunSurface(payload.run);
-      },
-    );
+    const off = useWebSocketStore.getState().onEvent("automation_run_updated", (event) => {
+      const payload = event as AutomationRunUpdatedEvent;
+      if (payload?.run) applyAutomationRunSurface(payload.run);
+    });
     return off;
   }, []);
 }

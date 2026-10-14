@@ -69,18 +69,18 @@ Workspace-isolated bundler and app process as first-class resources.
 
 ## Key forks in the road
 
-| Fork | Decision | Where |
-|------|----------|--------|
-| Scope | Device Preview + Workspace claim. **No** Metro/build/install/launch. | PRD |
-| Android helper | Vendor [expo/serve-emu](https://github.com/expo/serve-emu) (`serve-emul`, Apache-2.0). **Not** npm `serve-avd`. | PRD / TECH |
-| Preview UI | Keep iframe. Patch serve-emu preview chrome to match vendored serve-sim. Native canvas later. | PRD |
-| Claim policy | Auto-claim a **free** device. Never steal. Empty → prompt (start another / none). Restore claim when the workspace returns. | PRD |
-| Hosts | macOS arm64 Computer (Desktop **or** local/hosted Web against that Computer). Preview is the helper webpage in an iframe. | PRD |
-| Physical devices | Out. Emulators / simulators only. | PRD |
-| `/exec` | Keep APP-060: loopback + upstream token/Origin. Do not strip for iframe Home/rotate. | TECH |
-| Layering | Domain in `core-service`, inventory in `core-engine`, paths in `runtime-manager`, thin WS in `apps/api`. Do **not** put Device Preview inside Runtime Manager (that crate supervises Atmos Server). | TECH |
-| Wire names | Keep `simulator_*` actions; extend payloads with `platform`. | TECH |
-| Helper topology | One helper process per claimed device (serve-emu multi-device routing is still planned upstream). | TECH |
+| Fork             | Decision                                                                                                                                                                                            | Where      |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| Scope            | Device Preview + Workspace claim. **No** Metro/build/install/launch.                                                                                                                                | PRD        |
+| Android helper   | Vendor [expo/serve-emu](https://github.com/expo/serve-emu) (`serve-emul`, Apache-2.0). **Not** npm `serve-avd`.                                                                                     | PRD / TECH |
+| Preview UI       | Keep iframe. Patch serve-emu preview chrome to match vendored serve-sim. Native canvas later.                                                                                                       | PRD        |
+| Claim policy     | Auto-claim a **free** device. Never steal. Empty → prompt (start another / none). Restore claim when the workspace returns.                                                                         | PRD        |
+| Hosts            | macOS arm64 Computer (Desktop **or** local/hosted Web against that Computer). Preview is the helper webpage in an iframe.                                                                           | PRD        |
+| Physical devices | Out. Emulators / simulators only.                                                                                                                                                                   | PRD        |
+| `/exec`          | Keep APP-060: loopback + upstream token/Origin. Do not strip for iframe Home/rotate.                                                                                                                | TECH       |
+| Layering         | Domain in `core-service`, inventory in `core-engine`, paths in `runtime-manager`, thin WS in `apps/api`. Do **not** put Device Preview inside Runtime Manager (that crate supervises Atmos Server). | TECH       |
+| Wire names       | Keep `simulator_*` actions; extend payloads with `platform`.                                                                                                                                        | TECH       |
+| Helper topology  | One helper process per claimed device (serve-emu multi-device routing is still planned upstream).                                                                                                   | TECH       |
 
 ## Open questions
 

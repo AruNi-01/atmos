@@ -51,9 +51,7 @@ describe("settings section group tabs", () => {
 
   test("maps search items onto the owning group tab", () => {
     expect(settingsGroupTabFromTranslationKey("desktopUse.cli")).toBeNull();
-    expect(settingsGroupTabFromTranslationKey("atmosComputer.thisComputer")).toBe(
-      "atmos-computer",
-    );
+    expect(settingsGroupTabFromTranslationKey("atmosComputer.thisComputer")).toBe("atmos-computer");
     expect(
       settingsGroupTabForSearchItem({
         sectionId: "remote-access",

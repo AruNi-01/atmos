@@ -108,38 +108,38 @@ Workbench Computer connection is **not** in this state machine.
 
 ## Success Metrics
 
-| Metric | Direction |
-|--------|-----------|
-| Single-machine / signed-out | Token Usage still matches today’s charts with no new chrome |
-| Other Computer | User can read a second machine’s usage without the workbench Computer changing |
-| All computers | Unique-machine total; a duplicate registration does not inflate tokens |
-| Partial All | At least one reachable machine still renders charts; missed Computer names are visible |
-| Share | PNG / publish of All computers (or another Computer) matches what the page showed |
+| Metric                      | Direction                                                                              |
+| --------------------------- | -------------------------------------------------------------------------------------- |
+| Single-machine / signed-out | Token Usage still matches today’s charts with no new chrome                            |
+| Other Computer              | User can read a second machine’s usage without the workbench Computer changing         |
+| All computers               | Unique-machine total; a duplicate registration does not inflate tokens                 |
+| Partial All                 | At least one reachable machine still renders charts; missed Computer names are visible |
+| Share                       | PNG / publish of All computers (or another Computer) matches what the page showed      |
 
 ## Risks & Open Questions
 
-| Item | Notes |
-|------|--------|
-| **Risk**: All computers looks complete when a large machine is offline | M9 names misses; copy must not say “all time, all machines” if any were skipped |
-| **Risk**: Two Computers share a display name | Uniqueness is still the physical machine; TECH may suffix only if labels collide |
-| **Risk**: Share of a partial All computers is published as the public page | M11 is explicit; Update copy should not imply every machine was included if the in-app view said otherwise |
-| **Open (TECH)**: How the client talks to a Computer that is not the workbench connection | Product requires live scan over Relay; session vs other transport is TECH |
-| **Open (TECH)**: How unique-machine identity is read from the Computer list | Product requires physical-machine uniqueness; wire field is TECH |
+| Item                                                                                     | Notes                                                                                                      |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Risk**: All computers looks complete when a large machine is offline                   | M9 names misses; copy must not say “all time, all machines” if any were skipped                            |
+| **Risk**: Two Computers share a display name                                             | Uniqueness is still the physical machine; TECH may suffix only if labels collide                           |
+| **Risk**: Share of a partial All computers is published as the public page               | M11 is explicit; Update copy should not imply every machine was included if the in-app view said otherwise |
+| **Open (TECH)**: How the client talks to a Computer that is not the workbench connection | Product requires live scan over Relay; session vs other transport is TECH                                  |
+| **Open (TECH)**: How unique-machine identity is read from the Computer list              | Product requires physical-machine uniqueness; wire field is TECH                                           |
 
 BRAINSTORM forks:
 
-| Fork | Decision |
-|------|----------|
-| 1 Page-local vs workbench switch | **Page-local** (M4) |
-| 2 Live Relay vs Hub ingest | **Live Relay** (M6, M7); Hub ingest out of scope |
-| 3 Physical machine vs Computer row | **Physical machine** (M8) |
-| 4 Partial vs fail vs last-known | **Partial + named misses** (M9) — confirmed |
-| 5 Default | **Current Computer** (M5) |
-| 6 Share scope | **Whatever the page shows** (M11) |
-| 9 Select visibility | **Signed in and ≥ 2 unique machines** (M12) |
-| Cookie consent on remote | **Not applied** (M6) |
-| Unregistered local in All | **Included** (M7) |
-| 7, 8 Transport, representative picker | **TECH** |
+| Fork                                  | Decision                                         |
+| ------------------------------------- | ------------------------------------------------ |
+| 1 Page-local vs workbench switch      | **Page-local** (M4)                              |
+| 2 Live Relay vs Hub ingest            | **Live Relay** (M6, M7); Hub ingest out of scope |
+| 3 Physical machine vs Computer row    | **Physical machine** (M8)                        |
+| 4 Partial vs fail vs last-known       | **Partial + named misses** (M9) — confirmed      |
+| 5 Default                             | **Current Computer** (M5)                        |
+| 6 Share scope                         | **Whatever the page shows** (M11)                |
+| 9 Select visibility                   | **Signed in and ≥ 2 unique machines** (M12)      |
+| Cookie consent on remote              | **Not applied** (M6)                             |
+| Unregistered local in All             | **Included** (M7)                                |
+| 7, 8 Transport, representative picker | **TECH**                                         |
 
 ## Milestones
 

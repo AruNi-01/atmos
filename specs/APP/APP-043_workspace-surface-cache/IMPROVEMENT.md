@@ -10,44 +10,44 @@
 
 ## How to use this file
 
-| Rule | Detail |
-|------|--------|
+| Rule            | Detail                                                                                                     |
+| --------------- | ---------------------------------------------------------------------------------------------------------- |
 | **When to add** | After fixing a user-reported bug, reliability issue, quality regression, or deliberate product parity gap. |
-| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-015**). |
-| **Status** | `open` → `mitigated` → `closed` (or `wont-fix` with reason). |
-| **Do not** | Duplicate full TECH sections; link to TECH/PRD and paste only deltas. |
+| **Entry id**    | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-015**).                                       |
+| **Status**      | `open` → `mitigated` → `closed` (or `wont-fix` with reason).                                               |
+| **Do not**      | Duplicate full TECH sections; link to TECH/PRD and paste only deltas.                                      |
 
 ---
 
 ## Index
 
-| Id | Title | Status | Date |
-|----|-------|--------|------|
-| [IMP-001](#imp-001--setstate-during-render-on-projectworkspace-entry) | setState during render on Project/Workspace entry | closed | 2026-07-24 |
-| [IMP-002](#imp-002--terminal-disconnect-on-warm-leave-gap) | Terminal disconnect on warm leave gap | closed | 2026-07-24 |
-| [IMP-003](#imp-003--sidebar-click-blocked-by-wsc-promote-on-nav-path) | Sidebar click blocked by WSC promote on nav path | closed | 2026-07-25 |
-| [IMP-004](#imp-004--double-raf-afterpaint-promote-added--1s-switch-latency) | Double-rAF afterPaint promote added ~1s switch latency | closed | 2026-07-25 |
-| [IMP-005](#imp-005--dynamic-terminal-title--centerstagepanels-thrash) | Dynamic terminal title → CenterStagePanels thrash | closed | 2026-07-25 |
-| [IMP-006](#imp-006--hoverbootstrapmarkvisited-storm-during-rapid-hopping) | Hover / bootstrap / markVisited storm during rapid hopping | closed | 2026-07-25 |
-| [IMP-007](#imp-007--residual-multi-frame-react-commit-spikes) | Residual multi-frame React commit spikes | mitigated | 2026-07-25 |
-| [IMP-008](#imp-008--warm-hop-visual-lead-before-url-commit) | Warm hop visual lead before URL commit | closed | 2026-07-26 |
-| [IMP-009](#imp-009--rapid-hop-visual--promote-coalescing) | Rapid hop visual + promote coalescing | closed | 2026-07-26 |
-| [IMP-010](#imp-010--shell-only-hide--dom-visual-flip) | Shell-only hide + DOM visual flip | mitigated | 2026-07-26 |
-| [IMP-011](#imp-011--per-frame-memo-isolation) | Per-frame memo isolation | mitigated | 2026-07-26 |
-| [IMP-012](#imp-012--keep-sidebar-input-interruptible-during-switch) | Keep sidebar input interruptible during switch | mitigated | 2026-07-26 |
-| [IMP-013](#imp-013--defer-center-rebind-so-sidebar-stays-interactive) | Defer center rebind so sidebar stays interactive | mitigated | 2026-07-26 |
-| [IMP-014](#imp-014--pause-hidden-terminal-fit--resizeobserver) | Pause hidden terminal fit / ResizeObserver | mitigated | 2026-07-26 |
+| Id                                                                          | Title                                                      | Status    | Date       |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------- | --------- | ---------- |
+| [IMP-001](#imp-001--setstate-during-render-on-projectworkspace-entry)       | setState during render on Project/Workspace entry          | closed    | 2026-07-24 |
+| [IMP-002](#imp-002--terminal-disconnect-on-warm-leave-gap)                  | Terminal disconnect on warm leave gap                      | closed    | 2026-07-24 |
+| [IMP-003](#imp-003--sidebar-click-blocked-by-wsc-promote-on-nav-path)       | Sidebar click blocked by WSC promote on nav path           | closed    | 2026-07-25 |
+| [IMP-004](#imp-004--double-raf-afterpaint-promote-added--1s-switch-latency) | Double-rAF afterPaint promote added ~1s switch latency     | closed    | 2026-07-25 |
+| [IMP-005](#imp-005--dynamic-terminal-title--centerstagepanels-thrash)       | Dynamic terminal title → CenterStagePanels thrash          | closed    | 2026-07-25 |
+| [IMP-006](#imp-006--hoverbootstrapmarkvisited-storm-during-rapid-hopping)   | Hover / bootstrap / markVisited storm during rapid hopping | closed    | 2026-07-25 |
+| [IMP-007](#imp-007--residual-multi-frame-react-commit-spikes)               | Residual multi-frame React commit spikes                   | mitigated | 2026-07-25 |
+| [IMP-008](#imp-008--warm-hop-visual-lead-before-url-commit)                 | Warm hop visual lead before URL commit                     | closed    | 2026-07-26 |
+| [IMP-009](#imp-009--rapid-hop-visual--promote-coalescing)                   | Rapid hop visual + promote coalescing                      | closed    | 2026-07-26 |
+| [IMP-010](#imp-010--shell-only-hide--dom-visual-flip)                       | Shell-only hide + DOM visual flip                          | mitigated | 2026-07-26 |
+| [IMP-011](#imp-011--per-frame-memo-isolation)                               | Per-frame memo isolation                                   | mitigated | 2026-07-26 |
+| [IMP-012](#imp-012--keep-sidebar-input-interruptible-during-switch)         | Keep sidebar input interruptible during switch             | mitigated | 2026-07-26 |
+| [IMP-013](#imp-013--defer-center-rebind-so-sidebar-stays-interactive)       | Defer center rebind so sidebar stays interactive           | mitigated | 2026-07-26 |
+| [IMP-014](#imp-014--pause-hidden-terminal-fit--resizeobserver)              | Pause hidden terminal fit / ResizeObserver                 | mitigated | 2026-07-26 |
 
 ---
 
 ## IMP-001 · setState during render on Project/Workspace entry
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-07-24 |
-| **Status** | closed |
-| **Reported by** | user |
-| **Severity** | crash |
+| Field           | Value      |
+| --------------- | ---------- |
+| **Date**        | 2026-07-24 |
+| **Status**      | closed     |
+| **Reported by** | user       |
+| **Severity**    | crash      |
 
 ### Problem
 
@@ -80,12 +80,12 @@ Project/Workspace entry no longer throws; promote is effect-driven.
 
 ## IMP-002 · Terminal disconnect on warm leave gap
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-07-24 |
-| **Status** | closed |
-| **Reported by** | user |
-| **Severity** | reliability |
+| Field           | Value       |
+| --------------- | ----------- |
+| **Date**        | 2026-07-24  |
+| **Status**      | closed      |
+| **Reported by** | user        |
+| **Severity**    | reliability |
 
 ### Problem
 
@@ -120,12 +120,12 @@ Warm leave no longer tears down Terminal DOM during the promote gap; return keep
 
 ## IMP-003 · Sidebar click blocked by WSC promote on nav path
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-07-25 |
-| **Status** | closed |
-| **Reported by** | user |
-| **Severity** | performance |
+| Field           | Value       |
+| --------------- | ----------- |
+| **Date**        | 2026-07-25  |
+| **Status**      | closed      |
+| **Reported by** | user        |
+| **Severity**    | performance |
 
 ### Problem
 
@@ -159,12 +159,12 @@ Click → `router.push` returns quickly; measured after-paint wait from promote-
 
 ## IMP-004 · Double-rAF afterPaint promote added ~1s switch latency
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-07-25 |
-| **Status** | closed |
+| Field           | Value                         |
+| --------------- | ----------------------------- |
+| **Date**        | 2026-07-25                    |
+| **Status**      | closed                        |
 | **Reported by** | internal (debug marks) + user |
-| **Severity** | performance |
+| **Severity**    | performance                   |
 
 ### Problem
 
@@ -198,12 +198,12 @@ After-paint wait eliminated in dogfood marks. Typical switch settle p50 ~90ms; r
 
 ## IMP-005 · Dynamic terminal title → CenterStagePanels thrash
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-07-25 |
-| **Status** | closed |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Date**        | 2026-07-25      |
+| **Status**      | closed          |
 | **Reported by** | user + internal |
-| **Severity** | performance |
+| **Severity**    | performance     |
 
 ### Problem
 
@@ -235,12 +235,12 @@ Title churn no longer forces multi-frame host re-render; major reduction in back
 
 ## IMP-006 · Hover / bootstrap / markVisited storm during rapid hopping
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-07-25 |
-| **Status** | closed |
-| **Reported by** | user |
-| **Severity** | performance |
+| Field           | Value       |
+| --------------- | ----------- |
+| **Date**        | 2026-07-25  |
+| **Status**      | closed      |
+| **Reported by** | user        |
+| **Severity**    | performance |
 
 ### Problem
 
@@ -279,12 +279,12 @@ Dogfood: “much better,” still occasional lag under load (IMP-007). No warm-c
 
 ## IMP-007 · Residual multi-frame React commit spikes
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-07-25 |
-| **Status** | open |
-| **Reported by** | user |
-| **Severity** | performance |
+| Field           | Value       |
+| --------------- | ----------- |
+| **Date**        | 2026-07-25  |
+| **Status**      | open        |
+| **Reported by** | user        |
+| **Severity**    | performance |
 
 ### Problem
 
@@ -323,12 +323,12 @@ Warm return first paint no longer waits on Next route commit. Multi-frame host r
 
 ## IMP-008 · Warm hop visual lead before URL commit
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-07-26 |
-| **Status** | closed |
-| **Reported by** | user |
-| **Severity** | performance |
+| Field           | Value       |
+| --------------- | ----------- |
+| **Date**        | 2026-07-26  |
+| **Status**      | closed      |
+| **Reported by** | user        |
+| **Severity**    | performance |
 
 ### Problem
 
@@ -368,12 +368,12 @@ Warm A→B→A style hops paint the retained center surface as soon as navigatio
 
 ## IMP-009 · Rapid hop visual + promote coalescing
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-07-26 |
-| **Status** | closed |
-| **Reported by** | user |
-| **Severity** | performance |
+| Field           | Value       |
+| --------------- | ----------- |
+| **Date**        | 2026-07-26  |
+| **Status**      | closed      |
+| **Reported by** | user        |
+| **Severity**    | performance |
 
 ### Problem
 
@@ -408,12 +408,12 @@ Rapid multi-workspace hopping should no longer stack intermediate center commits
 
 ## IMP-010 · Shell-only hide + DOM visual flip
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-07-26 |
-| **Status** | mitigated |
-| **Reported by** | user |
-| **Severity** | performance |
+| Field           | Value       |
+| --------------- | ----------- |
+| **Date**        | 2026-07-26  |
+| **Status**      | mitigated   |
+| **Reported by** | user        |
+| **Severity**    | performance |
 
 ### Problem
 
@@ -421,7 +421,7 @@ After IMP-008/009, sidebar clicks still felt laggy: a short delay before the cen
 
 ### Root cause
 
-1. **Inner panels gated on `isActiveFrame`:** Warm frames hid *all* panels (`isFramePanelVisible` required active + matching tab). Unhiding the outer shell alone revealed an empty frame until React flipped `isActiveContext` and re-rendered every panel tree.
+1. **Inner panels gated on `isActiveFrame`:** Warm frames hid _all_ panels (`isFramePanelVisible` required active + matching tab). Unhiding the outer shell alone revealed an empty frame until React flipped `isActiveContext` and re-rendered every panel tree.
 2. **Paint waited on React commit:** `beginVisualSwitch` only updated store state; multi-frame `CenterStagePanels` commit could still lag the first paint under load.
 3. **Sidebar highlight waited on URL:** row `isActive` used `effectiveContextId` / URL ids only.
 
@@ -452,12 +452,12 @@ Warm hops should paint the retained center surface and sidebar selection on the 
 
 ## IMP-011 · Per-frame memo isolation
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-07-26 |
-| **Status** | mitigated |
+| Field           | Value                             |
+| --------------- | --------------------------------- |
+| **Date**        | 2026-07-26                        |
+| **Status**      | mitigated                         |
 | **Reported by** | product (multi-workspace dogfood) |
-| **Severity** | performance |
+| **Severity**    | performance                       |
 
 ### Problem
 
@@ -493,12 +493,12 @@ On a hop with N warm frames, React should re-render O(1)–O(2) frames (leave + 
 
 ## IMP-012 · Keep sidebar input interruptible during switch
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-07-26 |
-| **Status** | mitigated |
-| **Reported by** | user |
-| **Severity** | performance / UX |
+| Field           | Value            |
+| --------------- | ---------------- |
+| **Date**        | 2026-07-26       |
+| **Status**      | mitigated        |
+| **Reported by** | user             |
+| **Severity**    | performance / UX |
 
 ### Problem
 
@@ -541,12 +541,12 @@ Click → DOM paint of retained center + row highlight should not require waitin
 
 ## IMP-013 · Defer center rebind so sidebar stays interactive
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-07-26 |
-| **Status** | mitigated |
-| **Reported by** | user |
-| **Severity** | performance / UX |
+| Field           | Value            |
+| --------------- | ---------------- |
+| **Date**        | 2026-07-26       |
+| **Status**      | mitigated        |
+| **Reported by** | user             |
+| **Severity**    | performance / UX |
 
 ### Problem
 
@@ -579,12 +579,12 @@ Hop path: DOM shell paint + sidebar URL highlight stay urgent; expensive center 
 
 ## IMP-014 · Pause hidden terminal fit / ResizeObserver
 
-| Field | Value |
-|-------|--------|
-| **Date** | 2026-07-26 |
-| **Status** | mitigated |
+| Field           | Value                                              |
+| --------------- | -------------------------------------------------- |
+| **Date**        | 2026-07-26                                         |
+| **Status**      | mitigated                                          |
 | **Reported by** | user (Safari Timeline: 6 warm terminal workspaces) |
-| **Severity** | performance |
+| **Severity**    | performance                                        |
 
 ### Problem
 

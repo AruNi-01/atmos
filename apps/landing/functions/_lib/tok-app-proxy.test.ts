@@ -32,9 +32,7 @@ describe("tok path matching", () => {
 
 describe("appUpstreamUrl", () => {
   it("keeps the path, query, and unlisted secret on the app origin", () => {
-    const request = new Request(
-      "https://atmos.land/tok/@builder?k=secret&tab=cost",
-    );
+    const request = new Request("https://atmos.land/tok/@builder?k=secret&tab=cost");
     expect(appUpstreamUrl(request).href).toBe(
       "https://app.atmos.land/tok/@builder?k=secret&tab=cost",
     );
@@ -47,10 +45,9 @@ describe("handleLandingRequest", () => {
     globalThis.fetch = async (input) => {
       const url = String(input);
       expect(url).toBe("https://app.atmos.land/tok/@builder?k=abc");
-      return new Response(
-        `<html><script src="/_next/static/x.js"></script></html>`,
-        { headers: { "content-type": "text/html; charset=utf-8" } },
-      );
+      return new Response(`<html><script src="/_next/static/x.js"></script></html>`, {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
     };
     try {
       const response = await handleLandingRequest({

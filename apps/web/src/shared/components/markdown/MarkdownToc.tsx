@@ -24,9 +24,11 @@ export function findTocHeadingElement(
   const byId = root.querySelector(`#${escapeCssIdent(heading.id)}`);
   if (byId) return byId;
   const tag = `h${heading.level}`;
-  return Array.from(root.querySelectorAll(tag)).find(
-    (el) => (el.textContent ?? "").trim() === heading.text,
-  ) ?? null;
+  return (
+    Array.from(root.querySelectorAll(tag)).find(
+      (el) => (el.textContent ?? "").trim() === heading.text,
+    ) ?? null
+  );
 }
 
 function scrollParentWithin(el: HTMLElement, boundary: HTMLElement): HTMLElement {
@@ -132,7 +134,7 @@ export const MarkdownToc: React.FC<MarkdownTocProps> = ({
           }
         }
       },
-      { root: null, rootMargin: "-80px 0px -60% 0px", threshold: 0 }
+      { root: null, rootMargin: "-80px 0px -60% 0px", threshold: 0 },
     );
 
     headings.forEach((h) => {
@@ -174,7 +176,7 @@ export const MarkdownToc: React.FC<MarkdownTocProps> = ({
         className={cn(
           "flex flex-col gap-1.5 py-1 transition-opacity duration-200",
           isLeft ? "items-start" : "items-end",
-          isHovered ? "opacity-0" : "opacity-100"
+          isHovered ? "opacity-0" : "opacity-100",
         )}
       >
         {headings.map((h, i) => (
@@ -182,12 +184,8 @@ export const MarkdownToc: React.FC<MarkdownTocProps> = ({
             key={h.id}
             className={cn(
               "rounded-full transition-all duration-150",
-              h.level === 2
-                ? "w-3 h-[3px]"
-                : h.level === 3
-                  ? "w-2 h-[2px]"
-                  : "w-1 h-[2px]",
-              i === activeIndex ? "bg-foreground" : "bg-muted-foreground/25"
+              h.level === 2 ? "h-[3px] w-3" : h.level === 3 ? "h-[2px] w-2" : "h-[2px] w-1",
+              i === activeIndex ? "bg-foreground" : "bg-muted-foreground/25",
             )}
           />
         ))}
@@ -206,7 +204,7 @@ export const MarkdownToc: React.FC<MarkdownTocProps> = ({
               ),
         )}
       >
-        <div className="max-h-[min(420px,60vh)] overflow-y-auto overscroll-contain py-2 px-1">
+        <div className="max-h-[min(420px,60vh)] overflow-y-auto overscroll-contain px-1 py-2">
           <TocNodeList
             nodes={tree}
             activeId={activeId}
@@ -237,7 +235,7 @@ const TocNodeList: React.FC<{
       />
       {node.children.length > 0 && (
         <div className="relative ml-[17px]">
-          <div className="absolute left-0 top-0 bottom-0 w-px bg-border" />
+          <div className="absolute top-0 bottom-0 left-0 w-px bg-border" />
           <TocNodeList
             nodes={node.children}
             activeId={activeId}
@@ -322,25 +320,18 @@ const TocLink: React.FC<{
       onMouseEnter={startScroll}
       onMouseLeave={stopScroll}
       className={cn(
-        "group flex items-center py-1.5 pr-2 text-[12.5px] leading-snug rounded-md cursor-pointer",
-        isActive
-          ? "text-foreground font-medium"
-          : "text-muted-foreground/70 hover:text-foreground"
+        "group flex cursor-pointer items-center rounded-md py-1.5 pr-2 text-[12.5px] leading-snug",
+        isActive ? "font-medium text-foreground" : "text-muted-foreground/70 hover:text-foreground",
       )}
       style={{ paddingLeft: `${depth > 0 ? 8 : 8}px` }}
     >
       <span
         className={cn(
-          "shrink-0 w-[2px] h-3.5 rounded-full mr-2",
-          isActive
-            ? "bg-primary"
-            : "bg-transparent group-hover:bg-muted-foreground/20"
+          "mr-2 h-3.5 w-[2px] shrink-0 rounded-full",
+          isActive ? "bg-primary" : "bg-transparent group-hover:bg-muted-foreground/20",
         )}
       />
-      <span
-        ref={textRef}
-        className="overflow-hidden whitespace-nowrap"
-      >
+      <span ref={textRef} className="overflow-hidden whitespace-nowrap">
         {heading.text}
       </span>
     </a>

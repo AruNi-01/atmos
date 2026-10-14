@@ -26,11 +26,7 @@ function sessionBelongsToPane(
   paneId: string,
   includeSource: boolean,
 ): boolean {
-  if (
-    mapKey === paneId ||
-    session.session_id === paneId ||
-    session.pane_id === paneId
-  ) {
+  if (mapKey === paneId || session.session_id === paneId || session.pane_id === paneId) {
     return true;
   }
   return includeSource && session.source_pane_id === paneId;

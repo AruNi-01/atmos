@@ -23,7 +23,9 @@ const builtins = [
   },
 ];
 
-function custom(partial: Partial<CodeAgentCustomEntry> & Pick<CodeAgentCustomEntry, "id">): CodeAgentCustomEntry {
+function custom(
+  partial: Partial<CodeAgentCustomEntry> & Pick<CodeAgentCustomEntry, "id">,
+): CodeAgentCustomEntry {
   return {
     cmd: "",
     flags: "",
@@ -51,12 +53,22 @@ describe("terminal launch agents", () => {
   });
 
   test("hides disabled agents and applies user command overrides", () => {
-    expect(mergeTerminalLaunchAgents([
-      custom({ id: "codex", enabled: false, label: "Codex", cmd: "codex" }),
-      custom({ id: "claude", label: "Claude", cmd: "claude-dev", interactiveFlags: "--resume" }),
-      custom({ id: "mine", label: "Mine", cmd: "mine", flags: "--fast" }),
-      custom({ id: "blank", label: "", cmd: "nope" }),
-    ], builtins)).toEqual([
+    expect(
+      mergeTerminalLaunchAgents(
+        [
+          custom({ id: "codex", enabled: false, label: "Codex", cmd: "codex" }),
+          custom({
+            id: "claude",
+            label: "Claude",
+            cmd: "claude-dev",
+            interactiveFlags: "--resume",
+          }),
+          custom({ id: "mine", label: "Mine", cmd: "mine", flags: "--fast" }),
+          custom({ id: "blank", label: "", cmd: "nope" }),
+        ],
+        builtins,
+      ),
+    ).toEqual([
       {
         command: "claude-dev --resume",
         iconType: "built-in",

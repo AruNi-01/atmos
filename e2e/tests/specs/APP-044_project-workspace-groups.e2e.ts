@@ -131,7 +131,10 @@ test.describe("APP-044 project workspace groups", () => {
       // Grouping control lives in the sidebar footer; best-effort UI smoke.
       // Residual gap: no stable data-testid on the grouping mode control yet;
       // keep soft checks to avoid flake on green CI.
-      const groupByControl = page.locator("aside").getByText(/group by|by project/i).first();
+      const groupByControl = page
+        .locator("aside")
+        .getByText(/group by|by project/i)
+        .first();
       if (await groupByControl.isVisible().catch(() => false)) {
         await groupByControl.click();
         const byGroupOption = page.getByText("By Group", { exact: true });

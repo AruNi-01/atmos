@@ -1,1 +1,8 @@
-{"type":"control_response","response":{"subtype":"success","request_id":"req_rw_f","response":{"canRewind":true,"filesChanged":[],"insertions":0,"deletions":0}}}
+{
+  "type": "control_response",
+  "response": {
+    "subtype": "success",
+    "request_id": "req_rw_f",
+    "response": { "canRewind": true, "filesChanged": [], "insertions": 0, "deletions": 0 }
+  }
+}

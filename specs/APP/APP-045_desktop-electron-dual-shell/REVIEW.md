@@ -10,13 +10,13 @@
 
 ### Root causes confirmed
 
-| # | Finding | Evidence |
-|---|---------|----------|
-| 1 | `CGEventSourceKeyState` poll **cannot** see right Shift | Synthetic + live samples: both shifts collapse to keycode `0x38`; `0x3C` never true. Dual-shift via poll alone is impossible. |
-| 2 | Pure koffi `CFRunLoopAddSource` with wrong `kCFRunLoopCommonModes` | Either **SIGBUS** in CoreFoundation `__AUTH_CONST` (bad symbol indirection) or silent no-events (self-built CFString is not the system sentinel). |
-| 3 | In-process / GUI-process tap feels “in-app only” | Electron main process is throttled / App-Napped when backgrounded; edges/CHORDs appear while Atmos focused, disappear or never log when Safari/Finder focused. |
-| 4 | Accessibility drops after ad-hoc reinstall | Logs: `AXIsProcessTrusted=false` after replace of `/Applications/Atmos.app`; user must re-grant Accessibility (+ Screen Recording). |
-| 5 | Capture when self-focused is useless | `frontmost="Atmos"` + warning “focus another app”; `screencapture` can fail with `could not create image from display` without Screen Recording. |
+| #   | Finding                                                            | Evidence                                                                                                                                                       |
+| --- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `CGEventSourceKeyState` poll **cannot** see right Shift            | Synthetic + live samples: both shifts collapse to keycode `0x38`; `0x3C` never true. Dual-shift via poll alone is impossible.                                  |
+| 2   | Pure koffi `CFRunLoopAddSource` with wrong `kCFRunLoopCommonModes` | Either **SIGBUS** in CoreFoundation `__AUTH_CONST` (bad symbol indirection) or silent no-events (self-built CFString is not the system sentinel).              |
+| 3   | In-process / GUI-process tap feels “in-app only”                   | Electron main process is throttled / App-Napped when backgrounded; edges/CHORDs appear while Atmos focused, disappear or never log when Safari/Finder focused. |
+| 4   | Accessibility drops after ad-hoc reinstall                         | Logs: `AXIsProcessTrusted=false` after replace of `/Applications/Atmos.app`; user must re-grant Accessibility (+ Screen Recording).                            |
+| 5   | Capture when self-focused is useless                               | `frontmost="Atmos"` + warning “focus another app”; `screencapture` can fail with `could not create image from display` without Screen Recording.               |
 
 ### What we implemented (current tree)
 
@@ -71,11 +71,11 @@ tail -f ~/.atmos/logs/desktop-main.log
 
 ### Severity
 
-| Finding | Severity | Disposition |
-|---------|----------|-------------|
-| Dual-shell happy path (boot, bridge, get_api_config, command catalog) | — | OK |
-| Cookie Keychain via Rust helper | — | OK |
-| AppShot AX parity | low | Accept screencapture on Electron; document |
+| Finding                                                               | Severity | Disposition                                |
+| --------------------------------------------------------------------- | -------- | ------------------------------------------ |
+| Dual-shell happy path (boot, bridge, get_api_config, command catalog) | —        | OK                                         |
+| Cookie Keychain via Rust helper                                       | —        | OK                                         |
+| AppShot AX parity                                                     | low      | Accept screencapture on Electron; document |
 
 ## Follow-up review fixes (same session)
 

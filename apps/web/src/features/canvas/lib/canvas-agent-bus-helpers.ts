@@ -100,20 +100,12 @@ export function resolveExtractTextShapeIds(
 
 export function requireIds(value: unknown): string[] {
   if (!Array.isArray(value) || value.length === 0) {
-    throw new CanvasAgentError(
-      "VALIDATION_ARG",
-      "ids must be a non-empty array",
-      false,
-    );
+    throw new CanvasAgentError("VALIDATION_ARG", "ids must be a non-empty array", false);
   }
   return value.map((v) => {
     const id = typeof v === "string" ? v : String(v ?? "");
     if (!id) {
-      throw new CanvasAgentError(
-        "VALIDATION_ARG",
-        "ids contains an empty entry",
-        false,
-      );
+      throw new CanvasAgentError("VALIDATION_ARG", "ids contains an empty entry", false);
     }
     return id;
   });
@@ -141,9 +133,7 @@ export function unionShapePageBounds(
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
-export function shallowFilterProps(
-  props: Record<string, unknown>,
-): Record<string, unknown> {
+export function shallowFilterProps(props: Record<string, unknown>): Record<string, unknown> {
   // Limit props serialization to keep get-state payloads compact; only
   // include scalar/plain-object fields the agent is likely to act on.
   const out: Record<string, unknown> = {};

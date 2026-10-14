@@ -29,9 +29,7 @@ type HubDeleteAccountSectionProps = {
   onDeleted?: () => void;
 };
 
-export function HubDeleteAccountSection({
-  onDeleted,
-}: HubDeleteAccountSectionProps) {
+export function HubDeleteAccountSection({ onDeleted }: HubDeleteAccountSectionProps) {
   const t = useTranslations("settings.accountSection");
   const qc = useQueryClient();
   const [open, setOpen] = React.useState(false);
@@ -40,8 +38,7 @@ export function HubDeleteAccountSection({
   const [error, setError] = React.useState<string | null>(null);
 
   const phrase = t("deleteConfirmPhrase");
-  const canDelete =
-    confirmText.trim() === phrase && !busy && confirmText.length > 0;
+  const canDelete = confirmText.trim() === phrase && !busy && confirmText.length > 0;
 
   const reset = () => {
     setConfirmText("");
@@ -66,9 +63,8 @@ export function HubDeleteAccountSection({
         /* ignore */
       }
       try {
-        const { clearComputerClientSettingsOnDisk } = await import(
-          "@/features/connection/lib/sync-computer-client-settings"
-        );
+        const { clearComputerClientSettingsOnDisk } =
+          await import("@/features/connection/lib/sync-computer-client-settings");
         await clearComputerClientSettingsOnDisk();
       } catch {
         /* optional */
@@ -103,9 +99,7 @@ export function HubDeleteAccountSection({
         <DialogContent className="z-[70] sm:max-w-md" overlayClassName="z-[70]">
           <DialogHeader>
             <DialogTitle>{t("deleteAccountDialogTitle")}</DialogTitle>
-            <DialogDescription>
-              {t("deleteAccountDialogDescription")}
-            </DialogDescription>
+            <DialogDescription>{t("deleteAccountDialogDescription")}</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-2 py-1">
@@ -128,9 +122,7 @@ export function HubDeleteAccountSection({
                 }
               }}
             />
-            {error ? (
-              <p className="text-xs text-destructive">{error}</p>
-            ) : null}
+            {error ? <p className="text-xs text-destructive">{error}</p> : null}
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">

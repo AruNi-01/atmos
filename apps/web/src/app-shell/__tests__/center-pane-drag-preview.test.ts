@@ -6,18 +6,12 @@ import {
   panePreviewBoxRelativeToLeaf,
 } from "@/app-shell/center-pane/center-pane-drag-preview";
 
-const grid = readFileSync(
-  join(import.meta.dir, "../center-pane/CenterPaneGrid.tsx"),
-  "utf8",
-);
+const grid = readFileSync(join(import.meta.dir, "../center-pane/CenterPaneGrid.tsx"), "utf8");
 const preview = readFileSync(
   join(import.meta.dir, "../center-pane/center-pane-drag-preview.ts"),
   "utf8",
 );
-const css = readFileSync(
-  join(import.meta.dir, "../center-pane/center-pane-grid.css"),
-  "utf8",
-);
+const css = readFileSync(join(import.meta.dir, "../center-pane/center-pane-grid.css"), "utf8");
 
 describe("center pane drag preview", () => {
   it("places overlay content relative to the mosaic leaf", () => {

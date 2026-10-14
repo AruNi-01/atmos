@@ -45,7 +45,9 @@ export function LocalServicesPreviewPanel({
   const services = query.data?.services ?? [];
   const loading = query.isFetching;
   const error = query.error
-    ? (query.error instanceof Error ? query.error.message : t("preview.errorFallback"))
+    ? query.error instanceof Error
+      ? query.error.message
+      : t("preview.errorFallback")
     : (query.data?.unavailable?.message ?? null);
 
   const forceRefresh = React.useCallback(async () => {
@@ -58,10 +60,13 @@ export function LocalServicesPreviewPanel({
     );
   }, [connectionState, queryClient, request, scope]);
 
-  const handleOpen = React.useCallback((service: LocalService) => {
-    const openUrl = localServiceOpenUrl(service);
-    if (openUrl) onOpenUrl(openUrl);
-  }, [onOpenUrl]);
+  const handleOpen = React.useCallback(
+    (service: LocalService) => {
+      const openUrl = localServiceOpenUrl(service);
+      if (openUrl) onOpenUrl(openUrl);
+    },
+    [onOpenUrl],
+  );
 
   return (
     <section className="mt-8">

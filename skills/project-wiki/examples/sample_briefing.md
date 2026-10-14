@@ -34,15 +34,15 @@ WebSocket 是 ATMOS 的实时通信骨干。终端 PTY 输出、文件树变更�
 
 ## 必读源文件
 
-| 文件路径 | 阅读重点 |
-|----------|----------|
-| `crates/infra/src/websocket/manager.rs` | WsManager 实现，RwLock 使用、register/remove/send_to 的并发模型 |
-| `crates/infra/src/websocket/connection.rs` | WsConnection 结构、last_heartbeat、client_type |
-| `crates/infra/src/websocket/types.rs` | WsMessage、ClientType 定义 |
-| `crates/infra/src/websocket/error.rs` | WsError 各变体及使用场景 |
-| `apps/api/src/api/ws/handlers.rs` | HTTP 升级、socket 拆分、消息循环、心跳启动 |
-| `apps/api/src/api/ws/mod.rs` | 路由注册 |
-| `apps/api/src/main.rs` | WsManager 初始化、心跳配置 |
+| 文件路径                                   | 阅读重点                                                        |
+| ------------------------------------------ | --------------------------------------------------------------- |
+| `crates/infra/src/websocket/manager.rs`    | WsManager 实现，RwLock 使用、register/remove/send_to 的并发模型 |
+| `crates/infra/src/websocket/connection.rs` | WsConnection 结构、last_heartbeat、client_type                  |
+| `crates/infra/src/websocket/types.rs`      | WsMessage、ClientType 定义                                      |
+| `crates/infra/src/websocket/error.rs`      | WsError 各变体及使用场景                                        |
+| `apps/api/src/api/ws/handlers.rs`          | HTTP 升级、socket 拆分、消息循环、心跳启动                      |
+| `apps/api/src/api/ws/mod.rs`               | 路由注册                                                        |
+| `apps/api/src/main.rs`                     | WsManager 初始化、心跳配置                                      |
 
 ## 与其他概念的关联
 

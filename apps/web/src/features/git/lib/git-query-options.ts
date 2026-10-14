@@ -9,7 +9,15 @@ import {
 } from "@/api/query/query-keys";
 import { wsQueryOptions, wsInfiniteQueryOptions } from "@/api/query/computer-query-options";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
-import { gitApi, type GitStatusResponse, type GitChangedFilesResponse, type GitFileDiffResponse, type GitFileBlameResponse, type GitCommitDetailResponse, type GitHistoryPage } from "@/api/ws-api";
+import {
+  gitApi,
+  type GitStatusResponse,
+  type GitChangedFilesResponse,
+  type GitFileDiffResponse,
+  type GitFileBlameResponse,
+  type GitCommitDetailResponse,
+  type GitHistoryPage,
+} from "@/api/ws-api";
 
 export type { GitCompareParams, GitFileDiffParams };
 export { GIT_WORKTREE_PARAMS };
@@ -222,9 +230,7 @@ export function gitLogQueryOptions(
     queryKey: queryKeys.computer.gitLog(scope, repoPath, params),
     queryFn: async () => {
       // Lazy import avoids circular dependency with the WS client module graph.
-      const { useWebSocketStore } = await import(
-        "@/features/connection/hooks/use-websocket"
-      );
+      const { useWebSocketStore } = await import("@/features/connection/hooks/use-websocket");
       const result = await useWebSocketStore.getState().send("git_log", {
         path: repoPath,
         limit: params.limit,
@@ -267,9 +273,7 @@ export function gitLogInfiniteQueryOptions(
       limit,
     }),
     queryFn: async ({ pageParam }) => {
-      const { useWebSocketStore } = await import(
-        "@/features/connection/hooks/use-websocket"
-      );
+      const { useWebSocketStore } = await import("@/features/connection/hooks/use-websocket");
       const result = await useWebSocketStore.getState().send("git_log", {
         path: repoPath,
         limit,

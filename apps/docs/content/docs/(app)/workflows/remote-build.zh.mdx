@@ -79,20 +79,20 @@ atmos computer start --token <registration_code> --daemon
 
 CLI 命令使用以下解析顺序：
 
-| 设置 | 解析顺序 |
-|------|----------|
-| API URL | `--api-url`、`ATMOS_API_URL`、活跃的 `client-session.json`、`runtime_manifest.json` |
+| 设置      | 解析顺序                                                                                    |
+| --------- | ------------------------------------------------------------------------------------------- |
+| API URL   | `--api-url`、`ATMOS_API_URL`、活跃的 `client-session.json`、`runtime_manifest.json`         |
 | API token | `--api-token`、`ATMOS_API_TOKEN`、`ATMOS_LOCAL_TOKEN`、活跃 client-session 的 gateway token |
 
 ## 安全注意事项
 
-| 主题 | 说明 |
-|------|------|
-| **Access key** | 拥有 key 的人可以管理你注册的电脑，请妥善保存。 |
-| **注册码** | 短期、一次性。删除未使用的注册码。 |
+| 主题             | 说明                                                         |
+| ---------------- | ------------------------------------------------------------ |
+| **Access key**   | 拥有 key 的人可以管理你注册的电脑，请妥善保存。              |
+| **注册码**       | 短期、一次性。删除未使用的注册码。                           |
 | **Relay secret** | 私有 Relay 部署可能除了 Access Key 之外还需要 Relay secret。 |
-| **Session** | Connect session 会过期，需要时从 **My Computers** 重新连接。 |
-| **撤销** | 当一台电脑不应该继续可用时，从 **My Computers** 中移除它。 |
+| **Session**      | Connect session 会过期，需要时从 **My Computers** 重新连接。 |
+| **撤销**         | 当一台电脑不应该继续可用时，从 **My Computers** 中移除它。   |
 
 ## 相关内容
 

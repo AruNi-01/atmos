@@ -66,39 +66,39 @@ Always-on ingest of local aggregates to cloud; public profile always “live”.
 
 ## Key forks in the road
 
-| Fork | Decision (settled for this spec) |
-|------|----------------------------------|
-| Where to host share/account logic | **Not relay.** New `packages/hub` (CF Worker). Public HTML on `apps/landing` (`atmos.land`). |
-| Auth for publish & account | **GitHub + Google OAuth (Better Auth).** No password / email magic link in v1. |
-| Auth for local dashboard | **None.** Local Token Usage stays offline-capable. |
-| Data model for share | **Explicit snapshot publish** of redacted aggregates (v1). Continuous sync deferred. |
-| Identity root | **User** (`user_id` = Better Auth `user.id`; GitHub or Google login). **No user-generated Access Token.** Hub session mints/rotates **device credentials**. Computers owned by `user_id`. Better Auth `account` = OAuth link only, not owner FK. |
-| Default visibility | **Unlisted link** default; public profile (`/u/:handle`) opt-in. |
-| Cost on public page | **Off by default**; user can include estimated cost. |
-| OG image | Reuse client-composed share card PNG upload to R2 (v1); server-side render later. |
-| Backward compat | **Not a goal** for identity model; phased migration allowed. Existing PNG share remains. |
+| Fork                              | Decision (settled for this spec)                                                                                                                                                                                                                 |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Where to host share/account logic | **Not relay.** New `packages/hub` (CF Worker). Public HTML on `apps/landing` (`atmos.land`).                                                                                                                                                     |
+| Auth for publish & account        | **GitHub + Google OAuth (Better Auth).** No password / email magic link in v1.                                                                                                                                                                   |
+| Auth for local dashboard          | **None.** Local Token Usage stays offline-capable.                                                                                                                                                                                               |
+| Data model for share              | **Explicit snapshot publish** of redacted aggregates (v1). Continuous sync deferred.                                                                                                                                                             |
+| Identity root                     | **User** (`user_id` = Better Auth `user.id`; GitHub or Google login). **No user-generated Access Token.** Hub session mints/rotates **device credentials**. Computers owned by `user_id`. Better Auth `account` = OAuth link only, not owner FK. |
+| Default visibility                | **Unlisted link** default; public profile (`/u/:handle`) opt-in.                                                                                                                                                                                 |
+| Cost on public page               | **Off by default**; user can include estimated cost.                                                                                                                                                                                             |
+| OG image                          | Reuse client-composed share card PNG upload to R2 (v1); server-side render later.                                                                                                                                                                |
+| Backward compat                   | **Not a goal** for identity model; phased migration allowed. Existing PNG share remains.                                                                                                                                                         |
 
 ## Naming fork (settled)
 
 **Canonical name:** `packages/hub` · domain `hub.atmos.land` · D1 `atmos-hub` · env `NEXT_PUBLIC_ATMOS_HUB_URL`.
 
-| Layer | Atmos | Industry analogue |
-|-------|--------|-------------------|
-| Local agent/product server | `apps/api` (Atmos Server) | OpenCode **Server** (`opencode serve`); LobeHub desktop talking to a server |
-| Connection to user machines | `packages/relay` | LobeHub **device-gateway** |
-| Hosted multi-tenant **control plane** (auth, share, later entitlements) | **`packages/hub`** | SaaS **control plane** / platform API; LobeHub official app auth surface (not their agent-gateway) |
-| Hosted agent compute (future) | `packages/sandbox` / `run.*` | LobeHub **sandbox** / agent-gateway compute path; not Hub |
-| Marketing umbrella (optional) | “Atmos Cloud” | Product tier name only — **never** a package name |
+| Layer                                                                   | Atmos                        | Industry analogue                                                                                  |
+| ----------------------------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| Local agent/product server                                              | `apps/api` (Atmos Server)    | OpenCode **Server** (`opencode serve`); LobeHub desktop talking to a server                        |
+| Connection to user machines                                             | `packages/relay`             | LobeHub **device-gateway**                                                                         |
+| Hosted multi-tenant **control plane** (auth, share, later entitlements) | **`packages/hub`**           | SaaS **control plane** / platform API; LobeHub official app auth surface (not their agent-gateway) |
+| Hosted agent compute (future)                                           | `packages/sandbox` / `run.*` | LobeHub **sandbox** / agent-gateway compute path; not Hub                                          |
+| Marketing umbrella (optional)                                           | “Atmos Cloud”                | Product tier name only — **never** a package name                                                  |
 
-| Candidate | Verdict |
-|-----------|---------|
-| `packages/cloud` / `cloud.atmos.land` | **Reject.** Collides with future hosted Agent/sandbox; kitchen-sink. |
-| `packages/identity` / `auth` | Too narrow for share + later public features. |
-| `packages/share` | Too narrow for OAuth/accounts. |
-| `packages/gateway` / `server` / `api` | Collides with relay, local Server, model gateways. |
-| `packages/platform` | Acceptable alternate; more empty. Prefer **hub**. |
-| **`packages/hub` / `hub.atmos.land`** | **Choose.** Third-party auth + public share + extensible control-plane features. |
-| Future `packages/sandbox` + `run.atmos.land` | Hosted Agent runtime; separate service. |
+| Candidate                                    | Verdict                                                                          |
+| -------------------------------------------- | -------------------------------------------------------------------------------- |
+| `packages/cloud` / `cloud.atmos.land`        | **Reject.** Collides with future hosted Agent/sandbox; kitchen-sink.             |
+| `packages/identity` / `auth`                 | Too narrow for share + later public features.                                    |
+| `packages/share`                             | Too narrow for OAuth/accounts.                                                   |
+| `packages/gateway` / `server` / `api`        | Collides with relay, local Server, model gateways.                               |
+| `packages/platform`                          | Acceptable alternate; more empty. Prefer **hub**.                                |
+| **`packages/hub` / `hub.atmos.land`**        | **Choose.** Third-party auth + public share + extensible control-plane features. |
+| Future `packages/sandbox` + `run.atmos.land` | Hosted Agent runtime; separate service.                                          |
 
 ### What belongs in Hub (membership test)
 
@@ -108,12 +108,12 @@ A feature belongs in Hub if roughly all hold:
 2. Needs **Atmos-operated public internet** (works without the user’s local Server).
 3. Is **control data** (identity, permissions, published snapshots, entitlements) — not agent execution and not Computer traffic relay.
 
-| In Hub | Out of Hub |
-|--------|------------|
-| GitHub/Google OAuth, sessions, profiles | Local Token Usage computation (`crates/token-usage` / `apps/api`) |
-| Usage share publish + public JSON | Relay WS / register / gateway (`packages/relay`) |
-| Device↔account link records | Hosted sandbox PTY / cloud Agent runtime |
-| Later: billing entitlements, public marketplace read APIs | Model proxy / LLM gateway product (if any) |
+| In Hub                                                    | Out of Hub                                                        |
+| --------------------------------------------------------- | ----------------------------------------------------------------- |
+| GitHub/Google OAuth, sessions, profiles                   | Local Token Usage computation (`crates/token-usage` / `apps/api`) |
+| Usage share publish + public JSON                         | Relay WS / register / gateway (`packages/relay`)                  |
+| Device↔account link records                               | Hosted sandbox PTY / cloud Agent runtime                          |
+| Later: billing entitlements, public marketplace read APIs | Model proxy / LLM gateway product (if any)                        |
 
 ## Rejected approaches
 
@@ -143,7 +143,6 @@ A feature belongs in Hub if roughly all hold:
 - Specs: [APP-016 Atmos Computer](../APP-016_atmos-computer/TECH.md), [APP-019 GitHub Automation Triggers](../APP-019_github-automation-triggers/TECH.md), [APP-020 Relay Stable Tenant Identity](../APP-020_relay-stable-tenant-identity/TECH.md)
 - Relay boundary: [packages/relay/AGENTS.md](../../../packages/relay/AGENTS.md)
 
-
 ## Device credentials vs Access Token (settled)
 
 **Problem with Access Token as identity:** Once Atmos Account exists, asking users to generate/import a high-entropy token is a second identity that can desync from the login, blocks recovery, and conflicts with “login owns my Computers.”
@@ -161,11 +160,11 @@ Atmos Account (Hub / Better Auth)
 Computers + GitHub installs → owned by user_id (not by a free-floating token tenant)
 ```
 
-| Credential | Who holds it | Lifetime | Used for |
-|------------|--------------|----------|----------|
-| Hub session cookie | Browser | Short / idle timeout | Login UI, publish share, **mint/rotate/revoke devices** |
-| Device credential | Local install (`~/.atmos/…`) | Long-lived until rotated/revoked | Relay Bearer for list/register computers, client sessions |
-| Computer `server_secret` | Atmos Server machine | Long-lived until revoke | Outbound `/ws/server` only |
+| Credential               | Who holds it                 | Lifetime                         | Used for                                                  |
+| ------------------------ | ---------------------------- | -------------------------------- | --------------------------------------------------------- |
+| Hub session cookie       | Browser                      | Short / idle timeout             | Login UI, publish share, **mint/rotate/revoke devices**   |
+| Device credential        | Local install (`~/.atmos/…`) | Long-lived until rotated/revoked | Relay Bearer for list/register computers, client sessions |
+| Computer `server_secret` | Atmos Server machine         | Long-lived until revoke          | Outbound `/ws/server` only                                |
 
 **Rotation:** Prefer **Hub session** authorizes rotate (Settings “This device” / “Rotate credential”). Optional: present current device credential for headless rotate. Old credential dies immediately; Computers stay on `user_id`.
 

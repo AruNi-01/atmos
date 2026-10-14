@@ -1,18 +1,18 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import { useTranslations } from 'next-intl';
-import { Switch, TabsSubtle, TabsSubtleItem, cn } from '@workspace/ui';
-import { Palette } from 'lucide-react';
+import * as React from "react";
+import { useTranslations } from "next-intl";
+import { Switch, TabsSubtle, TabsSubtleItem, cn } from "@workspace/ui";
+import { Palette } from "lucide-react";
 import {
   TERMINAL_CURSOR_STYLES,
   type TerminalCursorStyle,
   useTerminalAppearanceSettingsStore,
-} from '@/features/settings/store/terminal-appearance-settings-store';
+} from "@/features/settings/store/terminal-appearance-settings-store";
 import {
   SettingsGroupCard,
   SettingsGroupRow,
-} from '@/features/settings/components/settings/SettingsGroupCard';
+} from "@/features/settings/components/settings/SettingsGroupCard";
 
 /** Mini caret glyph used as TabsSubtle icons + live blink preview. */
 function CursorStylePreviewIcon({
@@ -32,25 +32,23 @@ function CursorStylePreviewIcon({
   return (
     <span
       className={cn(
-        'relative inline-flex shrink-0 items-end justify-center text-current',
+        "relative inline-flex shrink-0 items-end justify-center text-current",
         className,
       )}
       style={{
         width: size,
         height: size,
-        animation: shouldBlink
-          ? 'atmos-cursor-blink 1.06s step-end infinite'
-          : undefined,
+        animation: shouldBlink ? "atmos-cursor-blink 1.06s step-end infinite" : undefined,
       }}
       aria-hidden
     >
-      {style === 'block' ? (
+      {style === "block" ? (
         <span className="mb-0.5 h-[70%] w-[55%] rounded-[1px] bg-current" />
       ) : null}
-      {style === 'underline' ? (
+      {style === "underline" ? (
         <span className="mb-0.5 h-[12%] w-[70%] rounded-[1px] bg-current" />
       ) : null}
-      {style === 'bar' ? (
+      {style === "bar" ? (
         <span className="mb-0.5 h-[75%] w-[12%] rounded-[1px] bg-current" />
       ) : null}
     </span>
@@ -80,7 +78,7 @@ function makeCursorStyleTabIcon(
  * Owns its store load and expand state so TerminalSettingsSection stays thinner.
  */
 export function TerminalCursorAppearanceSettings() {
-  const t = useTranslations('settings.terminalSection');
+  const t = useTranslations("settings.terminalSection");
   const {
     cursorStyle,
     cursorBlink,
@@ -107,19 +105,17 @@ export function TerminalCursorAppearanceSettings() {
 
   return (
     <>
-      <style>
-        {`@keyframes atmos-cursor-blink{0%,49%{opacity:1}50%,100%{opacity:0}}`}
-      </style>
+      <style>{`@keyframes atmos-cursor-blink{0%,49%{opacity:1}50%,100%{opacity:0}}`}</style>
       <SettingsGroupCard
         open={appearanceExpanded}
         onOpenChange={setAppearanceExpanded}
         icon={Palette}
-        title={t('groups.appearance.title')}
-        description={t('groups.appearance.description')}
+        title={t("groups.appearance.title")}
+        description={t("groups.appearance.description")}
       >
         <SettingsGroupRow
-          title={t('cursorStyle.title')}
-          description={t('cursorStyle.description')}
+          title={t("cursorStyle.title")}
+          description={t("cursorStyle.description")}
           wide
         >
           <TabsSubtle
@@ -142,14 +138,11 @@ export function TerminalCursorAppearanceSettings() {
             ))}
           </TabsSubtle>
         </SettingsGroupRow>
-        <SettingsGroupRow
-          title={t('cursorBlink.title')}
-          description={t('cursorBlink.description')}
-        >
+        <SettingsGroupRow title={t("cursorBlink.title")} description={t("cursorBlink.description")}>
           <Switch
             checked={cursorBlink}
             onCheckedChange={(value) => void setCursorBlink(!!value)}
-            aria-label={t('cursorBlink.title')}
+            aria-label={t("cursorBlink.title")}
           />
         </SettingsGroupRow>
       </SettingsGroupCard>

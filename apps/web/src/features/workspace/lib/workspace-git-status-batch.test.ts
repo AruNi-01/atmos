@@ -11,13 +11,8 @@ describe("buildWorkspaceGitStatusFanOut", () => {
     ]);
 
     expect(result.paths).toEqual(["/repo/shared", "/repo/other"]);
-    expect(result.workspaceIdsByPath.get("/repo/shared")).toEqual([
-      "workspace-a",
-      "workspace-c",
-    ]);
-    expect(result.workspaceIdsByPath.get("/repo/other")).toEqual([
-      "workspace-b",
-    ]);
+    expect(result.workspaceIdsByPath.get("/repo/shared")).toEqual(["workspace-a", "workspace-c"]);
+    expect(result.workspaceIdsByPath.get("/repo/other")).toEqual(["workspace-b"]);
   });
 
   test("returns an empty batch for no workspaces", () => {

@@ -186,10 +186,7 @@ Shared Prompt Composer
 Surface 只提供配置：
 
 ```ts
-type ComposerSurface =
-  | "welcome"
-  | "terminal"
-  | "editor";
+type ComposerSurface = "welcome" | "terminal" | "editor";
 ```
 
 以及：
@@ -466,8 +463,6 @@ Atmos API
  ↓
 实际产品对象
 ```
-
-
 
 PT Design 同样采用“Agent read/write 同一个 Design IR”的设计，并提供 MCP + CLI/Skill 两条 Agent 入口。
 

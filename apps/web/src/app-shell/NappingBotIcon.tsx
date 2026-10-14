@@ -16,7 +16,10 @@ const Z_POSITIONS = [
 
 export function NappingBotIcon({ className }: NappingBotIconProps) {
   return (
-    <span className={cn("relative inline-flex size-3.5 items-center justify-center", className)} aria-hidden>
+    <span
+      className={cn("relative inline-flex size-3.5 items-center justify-center", className)}
+      aria-hidden
+    >
       <svg
         viewBox="0 0 24 24"
         fill="none"
@@ -36,7 +39,7 @@ export function NappingBotIcon({ className }: NappingBotIconProps) {
       {Z_POSITIONS.map((position, index) => (
         <motion.span
           key={`${position.right}-${position.top}`}
-          className="absolute text-[6px] font-semibold leading-none text-muted-foreground/75 select-none"
+          className="absolute text-[6px] leading-none font-semibold text-muted-foreground/75 select-none"
           style={position}
           initial={{ opacity: 0, y: 1.5, scale: 0.92 }}
           animate={{ opacity: [0, 1, 0], y: [1.5, -0.5, -2.5], scale: [0.92, 1, 1.05] }}

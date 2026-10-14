@@ -30,7 +30,10 @@ test.describe("APP-058 agent status workspace grouping", () => {
       }),
     );
 
-    const groupByControl = page.locator("aside").getByText(/group by|by project/i).first();
+    const groupByControl = page
+      .locator("aside")
+      .getByText(/group by|by project/i)
+      .first();
     if (await groupByControl.isVisible().catch(() => false)) {
       await groupByControl.click();
       await expect(page.getByText("By Agent Status", { exact: true }).first()).toBeVisible({

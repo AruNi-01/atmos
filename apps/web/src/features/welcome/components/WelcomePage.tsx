@@ -2,24 +2,14 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import {
-  cn,
-  TypewriterEffectSmooth,
-  type TypewriterWord,
-} from "@workspace/ui";
+import { cn, TypewriterEffectSmooth, type TypewriterWord } from "@workspace/ui";
 import { useHotkeys } from "react-hotkeys-hook";
-import {
-  functionSettingsApi,
-  llmProvidersApi,
-  type SkillInfo,
-} from "@/api/ws-api";
+import { functionSettingsApi, llmProvidersApi, type SkillInfo } from "@/api/ws-api";
 import {
   sanitizeRunConfig,
   type TerminalAgentRunConfigInput,
 } from "@/features/agent/lib/terminal-agent-run-config";
-import {
-  type ComposerHandle,
-} from "@/features/welcome/components/PromptComposer";
+import { type ComposerHandle } from "@/features/welcome/components/PromptComposer";
 import { useWelcomeAgentOptions } from "@/features/welcome/hooks/use-welcome-agent-options";
 import { useWelcomeComposerAttachments } from "@/features/welcome/hooks/use-welcome-composer-attachments";
 import { useWelcomeProjectContext } from "@/features/welcome/hooks/use-welcome-project-context";
@@ -125,7 +115,10 @@ import {
   type MentionFileCandidate,
   type WelcomeHeadline,
 } from "@/features/welcome/lib/welcome-page-helpers";
-import { clearPendingLinearLink, readPendingLinearLinkRaw } from "@/features/task/lib/pending-linear-link";
+import {
+  clearPendingLinearLink,
+  readPendingLinearLinkRaw,
+} from "@/features/task/lib/pending-linear-link";
 import {
   combinedExternalMeta,
   ensureWorkspaceLabelsForExternal,
@@ -145,7 +138,12 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   className,
 }) => {
   const t = useTranslations("Welcome.components");
-  const { effectiveContextId, currentView, workspaceId: routeWorkspaceId, projectId: routeProjectId } = useContextParams();
+  const {
+    effectiveContextId,
+    currentView,
+    workspaceId: routeWorkspaceId,
+    projectId: routeProjectId,
+  } = useContextParams();
   const tr = React.useCallback(
     (key: string, values?: Record<string, string | number | boolean | null | undefined>) =>
       t(key as never, values as never),
@@ -205,12 +203,8 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     Record<string, TerminalAgentRunConfigInput | null>
   >({});
 
-  const {
-    availableAgents,
-    selectedAgent,
-    selectedAgentId,
-    setSelectedAgentId,
-  } = useWelcomeAgentOptions();
+  const { availableAgents, selectedAgent, selectedAgentId, setSelectedAgentId } =
+    useWelcomeAgentOptions();
   const [headline, setHeadline] = React.useState<WelcomeHeadline>(DEFAULT_WELCOME_HEADLINE);
 
   const nameTouchedRef = React.useRef(false);
@@ -230,10 +224,11 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     setHeadline(WELCOME_HEADLINES[Math.floor(Math.random() * WELCOME_HEADLINES.length)]);
   }, []);
 
-
-
   React.useEffect(() => {
-    if (selectedProjectIdFromLauncher && projects.some((project) => project.id === selectedProjectIdFromLauncher)) {
+    if (
+      selectedProjectIdFromLauncher &&
+      projects.some((project) => project.id === selectedProjectIdFromLauncher)
+    ) {
       if (appliedLauncherProjectIdRef.current !== selectedProjectIdFromLauncher) {
         appliedLauncherProjectIdRef.current = selectedProjectIdFromLauncher;
         setProjectId(selectedProjectIdFromLauncher);
@@ -474,36 +469,24 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [
-    createWorkspaceLabel,
-    issuePreview,
-    linearPreview,
-    prPreview,
-    workspaceLabels,
-  ]);
+  }, [createWorkspaceLabel, issuePreview, linearPreview, prPreview, workspaceLabels]);
 
-  const {
-    filteredAgents,
-    filteredProjects,
-    filteredSkills,
-    allSkills,
-    isSkillsLoading,
-  } = useWelcomeSlashSearch({
-    availableAgents,
-    activeProjectId: selectedProjectId ?? null,
-    popover: slashPopover,
-    projects,
-  });
+  const { filteredAgents, filteredProjects, filteredSkills, allSkills, isSkillsLoading } =
+    useWelcomeSlashSearch({
+      availableAgents,
+      activeProjectId: selectedProjectId ?? null,
+      popover: slashPopover,
+      projects,
+    });
 
   const selectMentionFile = React.useCallback(
     (item: MentionFileCandidate) => {
       const popover = mentionPopover;
       if (!popover) return;
-      composerRef.current?.applyMentionAtRange(
-        popover.atOffset,
-        popover.query.length,
-        { kind: "file", relativePath: item.relativePath },
-      );
+      composerRef.current?.applyMentionAtRange(popover.atOffset, popover.query.length, {
+        kind: "file",
+        relativePath: item.relativePath,
+      });
       setMentionPopover(null);
     },
     [mentionPopover],
@@ -518,20 +501,18 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         return;
       }
       if (item.type === "issue") {
-        composerRef.current?.applyMentionAtRange(
-          popover.atOffset,
-          popover.query.length,
-          { kind: "issue", number: item.issue.number },
-        );
+        composerRef.current?.applyMentionAtRange(popover.atOffset, popover.query.length, {
+          kind: "issue",
+          number: item.issue.number,
+        });
         setMentionPopover(null);
         return;
       }
       if (item.type === "pr") {
-        composerRef.current?.applyMentionAtRange(
-          popover.atOffset,
-          popover.query.length,
-          { kind: "pr", number: item.pr.number },
-        );
+        composerRef.current?.applyMentionAtRange(popover.atOffset, popover.query.length, {
+          kind: "pr",
+          number: item.pr.number,
+        });
         setMentionPopover(null);
       }
     },
@@ -558,11 +539,11 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       if (skill.status === "disabled") return;
       const popover = slashPopover;
       if (!popover) return;
-      composerRef.current?.applySlashAtRange(
-        popover.slashOffset,
-        popover.query.length,
-        { kind: "skill", absolutePath: skill.path, name: skill.name },
-      );
+      composerRef.current?.applySlashAtRange(popover.slashOffset, popover.query.length, {
+        kind: "skill",
+        absolutePath: skill.path,
+        name: skill.name,
+      });
       setSlashPopover(null);
       setSlashPopoverView("menu");
       setSkillDisableFilter("");
@@ -578,10 +559,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       setSlashPopover(null);
       setSlashPopoverView("menu");
       setSkillDisableFilter("");
-      composerRef.current?.removeSlashAtRange(
-        popover.slashOffset,
-        popover.query.length,
-      );
+      composerRef.current?.removeSlashAtRange(popover.slashOffset, popover.query.length);
       // Then switch project
       setProjectId(project.id);
     },
@@ -596,10 +574,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       setSlashPopover(null);
       setSlashPopoverView("menu");
       setSkillDisableFilter("");
-      composerRef.current?.removeSlashAtRange(
-        popover.slashOffset,
-        popover.query.length,
-      );
+      composerRef.current?.removeSlashAtRange(popover.slashOffset, popover.query.length);
       // Then switch agent
       setSelectedAgentId(agent.id);
     },
@@ -611,10 +586,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     if (!popover || !skillsContext) return;
     suppressSlashCancelRef.current = true;
     setSkillDisableSessionActions([]);
-    composerRef.current?.applySkillDisableCommandAtRange(
-      popover.slashOffset,
-      popover.query.length,
-    );
+    composerRef.current?.applySkillDisableCommandAtRange(popover.slashOffset, popover.query.length);
     slashPopoverViewRef.current = "disable_skills";
     setSlashPopoverView("disable_skills");
     setSkillDisableFilter("");
@@ -683,16 +655,14 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         const popover = slashPopover;
         if (!popover) return;
         setSlashPopover(null);
-        void loadDevicePreviewPrompt(routeWorkspaceId ?? effectiveContextId).then(
-          (promptText) => {
-            composerRef.current?.applyAiContextAtRange(
-              popover.slashOffset,
-              popover.query.length,
-              "device-preview",
-              promptText,
-            );
-          },
-        );
+        void loadDevicePreviewPrompt(routeWorkspaceId ?? effectiveContextId).then((promptText) => {
+          composerRef.current?.applyAiContextAtRange(
+            popover.slashOffset,
+            popover.query.length,
+            "device-preview",
+            promptText,
+          );
+        });
         return;
       }
       if (command.id === BROWSER_USE_SLASH_COMMAND_ID) {
@@ -707,15 +677,11 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         // Desktop already has the in-app Browser plane — do not block on Desktop Use TCC.
         setSlashPopover(null);
         const insertSkill = () => {
-          composerRef.current?.applySlashAtRange(
-            popover.slashOffset,
-            popover.query.length,
-            {
-              kind: "skill",
-              absolutePath: skill.absolutePath,
-              name: skill.name,
-            },
-          );
+          composerRef.current?.applySlashAtRange(popover.slashOffset, popover.query.length, {
+            kind: "skill",
+            absolutePath: skill.absolutePath,
+            name: skill.name,
+          });
         };
         if (!browserUseSlashNeedsDesktopUseGate()) {
           insertSkill();
@@ -746,15 +712,11 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
           ({ gateDesktopUseFeature }) => {
             gateDesktopUseFeature("slash", {
               onReady: () => {
-                composerRef.current?.applySlashAtRange(
-                  popover.slashOffset,
-                  popover.query.length,
-                  {
-                    kind: "skill",
-                    absolutePath: skill.absolutePath,
-                    name: skill.name,
-                  },
-                );
+                composerRef.current?.applySlashAtRange(popover.slashOffset, popover.query.length, {
+                  kind: "skill",
+                  absolutePath: skill.absolutePath,
+                  name: skill.name,
+                });
               },
             });
           },
@@ -1093,16 +1055,20 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     isBaseBranchesLoading ||
     (selectedProjectId ? remoteBranches.length === 0 : false);
 
-  useHotkeys('mod+shift+enter', () => {
-    if (!disabledSubmit) {
-      handleSubmit();
-    }
-  }, {
-    enableOnFormTags: true,
-    enableOnContentEditable: true,
-    preventDefault: true,
-    description: 'Create workspace',
-  });
+  useHotkeys(
+    "mod+shift+enter",
+    () => {
+      if (!disabledSubmit) {
+        handleSubmit();
+      }
+    },
+    {
+      enableOnFormTags: true,
+      enableOnContentEditable: true,
+      preventDefault: true,
+      description: "Create workspace",
+    },
+  );
 
   if (!isMounted) {
     return <WelcomePageMountedSkeleton className={className} />;
@@ -1269,7 +1235,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
             as="h1"
             key={headline}
             words={headlineWords}
-            className="my-0 items-end text-3xl font-semibold leading-none tracking-tight text-foreground sm:text-4xl md:text-5xl"
+            className="my-0 items-end text-3xl leading-none font-semibold tracking-tight text-foreground sm:text-4xl md:text-5xl"
             cursorClassName="h-[0.82em] w-[4px] bg-foreground"
             hideCursorWhenComplete
           />

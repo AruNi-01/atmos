@@ -107,8 +107,7 @@ export function parseMdLiveGithubTarget(spec: MdLiveEmbedSpec): MdLiveGithubTarg
   const repo = spec.attrs.repo || fromUrl?.repo;
   const rawNumber = spec.attrs.n ?? spec.attrs.number ?? spec.attrs.issue ?? spec.attrs.pr;
   const parsedNumber = rawNumber ? Number(rawNumber) : NaN;
-  const number =
-    Number.isFinite(parsedNumber) && parsedNumber > 0 ? parsedNumber : fromUrl?.number;
+  const number = Number.isFinite(parsedNumber) && parsedNumber > 0 ? parsedNumber : fromUrl?.number;
   if (!kind || !owner || !repo || !number) return fromUrl;
   return {
     kind,

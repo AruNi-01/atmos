@@ -12,11 +12,7 @@ import {
   type GrowthColorStop,
 } from "../../lib/dither/growth-layout";
 import { type DitherTheme } from "../../lib/dither/math";
-import {
-  createSeriesMorph,
-  seriesSignature,
-  type SeriesMorph,
-} from "../../lib/dither/morph";
+import { createSeriesMorph, seriesSignature, type SeriesMorph } from "../../lib/dither/morph";
 import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 import {
   DitherTooltip,
@@ -135,8 +131,7 @@ export function DitherGrowth({
 
   // Retarget during render so the first paint already has morph state (ref-only).
   const valuesKey = seriesSignature(values);
-  const domainChanged =
-    domainKey !== undefined && domainRef.current !== domainKey;
+  const domainChanged = domainKey !== undefined && domainRef.current !== domainKey;
   if (domainKey !== undefined) domainRef.current = domainKey;
   if (sigRef.current !== valuesKey || domainChanged) {
     const nextPeak = Math.max(0, ...values);
@@ -155,55 +150,53 @@ export function DitherGrowth({
 
   const [tooltip, setTooltip] = useState<DitherTooltipState | null>(null);
 
-  const publishTooltip = useCallback((idx: number | null, _data: number[]) => {
-    if (idx === null) {
-      if (lastTipKey.current !== "") {
-        lastTipKey.current = "";
-        setTooltip(null);
+  const publishTooltip = useCallback(
+    (idx: number | null, _data: number[]) => {
+      if (idx === null) {
+        if (lastTipKey.current !== "") {
+          lastTipKey.current = "";
+          setTooltip(null);
+        }
+        return;
       }
-      return;
-    }
-    // Prefer target series for tooltip amounts so digit springs aren't fed
-    // mid-morph floats while the curve is still animating.
-    const label = labelsRef.current?.[idx];
-    const value = valuesRef.current[idx] ?? 0;
-    const lines: DitherTooltipLine[] = [
-      {
-        label: valueLabelRef.current,
-        value: formatRef.current(value),
-        sliding: formatSlidingRef.current?.(value) ?? undefined,
-        color: resolveGrowthColor(
-          colorRef.current,
-          colorStopsRef.current,
-          value,
-          theme,
-        ),
-      },
-      ...(getTooltipLinesRef.current?.(value, idx) ?? []),
-    ];
-    const contentKey = `${idx}:${value}:${JSON.stringify(
-      lines.map((line) => [line.label, line.value]),
-    )}`;
-    if (lastTipKey.current === contentKey) {
-      setTooltip((prev) =>
-        prev
-          ? {
-              ...prev,
-              clientX: clientRef.current.x,
-              clientY: clientRef.current.y,
-            }
-          : prev,
-      );
-      return;
-    }
-    lastTipKey.current = contentKey;
-    setTooltip({
-      clientX: clientRef.current.x,
-      clientY: clientRef.current.y,
-      title: label,
-      lines,
-    });
-  }, [theme]);
+      // Prefer target series for tooltip amounts so digit springs aren't fed
+      // mid-morph floats while the curve is still animating.
+      const label = labelsRef.current?.[idx];
+      const value = valuesRef.current[idx] ?? 0;
+      const lines: DitherTooltipLine[] = [
+        {
+          label: valueLabelRef.current,
+          value: formatRef.current(value),
+          sliding: formatSlidingRef.current?.(value) ?? undefined,
+          color: resolveGrowthColor(colorRef.current, colorStopsRef.current, value, theme),
+        },
+        ...(getTooltipLinesRef.current?.(value, idx) ?? []),
+      ];
+      const contentKey = `${idx}:${value}:${JSON.stringify(
+        lines.map((line) => [line.label, line.value]),
+      )}`;
+      if (lastTipKey.current === contentKey) {
+        setTooltip((prev) =>
+          prev
+            ? {
+                ...prev,
+                clientX: clientRef.current.x,
+                clientY: clientRef.current.y,
+              }
+            : prev,
+        );
+        return;
+      }
+      lastTipKey.current = contentKey;
+      setTooltip({
+        clientX: clientRef.current.x,
+        clientY: clientRef.current.y,
+        title: label,
+        lines,
+      });
+    },
+    [theme],
+  );
 
   const draw = useCallback(
     ({
@@ -226,9 +219,7 @@ export function DitherGrowth({
       const targetPeak = Math.max(0, ...valuesRef.current);
       const samplePeak = Math.max(0, ...data);
       const fromAxis = fromAxisRef.current;
-      const toAxis =
-        toAxisRef.current ||
-        growthAxisMax(targetPeak > 0 ? targetPeak : samplePeak);
+      const toAxis = toAxisRef.current || growthAxisMax(targetPeak > 0 ? targetPeak : samplePeak);
       const autoAxis = Math.max(1e-6, fromAxis + (toAxis - fromAxis) * prog);
       const domainMax = yMaxRef.current;
       const axisMax = resolveGrowthAxisMax(domainMax, autoAxis);
@@ -249,10 +240,7 @@ export function DitherGrowth({
         }
       }
 
-      const { padL, padR, padT, padB } = resolveGrowthPlotPadding(
-        compact,
-        yLabelW,
-      );
+      const { padL, padR, padT, padB } = resolveGrowthPlotPadding(compact, yLabelW);
       const plotW = Math.max(1, w - padL - padR);
       const plotH = Math.max(1, h - padT - padB);
       const plotBottom = padT + plotH;
@@ -273,9 +261,7 @@ export function DitherGrowth({
         const idx = Math.round(t * (data.length - 1));
         ptr.scrubIdx = idx;
         const targetX = padL + (idx / Math.max(1, data.length - 1)) * plotW;
-        ptr.scrubX = reducedMotion
-          ? targetX
-          : smoothToward(ptr.scrubX, targetX, 0.24);
+        ptr.scrubX = reducedMotion ? targetX : smoothToward(ptr.scrubX, targetX, 0.24);
         publishTooltip(idx, data);
       } else if (ptr.active < 0.05) {
         publishTooltip(null, data);
@@ -288,12 +274,9 @@ export function DitherGrowth({
         data[ptr.scrubIdx] ?? 0,
         theme,
       );
-      const axisMuted =
-        theme === "dark" ? "rgba(255,255,255,0.38)" : "rgba(15,23,42,0.42)";
-      const gridMuted =
-        theme === "dark" ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.07)";
-      const baselineMuted =
-        theme === "dark" ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.14)";
+      const axisMuted = theme === "dark" ? "rgba(255,255,255,0.38)" : "rgba(15,23,42,0.42)";
+      const gridMuted = theme === "dark" ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.07)";
+      const baselineMuted = theme === "dark" ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.14)";
 
       // --- Sparse Y-axis (3 ticks) + faint guides ---
       if (showGuides) {
@@ -337,9 +320,7 @@ export function DitherGrowth({
           // Right→left drift — same phase sign as heatmap / share / funnel.
           const shimmer = reducedMotion
             ? 0
-            : (Math.sin(plotX * 0.05 + time) +
-                Math.sin(y * 0.05 + time * 0.7)) *
-              0.035;
+            : (Math.sin(plotX * 0.05 + time) + Math.sin(y * 0.05 + time * 0.7)) * 0.035;
           const fillValue = ((plotBottom - y) / plotH) * axisMax;
           ctx.fillStyle = resolveGrowthColor(
             colorRef.current,
@@ -368,12 +349,8 @@ export function DitherGrowth({
           const label = labelList[idx];
           if (!label) continue;
           const x =
-            padL +
-            (data.length === 1
-              ? plotW / 2
-              : (idx / Math.max(1, data.length - 1)) * plotW);
-          ctx.textAlign =
-            idx === 0 ? "left" : idx === data.length - 1 ? "right" : "center";
+            padL + (data.length === 1 ? plotW / 2 : (idx / Math.max(1, data.length - 1)) * plotW);
+          ctx.textAlign = idx === 0 ? "left" : idx === data.length - 1 ? "right" : "center";
           ctx.fillText(label, x, plotBottom + 6);
         }
       }

@@ -18,27 +18,27 @@ The main risk is maintainability after the first vertical slice. Several modules
 
 ## Index
 
-| Id | Severity | Area | Title | Status |
-|----|----------|------|-------|--------|
-| REV-001 | P1 | backend | `AutomationService` is too broad | verified |
-| REV-002 | P1 | frontend | `AutomationPage.tsx` is too large | verified |
-| REV-003 | P1 | backend | Runner command generation is too stringly | verified |
-| REV-004 | P2 | backend | Scheduler and runner dependencies are hard to test | verified |
-| REV-005 | P2 | api/frontend | Automation event changes are stringly typed | verified |
-| REV-006 | P2 | frontend | Automation event reload flow is duplicated | verified |
-| REV-007 | P3 | backend/resources | Built-in agent manifest include path is brittle | verified |
+| Id      | Severity | Area              | Title                                              | Status   |
+| ------- | -------- | ----------------- | -------------------------------------------------- | -------- |
+| REV-001 | P1       | backend           | `AutomationService` is too broad                   | verified |
+| REV-002 | P1       | frontend          | `AutomationPage.tsx` is too large                  | verified |
+| REV-003 | P1       | backend           | Runner command generation is too stringly          | verified |
+| REV-004 | P2       | backend           | Scheduler and runner dependencies are hard to test | verified |
+| REV-005 | P2       | api/frontend      | Automation event changes are stringly typed        | verified |
+| REV-006 | P2       | frontend          | Automation event reload flow is duplicated         | verified |
+| REV-007 | P3       | backend/resources | Built-in agent manifest include path is brittle    | verified |
 
 ---
 
 ## REV-001 · `AutomationService` is too broad
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -78,13 +78,13 @@ Split the current module inside `crates/core-service/src/service/automation/` wi
 
 ## REV-002 · `AutomationPage.tsx` is too large
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P1              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -129,13 +129,13 @@ Move schedule form helpers into `apps/web/src/features/automations/lib/` and sta
 
 ## REV-003 · Runner command generation is too stringly
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P1 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P1              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -171,13 +171,13 @@ Keep the shared `resources/terminal-agents/builtin_agents.json` manifest, but ma
 
 ## REV-004 · Scheduler and runner dependencies are hard to test
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | backend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | backend         |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -214,13 +214,13 @@ Introduce small testable boundaries without over-abstracting the production desi
 
 ## REV-005 · Automation event changes are stringly typed
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | api/frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | api/frontend    |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -251,13 +251,13 @@ Add a Rust enum for automation definition change kinds and serialize it with `sn
 
 ## REV-006 · Automation event reload flow is duplicated
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P2 |
-| **Area** | frontend |
+| Field           | Value           |
+| --------------- | --------------- |
+| **Status**      | verified        |
+| **Severity**    | P2              |
+| **Area**        | frontend        |
 | **Reported by** | internal review |
-| **Owner** | unassigned |
+| **Owner**       | unassigned      |
 
 ### Finding
 
@@ -288,13 +288,13 @@ Make one hook/store the owner of automation event consumption. Split list data, 
 
 ## REV-007 · Built-in agent manifest include path is brittle
 
-| Field | Value |
-|-------|--------|
-| **Status** | verified |
-| **Severity** | P3 |
-| **Area** | backend/resources |
-| **Reported by** | internal review |
-| **Owner** | unassigned |
+| Field           | Value             |
+| --------------- | ----------------- |
+| **Status**      | verified          |
+| **Severity**    | P3                |
+| **Area**        | backend/resources |
+| **Reported by** | internal review   |
+| **Owner**       | unassigned        |
 
 ### Finding
 

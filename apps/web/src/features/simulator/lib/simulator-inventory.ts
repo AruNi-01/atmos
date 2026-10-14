@@ -1,7 +1,4 @@
-import type {
-  SimulatorDevice,
-  SimulatorInventory,
-} from "@atmos/api-types/ws/dto/simulator";
+import type { SimulatorDevice, SimulatorInventory } from "@atmos/api-types/ws/dto/simulator";
 
 export const ANDROID_AVD_NAME_RE = /^[A-Za-z0-9._-]+$/;
 export const CAMERA_PNG_MAX_BYTES = 32 * 1024 * 1024;
@@ -10,7 +7,9 @@ export function isAndroidAvdName(name: string): boolean {
   return ANDROID_AVD_NAME_RE.test(name);
 }
 
-export function flattenInventory(inventory: SimulatorInventory | null | undefined): SimulatorDevice[] {
+export function flattenInventory(
+  inventory: SimulatorInventory | null | undefined,
+): SimulatorDevice[] {
   if (!inventory) return [];
   return [...inventory.ios.devices, ...inventory.android.devices];
 }

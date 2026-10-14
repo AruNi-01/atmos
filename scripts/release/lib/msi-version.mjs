@@ -4,15 +4,11 @@ function validateMsiSegments(segments, label, version) {
   const [major, minor, build, revision] = segments.map(Number);
 
   if (major > 255) {
-    throw new Error(
-      `MSI major segment ${major} exceeds 255 (for ${label}, version "${version}").`,
-    );
+    throw new Error(`MSI major segment ${major} exceeds 255 (for ${label}, version "${version}").`);
   }
 
   if (minor > 255) {
-    throw new Error(
-      `MSI minor segment ${minor} exceeds 255 (for ${label}, version "${version}").`,
-    );
+    throw new Error(`MSI minor segment ${minor} exceeds 255 (for ${label}, version "${version}").`);
   }
 
   if (build > 65535) {

@@ -142,7 +142,9 @@ export function sessionWorkspaceSources(bootstrap: SessionBootstrapLike | null |
 } {
   if (!bootstrap) return { active: [], archivedIds: [], projects: [] };
 
-  const projectNameById = new Map((bootstrap.projects ?? []).map((project) => [project.guid, project.name]));
+  const projectNameById = new Map(
+    (bootstrap.projects ?? []).map((project) => [project.guid, project.name]),
+  );
   const projects = (bootstrap.projects ?? [])
     .filter((project) => !project.is_deleted)
     .map((project) => ({ id: project.guid, name: project.name }));
@@ -175,7 +177,9 @@ export function sessionWorkspaceSources(bootstrap: SessionBootstrapLike | null |
 
 export function joinSessionRows(input: SessionInboxInput): SessionInboxRow[] {
   const archived = new Set(input.archivedWorkspaceIds ?? []);
-  const workspaceById = new Map((input.workspaces ?? []).map((workspace) => [workspace.id, workspace]));
+  const workspaceById = new Map(
+    (input.workspaces ?? []).map((workspace) => [workspace.id, workspace]),
+  );
   const projectById = new Map((input.projects ?? []).map((project) => [project.id, project]));
   const candidateByPane = new Map<string, SessionInboxCandidate>();
   const candidateBySession = new Map<string, SessionInboxCandidate>();
@@ -185,7 +189,8 @@ export function joinSessionRows(input: SessionInboxInput): SessionInboxRow[] {
     const pane = paneKey(candidate);
     if (pane && !candidateByPane.has(pane)) candidateByPane.set(pane, candidate);
     const sessionId = clean(candidate.sessionId);
-    if (sessionId && !candidateBySession.has(sessionId)) candidateBySession.set(sessionId, candidate);
+    if (sessionId && !candidateBySession.has(sessionId))
+      candidateBySession.set(sessionId, candidate);
   }
 
   const rows: SessionInboxRow[] = [];
@@ -235,7 +240,9 @@ export function joinSessionRows(input: SessionInboxInput): SessionInboxRow[] {
     const candidate =
       candidateBySession.get(sessionId) ??
       candidateByPane.get(sessionId) ??
-      (surfaceId ? candidateBySession.get(surfaceId) ?? candidateByPane.get(surfaceId) : undefined);
+      (surfaceId
+        ? (candidateBySession.get(surfaceId) ?? candidateByPane.get(surfaceId))
+        : undefined);
     const workspaceFromContext = contextId ? workspaceById.get(contextId) : undefined;
     const project = !workspaceFromContext && contextId ? projectById.get(contextId) : undefined;
     const workspaceId = candidate?.workspaceId ?? workspaceFromContext?.id ?? null;
@@ -248,7 +255,8 @@ export function joinSessionRows(input: SessionInboxInput): SessionInboxRow[] {
       bucket: asBucket(snapshot.group_key),
       title: terminalRowTitle(sessionId, candidate),
       updatedAt: snapshot.updated_at,
-      projectName: clean(candidate?.projectName) ?? clean(workspace?.projectName) ?? clean(project?.name),
+      projectName:
+        clean(candidate?.projectName) ?? clean(workspace?.projectName) ?? clean(project?.name),
       projectId: project?.id ?? null,
       workspaceName: clean(candidate?.workspaceName) ?? clean(workspace?.workspaceName),
       branch: clean(candidate?.branch) ?? clean(workspace?.branch),
@@ -274,7 +282,10 @@ export function sessionInboxCards(rows: SessionInboxRow[]): SessionInboxCard[] {
   }));
 }
 
-export function recentSessionRows(rows: SessionInboxRow[], limit = RECENT_LIMIT): SessionInboxRow[] {
+export function recentSessionRows(
+  rows: SessionInboxRow[],
+  limit = RECENT_LIMIT,
+): SessionInboxRow[] {
   return rows
     .filter(hasTimedRow)
     .sort((left, right) => {
@@ -285,7 +296,10 @@ export function recentSessionRows(rows: SessionInboxRow[], limit = RECENT_LIMIT)
     .slice(0, limit);
 }
 
-export function filterSessionRows(rows: SessionInboxRow[], bucket: SessionBucket): SessionInboxRow[] {
+export function filterSessionRows(
+  rows: SessionInboxRow[],
+  bucket: SessionBucket,
+): SessionInboxRow[] {
   return rows.filter((row) => row.bucket === bucket);
 }
 

@@ -8,11 +8,7 @@ import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 
 function logFilePath(): string {
-  return join(
-    process.env.ATMOS_HOME || join(homedir(), ".atmos"),
-    "logs",
-    "desktop-main.log",
-  );
+  return join(process.env.ATMOS_HOME || join(homedir(), ".atmos"), "logs", "desktop-main.log");
 }
 
 export function mainLog(message: string, level: "info" | "warn" | "error" = "info"): void {

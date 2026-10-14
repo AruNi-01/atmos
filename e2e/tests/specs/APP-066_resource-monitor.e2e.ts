@@ -69,7 +69,10 @@ async function computerWsRequest<T>(
           );
         });
         socket.addEventListener("error", () => {
-          finish((value) => reject(value as Error), new Error(`WebSocket transport error for ${action}`));
+          finish(
+            (value) => reject(value as Error),
+            new Error(`WebSocket transport error for ${action}`),
+          );
         });
       });
     },
@@ -109,7 +112,10 @@ async function deleteIsolatedWorkspace(
   projectGuid: string,
 ): Promise<void> {
   await page.keyboard.press("Escape").catch(() => undefined);
-  const closePane = page.locator(".terminal-pane").getByRole("button", { name: /^Close/ }).first();
+  const closePane = page
+    .locator(".terminal-pane")
+    .getByRole("button", { name: /^Close/ })
+    .first();
   if (await closePane.isVisible().catch(() => false)) {
     await closePane.click({ timeout: 2_000 }).catch(() => undefined);
   }
@@ -149,7 +155,13 @@ async function openWorkspaceTerminalTab(
     .poll(async () => new URL(page.url()).searchParams.get("id"), { timeout: 45_000 })
     .toBe(workspaceGuid);
   await activateWorkspaceToolTab(page, /Terminal|终端/);
-  if (!(await page.locator(".terminal-pane").first().isVisible().catch(() => false))) {
+  if (
+    !(await page
+      .locator(".terminal-pane")
+      .first()
+      .isVisible()
+      .catch(() => false))
+  ) {
     const plusTrigger = page
       .locator("main [data-center-stage-plus-trigger]")
       .filter({ visible: true })
@@ -175,9 +187,9 @@ async function readTerminalAttachState(page: import("@playwright/test").Page) {
       const rect = el.getBoundingClientRect();
       return rect.width > 2 && rect.height > 2;
     };
-    const terminals = [...document.querySelectorAll<HTMLElement>(".atmos-terminal[data-session-id]")].filter(
-      (el) => isShown(el.closest(".terminal-pane")),
-    );
+    const terminals = [
+      ...document.querySelectorAll<HTMLElement>(".atmos-terminal[data-session-id]"),
+    ].filter((el) => isShown(el.closest(".terminal-pane")));
     const live = terminals.find((el) => {
       const sessionId = el.getAttribute("data-session-id")?.trim() ?? "";
       const connected = el.getAttribute("data-connected") === "true";
@@ -189,8 +201,11 @@ async function readTerminalAttachState(page: import("@playwright/test").Page) {
     const errorText =
       [...(pane?.querySelectorAll("p, div") ?? [])]
         .map((el) => el.textContent?.trim() ?? "")
-        .find((text) => text.length < 240 && /failed to attach|failed to connect|can't find session/i.test(text)) ??
-      "";
+        .find(
+          (text) =>
+            text.length < 240 &&
+            /failed to attach|failed to connect|can't find session/i.test(text),
+        ) ?? "";
     return {
       status: live
         ? "ready"
@@ -231,7 +246,9 @@ async function waitForLiveTerminalTarget(page: import("@playwright/test").Page):
       .toBe("ready");
   } catch {
     const state = await readTerminalAttachState(page);
-    throw new Error(`workspace Terminal fixture did not connect: ${state.errorText || state.status}`);
+    throw new Error(
+      `workspace Terminal fixture did not connect: ${state.errorText || state.status}`,
+    );
   }
   const target = await readTerminalAttachState(page);
   expect(target.status, "live visible .terminal-pane must be connected").toBe("ready");
@@ -258,9 +275,7 @@ function sessionRoot(
   );
 }
 
-async function expandClosedGroupRows(
-  popover: import("@playwright/test").Locator,
-): Promise<void> {
+async function expandClosedGroupRows(popover: import("@playwright/test").Locator): Promise<void> {
   const closed = popover.locator(
     "[data-resource-monitor-table] button[aria-expanded='false']:not([data-resource-monitor-session-trigger]):not([data-resource-monitor-host-trigger]):not([data-resource-monitor-atmos-trigger]):not([data-resource-monitor-disk-trigger])",
   );
@@ -275,9 +290,9 @@ async function revealLocatableSessionButton(
   sessionId?: string,
 ): Promise<import("@playwright/test").Locator> {
   const sessionButton = sessionId
-    ? sessionRoot(popover, sessionId).locator("[data-resource-monitor-session-locate]").or(
-        sessionRoot(popover, sessionId).getByRole("button", { name: /Show this terminal/ }),
-      )
+    ? sessionRoot(popover, sessionId)
+        .locator("[data-resource-monitor-session-locate]")
+        .or(sessionRoot(popover, sessionId).getByRole("button", { name: /Show this terminal/ }))
     : popover.getByRole("button", { name: /Show this terminal/ });
   try {
     await expect
@@ -294,7 +309,12 @@ async function revealLocatableSessionButton(
       .toBe("visible");
   } catch {
     const terminal = await readTerminalAttachState(page);
-    const hierarchy = (await popover.locator("[data-resource-monitor-table]").innerText().catch(() => ""))
+    const hierarchy = (
+      await popover
+        .locator("[data-resource-monitor-table]")
+        .innerText()
+        .catch(() => "")
+    )
       .replace(/\s+/g, " ")
       .slice(0, 400);
     throw new Error(
@@ -409,10 +429,7 @@ test.describe("APP-066 resource monitor", () => {
         Math.abs(((await footerItem.boundingBox())?.width ?? 0) - restingFooterWidth),
       )
       .toBeLessThanOrEqual(8);
-    await expect(footerItem).toHaveAttribute(
-      "aria-label",
-      /CPU .*%.*Memory .*%/,
-    );
+    await expect(footerItem).toHaveAttribute("aria-label", /CPU .*%.*Memory .*%/);
 
     await footerItem.click();
 
@@ -468,9 +485,7 @@ test.describe("APP-066 resource monitor", () => {
       expect(diskText).not.toContain("/System/Volumes/Data");
       expect(diskText).not.toContain("/Volumes/Atmos");
       expect(diskText).not.toContain("/Volumes/Dray");
-      const diskAnalysis = popover.locator(
-        "[data-resource-monitor-disk-analyzer]",
-      );
+      const diskAnalysis = popover.locator("[data-resource-monitor-disk-analyzer]");
       await expect(diskAnalysis).toBeVisible();
       await diskAnalysis.click();
       await expect(page).toHaveURL(/\/disk-analyzer\/?(?:\?|$)/);
@@ -513,16 +528,10 @@ test.describe("APP-066 resource monitor", () => {
     await expect(sort.getByRole("button", { name: /CPU/ })).toBeVisible();
     await expect(sort.getByRole("button", { name: /Memory/ })).toBeVisible();
     const cpuSort = sort.getByRole("button", { name: /CPU/ });
-    await expect(cpuSort).toHaveAttribute(
-      "data-resource-monitor-sort-direction",
-      "descending",
-    );
+    await expect(cpuSort).toHaveAttribute("data-resource-monitor-sort-direction", "descending");
     await expect(cpuSort.locator("svg")).toBeVisible();
     await cpuSort.click();
-    await expect(cpuSort).toHaveAttribute(
-      "data-resource-monitor-sort-direction",
-      "ascending",
-    );
+    await expect(cpuSort).toHaveAttribute("data-resource-monitor-sort-direction", "ascending");
     await sort.getByRole("button", { name: /Name/ }).click();
     await expect(sort.getByRole("button", { name: /Name/ })).toHaveAttribute(
       "aria-pressed",
@@ -532,9 +541,7 @@ test.describe("APP-066 resource monitor", () => {
     const firstProject = popover.locator("[data-resource-monitor-project]").first();
     await expect(firstProject).toBeVisible();
     for (const column of ["CPU", "Memory"] as const) {
-      const headerLabel = sort.locator(
-        `[data-resource-monitor-column-label="${column}"]`,
-      );
+      const headerLabel = sort.locator(`[data-resource-monitor-column-label="${column}"]`);
       const metric = firstProject.locator(
         `[data-resource-monitor-metric="${column.toLowerCase()}"]`,
       );
@@ -545,18 +552,15 @@ test.describe("APP-066 resource monitor", () => {
       expect(headerBox).not.toBeNull();
       expect(metricBox).not.toBeNull();
       expect(
-        Math.abs(
-          headerBox!.x +
-            headerBox!.width -
-            (metricBox!.x + metricBox!.width),
-        ),
+        Math.abs(headerBox!.x + headerBox!.width - (metricBox!.x + metricBox!.width)),
       ).toBeLessThanOrEqual(1.5);
     }
     const nameSort = sort.getByRole("button", { name: /Name, ascending/i });
     await nameSort.click();
-    await expect(
-      sort.getByRole("button", { name: /Name, descending/i }),
-    ).toHaveAttribute("data-resource-monitor-sort-direction", "descending");
+    await expect(sort.getByRole("button", { name: /Name, descending/i })).toHaveAttribute(
+      "data-resource-monitor-sort-direction",
+      "descending",
+    );
 
     const current = page.viewportSize();
     if (!current || current.width > 390) {
@@ -614,18 +618,21 @@ test.describe("APP-066 resource monitor", () => {
       const sessionButton = await revealLocatableSessionButton(popover, page, target.sessionId);
       await expect(sessionButton).toBeVisible();
       await expect(sessionButton).toHaveAttribute("aria-label", /Show this terminal/);
-      await expect(
-        sessionRoot(popover, target.sessionId).locator("svg.lucide-locate"),
-      ).toHaveCount(0);
+      await expect(sessionRoot(popover, target.sessionId).locator("svg.lucide-locate")).toHaveCount(
+        0,
+      );
 
       let committedTmux: string | null = null;
-      const destCommitted = page.waitForURL((url) => {
-        if (normalizePathname(url.pathname) !== "/workspace") return false;
-        if (url.searchParams.get("id") !== createdGuid) return false;
-        if (url.searchParams.get("tab") !== "terminal") return false;
-        committedTmux = url.searchParams.get("terminalTmux")?.trim() || null;
-        return true;
-      }, { timeout: 8_000 });
+      const destCommitted = page.waitForURL(
+        (url) => {
+          if (normalizePathname(url.pathname) !== "/workspace") return false;
+          if (url.searchParams.get("id") !== createdGuid) return false;
+          if (url.searchParams.get("tab") !== "terminal") return false;
+          committedTmux = url.searchParams.get("terminalTmux")?.trim() || null;
+          return true;
+        },
+        { timeout: 8_000 },
+      );
 
       await sessionButton.click();
 
@@ -698,7 +705,9 @@ test.describe("APP-066 resource monitor", () => {
     }
   });
 
-  test("@spec S18 — session process row shows the live listener port", async ({ page }, testInfo) => {
+  test("@spec S18 — session process row shows the live listener port", async ({
+    page,
+  }, testInfo) => {
     test.skip(
       testInfo.project.name !== "chromium",
       "S18 proves the live listener and 390px overflow on chromium",
@@ -736,9 +745,7 @@ test.describe("APP-066 resource monitor", () => {
       await page.keyboard.type(command, { delay: 8 });
       await page.keyboard.press("Enter");
 
-      await expect
-        .poll(() => isHttpOpen(port), { timeout: 45_000 })
-        .toBe(true);
+      await expect.poll(() => isHttpOpen(port), { timeout: 45_000 }).toBe(true);
 
       const scan = await computerWsRequest<{ services?: Array<{ port?: number }> }>(
         page,
@@ -826,9 +833,10 @@ test.describe("APP-066 resource monitor", () => {
       const overflow = await readHorizontalOverflow(page);
       expect(overflow.document, "document must not scroll horizontally").toBeLessThanOrEqual(1);
       expect(overflow.body, "body must not scroll horizontally").toBeLessThanOrEqual(1);
-      expect(overflow.popover, "expanded popover must not overflow horizontally").toBeLessThanOrEqual(
-        1,
-      );
+      expect(
+        overflow.popover,
+        "expanded popover must not overflow horizontally",
+      ).toBeLessThanOrEqual(1);
     } catch (error) {
       testError = error;
       throw error;
@@ -841,9 +849,7 @@ test.describe("APP-066 resource monitor", () => {
           if (!testError) throw cleanupError;
         }
       }
-      await expect
-        .poll(() => isHttpOpen(port), { timeout: 20_000 })
-        .toBe(false);
+      await expect.poll(() => isHttpOpen(port), { timeout: 20_000 }).toBe(false);
     }
   });
 });

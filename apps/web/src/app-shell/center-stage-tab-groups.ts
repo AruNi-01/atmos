@@ -9,10 +9,7 @@ export type GroupedTabColumn = {
 };
 
 /** Persist group order per pane so reordering pane A cannot reset pane B. */
-export function paneScopedTabGroupKey(
-  paneId: string | undefined,
-  groupKey: string,
-): string {
+export function paneScopedTabGroupKey(paneId: string | undefined, groupKey: string): string {
   return paneId ? `pane:${paneId}:${groupKey}` : groupKey;
 }
 
@@ -59,10 +56,7 @@ export function collectDiffGroupTabs(
       kind: "diff-group" as const,
       file,
     }))
-    .sort(
-      (left, right) =>
-        (left.file?.lastOpenedAt ?? 0) - (right.file?.lastOpenedAt ?? 0),
-    );
+    .sort((left, right) => (left.file?.lastOpenedAt ?? 0) - (right.file?.lastOpenedAt ?? 0));
 
   if (extras?.gitHistory?.visible) {
     diffTabs.unshift({
@@ -83,8 +77,7 @@ export function collectDiffGroupTabs(
   }
 
   if (extras?.gitCommits?.length) {
-    const insertAt =
-      (extras.changes?.visible ? 1 : 0) + (extras.gitHistory?.visible ? 1 : 0);
+    const insertAt = (extras.changes?.visible ? 1 : 0) + (extras.gitHistory?.visible ? 1 : 0);
     diffTabs.splice(
       insertAt,
       0,
@@ -110,9 +103,7 @@ export type AgentChatGroupTabInput = {
 };
 
 /** Chat center tabs in open order (oldest first), matching the strip default. */
-export function collectAgentChatGroupTabs(
-  tabs: readonly AgentChatGroupTabInput[],
-): TabGroupItem[] {
+export function collectAgentChatGroupTabs(tabs: readonly AgentChatGroupTabInput[]): TabGroupItem[] {
   return [...tabs]
     .sort((left, right) => left.openedAt - right.openedAt)
     .map((tab) => ({
@@ -125,10 +116,7 @@ export function collectAgentChatGroupTabs(
     }));
 }
 
-export function collectSimulatorGroupTabs(
-  visible: boolean,
-  label: string,
-): TabGroupItem[] {
+export function collectSimulatorGroupTabs(visible: boolean, label: string): TabGroupItem[] {
   if (!visible) return [];
   return [
     {

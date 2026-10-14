@@ -53,14 +53,14 @@ sequenceDiagram
 
 ## How other hosts parse (copy this, not ACP)
 
-| Host | What it does | Take for Atmos |
-|------|----------------|----------------|
+| Host                                                                                                                                                                                                | What it does                                                                                                                                                                                                                                                       | Take for Atmos                                                     |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
 | [Agent SDK TS](https://code.claude.com/docs/en/agent-sdk/typescript) / [Python `query.py`](https://github.com/anthropics/claude-agent-sdk-python/blob/main/src/claude_agent_sdk/_internal/query.py) | Spawns `claude` with `--output-format stream-json --verbose --input-format stream-json`; optional `--include-partial-messages`; `--permission-prompt-tool stdio` when `canUseTool` is set. **No `--print`.** Writes NDJSON; demuxes `control_request` vs messages. | Canonical spawn + envelope. Pin `control_response` to this schema. |
-| [Python `subprocess_cli.py`](https://github.com/anthropics/claude-agent-sdk-python/blob/main/src/claude_agent_sdk/_internal/transport/subprocess_cli.py) `_build_command` | `--resume=` equals-form; `--effort`; thinking flags; stdin kept open. | Resume argv. Do not pass `--resume` as two tokens. |
-| [joshrotenberg/claude-wrapper #561 DuplexSession](https://github.com/joshrotenberg/claude-wrapper/issues/561) | One child for the conversation. Turn boundary = `type: result`. Inbound `can_use_tool` must answer on stdin. Outbound `interrupt` uses `request_id` → oneshot. | Chat process model. |
-| [humanlayer/claudecode-go](https://github.com/humanlayer/humanlayer/tree/main/claudecode-go) | `bufio.Scanner` on stream-json; `--verbose` required with stream-json; large-line buffer. | Line reader: no tiny scan cap. |
-| [dn00/clarp](https://github.com/dn00/clarp) | PTY + local API proxy so **interactive** Claude emits print-like stream-json. | Event catalog reference only. Not Chat spawn. |
-| [`@agentclientprotocol/claude-agent-acp`](https://www.npmjs.com/package/@agentclientprotocol/claude-agent-acp) | ACP façade over the Agent SDK. | **MUST NOT** Chat path. |
+| [Python `subprocess_cli.py`](https://github.com/anthropics/claude-agent-sdk-python/blob/main/src/claude_agent_sdk/_internal/transport/subprocess_cli.py) `_build_command`                           | `--resume=` equals-form; `--effort`; thinking flags; stdin kept open.                                                                                                                                                                                              | Resume argv. Do not pass `--resume` as two tokens.                 |
+| [joshrotenberg/claude-wrapper #561 DuplexSession](https://github.com/joshrotenberg/claude-wrapper/issues/561)                                                                                       | One child for the conversation. Turn boundary = `type: result`. Inbound `can_use_tool` must answer on stdin. Outbound `interrupt` uses `request_id` → oneshot.                                                                                                     | Chat process model.                                                |
+| [humanlayer/claudecode-go](https://github.com/humanlayer/humanlayer/tree/main/claudecode-go)                                                                                                        | `bufio.Scanner` on stream-json; `--verbose` required with stream-json; large-line buffer.                                                                                                                                                                          | Line reader: no tiny scan cap.                                     |
+| [dn00/clarp](https://github.com/dn00/clarp)                                                                                                                                                         | PTY + local API proxy so **interactive** Claude emits print-like stream-json.                                                                                                                                                                                      | Event catalog reference only. Not Chat spawn.                      |
+| [`@agentclientprotocol/claude-agent-acp`](https://www.npmjs.com/package/@agentclientprotocol/claude-agent-acp)                                                                                      | ACP façade over the Agent SDK.                                                                                                                                                                                                                                     | **MUST NOT** Chat path.                                            |
 
 **ACP status.** Anthropic did not ship native ACP on `claude`. [Issue #6686](https://github.com/anthropics/claude-code/issues/6686) asked for it; the working solution in the wild is Zed’s SDK adapter, not a first-party `claude acp` binary. Network ACP (`claude serve`) was separately [closed as not planned](https://github.com/anthropics/claude-code/issues/24365). Chat stays on stream-json.
 
@@ -101,17 +101,17 @@ Both directions: **one JSON object per `\n`**. Write `serde_json::to_vec` + `\n`
 
 Classify stdout `type`:
 
-| `type` | Role |
-|--------|------|
-| `system` | `subtype: init` → session meta; other subtypes may omit or `Unknown` |
-| `assistant` | complete message (text, thinking, `tool_use`) |
-| `user` | often `tool_result` blocks |
-| `stream_event` | partial API events when `--include-partial-messages` |
-| `result` | **turn complete** (success or error subtype) |
-| `control_request` | CLI → host; must answer if it is a request that blocks |
-| `control_response` | CLI → host; complete a pending host `control_request` |
-| `rate_limit_event` / `tool_progress` / `keep_alive` | omit or status; never panic |
-| unknown | omit or one `Unknown`; session continues (S22) |
+| `type`                                              | Role                                                                 |
+| --------------------------------------------------- | -------------------------------------------------------------------- |
+| `system`                                            | `subtype: init` → session meta; other subtypes may omit or `Unknown` |
+| `assistant`                                         | complete message (text, thinking, `tool_use`)                        |
+| `user`                                              | often `tool_result` blocks                                           |
+| `stream_event`                                      | partial API events when `--include-partial-messages`                 |
+| `result`                                            | **turn complete** (success or error subtype)                         |
+| `control_request`                                   | CLI → host; must answer if it is a request that blocks               |
+| `control_response`                                  | CLI → host; complete a pending host `control_request`                |
+| `rate_limit_event` / `tool_progress` / `keep_alive` | omit or status; never panic                                          |
+| unknown                                             | omit or one `Unknown`; session continues (S22)                       |
 
 Control frames **interleave** with assistant/stream/result on the same stdout. Do not assume “all messages then control”.
 
@@ -152,7 +152,16 @@ Always echo the CLI’s `input` as `updatedInput` on allow (empty `{}` wipes arg
 **CLI → host `can_use_tool`:**
 
 ```json
-{"type":"control_request","request_id":"req_p","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{"command":"ls"},"tool_use_id":"tu_1"}}
+{
+  "type": "control_request",
+  "request_id": "req_p",
+  "request": {
+    "subtype": "can_use_tool",
+    "tool_name": "Bash",
+    "input": { "command": "ls" },
+    "tool_use_id": "tu_1"
+  }
+}
 ```
 
 Optional: `permission_suggestions`, `blocked_path`, `agent_id`, `title`, `display_name`, `description`, `decision_reason`.
@@ -164,13 +173,18 @@ Unmapped inbound subtypes (`hook_callback`, `mcp_message`, `elicitation`, …): 
 SDK `SDKUserMessage` ([TS](https://code.claude.com/docs/en/agent-sdk/typescript)):
 
 ```json
-{"type":"user","parent_tool_use_id":null,"session_id":"ses_abc","message":{"role":"user","content":[{"type":"text","text":"list files"}]}}
+{
+  "type": "user",
+  "parent_tool_use_id": null,
+  "session_id": "ses_abc",
+  "message": { "role": "user", "content": [{ "type": "text", "text": "list files" }] }
+}
 ```
 
 Attachments: content blocks the CLI already accepts. Image example (short):
 
 ```json
-{"type":"image","source":{"type":"base64","media_type":"image/png","data":"<b64>"}}
+{ "type": "image", "source": { "type": "base64", "media_type": "image/png", "data": "<b64>" } }
 ```
 
 `session_id` optional after init. `shouldQuery: false` is out of v1 (do not use for Atmos queue). `uuid` on the user message is optional; if set, later `user_message_uuid` on assistant/result may echo it — adapter-private, not Atmos `turn_id`.
@@ -179,14 +193,14 @@ Attachments: content blocks the CLI already accepts. Image example (short):
 
 ## Runtime verbs
 
-| Atmos | Claude wire |
-|-------|-------------|
-| `send` | user NDJSON |
-| `cancel` | `control_request` `interrupt`; ignore receipt extras (`still_queued`) in v1 |
-| `close` | close stdin; wait; kill |
-| `Steer` | Second stdin user NDJSON on the running turn. Not a new `turn_id`. Overlapping `send` stays `turn in flight`. |
-| `RespondPermission` | nested `control_response` above |
-| `SetConfig` | `set_model` / effort via spawn+`apply_flag_settings` / `set_max_thinking_tokens` if numeric / `set_permission_mode` |
+| Atmos               | Claude wire                                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `send`              | user NDJSON                                                                                                         |
+| `cancel`            | `control_request` `interrupt`; ignore receipt extras (`still_queued`) in v1                                         |
+| `close`             | close stdin; wait; kill                                                                                             |
+| `Steer`             | Second stdin user NDJSON on the running turn. Not a new `turn_id`. Overlapping `send` stays `turn in flight`.       |
+| `RespondPermission` | nested `control_response` above                                                                                     |
+| `SetConfig`         | `set_model` / effort via spawn+`apply_flag_settings` / `set_max_thinking_tokens` if numeric / `set_permission_mode` |
 
 Capabilities: `steer: Supported`, `resume: Supported`, `permission: Supported`, `configure: Supported`.
 
@@ -194,28 +208,28 @@ Capabilities: `steer: Supported`, `resume: Supported`, `permission: Supported`, 
 
 Atmos `option_id` → dialect (adapter-private):
 
-| `option_id` kind | Inner `response` |
-|------------------|------------------|
-| `allow_once` | `behavior: allow`, `updatedInput` = request `input` |
-| `allow_always` | same + `updatedPermissions` from `permission_suggestions` when present |
-| `reject_once` / `reject_always` | `behavior: deny`, `message` non-empty |
+| `option_id` kind                | Inner `response`                                                       |
+| ------------------------------- | ---------------------------------------------------------------------- |
+| `allow_once`                    | `behavior: allow`, `updatedInput` = request `input`                    |
+| `allow_always`                  | same + `updatedPermissions` from `permission_suggestions` when present |
+| `reject_once` / `reject_always` | `behavior: deny`, `message` non-empty                                  |
 
 ## Event map (`event_map.rs`) — S18
 
 Envelope `turn_id` = Atmos epoch from `send`. Do not put vendor ids on the envelope.
 
-| Vendor | Atmos |
-|--------|--------|
-| `system`/`init` | session/config; persist `session_id` |
-| `stream_event` `content_block_delta` `text_delta` | assistant snapshot (host 100ms throttle) |
-| `stream_event` thinking deltas | `Thinking*` |
-| `assistant` `content[]` `text` | assistant (authoritative vs partials) |
-| `assistant` `tool_use` | `ToolCallStarted` / `Updated` |
-| `user` `tool_result` | `ToolCallCompleted` / `Failed` |
-| `result` `subtype: success` | `TurnCompleted`; fold `total_cost_usd` / `usage` into Atmos usage if the host already has that event |
-| `result` `is_error` / error subtype | `TurnCompleted` failed/cancelled; interrupt often looks like error — still end the Atmos turn |
-| `can_use_tool` | `PermissionRequested` (`request_id` = outer `request_id`) |
-| thinking / `TodoWrite` | fold `Thinking*` / `PlanUpdated` — **not** tool kinds |
+| Vendor                                            | Atmos                                                                                                |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `system`/`init`                                   | session/config; persist `session_id`                                                                 |
+| `stream_event` `content_block_delta` `text_delta` | assistant snapshot (host 100ms throttle)                                                             |
+| `stream_event` thinking deltas                    | `Thinking*`                                                                                          |
+| `assistant` `content[]` `text`                    | assistant (authoritative vs partials)                                                                |
+| `assistant` `tool_use`                            | `ToolCallStarted` / `Updated`                                                                        |
+| `user` `tool_result`                              | `ToolCallCompleted` / `Failed`                                                                       |
+| `result` `subtype: success`                       | `TurnCompleted`; fold `total_cost_usd` / `usage` into Atmos usage if the host already has that event |
+| `result` `is_error` / error subtype               | `TurnCompleted` failed/cancelled; interrupt often looks like error — still end the Atmos turn        |
+| `can_use_tool`                                    | `PermissionRequested` (`request_id` = outer `request_id`)                                            |
+| thinking / `TodoWrite`                            | fold `Thinking*` / `PlanUpdated` — **not** tool kinds                                                |
 
 `PermissionRequested.options` are Atmos ids (`allow_once`, …), not vendor strings. `tool` / `description` come from `tool_name` + a one-line summary of `input` (command/path/url). Do not put the full vendor request on a sidecar.
 
@@ -225,33 +239,33 @@ Partial `stream_event` never dual-stores a native sidecar. Complete `assistant` 
 
 Vendor `name` stays on `AgentTool.name`. Kind from exact Claude names (then `classify_tool` fallback inside the adapter only):
 
-| Claude `name` | Atmos `kind` | Params (drop unused keys) |
-|---------------|--------------|---------------------------|
-| `Bash` | `execute` | `command`, `cwd` if present, `background` from `run_in_background` |
-| `Read` | `read` | `file_path` → `path`, `offset`, `limit` |
-| `Edit` / `Write` / `NotebookEdit` | `edit` | `file_path` → `path` |
-| `Grep` / `Glob` | `search` | pattern/glob/path — **not** `web_search` |
-| `WebSearch` | `web_search` | `query`; links from result if parseable else `result: text` |
-| `WebFetch` | `fetch` | `url` |
-| `Skill` | `skill` | skill id/name |
-| `Task` / `Agent` | `subagent` | description / agent type |
-| `BashOutput` / `TaskOutput` | **Hide** | merge output onto parent execute by adapter |
-| other | `other` | params/result **are** vendor JSON once |
+| Claude `name`                     | Atmos `kind` | Params (drop unused keys)                                          |
+| --------------------------------- | ------------ | ------------------------------------------------------------------ |
+| `Bash`                            | `execute`    | `command`, `cwd` if present, `background` from `run_in_background` |
+| `Read`                            | `read`       | `file_path` → `path`, `offset`, `limit`                            |
+| `Edit` / `Write` / `NotebookEdit` | `edit`       | `file_path` → `path`                                               |
+| `Grep` / `Glob`                   | `search`     | pattern/glob/path — **not** `web_search`                           |
+| `WebSearch`                       | `web_search` | `query`; links from result if parseable else `result: text`        |
+| `WebFetch`                        | `fetch`      | `url`                                                              |
+| `Skill`                           | `skill`      | skill id/name                                                      |
+| `Task` / `Agent`                  | `subagent`   | description / agent type                                           |
+| `BashOutput` / `TaskOutput`       | **Hide**     | merge output onto parent execute by adapter                        |
+| other                             | `other`      | params/result **are** vendor JSON once                             |
 
 `tool_call_id` = `tool_use.id`. Result: `tool_result.content` → execute output / text / error. Exit code from structured result when present.
 
 ## MUST / MUST NOT
 
-| MUST | MUST NOT |
-|------|----------|
-| Duplex, no `--print`; override catalog `params` | One-shot `--print` as Chat |
-| Nested SDK `control_response` + `behavior` | Guess `allowed` / top-level `request_id` / `approved` |
-| `--permission-prompt-tool stdio` + answer every `can_use_tool` | Leave stdin unanswered (turn stalls) |
-| `action(Steer)` = second stdin user NDJSON on `running_turn` | Fake steer via queue, interrupt+resend, or a new `turn_id` |
-| Resume via `session_id` / `--resume=` | Treat `get` as spawn |
-| Unknown frames skip or `Unknown` | Panic the session |
-| Fixtures from a pinned CLI | Embed TS SDK; spawn `claude-agent-acp` |
-| | `rewind_files`, MCP hook routing, plugin reload as Chat actions |
+| MUST                                                           | MUST NOT                                                        |
+| -------------------------------------------------------------- | --------------------------------------------------------------- |
+| Duplex, no `--print`; override catalog `params`                | One-shot `--print` as Chat                                      |
+| Nested SDK `control_response` + `behavior`                     | Guess `allowed` / top-level `request_id` / `approved`           |
+| `--permission-prompt-tool stdio` + answer every `can_use_tool` | Leave stdin unanswered (turn stalls)                            |
+| `action(Steer)` = second stdin user NDJSON on `running_turn`   | Fake steer via queue, interrupt+resend, or a new `turn_id`      |
+| Resume via `session_id` / `--resume=`                          | Treat `get` as spawn                                            |
+| Unknown frames skip or `Unknown`                               | Panic the session                                               |
+| Fixtures from a pinned CLI                                     | Embed TS SDK; spawn `claude-agent-acp`                          |
+|                                                                | `rewind_files`, MCP hook routing, plugin reload as Chat actions |
 
 ## Module files
 
@@ -278,11 +292,11 @@ crates/agent/src/providers/claude/
 
 Record under `crates/agent/src/providers/claude/testdata/`. `testdata/README.md` lists `claude --version` and Agent SDK git/npm id used to generate files.
 
-| Id | Files (suggested) | Assert |
-|----|-------------------|--------|
+| Id      | Files (suggested)                                                                                                                      | Assert                                                                                                                           |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | **S18** | `init.jsonl`, `turn_bash_web.jsonl` (init, assistant `tool_use` Bash/Read/WebSearch/WebFetch, `tool_result`, `can_use_tool`, `result`) | kinds match table; permission event; `capabilities.steer == Supported`; Steer writes a second stdin user line without a new turn |
-| **S21** | `can_use_tool.json` + golden stdin | `RespondPermission` writes nested `{behavior, updatedInput}` — not `allowed` |
-| **S23** | `mixed_control.jsonl` | `control_request` between `stream_event` and `assistant`; parse succeeds; `\n` split only |
+| **S21** | `can_use_tool.json` + golden stdin                                                                                                     | `RespondPermission` writes nested `{behavior, updatedInput}` — not `allowed`                                                     |
+| **S23** | `mixed_control.jsonl`                                                                                                                  | `control_request` between `stream_event` and `assistant`; parse succeeds; `\n` split only                                        |
 
 Also: overlapping control + result; error `control_response`; unknown `type` does not abort (S22).
 

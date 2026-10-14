@@ -62,7 +62,14 @@ export function parseSidebarGroupingMode(value: unknown): SidebarGroupingMode {
 function StatusBacklog({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 16 16" fill="none" className={className}>
-      <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 2.5" />
+      <circle
+        cx="8"
+        cy="8"
+        r="6.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeDasharray="3 2.5"
+      />
     </svg>
   );
 }
@@ -79,7 +86,12 @@ function StatusInProgress({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 16 16" fill="none" className={className}>
       <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" opacity="0.3" />
-      <path d="M8 1.5 A6.5 6.5 0 0 1 14.5 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path
+        d="M8 1.5 A6.5 6.5 0 0 1 14.5 8"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -88,7 +100,12 @@ function StatusInReview({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 16 16" fill="none" className={className}>
       <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" opacity="0.3" />
-      <path d="M8 1.5 A6.5 6.5 0 1 1 1.5 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path
+        d="M8 1.5 A6.5 6.5 0 1 1 1.5 8"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -97,7 +114,13 @@ function StatusCompleted({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 16 16" fill="none" className={className}>
       <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M5.5 8L7.2 9.7L10.5 6.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M5.5 8L7.2 9.7L10.5 6.3"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -270,9 +293,7 @@ const NO_STATUS_META: WorkflowStatusVisual = {
   className: "text-muted-foreground/70",
 };
 
-const WORKSPACE_WORKFLOW_STATUS_VALUES = new Set<string>(
-  Object.keys(WORKFLOW_STATUS_META),
-);
+const WORKSPACE_WORKFLOW_STATUS_VALUES = new Set<string>(Object.keys(WORKFLOW_STATUS_META));
 
 export function isWorkspaceWorkflowStatus(value: unknown): value is WorkspaceWorkflowStatus {
   return typeof value === "string" && WORKSPACE_WORKFLOW_STATUS_VALUES.has(value);
@@ -292,9 +313,9 @@ function getWorkspaceRecencyTimestamp(workspace: Workspace): number {
 export function getProjectWorkflowStatus(project: Project): WorkspaceWorkflowStatus {
   if (project.workspaces.length === 0) return "todo";
 
-  return [...project.workspaces]
-    .sort((a, b) => getWorkspaceRecencyTimestamp(b) - getWorkspaceRecencyTimestamp(a))[0]
-    .workflowStatus;
+  return [...project.workspaces].sort(
+    (a, b) => getWorkspaceRecencyTimestamp(b) - getWorkspaceRecencyTimestamp(a),
+  )[0].workflowStatus;
 }
 
 type WorkspaceStatusButtonProps = {
@@ -325,7 +346,7 @@ export function WorkspaceStatusButton({
       className={cn(
         "flex size-5 items-center justify-center rounded-sm",
         onChange
-          ? "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground cursor-pointer"
+          ? "cursor-pointer text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
           : "cursor-default text-muted-foreground",
         className,
       )}

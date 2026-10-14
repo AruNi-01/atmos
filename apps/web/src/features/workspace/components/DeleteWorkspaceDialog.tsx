@@ -1,5 +1,5 @@
-import React from 'react';
-import { useTranslations } from 'next-intl';
+import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,7 @@ import {
   DialogFooter,
   DialogDescription,
   Button,
-} from '@workspace/ui';
+} from "@workspace/ui";
 
 interface DeleteWorkspaceDialogProps {
   isOpen: boolean;
@@ -24,7 +24,7 @@ export const DeleteWorkspaceDialog: React.FC<DeleteWorkspaceDialogProps> = ({
   workspaceName,
   onConfirm,
 }) => {
-  const t = useTranslations('Workspace.components.deleteDialog');
+  const t = useTranslations("Workspace.components.deleteDialog");
 
   const handleConfirm = () => {
     onConfirm();
@@ -35,17 +35,15 @@ export const DeleteWorkspaceDialog: React.FC<DeleteWorkspaceDialogProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{t('title')}</DialogTitle>
-          <DialogDescription>
-            {t('description', { workspaceName })}
-          </DialogDescription>
+          <DialogTitle>{t("title")}</DialogTitle>
+          <DialogDescription>{t("description", { workspaceName })}</DialogDescription>
         </DialogHeader>
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose} className="cursor-pointer">
-            {t('actions.cancel')}
+            {t("actions.cancel")}
           </Button>
           <Button variant="destructive" onClick={handleConfirm} className="cursor-pointer">
-            {t('actions.delete')}
+            {t("actions.delete")}
           </Button>
         </DialogFooter>
       </DialogContent>

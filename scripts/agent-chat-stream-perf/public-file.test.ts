@@ -37,7 +37,10 @@ describe("serveDist", () => {
           const chunks: Buffer[] = [];
           res.on("data", (chunk) => chunks.push(chunk));
           res.on("end", () =>
-            resolveReq({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString("utf8") }),
+            resolveReq({
+              status: res.statusCode ?? 0,
+              body: Buffer.concat(chunks).toString("utf8"),
+            }),
           );
         });
         req.on("error", reject);

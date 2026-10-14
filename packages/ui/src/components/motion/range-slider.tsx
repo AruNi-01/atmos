@@ -40,14 +40,13 @@ export function RangeSlider({
 }: RangeSliderProps) {
   const reduce = useReducedMotion();
   const target = useMotionValue(0);
-  const { percent, current, dragging, min, max, step, trackProps, sliderProps } =
-    useSlider({
-      ...options,
-      onDragPercent: (next) => {
-        target.set(next);
-        onDragPercent?.(next);
-      },
-    });
+  const { percent, current, dragging, min, max, step, trackProps, sliderProps } = useSlider({
+    ...options,
+    onDragPercent: (next) => {
+      target.set(next);
+      onDragPercent?.(next);
+    },
+  });
   const effort = variant === "effort";
   const atMax = maxEffect && current === max && max > min;
 
@@ -81,9 +80,7 @@ export function RangeSlider({
           ? cn("h-8 rounded-full", atMax ? "bg-[#05070e]" : "bg-foreground/10 dark:bg-black/55")
           : "h-10 rounded-lg bg-muted",
         TOUCH_GESTURE_CLASS,
-        options.disabled
-          ? "pointer-events-none opacity-50"
-          : "cursor-grab active:cursor-grabbing",
+        options.disabled ? "pointer-events-none opacity-50" : "cursor-grab active:cursor-grabbing",
         className,
       )}
     >
@@ -110,7 +107,9 @@ export function RangeSlider({
               key={t}
               className={cn(
                 "absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full",
-                effort ? "h-3.5 w-0.5 bg-foreground/30 dark:bg-white/35" : "size-1 bg-foreground/25",
+                effort
+                  ? "h-3.5 w-0.5 bg-foreground/30 dark:bg-white/35"
+                  : "size-1 bg-foreground/25",
               )}
               style={{ left: `${tp}%` }}
             />
@@ -133,8 +132,8 @@ export function RangeSlider({
           effort
             ? atMax
               ? "h-6 w-3.5 rounded-md bg-white shadow-[0_0_12px_rgba(186,230,253,0.9)]"
-              : "h-6 w-3.5 rounded-md bg-foreground/45 shadow-sm ring-inset ring-foreground/20 focus-visible:ring-foreground/30 dark:bg-neutral-300"
-            : "h-5 w-1.5 rounded-sm bg-foreground shadow-sm ring-inset ring-foreground/30 focus-visible:ring-foreground/30",
+              : "h-6 w-3.5 rounded-md bg-foreground/45 shadow-sm ring-foreground/20 ring-inset focus-visible:ring-foreground/30 dark:bg-neutral-300"
+            : "h-5 w-1.5 rounded-sm bg-foreground shadow-sm ring-foreground/30 ring-inset focus-visible:ring-foreground/30",
         )}
         style={{ left, x: thumbX, y: "-50%" }}
       />

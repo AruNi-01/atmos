@@ -24,10 +24,10 @@ cargo fmt --all
 
 After `bun install`, [Husky](https://typicode.github.io/husky/) installs local Git hooks under `.husky/`. Hooks stay **light** (not full CI, no `just`):
 
-| Hook | What it does |
-|------|----------------|
+| Hook         | What it does                                                                                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `pre-commit` | `lint-staged`: `oxlint --fix` + `oxfmt` on staged JS/TS; `oxfmt` on staged CSS/JSON/MD; `cargo fmt` on staged `*.rs`; package-boundary check when `packages/shared` TS changes |
-| `commit-msg` | Require a [Conventional Commits](https://www.conventionalcommits.org/) subject line |
+| `commit-msg` | Require a [Conventional Commits](https://www.conventionalcommits.org/) subject line                                                                                            |
 
 Examples:
 

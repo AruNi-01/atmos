@@ -18,9 +18,7 @@ export function isSameCenterPaneContext(
   return Boolean(prevContextId && nextContextId && prevContextId === nextContextId);
 }
 
-export function shouldPersistCollapsedStripOrder(
-  input: CenterPaneCountTransition,
-): boolean {
+export function shouldPersistCollapsedStripOrder(input: CenterPaneCountTransition): boolean {
   return (
     isSameCenterPaneContext(input.prevContextId, input.nextContextId) &&
     input.prevPaneCount > 1 &&
@@ -28,9 +26,7 @@ export function shouldPersistCollapsedStripOrder(
   );
 }
 
-export function shouldSeedMosaicFromFullPane(
-  input: CenterPaneCountTransition,
-): boolean {
+export function shouldSeedMosaicFromFullPane(input: CenterPaneCountTransition): boolean {
   return (
     isSameCenterPaneContext(input.prevContextId, input.nextContextId) &&
     input.prevPaneCount <= 1 &&
@@ -47,16 +43,10 @@ export function shouldSnapPaneTilesOnContextChange(
   prevContextId: string | null | undefined,
   nextContextId: string | null | undefined,
 ): boolean {
-  return Boolean(
-    prevContextId &&
-      nextContextId &&
-      prevContextId !== nextContextId,
-  );
+  return Boolean(prevContextId && nextContextId && prevContextId !== nextContextId);
 }
 
-export function shouldHoldMosaicAfterCollapse(
-  input: CenterPaneCountTransition,
-): boolean {
+export function shouldHoldMosaicAfterCollapse(input: CenterPaneCountTransition): boolean {
   return shouldPersistCollapsedStripOrder(input);
 }
 

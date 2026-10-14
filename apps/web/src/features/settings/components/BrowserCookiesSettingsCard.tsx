@@ -29,11 +29,7 @@ type ClearTarget = "cache" | "site";
 type ClearPhase = "confirm" | "clearing" | "cleared" | "error";
 
 function cookieToolsAvailable() {
-  return (
-    isDesktopRuntime() &&
-    typeof navigator !== "undefined" &&
-    /Mac/i.test(navigator.userAgent)
-  );
+  return isDesktopRuntime() && typeof navigator !== "undefined" && /Mac/i.test(navigator.userAgent);
 }
 
 export function BrowserCookiesSettingsCard() {
@@ -92,12 +88,7 @@ export function BrowserCookiesSettingsCard() {
               description={t("cookies.import.description")}
               wide
             >
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setImportOpen(true)}
-              >
+              <Button type="button" variant="outline" size="sm" onClick={() => setImportOpen(true)}>
                 {t("cookies.import.action")}
               </Button>
             </SettingsGroupRow>
@@ -139,9 +130,7 @@ export function BrowserCookiesSettingsCard() {
             </SettingsGroupRow>
           </>
         ) : (
-          <div className="px-2 py-4 text-sm text-muted-foreground">
-            {t("cookies.unavailable")}
-          </div>
+          <div className="px-2 py-4 text-sm text-muted-foreground">{t("cookies.unavailable")}</div>
         )}
       </SettingsGroupCard>
 
@@ -158,14 +147,10 @@ export function BrowserCookiesSettingsCard() {
             <>
               <DialogHeader>
                 <DialogTitle>
-                  {isSiteData
-                    ? cookieT("clear.clearedSiteData")
-                    : cookieT("clear.clearedCache")}
+                  {isSiteData ? cookieT("clear.clearedSiteData") : cookieT("clear.clearedCache")}
                 </DialogTitle>
                 <DialogDescription className="sr-only">
-                  {isSiteData
-                    ? cookieT("clear.clearedSiteData")
-                    : cookieT("clear.clearedCache")}
+                  {isSiteData ? cookieT("clear.clearedSiteData") : cookieT("clear.clearedCache")}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
@@ -178,9 +163,7 @@ export function BrowserCookiesSettingsCard() {
             <>
               <DialogHeader>
                 <DialogTitle>
-                  {isSiteData
-                    ? cookieT("clear.siteDataTitle")
-                    : cookieT("clear.cacheTitle")}
+                  {isSiteData ? cookieT("clear.siteDataTitle") : cookieT("clear.cacheTitle")}
                 </DialogTitle>
                 <DialogDescription>
                   {isSiteData
@@ -194,12 +177,7 @@ export function BrowserCookiesSettingsCard() {
                 </p>
               ) : null}
               <DialogFooter>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={closeClear}
-                  disabled={clearing}
-                >
+                <Button variant="outline" size="sm" onClick={closeClear} disabled={clearing}>
                   {cookieT("clear.cancel")}
                 </Button>
                 <Button

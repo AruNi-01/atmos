@@ -50,9 +50,9 @@ describe("collab rooms", () => {
     expect(
       parseRoomFromString("https://app.atmos.land/?tab=pt-design#room=abc123,secretKey"),
     ).toEqual(room);
-    expect(
-      parseRoomFromString("http://localhost:30303/?tab=files#room=abc123,secretKey"),
-    ).toEqual(room);
+    expect(parseRoomFromString("http://localhost:30303/?tab=files#room=abc123,secretKey")).toEqual(
+      room,
+    );
     expect(parseRoomFromString("not-a-room")).toBeNull();
   });
 
@@ -77,7 +77,7 @@ describe("collab rooms", () => {
     const prompt = buildLocalAgentPrompt("global", "http://127.0.0.1:30303");
     expect(prompt).toContain("atmos://context/pt-design-agent");
     expect(prompt).toContain("POST http://127.0.0.1:30303/api/pt-design/agent/invoke");
-    expect(prompt).toContain("\"client_id\": \"global\"");
+    expect(prompt).toContain('"client_id": "global"');
     expect(prompt).toContain(PT_DESIGN_AGENT_SKILL_PATH);
     expect(prompt).not.toContain("pt-design-mcp");
     expect(prompt).not.toContain("PT_DESIGN_COLLAB_ROOM");
@@ -101,7 +101,9 @@ describe("collab rooms", () => {
     expect(catalog).toContain("Charts");
     expect(catalog).toContain("chart.area-default");
     expect(catalog).toContain("<chart-area-default");
-    expect(readFileSync(join(skillDir, "references", "board.md"), "utf8")).toContain("pt_screenshot");
+    expect(readFileSync(join(skillDir, "references", "board.md"), "utf8")).toContain(
+      "pt_screenshot",
+    );
     expect(readFileSync(join(skillDir, "references", "command-reference.md"), "utf8")).toContain(
       "pt_ptx_apply",
     );

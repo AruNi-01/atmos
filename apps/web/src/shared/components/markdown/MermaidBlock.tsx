@@ -1,16 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { useTranslations } from "next-intl";
 import { Code, Eye, Images, Loader2, Type } from "lucide-react";
-import {
-  cn,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui";
+import { cn, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@workspace/ui";
 import {
   estimateMermaidPlaceholderHeight,
   readMermaidDiagramCache,
@@ -28,11 +28,7 @@ import {
 import { CopyButton } from "@/shared/components/code-block/copy-button";
 import { DualThemes, highlight } from "@/shared/utils/shiki";
 import { MermaidViewerModal } from "./MermaidViewerModal";
-import {
-  MERMAID_VIEW_MODES,
-  mermaidCopyContent,
-  type MermaidViewMode,
-} from "./mermaid-view";
+import { MERMAID_VIEW_MODES, mermaidCopyContent, type MermaidViewMode } from "./mermaid-view";
 
 function themeFromDark(isDark: boolean): MermaidDiagramTheme {
   return isDark ? "dark" : "light";
@@ -259,22 +255,24 @@ export function MermaidPreviewPane({
 
     let cancelled = false;
     setAsciiLoading(true);
-    import("beautiful-mermaid").then(({ renderMermaidAscii }) => {
-      if (cancelled) return;
-      try {
-        setAsciiText(renderMermaidAscii(code));
-        setAsciiError(null);
-      } catch (err) {
-        setAsciiError(err instanceof Error ? err.message : t("mermaid.errors.asciiRenderFailed"));
-        setAsciiText(null);
-      } finally {
+    import("beautiful-mermaid")
+      .then(({ renderMermaidAscii }) => {
+        if (cancelled) return;
+        try {
+          setAsciiText(renderMermaidAscii(code));
+          setAsciiError(null);
+        } catch (err) {
+          setAsciiError(err instanceof Error ? err.message : t("mermaid.errors.asciiRenderFailed"));
+          setAsciiText(null);
+        } finally {
+          setAsciiLoading(false);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAsciiError(t("mermaid.errors.loadAsciiRendererFailed"));
         setAsciiLoading(false);
-      }
-    }).catch(() => {
-      if (cancelled) return;
-      setAsciiError(t("mermaid.errors.loadAsciiRendererFailed"));
-      setAsciiLoading(false);
-    });
+      });
 
     return () => {
       cancelled = true;
@@ -283,10 +281,7 @@ export function MermaidPreviewPane({
 
   if (error && !fenceIncomplete && mode === "preview") {
     return (
-      <div
-        data-mermaid-chrome=""
-        className="p-4 text-sm text-destructive [overflow-anchor:none]"
-      >
+      <div data-mermaid-chrome="" className="p-4 text-sm text-destructive [overflow-anchor:none]">
         {error}
       </div>
     );
@@ -319,7 +314,7 @@ export function MermaidPreviewPane({
             }}
             className={cn(
               "mermaid-container flex justify-center overflow-hidden rounded-lg bg-background p-4",
-              "cursor-pointer hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "cursor-pointer transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
             )}
             aria-label={t("mermaid.clickToEnlarge")}
           >
@@ -340,7 +335,7 @@ export function MermaidPreviewPane({
           </div>
         ) : showSourceFallback ? (
           <div
-            className="flex items-center justify-center gap-2 px-4 py-8 text-muted-foreground text-sm"
+            className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-muted-foreground"
             style={{ minHeight: placeholderHeight }}
             role="status"
             aria-live="polite"
@@ -350,14 +345,14 @@ export function MermaidPreviewPane({
           </div>
         ) : null
       ) : asciiLoading ? (
-        <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
+        <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
           {t("mermaid.renderingAscii")}
         </div>
       ) : asciiError ? (
-        <div className="p-4 text-destructive text-sm">{asciiError}</div>
+        <div className="p-4 text-sm text-destructive">{asciiError}</div>
       ) : asciiText ? (
         <CodeBlockContent className="max-h-none bg-background">
-          <pre className="p-4 text-[13px] leading-relaxed overflow-x-auto font-mono whitespace-pre">
+          <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed whitespace-pre">
             {asciiText}
           </pre>
         </CodeBlockContent>
@@ -402,9 +397,7 @@ export function MermaidBlock({
           <span className="text-xs tracking-tight">{t("mermaid.title")}</span>
         </CodeBlockGroup>
         <CodeBlockGroup>
-          {!fenceIncomplete && (
-            <MermaidModeSwitch value={mode} onChange={setMode} />
-          )}
+          {!fenceIncomplete && <MermaidModeSwitch value={mode} onChange={setMode} />}
           <CopyButton content={mermaidCopyContent(viewMode, code, asciiText)} />
         </CodeBlockGroup>
       </CodeBlockHeader>

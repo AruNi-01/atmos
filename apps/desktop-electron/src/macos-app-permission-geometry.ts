@@ -70,8 +70,6 @@ export function leftSidebarGrantOrigin(
   const minY = contentBounds.y + 12;
   const maxY = contentBounds.y + contentBounds.height - panelH - 12;
   const preferred = contentBounds.y + LEFT_SIDEBAR_GRANT_INSET_Y;
-  const y = Math.round(
-    maxY >= minY ? Math.min(Math.max(preferred, minY), maxY) : minY,
-  );
+  const y = Math.round(maxY >= minY ? Math.min(Math.max(preferred, minY), maxY) : minY);
   return { x, y };
 }

@@ -44,7 +44,8 @@ function str(args: Record<string, unknown>, key: string): string | undefined {
   return typeof v === "string" ? v : undefined;
 }
 
-const LIVE_ONLY = "pt_screenshot requires the open Prototype Design tab. POST /api/pt-design/agent/invoke.";
+const LIVE_ONLY =
+  "pt_screenshot requires the open Prototype Design tab. POST /api/pt-design/agent/invoke.";
 const DOC_FILE_ONLY =
   "Live board tools do not use .ptd files. Use Save in the board, or pt_ptx_get / pt_ptx_apply.";
 

@@ -7,12 +7,7 @@ export const DEEPSEEK_HARNESS_ID = "deepseek-harness";
 export const DEEPSEEK_API_KEY_ENV = "DEEPSEEK_API_KEY";
 /** Keep in sync with `crates/agent/src/manager/builtin_custom.rs`. */
 export const DEEPSEEK_HARNESS_PACKAGE = "@deepseek-ai/dsh@0.1.2-alpha.5";
-export const DEEPSEEK_HARNESS_ARGS = [
-  "-y",
-  DEEPSEEK_HARNESS_PACKAGE,
-  "--profile",
-  "acp",
-] as const;
+export const DEEPSEEK_HARNESS_ARGS = ["-y", DEEPSEEK_HARNESS_PACKAGE, "--profile", "acp"] as const;
 const TOKEN_METHOD_PREFIX = "token:";
 
 export function customAgentDisplayName(agent: CustomAgent): string {
@@ -196,18 +191,13 @@ export function nativeSiblingForAgent(
 }
 
 /** ACP rows hidden from the chat picker until explicitly enabled. */
-export function registryAgentEnabled(agent: {
-  installed?: boolean;
-  enabled?: boolean;
-}): boolean {
+export function registryAgentEnabled(agent: { installed?: boolean; enabled?: boolean }): boolean {
   if (!agent.installed) return false;
   return agent.enabled !== false;
 }
 
 /** Agent Manager ACP card: picker switch only after install / Using installed CLI. */
-export function acpManagerCardShowsEnableSwitch(agent: {
-  installed?: boolean;
-}): boolean {
+export function acpManagerCardShowsEnableSwitch(agent: { installed?: boolean }): boolean {
   return Boolean(agent.installed);
 }
 
@@ -270,10 +260,7 @@ export function authRequiredFromTurnError(
   if (parsed) return parsed;
   if (providerId !== DEEPSEEK_HARNESS_ID) return null;
   const lower = text.toLowerCase();
-  if (
-    !lower.includes("deepseek_api_key") &&
-    !lower.includes("no api key for provider route")
-  ) {
+  if (!lower.includes("deepseek_api_key") && !lower.includes("no api key for provider route")) {
     return null;
   }
   return {

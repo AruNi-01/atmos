@@ -6,7 +6,7 @@ export function Overlay(): React.ReactElement {
       viewBox="0 0 790 718"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="absolute z-[-1] top-6 left-1/2 -translate-x-1/2 pl-54 pb-32"
+      className="absolute top-6 left-1/2 z-[-1] -translate-x-1/2 pb-32 pl-54"
     >
       <mask
         id="mask-dark"
@@ -19,13 +19,7 @@ export function Overlay(): React.ReactElement {
         width="936"
         height="861"
       >
-        <ellipse
-          cx="468.373"
-          cy="287.536"
-          rx="467.627"
-          ry="430.464"
-          fill="url(#radial-dark)"
-        />
+        <ellipse cx="468.373" cy="287.536" rx="467.627" ry="430.464" fill="url(#radial-dark)" />
       </mask>
       <g mask="url(#mask-dark)" className="fill-primary">
         <path
@@ -48,10 +42,7 @@ export function Overlay(): React.ReactElement {
           d="M627.756 123.527L567.754 139.603V201.557L627.756 185.382V123.527Z"
           fillOpacity="0.05"
         />
-        <path
-          d="M445.32 46.918L385.318 62.994V124.947L445.32 108.772V46.918Z"
-          fillOpacity="0.05"
-        />
+        <path d="M445.32 46.918L385.318 62.994V124.947L445.32 108.772V46.918Z" fillOpacity="0.05" />
         <path
           d="M749.192 279.59L689.19 295.666V357.619L749.192 341.444V279.59Z"
           fillOpacity="0.05"

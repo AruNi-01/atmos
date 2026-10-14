@@ -48,10 +48,7 @@ export async function resolveAgentFixLaunchPrompt(
     await fsApi.writeFile(promptFilePath, prompt);
     return buildAgentFixPointerPrompt(promptFilePath);
   } catch (error) {
-    console.warn(
-      "Failed to write Agent Fix prompt file; falling back to inline prompt",
-      error,
-    );
+    console.warn("Failed to write Agent Fix prompt file; falling back to inline prompt", error);
     return prompt;
   }
 }

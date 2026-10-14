@@ -74,13 +74,7 @@ function sumChangeCounts(files: GitChangedFile[]) {
   );
 }
 
-function FileTypeIcon({
-  name,
-  isDir,
-}: {
-  name: string;
-  isDir: boolean;
-}) {
+function FileTypeIcon({ name, isDir }: { name: string; isDir: boolean }) {
   const iconProps = getFileIconProps({ name, isDir, className: "size-4" });
   // eslint-disable-next-line @next/next/no-img-element -- file icons are tiny decorative assets from the UI package.
   return <img {...iconProps} alt="" />;
@@ -115,16 +109,14 @@ function ExplorerLandingRow({
       </span>
       <span
         className={cn(
-          "min-w-0 max-w-[70%] shrink-0 truncate text-sm text-foreground",
+          "max-w-[70%] min-w-0 shrink-0 truncate text-sm text-foreground",
           titleClassName,
         )}
       >
         {title}
       </span>
       {meta ? (
-        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-          {meta}
-        </span>
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{meta}</span>
       ) : null}
     </button>
   );
@@ -134,7 +126,7 @@ function ExplorerLandingRow({
   return (
     <Tooltip>
       <TooltipTrigger asChild>{row}</TooltipTrigger>
-      <TooltipContent side="right" className="max-w-md break-all text-xs">
+      <TooltipContent side="right" className="max-w-md text-xs break-all">
         {tooltip}
       </TooltipContent>
     </Tooltip>
@@ -167,16 +159,10 @@ function ChangeStatusRow({
       <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground">
         {icon}
       </span>
-      <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
-        {label}
-      </span>
+      <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{label}</span>
       <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] font-medium tabular-nums">
-        {additions > 0 ? (
-          <span className="text-emerald-500">+{additions}</span>
-        ) : null}
-        {deletions > 0 ? (
-          <span className="text-red-500">-{deletions}</span>
-        ) : null}
+        {additions > 0 ? <span className="text-emerald-500">+{additions}</span> : null}
+        {deletions > 0 ? <span className="text-red-500">-{deletions}</span> : null}
       </span>
     </button>
   );
@@ -215,10 +201,7 @@ function ExplorerLandingShell({
   return (
     <div
       data-center-explorer-landing={kind}
-      className={cn(
-        "pointer-events-auto flex h-full min-h-0 flex-col bg-background",
-        className,
-      )}
+      className={cn("pointer-events-auto flex h-full min-h-0 flex-col bg-background", className)}
     >
       <div
         data-center-explorer-chrome=""
@@ -259,11 +242,7 @@ function FilesExplorerLanding({
   const needle = query.trim();
   const fileTreeQuery = useFileTreeQuery(needle ? rootPath : null, true);
   const searchEntries = React.useMemo(
-    () =>
-      filterExplorerSearchEntries(
-        flattenFileTreeEntries(fileTreeQuery.data?.tree),
-        needle,
-      ),
+    () => filterExplorerSearchEntries(flattenFileTreeEntries(fileTreeQuery.data?.tree), needle),
     [fileTreeQuery.data?.tree, needle],
   );
 
@@ -316,8 +295,7 @@ function FilesExplorerLanding({
         description: relativeParentPath(entry.path, rootPath) || undefined,
         keywords: [entry.path, entry.name],
         leading: <FileTypeIcon name={entry.name} isDir={entry.isDir} />,
-        onSelect: () =>
-          entry.isDir ? revealFolder(entry.path) : openPath(entry.path),
+        onSelect: () => (entry.isDir ? revealFolder(entry.path) : openPath(entry.path)),
       })),
     [openPath, revealFolder, rootPath, searchEntries],
   );
@@ -440,10 +418,7 @@ function ChangesExplorerLanding({
       });
     }
 
-    const unstagedStats = sumChangeCounts([
-      ...unstagedFiles,
-      ...untrackedFiles,
-    ]);
+    const unstagedStats = sumChangeCounts([...unstagedFiles, ...untrackedFiles]);
     if (unstagedStats.additions > 0 || unstagedStats.deletions > 0) {
       rows.push({
         key: "unstaged",
@@ -454,13 +429,7 @@ function ChangesExplorerLanding({
     }
 
     return rows;
-  }, [
-    branchFiles,
-    stagedFiles,
-    tChanges,
-    unstagedFiles,
-    untrackedFiles,
-  ]);
+  }, [branchFiles, stagedFiles, tChanges, unstagedFiles, untrackedFiles]);
 
   const { data: prListData } = useGithubPRList({
     owner: githubOwner ?? undefined,
@@ -514,10 +483,7 @@ function ChangesExplorerLanding({
   return (
     <ExplorerLandingShell kind="changes" className={className}>
       {changeStatusRows.length > 0 ? (
-        <div
-          data-center-explorer-change-status-list=""
-          className="flex flex-col"
-        >
+        <div data-center-explorer-change-status-list="" className="flex flex-col">
           {changeStatusRows.map((row) => (
             <ChangeStatusRow
               key={row.key}
@@ -534,9 +500,7 @@ function ChangesExplorerLanding({
 
       {linkedPrs.length > 0 && githubOwner && githubRepo && currentBranch ? (
         <div className="flex flex-col" data-center-explorer-pr-list="">
-          <div className="px-2 pb-1 text-xs text-muted-foreground">
-            {t("pullRequests")}
-          </div>
+          <div className="px-2 pb-1 text-xs text-muted-foreground">{t("pullRequests")}</div>
           {linkedPrs.map((pr) => {
             const number = Number(pr.number);
             const title = String(pr.title ?? "").trim();
@@ -569,9 +533,7 @@ function ChangesExplorerLanding({
 
       {commits.length > 0 ? (
         <div className="flex flex-col">
-          <div className="px-2 pb-1 text-xs text-muted-foreground">
-            {t("recentCommits")}
-          </div>
+          <div className="px-2 pb-1 text-xs text-muted-foreground">{t("recentCommits")}</div>
           {commits.map((commit) => (
             <ExplorerLandingRow
               key={commit.hash}
@@ -619,11 +581,5 @@ export function CenterExplorerLanding({
       />
     );
   }
-  return (
-    <ChangesExplorerLanding
-      contextId={contextId}
-      repoPath={repoPath}
-      className={className}
-    />
-  );
+  return <ChangesExplorerLanding contextId={contextId} repoPath={repoPath} className={className} />;
 }

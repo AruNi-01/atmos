@@ -20,8 +20,7 @@ function createFolderItem(state: {
   id: string;
 }): FileTreeRevealItem {
   return {
-    isFolder: () =>
-      state.dataReady.has(state.id) && state.folders.has(state.id),
+    isFolder: () => state.dataReady.has(state.id) && state.folders.has(state.id),
     isExpanded: () => state.expanded.includes(state.id),
     expand: () => {
       if (state.loading.has(state.id)) return;
@@ -68,11 +67,7 @@ describe("expandFileTreeRevealAncestors", () => {
     });
 
     expect(listed).toEqual(["/repo/src", "/repo/src/lib", "/repo/src/lib/a.ts"]);
-    expect(loadedData).toEqual([
-      "/repo/src",
-      "/repo/src/lib",
-      "/repo/src/lib/a.ts",
-    ]);
+    expect(loadedData).toEqual(["/repo/src", "/repo/src/lib", "/repo/src/lib/a.ts"]);
     expect(expanded).toEqual(["/repo/src", "/repo/src/lib"]);
     expect(loadedChildren).toEqual(["/repo/src", "/repo/src/lib"]);
     expect(result.expandedAny).toBe(true);
@@ -86,8 +81,7 @@ describe("expandFileTreeRevealAncestors", () => {
     const folders = new Set(["/repo/src"]);
 
     const tree: FileTreeRevealTree = {
-      getItemInstance: (id) =>
-        createFolderItem({ folders, dataReady, expanded, loading, id }),
+      getItemInstance: (id) => createFolderItem({ folders, dataReady, expanded, loading, id }),
       waitForItemDataLoaded: async () => {},
       waitForItemChildrenLoaded: async (id) => {
         loading.delete(id);
@@ -184,24 +178,21 @@ describe("waitForFileTreeRowLayout", () => {
       checkVisibility: () => height > 1,
     } as unknown as HTMLElement;
 
-    const found = await waitForFileTreeRowLayout(
-      () => (frames === 0 ? null : element),
-      {
-        minDelayMs: 0,
-        timeoutMs: 1000,
-        waitFrame: async () => {
-          frames += 1;
-          if (frames === 1) {
-            height = 24;
-            top = 40;
-          } else if (frames === 2) {
-            top = 80;
-          } else {
-            top = 120;
-          }
-        },
+    const found = await waitForFileTreeRowLayout(() => (frames === 0 ? null : element), {
+      minDelayMs: 0,
+      timeoutMs: 1000,
+      waitFrame: async () => {
+        frames += 1;
+        if (frames === 1) {
+          height = 24;
+          top = 40;
+        } else if (frames === 2) {
+          top = 80;
+        } else {
+          top = 120;
+        }
       },
-    );
+    });
 
     expect(found).toBe(element);
     expect(frames).toBeGreaterThanOrEqual(4);
@@ -246,8 +237,7 @@ describe("scrollFileTreeRowIntoView", () => {
     const { scroller, calls } = createScroller();
 
     const row = {
-      closest: (selector: string) =>
-        selector === "[data-file-tree-scroll]" ? scroller : null,
+      closest: (selector: string) => (selector === "[data-file-tree-scroll]" ? scroller : null),
       getBoundingClientRect: () =>
         ({
           top: 400,
@@ -275,8 +265,7 @@ describe("scrollFileTreeRowIntoView", () => {
   test("scrolls the ScrollArea viewport when the marker is on the root", () => {
     const { scroller, calls } = createScroller();
     const viewport = Object.assign(scroller, {
-      getAttribute: (name: string) =>
-        name === "data-slot" ? "scroll-area-viewport" : null,
+      getAttribute: (name: string) => (name === "data-slot" ? "scroll-area-viewport" : null),
     });
     const root = {
       getAttribute: () => null,
@@ -284,8 +273,7 @@ describe("scrollFileTreeRowIntoView", () => {
         selector.includes("scroll-area-viewport") ? viewport : null,
     } as unknown as HTMLElement;
     const row = {
-      closest: (selector: string) =>
-        selector === "[data-file-tree-scroll]" ? root : null,
+      closest: (selector: string) => (selector === "[data-file-tree-scroll]" ? root : null),
       getBoundingClientRect: () =>
         ({
           top: 400,
@@ -351,9 +339,7 @@ describe("scrollFileTreeRowIntoView", () => {
     } as unknown as HTMLElement;
 
     scrollFileTreeRowIntoView(row);
-    expect(calls).toEqual([
-      { block: "center", inline: "nearest", behavior: "smooth" },
-    ]);
+    expect(calls).toEqual([{ block: "center", inline: "nearest", behavior: "smooth" }]);
   });
 });
 

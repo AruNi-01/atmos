@@ -38,9 +38,7 @@ export type TaskGithubDrawerNav = {
   }) => boolean;
 };
 
-const TaskGithubDrawerNavContext = React.createContext<TaskGithubDrawerNav | null>(
-  null,
-);
+const TaskGithubDrawerNavContext = React.createContext<TaskGithubDrawerNav | null>(null);
 
 export function TaskGithubDrawerNavProvider({
   value,

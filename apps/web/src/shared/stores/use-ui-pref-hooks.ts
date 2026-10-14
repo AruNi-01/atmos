@@ -1,37 +1,43 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useMemo } from 'react';
-import type { CanvasTldrawSession } from '@/shared/types/canvas';
-import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
+import { useCallback, useEffect, useMemo } from "react";
+import type { CanvasTldrawSession } from "@/shared/types/canvas";
+import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import {
   instanceIdFromRelaySelection,
   type ConnectionInstanceId,
-} from '@/features/connection/lib/connection-instance';
-import { getActiveInstanceId, useConnectionStore } from '@/features/connection/store/connection-store';
-import { useUiPrefStore, type UiPrefSlice } from '@/shared/stores/use-ui-pref-store';
+} from "@/features/connection/lib/connection-instance";
+import {
+  getActiveInstanceId,
+  useConnectionStore,
+} from "@/features/connection/store/connection-store";
+import { useUiPrefStore, type UiPrefSlice } from "@/shared/stores/use-ui-pref-store";
 import {
   fileRecentsEqual,
   upsertFileRecents,
   type CenterFileRecent,
-} from '@/shared/lib/center-file-recents';
+} from "@/shared/lib/center-file-recents";
 
 export type { CenterFileRecent };
 
 function useActiveInstanceId() {
-  return useConnectionStore(s => s.activeInstanceId);
+  return useConnectionStore((s) => s.activeInstanceId);
 }
 
-function useInstanceSlice<T>(slice: UiPrefSlice, fallback: T): [T, (value: T | ((prev: T) => T)) => void] {
+function useInstanceSlice<T>(
+  slice: UiPrefSlice,
+  fallback: T,
+): [T, (value: T | ((prev: T) => T)) => void] {
   const instanceId = useActiveInstanceId();
-  const readSlice = useUiPrefStore(s => s.readSlice);
-  const patchSlice = useUiPrefStore(s => s.patchSlice);
+  const readSlice = useUiPrefStore((s) => s.readSlice);
+  const patchSlice = useUiPrefStore((s) => s.patchSlice);
 
   useEffect(() => {
     readSlice(instanceId, slice, fallback);
   }, [instanceId, slice, fallback, readSlice]);
 
   const value = useUiPrefStore(
-    s => (s.byInstance[instanceId]?.[slice] as T | undefined) ?? fallback,
+    (s) => (s.byInstance[instanceId]?.[slice] as T | undefined) ?? fallback,
   );
 
   const setValue = useCallback(
@@ -73,12 +79,10 @@ export function useAgentUiPrefs(): [
   AgentUiPrefs,
   (patch: Partial<AgentUiPrefs> | ((prev: AgentUiPrefs) => AgentUiPrefs)) => void,
 ] {
-  const [prefs, setPrefs] = useInstanceSlice<AgentUiPrefs>('agent', DEFAULT_AGENT_PREFS);
+  const [prefs, setPrefs] = useInstanceSlice<AgentUiPrefs>("agent", DEFAULT_AGENT_PREFS);
   const patch = useCallback(
     (updater: Partial<AgentUiPrefs> | ((prev: AgentUiPrefs) => AgentUiPrefs)) => {
-      setPrefs(prev =>
-        typeof updater === 'function' ? updater(prev) : { ...prev, ...updater },
-      );
+      setPrefs((prev) => (typeof updater === "function" ? updater(prev) : { ...prev, ...updater }));
     },
     [setPrefs],
   );
@@ -87,25 +91,27 @@ export function useAgentUiPrefs(): [
 
 export function readDefaultAgentRegistryId(): string | null {
   const instanceId = useConnectionStore.getState().activeInstanceId;
-  return useUiPrefStore.getState().readSlice(instanceId, 'agent', DEFAULT_AGENT_PREFS)
+  return useUiPrefStore.getState().readSlice(instanceId, "agent", DEFAULT_AGENT_PREFS)
     .defaultRegistryId;
 }
 
 export function writeDefaultAgentRegistryId(registryId: string): void {
   const instanceId = useConnectionStore.getState().activeInstanceId;
-  useUiPrefStore.getState().patchSlice(
-    instanceId,
-    'agent',
-    prev => ({ ...prev, defaultRegistryId: registryId || null }),
-    DEFAULT_AGENT_PREFS,
-  );
+  useUiPrefStore
+    .getState()
+    .patchSlice(
+      instanceId,
+      "agent",
+      (prev) => ({ ...prev, defaultRegistryId: registryId || null }),
+      DEFAULT_AGENT_PREFS,
+    );
 }
 
 export function readAgentLastSession(contextKey: string): AgentLastSession | null {
   const instanceId = useConnectionStore.getState().activeInstanceId;
-  const value = useUiPrefStore.getState().readSlice(instanceId, 'agent', DEFAULT_AGENT_PREFS)
+  const value = useUiPrefStore.getState().readSlice(instanceId, "agent", DEFAULT_AGENT_PREFS)
     .lastSessionByContext[contextKey];
-  if (!value || typeof value === 'string') return null;
+  if (!value || typeof value === "string") return null;
   if (!value.registryId) return null;
   return {
     ...value,
@@ -117,8 +123,8 @@ export function writeAgentLastSession(contextKey: string, session: AgentLastSess
   const instanceId = useConnectionStore.getState().activeInstanceId;
   useUiPrefStore.getState().patchSlice(
     instanceId,
-    'agent',
-    prev => ({
+    "agent",
+    (prev) => ({
       ...prev,
       lastSessionByContext: { ...prev.lastSessionByContext, [contextKey]: session },
     }),
@@ -130,8 +136,8 @@ export function clearAgentLastSession(contextKey: string): void {
   const instanceId = useConnectionStore.getState().activeInstanceId;
   useUiPrefStore.getState().patchSlice(
     instanceId,
-    'agent',
-    prev => {
+    "agent",
+    (prev) => {
       const next = { ...prev.lastSessionByContext };
       for (const key of Object.keys(next)) {
         if (lastSessionKeyMatchesContext(key, contextKey)) {
@@ -147,22 +153,16 @@ export function clearAgentLastSession(contextKey: string): void {
 function lastSessionKeyMatchesContext(key: string, contextKey: string): boolean {
   if (!contextKey) return false;
   if (key === contextKey || key.startsWith(`${contextKey}:`)) return true;
-  return (
-    key.startsWith(`workspace:${contextKey}`) ||
-    key.startsWith(`project:${contextKey}`)
-  );
+  return key.startsWith(`workspace:${contextKey}`) || key.startsWith(`project:${contextKey}`);
 }
 
 // --- Review / Code review ---
 
 export function useReviewDefaultAgentId(): [string | null, (id: string) => void] {
-  const [prefs, setPrefs] = useInstanceSlice<{ defaultAgentId: string | null }>('review', {
+  const [prefs, setPrefs] = useInstanceSlice<{ defaultAgentId: string | null }>("review", {
     defaultAgentId: null,
   });
-  return [
-    prefs.defaultAgentId,
-    id => setPrefs({ defaultAgentId: id }),
-  ];
+  return [prefs.defaultAgentId, (id) => setPrefs({ defaultAgentId: id })];
 }
 
 export function useCodeReviewDefaults(): [
@@ -170,8 +170,8 @@ export function useCodeReviewDefaults(): [
   (patch: { defaultSkillId?: string | null; defaultAgentId?: string | null }) => void,
 ] {
   const fallback = { defaultSkillId: null as string | null, defaultAgentId: null as string | null };
-  const [prefs, setPrefs] = useInstanceSlice('codeReview', fallback);
-  return [prefs, patch => setPrefs(prev => ({ ...prev, ...patch }))];
+  const [prefs, setPrefs] = useInstanceSlice("codeReview", fallback);
+  return [prefs, (patch) => setPrefs((prev) => ({ ...prev, ...patch }))];
 }
 
 // --- Agent Fix ---
@@ -185,31 +185,25 @@ const DEFAULT_AGENT_FIX_PREFS: AgentFixUiPrefs = {
 };
 
 export function useAgentFixLastAgentId(): [string | null, (id: string) => void] {
-  const [prefs, setPrefs] = useInstanceSlice<AgentFixUiPrefs>('agentFix', DEFAULT_AGENT_FIX_PREFS);
-  return [
-    prefs.lastAgentId,
-    id => setPrefs({ lastAgentId: id || null }),
-  ];
+  const [prefs, setPrefs] = useInstanceSlice<AgentFixUiPrefs>("agentFix", DEFAULT_AGENT_FIX_PREFS);
+  return [prefs.lastAgentId, (id) => setPrefs({ lastAgentId: id || null })];
 }
 
 // --- Sidebar view modes ---
 
 export interface SidebarUiPrefs {
-  changesFileViewMode: 'list' | 'tree';
-  reviewFileViewMode: 'list' | 'tree';
+  changesFileViewMode: "list" | "tree";
+  reviewFileViewMode: "list" | "tree";
 }
 
 const DEFAULT_SIDEBAR_PREFS: SidebarUiPrefs = {
-  changesFileViewMode: 'list',
-  reviewFileViewMode: 'list',
+  changesFileViewMode: "list",
+  reviewFileViewMode: "list",
 };
 
-export function useSidebarUiPrefs(): [
-  SidebarUiPrefs,
-  (patch: Partial<SidebarUiPrefs>) => void,
-] {
-  const [prefs, setPrefs] = useInstanceSlice('sidebar', DEFAULT_SIDEBAR_PREFS);
-  return [prefs, patch => setPrefs(prev => ({ ...prev, ...patch }))];
+export function useSidebarUiPrefs(): [SidebarUiPrefs, (patch: Partial<SidebarUiPrefs>) => void] {
+  const [prefs, setPrefs] = useInstanceSlice("sidebar", DEFAULT_SIDEBAR_PREFS);
+  return [prefs, (patch) => setPrefs((prev) => ({ ...prev, ...patch }))];
 }
 
 // --- Quota usage (provider order in popover) ---
@@ -228,8 +222,8 @@ export function useQuotaProviderOrder(): [
   );
   const setProviderOrder = useCallback(
     (order: string[] | ((prev: string[]) => string[])) => {
-      setPrefs(prev => ({
-        providerOrder: typeof order === 'function' ? order(prev.providerOrder) : order,
+      setPrefs((prev) => ({
+        providerOrder: typeof order === "function" ? order(prev.providerOrder) : order,
       }));
     },
     [setPrefs],
@@ -258,10 +252,7 @@ export interface CenterStageUiPrefs {
    * Per Changes list fold state. Keys are `changes` (landing) or
    * `diff-group://…` paths — each DiffGroup option is isolated.
    */
-  changesExplorerByScope?: Record<
-    string,
-    { collapsed?: boolean; width?: number }
-  >;
+  changesExplorerByScope?: Record<string, { collapsed?: boolean; width?: number }>;
   fileRecentsByContext?: Record<string, CenterFileRecent[]>;
 }
 
@@ -292,7 +283,7 @@ const DEFAULT_CENTER_STAGE: CenterStageUiPrefs = {
 
 const EMPTY_CENTER_FILE_RECENTS: CenterFileRecent[] = [];
 
-export type CenterExplorerKindPref = 'files' | 'changes';
+export type CenterExplorerKindPref = "files" | "changes";
 
 export type CenterExplorerLayoutPrefs = {
   filesCollapsed: boolean;
@@ -310,9 +301,7 @@ export type ChangesExplorerScopeLayout = {
 function explorerLayoutFromSlice(slice: CenterStageUiPrefs): CenterExplorerLayoutPrefs {
   return {
     filesCollapsed: slice.filesExplorerCollapsed === true,
-    filesWidth: clampStoredExplorerWidth(
-      slice.filesExplorerWidth ?? CENTER_EXPLORER_DEFAULT_WIDTH,
-    ),
+    filesWidth: clampStoredExplorerWidth(slice.filesExplorerWidth ?? CENTER_EXPLORER_DEFAULT_WIDTH),
     changesCollapsed: slice.changesExplorerCollapsed === true,
     changesWidth: clampStoredExplorerWidth(
       slice.changesExplorerWidth ?? CENTER_EXPLORER_DEFAULT_WIDTH,
@@ -356,17 +345,9 @@ function patchChangesScope(
 export function useCenterExplorerLayout(): [
   CenterExplorerLayoutPrefs,
   {
-    setCollapsed: (
-      kind: CenterExplorerKindPref,
-      collapsed: boolean,
-      foldScopeId?: string,
-    ) => void;
+    setCollapsed: (kind: CenterExplorerKindPref, collapsed: boolean, foldScopeId?: string) => void;
     toggleCollapsed: (kind: CenterExplorerKindPref, foldScopeId?: string) => void;
-    setWidth: (
-      kind: CenterExplorerKindPref,
-      width: number,
-      foldScopeId?: string,
-    ) => void;
+    setWidth: (kind: CenterExplorerKindPref, width: number, foldScopeId?: string) => void;
     changesForScope: (foldScopeId: string) => ChangesExplorerScopeLayout;
   },
 ] {
@@ -383,9 +364,9 @@ export function useCenterExplorerLayout(): [
       const instanceId = useConnectionStore.getState().activeInstanceId;
       useUiPrefStore.getState().patchSlice(
         instanceId,
-        'centerStage',
+        "centerStage",
         (prev) => {
-          if (kind === 'files') {
+          if (kind === "files") {
             return { ...prev, filesExplorerCollapsed: collapsed };
           }
           if (foldScopeId) {
@@ -399,31 +380,28 @@ export function useCenterExplorerLayout(): [
     [],
   );
 
-  const toggleCollapsed = useCallback(
-    (kind: CenterExplorerKindPref, foldScopeId?: string) => {
-      const instanceId = useConnectionStore.getState().activeInstanceId;
-      useUiPrefStore.getState().patchSlice(
-        instanceId,
-        'centerStage',
-        (prev) => {
-          if (kind === 'files') {
-            const current = explorerLayoutFromSlice(prev);
-            return { ...prev, filesExplorerCollapsed: !current.filesCollapsed };
-          }
-          if (foldScopeId) {
-            const current = changesScopeLayoutFromSlice(prev, foldScopeId);
-            return patchChangesScope(prev, foldScopeId, {
-              collapsed: !current.collapsed,
-            });
-          }
+  const toggleCollapsed = useCallback((kind: CenterExplorerKindPref, foldScopeId?: string) => {
+    const instanceId = useConnectionStore.getState().activeInstanceId;
+    useUiPrefStore.getState().patchSlice(
+      instanceId,
+      "centerStage",
+      (prev) => {
+        if (kind === "files") {
           const current = explorerLayoutFromSlice(prev);
-          return { ...prev, changesExplorerCollapsed: !current.changesCollapsed };
-        },
-        DEFAULT_CENTER_STAGE,
-      );
-    },
-    [],
-  );
+          return { ...prev, filesExplorerCollapsed: !current.filesCollapsed };
+        }
+        if (foldScopeId) {
+          const current = changesScopeLayoutFromSlice(prev, foldScopeId);
+          return patchChangesScope(prev, foldScopeId, {
+            collapsed: !current.collapsed,
+          });
+        }
+        const current = explorerLayoutFromSlice(prev);
+        return { ...prev, changesExplorerCollapsed: !current.changesCollapsed };
+      },
+      DEFAULT_CENTER_STAGE,
+    );
+  }, []);
 
   const setWidth = useCallback(
     (kind: CenterExplorerKindPref, width: number, foldScopeId?: string) => {
@@ -431,9 +409,9 @@ export function useCenterExplorerLayout(): [
       const instanceId = useConnectionStore.getState().activeInstanceId;
       useUiPrefStore.getState().patchSlice(
         instanceId,
-        'centerStage',
+        "centerStage",
         (prev) => {
-          if (kind === 'files') {
+          if (kind === "files") {
             return { ...prev, filesExplorerWidth: next };
           }
           if (foldScopeId) {
@@ -458,9 +436,9 @@ export function setCenterExplorerCollapsed(
   const instanceId = useConnectionStore.getState().activeInstanceId;
   useUiPrefStore.getState().patchSlice(
     instanceId,
-    'centerStage',
+    "centerStage",
     (prev) => {
-      if (kind === 'files') {
+      if (kind === "files") {
         return { ...prev, filesExplorerCollapsed: collapsed };
       }
       if (foldScopeId) {
@@ -483,15 +461,13 @@ export function recordCenterFileRecents(
 ): void {
   if (!contextId || incoming.length === 0) return;
   const instanceId = useConnectionStore.getState().activeInstanceId;
-  const prev = useUiPrefStore
-    .getState()
-    .readSlice(instanceId, 'centerStage', DEFAULT_CENTER_STAGE);
+  const prev = useUiPrefStore.getState().readSlice(instanceId, "centerStage", DEFAULT_CENTER_STAGE);
   const current = prev.fileRecentsByContext?.[contextId] ?? EMPTY_CENTER_FILE_RECENTS;
   const next = upsertFileRecents(current, incoming);
   if (fileRecentsEqual(current, next)) return;
   useUiPrefStore.getState().patchSlice(
     instanceId,
-    'centerStage',
+    "centerStage",
     (slice) => ({
       ...slice,
       fileRecentsByContext: {
@@ -505,12 +481,12 @@ export function recordCenterFileRecents(
 
 export function useCenterStageUiPrefs(): CenterStageUiPrefs {
   const instanceId = useActiveInstanceId();
-  const readSlice = useUiPrefStore(s => s.readSlice);
+  const readSlice = useUiPrefStore((s) => s.readSlice);
   useEffect(() => {
-    readSlice(instanceId, 'centerStage', DEFAULT_CENTER_STAGE);
+    readSlice(instanceId, "centerStage", DEFAULT_CENTER_STAGE);
   }, [instanceId, readSlice]);
   return useUiPrefStore(
-    s =>
+    (s) =>
       (s.byInstance[instanceId]?.centerStage as CenterStageUiPrefs | undefined) ??
       DEFAULT_CENTER_STAGE,
   );
@@ -518,13 +494,13 @@ export function useCenterStageUiPrefs(): CenterStageUiPrefs {
 
 export function setCenterStageLastTab(contextId: string, tab: string): void {
   const instanceId = useConnectionStore.getState().activeInstanceId;
-  const prev = useUiPrefStore.getState().readSlice(instanceId, 'centerStage', DEFAULT_CENTER_STAGE)
+  const prev = useUiPrefStore.getState().readSlice(instanceId, "centerStage", DEFAULT_CENTER_STAGE)
     .lastTabByContext?.[contextId];
   if (prev === tab) return;
   useUiPrefStore.getState().patchSlice(
     instanceId,
-    'centerStage',
-    prev => ({
+    "centerStage",
+    (prev) => ({
       ...prev,
       lastTabByContext: { ...(prev.lastTabByContext ?? {}), [contextId]: tab },
     }),
@@ -534,17 +510,17 @@ export function setCenterStageLastTab(contextId: string, tab: string): void {
 
 export function readCenterStageLastTab(contextId: string): string | undefined {
   const instanceId = useConnectionStore.getState().activeInstanceId;
-  return useUiPrefStore.getState().readSlice(instanceId, 'centerStage', DEFAULT_CENTER_STAGE)
+  return useUiPrefStore.getState().readSlice(instanceId, "centerStage", DEFAULT_CENTER_STAGE)
     .lastTabByContext?.[contextId];
 }
 
 export function useCenterStageLastTab(contextId: string | null): string | undefined {
   const instanceId = useActiveInstanceId();
-  const readSlice = useUiPrefStore(s => s.readSlice);
+  const readSlice = useUiPrefStore((s) => s.readSlice);
   useEffect(() => {
-    readSlice(instanceId, 'centerStage', DEFAULT_CENTER_STAGE);
+    readSlice(instanceId, "centerStage", DEFAULT_CENTER_STAGE);
   }, [instanceId, readSlice]);
-  return useUiPrefStore(s => {
+  return useUiPrefStore((s) => {
     if (!contextId) return undefined;
     const slice = s.byInstance[instanceId]?.centerStage as CenterStageUiPrefs | undefined;
     return slice?.lastTabByContext?.[contextId];
@@ -555,8 +531,8 @@ export function setCenterStageWikiPage(contextId: string, page: string | null): 
   const instanceId = useConnectionStore.getState().activeInstanceId;
   useUiPrefStore.getState().patchSlice(
     instanceId,
-    'centerStage',
-    prev => {
+    "centerStage",
+    (prev) => {
       const wikiPageByContext = { ...(prev.wikiPageByContext ?? {}) };
       if (!page) delete wikiPageByContext[contextId];
       else wikiPageByContext[contextId] = page;
@@ -568,39 +544,38 @@ export function setCenterStageWikiPage(contextId: string, page: string | null): 
 
 export function useCenterStageWikiPage(contextId: string | null): string | undefined {
   const instanceId = useActiveInstanceId();
-  return useUiPrefStore(s => {
+  return useUiPrefStore((s) => {
     if (!contextId) return undefined;
     const slice = s.byInstance[instanceId]?.centerStage as CenterStageUiPrefs | undefined;
     return slice?.wikiPageByContext?.[contextId];
   });
 }
 
-export function readCenterStageTabGroupOrder(): CenterStageUiPrefs['tabGroupOrderByContext'] {
+export function readCenterStageTabGroupOrder(): CenterStageUiPrefs["tabGroupOrderByContext"] {
   const instanceId = useConnectionStore.getState().activeInstanceId;
-  return useUiPrefStore.getState().readSlice(instanceId, 'centerStage', DEFAULT_CENTER_STAGE)
+  return useUiPrefStore.getState().readSlice(instanceId, "centerStage", DEFAULT_CENTER_STAGE)
     .tabGroupOrderByContext;
 }
 
 export function writeCenterStageTabGroupOrder(
-  order: CenterStageUiPrefs['tabGroupOrderByContext'],
+  order: CenterStageUiPrefs["tabGroupOrderByContext"],
 ): void {
   const instanceId = useConnectionStore.getState().activeInstanceId;
-  useUiPrefStore.getState().patchSlice(
-    instanceId,
-    'centerStage',
-    prev => ({ ...prev, tabGroupOrderByContext: order }),
-    DEFAULT_CENTER_STAGE,
-  );
+  useUiPrefStore
+    .getState()
+    .patchSlice(
+      instanceId,
+      "centerStage",
+      (prev) => ({ ...prev, tabGroupOrderByContext: order }),
+      DEFAULT_CENTER_STAGE,
+    );
 }
 
 export function readCenterStageTabStripOrder(contextId: string): string[] {
   const instanceId = useConnectionStore.getState().activeInstanceId;
-  const order = useUiPrefStore.getState().readSlice(
-    instanceId,
-    'centerStage',
-    DEFAULT_CENTER_STAGE,
-  ).tabStripOrderByContext?.[contextId];
-  return Array.isArray(order) ? order.filter((id): id is string => typeof id === 'string') : [];
+  const order = useUiPrefStore.getState().readSlice(instanceId, "centerStage", DEFAULT_CENTER_STAGE)
+    .tabStripOrderByContext?.[contextId];
+  return Array.isArray(order) ? order.filter((id): id is string => typeof id === "string") : [];
 }
 
 /** Drop per-space chrome and Run tabs when a center space is deleted. */
@@ -610,8 +585,8 @@ export function forgetPaintContextUiPrefs(paintContextId: string): void {
   const store = useUiPrefStore.getState();
   store.patchSlice(
     instanceId,
-    'run',
-    prev => {
+    "run",
+    (prev) => {
       const byContext = {
         ...((prev as { byContext?: Record<string, unknown> }).byContext ?? {}),
       };
@@ -623,8 +598,8 @@ export function forgetPaintContextUiPrefs(paintContextId: string): void {
   );
   store.patchSlice(
     instanceId,
-    'centerStage',
-    prev => {
+    "centerStage",
+    (prev) => {
       const lastTabByContext = { ...(prev.lastTabByContext ?? {}) };
       const wikiPageByContext = { ...(prev.wikiPageByContext ?? {}) };
       const tabGroupOrderByContext = { ...(prev.tabGroupOrderByContext ?? {}) };
@@ -648,15 +623,12 @@ export function forgetPaintContextUiPrefs(paintContextId: string): void {
   );
 }
 
-export function writeCenterStageTabStripOrder(
-  contextId: string,
-  order: string[],
-): void {
+export function writeCenterStageTabStripOrder(contextId: string, order: string[]): void {
   const instanceId = useConnectionStore.getState().activeInstanceId;
   useUiPrefStore.getState().patchSlice(
     instanceId,
-    'centerStage',
-    prev => ({
+    "centerStage",
+    (prev) => ({
       ...prev,
       tabStripOrderByContext: {
         ...(prev.tabStripOrderByContext ?? {}),
@@ -674,15 +646,17 @@ export interface RunTerminalTab {
   name: string;
 }
 
-const DEFAULT_RUN_TABS: RunTerminalTab[] = [{ id: '1', name: 'Run' }];
+const DEFAULT_RUN_TABS: RunTerminalTab[] = [{ id: "1", name: "Run" }];
 
-export function useRunTabs(contextId: string): [RunTerminalTab[], (tabs: RunTerminalTab[]) => void] {
+export function useRunTabs(
+  contextId: string,
+): [RunTerminalTab[], (tabs: RunTerminalTab[]) => void] {
   const instanceId = useActiveInstanceId();
-  const readSlice = useUiPrefStore(s => s.readSlice);
-  const patchSlice = useUiPrefStore(s => s.patchSlice);
+  const readSlice = useUiPrefStore((s) => s.readSlice);
+  const patchSlice = useUiPrefStore((s) => s.patchSlice);
 
   const all = useMemo(
-    () => readSlice(instanceId, 'run', { byContext: {} as Record<string, RunTerminalTab[]> }),
+    () => readSlice(instanceId, "run", { byContext: {} as Record<string, RunTerminalTab[]> }),
     [instanceId, readSlice],
   );
 
@@ -692,8 +666,8 @@ export function useRunTabs(contextId: string): [RunTerminalTab[], (tabs: RunTerm
     (next: RunTerminalTab[]) => {
       patchSlice(
         instanceId,
-        'run',
-        prev => ({
+        "run",
+        (prev) => ({
           byContext: {
             ...(prev as { byContext: Record<string, RunTerminalTab[]> }).byContext,
             [contextId]: next,
@@ -760,13 +734,11 @@ export function resolveCanvasPrefsInstanceId(): ConnectionInstanceId {
 }
 
 export function readCanvasSession(boardGuid?: string | null): CanvasTldrawSession | null {
-  const key = boardGuid ?? 'default';
+  const key = boardGuid ?? "default";
   return readCanvasPrefs().sessionByBoard[key] ?? null;
 }
 
-export function readLastPinnedTerminal(
-  boardGuid?: string | null,
-): CanvasLastPinnedTerminal | null {
+export function readLastPinnedTerminal(boardGuid?: string | null): CanvasLastPinnedTerminal | null {
   const key = boardGuid ?? "default";
   return readCanvasPrefs().lastPinnedByBoard[key] ?? null;
 }
@@ -815,10 +787,7 @@ export function writeLastPinnedTerminal(
   );
 }
 
-export function clearLastPinnedTerminal(
-  boardGuid?: string | null,
-  pinKey?: string,
-): void {
+export function clearLastPinnedTerminal(boardGuid?: string | null, pinKey?: string): void {
   const key = boardGuid ?? "default";
   const instanceId = resolveCanvasPrefsInstanceId();
   useUiPrefStore.getState().patchSlice(
@@ -837,15 +806,12 @@ export function clearLastPinnedTerminal(
   );
 }
 
-export function writeCanvasSession(
-  session: CanvasTldrawSession,
-  boardGuid?: string | null,
-): void {
-  const key = boardGuid ?? 'default';
+export function writeCanvasSession(session: CanvasTldrawSession, boardGuid?: string | null): void {
+  const key = boardGuid ?? "default";
   const instanceId = resolveCanvasPrefsInstanceId();
   useUiPrefStore.getState().patchSlice(
     instanceId,
-    'canvas',
+    "canvas",
     (prev) => {
       const base = normalizeCanvasPrefs(prev);
       return {
@@ -865,7 +831,7 @@ export function useCanvasAgentBridgePrefs(): [
     setAgentFollow: (value: boolean) => void;
   },
 ] {
-  const [prefs, setPrefs] = useInstanceSlice('canvas', DEFAULT_CANVAS_PREFS);
+  const [prefs, setPrefs] = useInstanceSlice("canvas", DEFAULT_CANVAS_PREFS);
   return [
     {
       clientId: prefs.agentClientId,
@@ -873,21 +839,18 @@ export function useCanvasAgentBridgePrefs(): [
       agentFollow: prefs.agentFollow !== false,
     },
     {
-      setClientId: id =>
-        setPrefs(prev => ({ ...prev, agentClientId: id })),
-      setAcceptsCommands: value =>
-        setPrefs(prev => ({ ...prev, acceptsCommands: value })),
-      setAgentFollow: value =>
-        setPrefs(prev => ({ ...prev, agentFollow: value })),
+      setClientId: (id) => setPrefs((prev) => ({ ...prev, agentClientId: id })),
+      setAcceptsCommands: (value) => setPrefs((prev) => ({ ...prev, acceptsCommands: value })),
+      setAgentFollow: (value) => setPrefs((prev) => ({ ...prev, agentFollow: value })),
     },
   ];
 }
 
 // --- Global quick open (not instance-scoped) ---
 
-import { globalKey, readJson, writeJson } from '@/shared/lib/browser-store';
+import { globalKey, readJson, writeJson } from "@/shared/lib/browser-store";
 
-const QUICK_OPEN_KEY = globalKey('quickOpenLastUsed');
+const QUICK_OPEN_KEY = globalKey("quickOpenLastUsed");
 
 export function readQuickOpenLastUsed(): string | null {
   return readJson<string | null>(QUICK_OPEN_KEY, null);
@@ -897,7 +860,7 @@ export function writeQuickOpenLastUsed(appName: string): void {
   writeJson(QUICK_OPEN_KEY, appName);
 }
 
-export const EXT_VERSION_CHECK_KEY = globalKey('extVersionCheckTs');
+export const EXT_VERSION_CHECK_KEY = globalKey("extVersionCheckTs");
 
 export function readExtVersionCheckTs(): number {
   return readJson(EXT_VERSION_CHECK_KEY, 0);

@@ -52,12 +52,8 @@ describe("matrixOrbColor", () => {
   });
 
   test("named palettes shift the same seed toward different accents", () => {
-    const indigo = parseHsl(
-      matrixOrbColor("shared", { scheme: "light", palette: "indigo" }),
-    ).h;
-    const crimson = parseHsl(
-      matrixOrbColor("shared", { scheme: "light", palette: "crimson" }),
-    ).h;
+    const indigo = parseHsl(matrixOrbColor("shared", { scheme: "light", palette: "indigo" })).h;
+    const crimson = parseHsl(matrixOrbColor("shared", { scheme: "light", palette: "crimson" })).h;
     expect(hueDelta(indigo, crimson)).toBeGreaterThan(20);
   });
 });

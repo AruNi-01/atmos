@@ -1,6 +1,20 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { getComponentModule } from "../../components/registry";
-import { PT_RADIUS_DEFAULT, radiusHandlePx, radiusInnerPx, resolveRadiusChoice, type PtRadiusToken } from "../../components/radius";
+import {
+  PT_RADIUS_DEFAULT,
+  radiusHandlePx,
+  radiusInnerPx,
+  resolveRadiusChoice,
+  type PtRadiusToken,
+} from "../../components/radius";
 import { HANDLE_STROKE_WIDTH, OVERLAY_Z_INDEX, sceneToViewport } from "../../excalidraw-bridge";
 import type { PtDocument, PtNode } from "../../protocol";
 import type { PtRendererProps } from "../../components/types";
@@ -258,7 +272,12 @@ export function OverlayHost({
       onCommitRef.current(
         {
           version: documentRef.current.version,
-          pages: [{ id: page.id, nodes: page.nodes.map((node) => (node.id === patched.id ? patched : node)) }],
+          pages: [
+            {
+              id: page.id,
+              nodes: page.nodes.map((node) => (node.id === patched.id ? patched : node)),
+            },
+          ],
         },
         "IMMEDIATELY",
       );
@@ -328,9 +347,16 @@ export function OverlayHost({
           >
             <div
               data-pt-overlay-fit=""
-              style={overlayFitStyle(box, { width: node.width, height: node.height }, overlayOverflow(node.type))}
+              style={overlayFitStyle(
+                box,
+                { width: node.width, height: node.height },
+                overlayOverflow(node.type),
+              )}
             >
-              <ArtistInkHost seed={node.id} inkKey={resolveRadiusChoice(node.props.radius, globalRadius)}>
+              <ArtistInkHost
+                seed={node.id}
+                inkKey={resolveRadiusChoice(node.props.radius, globalRadius)}
+              >
                 <mod.Renderer
                   node={node}
                   mode={mode}

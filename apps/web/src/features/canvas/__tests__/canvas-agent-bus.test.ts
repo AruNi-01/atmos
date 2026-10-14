@@ -196,9 +196,7 @@ describe("CanvasAgentBus", () => {
 
   it("create_note creates a shape and reports its id", async () => {
     const { editor, bus } = busFromEditor();
-    const res = await bus.handleDispatch(
-      call("create_note", { text: "hello", x: 10, y: 20 }),
-    );
+    const res = await bus.handleDispatch(call("create_note", { text: "hello", x: 10, y: 20 }));
     expect(res.success).toBe(true);
     expect(editor.shapes.size).toBe(1);
     if (res.success) {
@@ -213,9 +211,7 @@ describe("CanvasAgentBus", () => {
 
   it("create-note hyphenated alias works", async () => {
     const { bus } = busFromEditor();
-    const res = await bus.handleDispatch(
-      call("create-note", { text: "hi" }),
-    );
+    const res = await bus.handleDispatch(call("create-note", { text: "hi" }));
     expect(res.success).toBe(true);
   });
 
@@ -228,9 +224,7 @@ describe("CanvasAgentBus", () => {
 
   it("layout_grid enforces cell cap", async () => {
     const { bus } = busFromEditor();
-    const res = await bus.handleDispatch(
-      call("layout_grid", { ids: ["x"], rows: 25, cols: 1 }),
-    );
+    const res = await bus.handleDispatch(call("layout_grid", { ids: ["x"], rows: 25, cols: 1 }));
     expect(res.success).toBe(false);
     if (!res.success) expect(res.error_code).toBe("VALIDATION_ARG");
   });
@@ -262,9 +256,7 @@ describe("CanvasAgentBus", () => {
     const { bus, editor } = busFromEditor();
     editor.createShape({ id: "a", type: "note", x: 0, y: 0, props: { w: 100, h: 100 } });
     for (const value of ["yes", "true", 1, {}]) {
-      const res = await bus.handleDispatch(
-        call("delete", { ids: ["a"], confirm: value }),
-      );
+      const res = await bus.handleDispatch(call("delete", { ids: ["a"], confirm: value }));
       expect(res.success).toBe(false);
       if (!res.success) expect(res.error_code).toBe("VALIDATION_ARG");
       expect(editor.shapes.has("a")).toBe(true);
@@ -274,9 +266,7 @@ describe("CanvasAgentBus", () => {
   it("delete with confirm removes the shape", async () => {
     const { bus, editor } = busFromEditor();
     editor.createShape({ id: "a", type: "note", x: 0, y: 0, props: { w: 100, h: 100 } });
-    const res = await bus.handleDispatch(
-      call("delete", { ids: ["a"], confirm: true }),
-    );
+    const res = await bus.handleDispatch(call("delete", { ids: ["a"], confirm: true }));
     expect(res.success).toBe(true);
     expect(editor.shapes.has("a")).toBe(false);
   });
@@ -284,9 +274,7 @@ describe("CanvasAgentBus", () => {
   it("update_shape rejects h on note shapes", async () => {
     const { bus, editor } = busFromEditor();
     editor.createShape({ id: "a", type: "note", x: 0, y: 0, props: { scale: 1 } });
-    const res = await bus.handleDispatch(
-      call("update_shape", { id: "a", patch: { h: 120 } }),
-    );
+    const res = await bus.handleDispatch(call("update_shape", { id: "a", patch: { h: 120 } }));
     expect(res.success).toBe(false);
     if (!res.success) {
       expect(res.error_code).toBe("VALIDATION_ARG");
@@ -364,9 +352,7 @@ describe("CanvasAgentBus", () => {
     const { bus, editor } = busFromEditor();
     editor.createShape({ id: "a", type: "note", x: 10, y: 10, props: { w: 100, h: 100 } });
     for (const value of ["abc", NaN, Infinity, -Infinity]) {
-      const res = await bus.handleDispatch(
-        call("update_shape", { id: "a", patch: { x: value } }),
-      );
+      const res = await bus.handleDispatch(call("update_shape", { id: "a", patch: { x: value } }));
       expect(res.success).toBe(false);
       if (!res.success) expect(res.error_code).toBe("VALIDATION_ARG");
       expect(editor.shapes.get("a")?.x).toBe(10);
@@ -388,9 +374,7 @@ describe("CanvasAgentBus", () => {
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     bus.setEditor(editor as any);
-    const res = await bus.handleDispatch(
-      call("get_state", { page_id: "page:other" }),
-    );
+    const res = await bus.handleDispatch(call("get_state", { page_id: "page:other" }));
     expect(res.success).toBe(false);
     if (!res.success) expect(res.error_code).toBe("VALIDATION_ARG");
   });
@@ -405,9 +389,7 @@ describe("CanvasAgentBus", () => {
     };
     editor.createShape({ id: "a", type: "note", x: 0, y: 0, props: { w: 100, h: 100 } });
     editor.createShape({ id: "b", type: "note", x: 200, y: 50, props: { w: 100, h: 100 } });
-    const res = await bus.handleDispatch(
-      call("viewport", { center_ids: ["a", "b"], zoom: 1.5 }),
-    );
+    const res = await bus.handleDispatch(call("viewport", { center_ids: ["a", "b"], zoom: 1.5 }));
     expect(res.success).toBe(true);
     expect(seen).toEqual([{ x: 0, y: 0, w: 300, h: 150 }]);
   });
@@ -415,9 +397,7 @@ describe("CanvasAgentBus", () => {
   it("move shifts shape by dx/dy", async () => {
     const { bus, editor } = busFromEditor();
     editor.createShape({ id: "a", type: "note", x: 10, y: 20, props: { w: 100, h: 100 } });
-    const res = await bus.handleDispatch(
-      call("move", { ids: ["a"], dx: 5, dy: -3 }),
-    );
+    const res = await bus.handleDispatch(call("move", { ids: ["a"], dx: 5, dy: -3 }));
     expect(res.success).toBe(true);
     expect(editor.shapes.get("a")?.x).toBe(15);
     expect(editor.shapes.get("a")?.y).toBe(17);
@@ -425,9 +405,7 @@ describe("CanvasAgentBus", () => {
 
   it("stale shape id is reported with STALE_SHAPE_ID", async () => {
     const { bus } = busFromEditor();
-    const res = await bus.handleDispatch(
-      call("move", { ids: ["ghost"], dx: 0, dy: 0 }),
-    );
+    const res = await bus.handleDispatch(call("move", { ids: ["ghost"], dx: 0, dy: 0 }));
     expect(res.success).toBe(false);
     if (!res.success) expect(res.error_code).toBe("STALE_SHAPE_ID");
   });
@@ -464,9 +442,7 @@ describe("CanvasAgentBus", () => {
   it("align requires at least two ids", async () => {
     const { bus, editor } = busFromEditor();
     editor.createShape({ id: "a", type: "geo", x: 0, y: 0, props: { w: 100, h: 100 } });
-    const res = await bus.handleDispatch(
-      call("align", { ids: ["a"], alignment: "left" }),
-    );
+    const res = await bus.handleDispatch(call("align", { ids: ["a"], alignment: "left" }));
     expect(res.success).toBe(false);
     if (!res.success) expect(res.error_code).toBe("VALIDATION_ARG");
   });

@@ -82,15 +82,9 @@ describe("center explorer layout", () => {
 
   test("isolates Changes fold scope ids per DiffGroup option and landing", () => {
     expect(changesExplorerFoldScopeId("changes")).toBe("changes");
-    expect(changesExplorerFoldScopeId("diff-group://unstaged")).toBe(
-      "diff-group://unstaged",
-    );
-    expect(changesExplorerFoldScopeId("diff-group://staged")).toBe(
-      "diff-group://staged",
-    );
-    expect(changesExplorerFoldScopeId("diff-group://commit")).toBe(
-      "diff-group://commit",
-    );
+    expect(changesExplorerFoldScopeId("diff-group://unstaged")).toBe("diff-group://unstaged");
+    expect(changesExplorerFoldScopeId("diff-group://staged")).toBe("diff-group://staged");
+    expect(changesExplorerFoldScopeId("diff-group://commit")).toBe("diff-group://commit");
     expect(changesExplorerFoldScopeId("/repo/a.ts")).toBeNull();
     expect(changesExplorerFoldScopeId("files")).toBeNull();
     expect(
@@ -113,9 +107,8 @@ describe("center explorer layout", () => {
   });
 
   test("keeps one host pane id when several file tabs share a pane", () => {
-    const hosts = collectUniqueHostPaneIds(
-      ["files", "/repo/a.ts", "/repo/b.ts"],
-      (tabId) => (tabId === "files" ? ["pane-a"] : ["pane-a"]),
+    const hosts = collectUniqueHostPaneIds(["files", "/repo/a.ts", "/repo/b.ts"], (tabId) =>
+      tabId === "files" ? ["pane-a"] : ["pane-a"],
     );
     expect(hosts).toEqual(["pane-a"]);
   });
@@ -172,9 +165,7 @@ describe("center explorer layout", () => {
     expect(applyExplorerInsetToPanelStyle(undefined, 260)).toEqual({
       [CENTER_EXPLORER_INSET_CUSTOM_PROP]: "260px",
     });
-    expect(
-      applyExplorerInsetToPanelStyle({ width: 800, left: 10, top: 0 }, 260),
-    ).toEqual({
+    expect(applyExplorerInsetToPanelStyle({ width: 800, left: 10, top: 0 }, 260)).toEqual({
       width: 800,
       left: 10,
       top: 0,
@@ -244,12 +235,8 @@ describe("center explorer layout", () => {
 
   test("resolves the sole content-slot box when the explorer host has no pane id", () => {
     const sole = { top: 28, left: 0, width: 900, height: 500 };
-    expect(
-      resolveExplorerSlotBox(undefined, { "pane-a": sole }),
-    ).toEqual(sole);
-    expect(
-      resolveExplorerSlotBox("pane-a", { "pane-a": sole }),
-    ).toEqual(sole);
+    expect(resolveExplorerSlotBox(undefined, { "pane-a": sole })).toEqual(sole);
+    expect(resolveExplorerSlotBox("pane-a", { "pane-a": sole })).toEqual(sole);
     expect(
       resolveExplorerSlotBox(undefined, {
         "pane-a": sole,
@@ -326,9 +313,10 @@ describe("center explorer layout", () => {
       action: "resize",
       width: CENTER_EXPLORER_REOPEN_WIDTH,
     });
-    expect(
-      resolveCenterExplorerResize(200, { collapsed: true }),
-    ).toEqual({ action: "resize", width: 200 });
+    expect(resolveCenterExplorerResize(200, { collapsed: true })).toEqual({
+      action: "resize",
+      width: 200,
+    });
   });
 
   test("shares collapse transition classes for sidecar and body inset", () => {
@@ -340,10 +328,7 @@ describe("center explorer layout", () => {
     expect(CENTER_EXPLORER_BODY_INSET_CLASS).toContain(
       "in-[[data-workspace-frame]:not([data-center-explorer-collapsing])]:transition-none",
     );
-    const sidecar = readFileSync(
-      join(import.meta.dir, "../CenterExplorerSidecar.tsx"),
-      "utf8",
-    );
+    const sidecar = readFileSync(join(import.meta.dir, "../CenterExplorerSidecar.tsx"), "utf8");
     expect(sidecar).toContain("CENTER_EXPLORER_COLLAPSE_TRANSITION_CLASS");
     expect(sidecar).toContain("CENTER_EXPLORER_COLLAPSE_TRANSITION_MS");
     expect(sidecar).toContain("resolveCenterExplorerResize");
@@ -353,12 +338,16 @@ describe("center explorer layout", () => {
     expect(sidecar).toContain("collapsedDuringDrag");
     expect(sidecar).toContain("takingSpace || isResizing");
     expect(sidecar).toContain("beginThresholdTransition");
-    expect(sidecar).toContain("collapseAnimating && !liveResize && CENTER_EXPLORER_COLLAPSE_TRANSITION_CLASS");
-    expect(sidecar).toContain("liveResize && \"transition-none\"");
-    expect(sidecar).not.toContain("isResizing && \"transition-none\"");
+    expect(sidecar).toContain(
+      "collapseAnimating && !liveResize && CENTER_EXPLORER_COLLAPSE_TRANSITION_CLASS",
+    );
+    expect(sidecar).toContain('liveResize && "transition-none"');
+    expect(sidecar).not.toContain('isResizing && "transition-none"');
     expect(sidecar).not.toContain("endResize();\n                return;");
     expect(sidecar).toContain('data-center-explorer-resizing={liveResize ? "" : undefined}');
-    expect(sidecar).toContain('data-center-explorer-collapsing={collapseAnimating ? "" : undefined}');
+    expect(sidecar).toContain(
+      'data-center-explorer-collapsing={collapseAnimating ? "" : undefined}',
+    );
     expect(sidecar).toContain("data-center-explorer-resize");
     expect(sidecar).toContain("ResizeFollowMark");
     expect(sidecar).toContain("isResizeClickGesture");
@@ -371,13 +360,8 @@ describe("center explorer layout", () => {
     expect(sidecar).toContain(
       'className="flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden rounded-[inherit] bg-background pl-[0.5px]"',
     );
-    expect(sidecar).toContain(
-      "takingSpace || isResizing || collapseAnimating ? children : null",
-    );
-    const frame = readFileSync(
-      join(import.meta.dir, "../workspace-center-frame.tsx"),
-      "utf8",
-    );
+    expect(sidecar).toContain("takingSpace || isResizing || collapseAnimating ? children : null");
+    const frame = readFileSync(join(import.meta.dir, "../workspace-center-frame.tsx"), "utf8");
     expect(frame).toContain("return [undefined]");
     expect(frame).not.toContain("if (tabHostPaneIds || tabToPaneId) return [];");
     expect(frame).toContain("resolveExplorerSlotBox");
@@ -389,30 +373,20 @@ describe("center explorer layout", () => {
     expect(frame).not.toContain("collectChangesExplorerFoldScopeIds");
     expect(frame).not.toContain("changesExplorerFoldScopeIds");
     expect(frame).toContain("if (!showing) return null");
-    expect(frame).toContain('surfaceActive={surfaceActive}');
+    expect(frame).toContain("surfaceActive={surfaceActive}");
     expect(frame).toContain("collapsed={explorerLayout.filesCollapsed}");
     expect(frame).toContain("explorerLayoutActions.changesForScope(foldScopeId)");
     expect(frame).toContain("`${contextId}-files-explorer`");
-    expect(frame).toContain(
-      "`${contextId}-changes-explorer-${foldScopeId}`",
-    );
-    expect(frame).toContain(
-      '`${contextId}-changes-explorer-${foldScopeId}-${paneId ?? "root"}`',
-    );
-    expect(frame).not.toContain(
-      '`${contextId}-changes-explorer-${paneId ?? "root"}`',
-    );
+    expect(frame).toContain("`${contextId}-changes-explorer-${foldScopeId}`");
+    expect(frame).toContain('`${contextId}-changes-explorer-${foldScopeId}-${paneId ?? "root"}`');
+    expect(frame).not.toContain('`${contextId}-changes-explorer-${paneId ?? "root"}`');
     expect(frame).not.toContain("singlePane: !multiActiveTabIds");
     expect(frame).not.toContain("paneId ? paneSlotBoxes?.[paneId] : null");
     expect(frame).not.toContain("takingSpace={takingSpace}");
     expect(frame).toContain('onCollapse={() => explorerLayoutActions.setCollapsed("files", true)}');
-    expect(frame).toContain(
-      'explorerLayoutActions.setCollapsed("changes", true, foldScopeId)',
-    );
+    expect(frame).toContain('explorerLayoutActions.setCollapsed("changes", true, foldScopeId)');
     expect(frame).toContain('onExpand={() => explorerLayoutActions.setCollapsed("files", false)}');
-    expect(frame).toContain(
-      'explorerLayoutActions.setCollapsed("changes", false, foldScopeId)',
-    );
+    expect(frame).toContain('explorerLayoutActions.setCollapsed("changes", false, foldScopeId)');
   });
 
   test("animates fold only when collapsed flips on a stable surface", () => {
@@ -460,21 +434,20 @@ describe("center explorer layout", () => {
   });
 
   test("stabilizes explorer hosts so undefined root does not remount beside a pane", () => {
-    expect(
-      stabilizeExplorerHostPaneIds([undefined, "pane-a"], { singlePane: true }),
-    ).toEqual(["pane-a"]);
-    expect(
-      stabilizeExplorerHostPaneIds(["pane-a", undefined], { singlePane: false }),
-    ).toEqual(["pane-a"]);
-    expect(
-      stabilizeExplorerHostPaneIds([undefined], { singlePane: true }),
-    ).toEqual([undefined]);
-    expect(
-      stabilizeExplorerHostPaneIds(["pane-a", "pane-b"], { singlePane: true }),
-    ).toEqual(["pane-a"]);
-    expect(
-      stabilizeExplorerHostPaneIds(["pane-a", "pane-b"], { singlePane: false }),
-    ).toEqual(["pane-a", "pane-b"]);
+    expect(stabilizeExplorerHostPaneIds([undefined, "pane-a"], { singlePane: true })).toEqual([
+      "pane-a",
+    ]);
+    expect(stabilizeExplorerHostPaneIds(["pane-a", undefined], { singlePane: false })).toEqual([
+      "pane-a",
+    ]);
+    expect(stabilizeExplorerHostPaneIds([undefined], { singlePane: true })).toEqual([undefined]);
+    expect(stabilizeExplorerHostPaneIds(["pane-a", "pane-b"], { singlePane: true })).toEqual([
+      "pane-a",
+    ]);
+    expect(stabilizeExplorerHostPaneIds(["pane-a", "pane-b"], { singlePane: false })).toEqual([
+      "pane-a",
+      "pane-b",
+    ]);
   });
 
   test("right-anchors when overlay hosts a single pane with multiActiveTabIds", () => {

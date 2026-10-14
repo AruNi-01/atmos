@@ -16,11 +16,7 @@ import {
   forceRefreshSkillsList,
   useInvalidateSkillsList,
 } from "@/features/skills/hooks/use-skills-query";
-import {
-  skillsApi,
-  type SkillInfo,
-  type SkillScopeRoot,
-} from "@/api/ws/skills-api";
+import { skillsApi, type SkillInfo, type SkillScopeRoot } from "@/api/ws/skills-api";
 
 export type ComposerSkillsContext = {
   mode: "project" | "workspace";
@@ -39,10 +35,7 @@ function sortSkills(skills: SkillInfo[]) {
   });
 }
 
-function scopeLabel(
-  skill: SkillInfo,
-  t: ReturnType<typeof useTranslations>,
-) {
+function scopeLabel(skill: SkillInfo, t: ReturnType<typeof useTranslations>) {
   switch (skill.scope) {
     case "global":
       return t("scope.global");
@@ -140,8 +133,7 @@ export function ComposerSkillsControl({
       setPendingId(skill.id);
       try {
         const root =
-          skill.scope === "workspace" ||
-          (context?.mode === "workspace" && skill.scope !== "global")
+          skill.scope === "workspace" || (context?.mode === "workspace" && skill.scope !== "global")
             ? scopeRoot
             : undefined;
         await skillsApi.setEnabled(skill.id, enabled, undefined, root);

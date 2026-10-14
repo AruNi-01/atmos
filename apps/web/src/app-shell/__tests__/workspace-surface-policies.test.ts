@@ -164,7 +164,7 @@ describe("resolveFrameActiveTab / panel visibility", () => {
     expect(terminalKeepAlivePanelClass(true)).toBe("atmos-terminal-panel-active");
     expect(terminalKeepAlivePanelClass(false)).toBe("atmos-terminal-panel-keepalive");
     const css = readFileSync(join(import.meta.dir, "../../app/globals.css"), "utf8");
-    expect(css).toContain("[data-workspace-frame][data-tier=\"warm\"] *");
+    expect(css).toContain('[data-workspace-frame][data-tier="warm"] *');
     expect(css).toContain("animation-play-state: paused !important");
     expect(terminalKeepAlivePanelClass(false)).not.toContain("hidden");
     expect(lightSurfacePanelClass(true)).toContain("absolute");
@@ -270,10 +270,7 @@ describe("buildProtectSignals", () => {
       activeContextId: "active",
       editorWorkspaceStates: {
         dirty: {
-          openFiles: [
-            { isDirty: false },
-            { isDirty: true },
-          ],
+          openFiles: [{ isDirty: false }, { isDirty: true }],
         },
         clean: {
           openFiles: [{ isDirty: false }],

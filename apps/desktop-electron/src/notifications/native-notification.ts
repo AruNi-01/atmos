@@ -14,10 +14,7 @@ export type NativeNotificationSendResult =
     };
 
 type NativeNotificationLike = {
-  once(
-    event: "show" | "failed" | "close",
-    listener: (...args: unknown[]) => void,
-  ): unknown;
+  once(event: "show" | "failed" | "close", listener: (...args: unknown[]) => void): unknown;
   show(): void;
 };
 
@@ -25,9 +22,7 @@ const liveNotifications = new Set<NativeNotificationLike>();
 const LIVE_MS = 60_000;
 const RESULT_TIMEOUT_MS = 20_000;
 
-export function classifyNativeNotificationError(
-  error: string,
-): "permission_denied" | "failed" {
+export function classifyNativeNotificationError(error: string): "permission_denied" | "failed" {
   const text = error.trim().toLowerCase();
   if (
     /not authorized|not allowed|denied|permission|notifications are not enabled|must be authorized|not permitted/.test(
@@ -39,9 +34,7 @@ export function classifyNativeNotificationError(
   return "failed";
 }
 
-export function retainNativeNotification(
-  notification: NativeNotificationLike,
-): void {
+export function retainNativeNotification(notification: NativeNotificationLike): void {
   liveNotifications.add(notification);
   const drop = () => {
     liveNotifications.delete(notification);
@@ -67,8 +60,7 @@ export function waitForNativeNotificationResult(
     notification.once("show", () => finish({ ok: true }));
     notification.once("failed", (...args: unknown[]) => {
       const error =
-        args.find((value): value is string => typeof value === "string") ??
-        "Notification failed";
+        args.find((value): value is string => typeof value === "string") ?? "Notification failed";
       finish({
         ok: false,
         code: classifyNativeNotificationError(error),

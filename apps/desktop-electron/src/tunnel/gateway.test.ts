@@ -24,9 +24,9 @@ describe("tunnel gateway share/session DTOs", () => {
     expect(buildShareUrl("https://abc.trycloudflare.com", "tok123")).toBe(
       "https://abc.trycloudflare.com?entry_token=tok123",
     );
-    expect(
-      buildShareUrl("https://abc.trycloudflare.com?x=1", "tok123"),
-    ).toBe("https://abc.trycloudflare.com?x=1&entry_token=tok123");
+    expect(buildShareUrl("https://abc.trycloudflare.com?x=1", "tok123")).toBe(
+      "https://abc.trycloudflare.com?x=1&entry_token=tok123",
+    );
   });
 
   it("statusFieldsForSession populates gateway/share (not null stubs)", () => {

@@ -49,11 +49,11 @@ flowchart LR
   end
 ```
 
-| Host | Package | Role |
-|------|---------|------|
-| `hub.atmos.land` | `packages/hub` | Auth, profile claim, snapshot upsert, public JSON |
-| `app.atmos.land` | `apps/web` | Product UI + canonical `/tok/[handle]` implementation |
-| `atmos.land` | landing + **path rewrite** | Marketing; `/tok*` served as the web public page |
+| Host             | Package                    | Role                                                  |
+| ---------------- | -------------------------- | ----------------------------------------------------- |
+| `hub.atmos.land` | `packages/hub`             | Auth, profile claim, snapshot upsert, public JSON     |
+| `app.atmos.land` | `apps/web`                 | Product UI + canonical `/tok/[handle]` implementation |
+| `atmos.land`     | landing + **path rewrite** | Marketing; `/tok*` served as the web public page      |
 
 ## Module-by-module design
 
@@ -154,14 +154,14 @@ ALTER TABLE user_profiles ADD COLUMN snapshot_updated_at INTEGER;
 
 ### Handle rules (M3)
 
-| Rule | Value |
-|------|--------|
-| Charset | `^[a-z0-9_]{3,24}$` after trim + lowercasing |
-| Placeholder | `builder` (not reserved) |
-| Reserved | `atmos`, `admin`, `tok`, `api`, `s`, `u`, `me`, `public`, `www`, `login`, `auth`, `settings`, `support`, `help`, `about`, `legal`, `blog`, `docs` |
-| Claim | First successful `PUT` with a handle sets `handle` + `handle_claimed_at` |
-| Later | Different handle → `403 handle_immutable` |
-| Conflict | Unique violation → `409 username_taken` |
+| Rule        | Value                                                                                                                                             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Charset     | `^[a-z0-9_]{3,24}$` after trim + lowercasing                                                                                                      |
+| Placeholder | `builder` (not reserved)                                                                                                                          |
+| Reserved    | `atmos`, `admin`, `tok`, `api`, `s`, `u`, `me`, `public`, `www`, `login`, `auth`, `settings`, `support`, `help`, `about`, `legal`, `blog`, `docs` |
+| Claim       | First successful `PUT` with a handle sets `handle` + `handle_claimed_at`                                                                          |
+| Later       | Different handle → `403 handle_immutable`                                                                                                         |
+| Conflict    | Unique violation → `409 username_taken`                                                                                                           |
 
 ### Social usernames (M11)
 
@@ -197,7 +197,7 @@ type TokenUsageSharePayload = {
     };
   };
   by_client: RankRow[]; // length ≤ 5
-  by_model: RankRow[];  // length ≤ 5; include provider_id
+  by_model: RankRow[]; // length ≤ 5; include provider_id
   by_day: Array<{
     date: string; // YYYY-MM-DD
     total_tokens: number;
@@ -292,7 +292,7 @@ On first transition to `unlisted`, include `unlisted_secret` once (or require th
   "visibility": "public",
   "include_cost": false,
   "generated_at": 0,
-  "snapshot": { }
+  "snapshot": {}
 }
 ```
 
@@ -318,15 +318,15 @@ Public GET and HTML: `Cache-Control: private, no-store`.
 
 ## Security
 
-| Topic | Rule |
-|-------|------|
-| Snapshot | Server allowlist + 256 KiB + array caps (e.g. 800 days, 5+other dims) |
-| Handle | Immutable after claim; unique; reserved list |
+| Topic    | Rule                                                                                              |
+| -------- | ------------------------------------------------------------------------------------------------- |
+| Snapshot | Server allowlist + 256 KiB + array caps (e.g. 800 days, 5+other dims)                             |
+| Handle   | Immutable after claim; unique; reserved list                                                      |
 | Unlisted | Hash at rest; 404 on mismatch (do not leak “exists but private” vs “unknown” if cheap — same 404) |
-| Avatar | Store HTTPS URL only; `<img>` with nosniff-friendly host; fallback on failure |
-| Social | Username allowlist; never store free-text hrefs |
-| Cookies | Public page does not require Hub session |
-| Logs | No `k`, no device credentials |
+| Avatar   | Store HTTPS URL only; `<img>` with nosniff-friendly host; fallback on failure                     |
+| Social   | Username allowlist; never store free-text hrefs                                                   |
+| Cookies  | Public page does not require Hub session                                                          |
+| Logs     | No `k`, no device credentials                                                                     |
 
 ## Rollout
 

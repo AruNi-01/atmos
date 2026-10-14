@@ -1,5 +1,8 @@
 import { wsRequest } from "@/api/ws/request";
-import type { ResolvedRunLogLatest, RunLogResolveReason } from "@/features/browser/lib/run-log-context";
+import type {
+  ResolvedRunLogLatest,
+  RunLogResolveReason,
+} from "@/features/browser/lib/run-log-context";
 
 function asResolveReason(value: string | null | undefined): RunLogResolveReason | null {
   if (

@@ -24,13 +24,17 @@ describe("eventsForChat", () => {
   });
 
   test("ignores notifications for a different event", () => {
-    expect(agentChatEventFromMessage({
-      type: "notification",
-      payload: { event: "terminal_title_updated", data: { workspace_id: "ws" } },
-    })).toBeNull();
-    expect(agentChatEventFromMessage({
-      type: "notification",
-      payload: { event: "agent_chat_event", data: event("chat-a") },
-    })?.chat_id).toBe("chat-a");
+    expect(
+      agentChatEventFromMessage({
+        type: "notification",
+        payload: { event: "terminal_title_updated", data: { workspace_id: "ws" } },
+      }),
+    ).toBeNull();
+    expect(
+      agentChatEventFromMessage({
+        type: "notification",
+        payload: { event: "agent_chat_event", data: event("chat-a") },
+      })?.chat_id,
+    ).toBe("chat-a");
   });
 });

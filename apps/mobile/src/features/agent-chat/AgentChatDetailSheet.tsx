@@ -23,7 +23,10 @@ export function AgentChatDetailSheet({
       snapPoints={["half", "full"]}
     >
       <View style={{ flex: 1, gap: 12 }}>
-        <Text numberOfLines={1} style={{ color: theme.colors.label, fontSize: 17, fontWeight: "600" }}>
+        <Text
+          numberOfLines={1}
+          style={{ color: theme.colors.label, fontSize: 17, fontWeight: "600" }}
+        >
           {page.model.title}
         </Text>
         <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 12 }} style={{ flex: 1 }}>

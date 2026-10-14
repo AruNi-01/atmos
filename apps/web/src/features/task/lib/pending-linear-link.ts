@@ -3,14 +3,9 @@ import type { TaskWorkspaceLinearDraft } from "@/features/task/store/task-worksp
 /** sessionStorage key for Linear issue snapshot across Task → Create workspace. */
 export const PENDING_LINEAR_LINK_STORAGE_KEY = "atmos.pendingLinearLink";
 
-export function writePendingLinearLink(
-  issue: TaskWorkspaceLinearDraft,
-): void {
+export function writePendingLinearLink(issue: TaskWorkspaceLinearDraft): void {
   try {
-    sessionStorage.setItem(
-      PENDING_LINEAR_LINK_STORAGE_KEY,
-      JSON.stringify(issue),
-    );
+    sessionStorage.setItem(PENDING_LINEAR_LINK_STORAGE_KEY, JSON.stringify(issue));
   } catch {
     /* ignore quota / private mode */
   }

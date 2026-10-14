@@ -25,8 +25,6 @@ export async function resolveBlobUrl(
 
   // git blob
   const rev = locator.rev;
-  const pathParam = locator.rev.startsWith(":")
-    ? ""
-    : `&path=${encodeURIComponent(locator.path)}`;
+  const pathParam = locator.rev.startsWith(":") ? "" : `&path=${encodeURIComponent(locator.path)}`;
   return `${base}/api/system/git-blob?repo=${encodeURIComponent(repoPath)}&rev=${encodeURIComponent(rev)}${pathParam}${token}`;
 }

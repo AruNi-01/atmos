@@ -1,11 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Loader2,
-  ScrollArea,
-  cn,
-} from "@workspace/ui";
+import { Loader2, ScrollArea, cn } from "@workspace/ui";
 import type { MdLiveEmbedInsertKind, MdLiveCopyFn } from "@atmos/md-live/ui";
 import { mdLiveLabel } from "@atmos/md-live/ui";
 import { parseGithubResourceUrl, type MdLiveGithubTarget } from "@atmos/md-live";
@@ -17,11 +13,7 @@ import {
 } from "@/features/welcome/lib/mention-file-search";
 import { scrollActiveListItemIntoView } from "@/features/welcome/lib/popover-list-scroll";
 import { fetchLinkPreview } from "@/shared/lib/link-preview-query";
-import {
-  embedSpecFromGithubTarget,
-  embedSpecFromPath,
-  markdownFromEmbedSpec,
-} from "./insert";
+import { embedSpecFromGithubTarget, embedSpecFromPath, markdownFromEmbedSpec } from "./insert";
 import { MdLivePathIcon } from "./path-icon";
 import { GithubIssueStatusIcon, GithubPrStatusIcon } from "./github-embed-icons";
 import { githubIssueStateOf, githubPrStateOf } from "./github-embed-state";
@@ -30,14 +22,14 @@ const GITHUB_PAGE_SIZE = 20;
 
 type PickerHit =
   | {
-    id: string;
-    kind: "github";
-    title: string;
-    subtitle: string;
-    target: MdLiveGithubTarget;
-    state?: string;
-    isDraft?: boolean;
-  }
+      id: string;
+      kind: "github";
+      title: string;
+      subtitle: string;
+      target: MdLiveGithubTarget;
+      state?: string;
+      isDraft?: boolean;
+    }
   | { id: string; kind: "path"; title: string; subtitle: string; path: string; isDir: boolean };
 
 function HighlightText({ text, query }: { text: string; query: string }) {
@@ -112,9 +104,18 @@ async function resolveGithubUrlHit(
   let state: string | undefined;
   let isDraft = false;
   try {
-    const remote = expected === "pr"
-      ? await wsGithubApi.getPr({ owner: parsed.owner, repo: parsed.repo, prNumber: parsed.number })
-      : await wsGithubApi.getIssue({ owner: parsed.owner, repo: parsed.repo, issueNumber: parsed.number });
+    const remote =
+      expected === "pr"
+        ? await wsGithubApi.getPr({
+            owner: parsed.owner,
+            repo: parsed.repo,
+            prNumber: parsed.number,
+          })
+        : await wsGithubApi.getIssue({
+            owner: parsed.owner,
+            repo: parsed.repo,
+            issueNumber: parsed.number,
+          });
     if (remote.title) title = remote.title;
     state = remote.state;
     isDraft = "is_draft" in remote ? Boolean(remote.is_draft) : false;
@@ -167,21 +168,25 @@ export function MdLiveEmbedPicker({
   const githubKind = githubKindOf(embed);
   const isGithub = githubKind !== null;
   const highlight = nameQuery(query);
-  const headingKey = embed === "github-issue"
-    ? "slashGithubIssue"
-    : embed === "github-pr"
-      ? "slashGithubPr"
-      : "slashEmbedPath";
+  const headingKey =
+    embed === "github-issue"
+      ? "slashGithubIssue"
+      : embed === "github-pr"
+        ? "slashGithubPr"
+        : "slashEmbedPath";
 
   useEffect(() => {
     if (!workspaceRoot || !isGithub) return;
     let cancelled = false;
-    void gitApi.getStatus(workspaceRoot).then((status) => {
-      if (cancelled) return;
-      if (status.github_owner && status.github_repo) {
-        setFallback({ owner: status.github_owner, repo: status.github_repo });
-      }
-    }).catch(() => {});
+    void gitApi
+      .getStatus(workspaceRoot)
+      .then((status) => {
+        if (cancelled) return;
+        if (status.github_owner && status.github_repo) {
+          setFallback({ owner: status.github_owner, repo: status.github_repo });
+        }
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -214,24 +219,28 @@ export function MdLiveEmbedPicker({
       }
       setLoading(true);
       const timer = window.setTimeout(() => {
-        void wsGithubApi.search({
-          kind: githubKind,
-          repos: [fallback],
-          state: "all",
-          query: q || null,
-          page: 1,
-          perPage: GITHUB_PAGE_SIZE,
-        }).then((pageResult) => {
-          if (cancelled) return;
-          const items = pageResult.items ?? [];
-          setHits(items.map((item) => hitFromSearchItem(item, githubKind)));
-          setHasMore(Boolean(pageResult.has_more) || items.length >= GITHUB_PAGE_SIZE);
-          setPage(1);
-        }).catch(() => {
-          if (!cancelled) setHits([]);
-        }).finally(() => {
-          if (!cancelled) setLoading(false);
-        });
+        void wsGithubApi
+          .search({
+            kind: githubKind,
+            repos: [fallback],
+            state: "all",
+            query: q || null,
+            page: 1,
+            perPage: GITHUB_PAGE_SIZE,
+          })
+          .then((pageResult) => {
+            if (cancelled) return;
+            const items = pageResult.items ?? [];
+            setHits(items.map((item) => hitFromSearchItem(item, githubKind)));
+            setHasMore(Boolean(pageResult.has_more) || items.length >= GITHUB_PAGE_SIZE);
+            setPage(1);
+          })
+          .catch(() => {
+            if (!cancelled) setHits([]);
+          })
+          .finally(() => {
+            if (!cancelled) setLoading(false);
+          });
       }, 180);
       return () => {
         cancelled = true;
@@ -244,25 +253,31 @@ export function MdLiveEmbedPicker({
       return;
     }
     setLoading(true);
-    void fsApi.listProjectFiles(workspaceRoot, { showHidden: true }).then((res) => {
-      if (cancelled) return;
-      const filtered = filterMentionFileCandidates(
-        flattenFileTreeToCandidates(res.tree ?? []),
-        q,
-      );
-      setHits(filtered.map((item) => ({
-        id: item.relativePath,
-        kind: "path" as const,
-        title: item.name,
-        subtitle: item.relativePath,
-        path: item.relativePath,
-        isDir: item.isDir,
-      })));
-    }).catch(() => {
-      if (!cancelled) setHits([]);
-    }).finally(() => {
-      if (!cancelled) setLoading(false);
-    });
+    void fsApi
+      .listProjectFiles(workspaceRoot, { showHidden: true })
+      .then((res) => {
+        if (cancelled) return;
+        const filtered = filterMentionFileCandidates(
+          flattenFileTreeToCandidates(res.tree ?? []),
+          q,
+        );
+        setHits(
+          filtered.map((item) => ({
+            id: item.relativePath,
+            kind: "path" as const,
+            title: item.name,
+            subtitle: item.relativePath,
+            path: item.relativePath,
+            isDir: item.isDir,
+          })),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setHits([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -274,32 +289,36 @@ export function MdLiveEmbedPicker({
     setLoadingMore(true);
     const viewport = viewportRef.current;
     const scrollTop = viewport?.scrollTop ?? 0;
-    void wsGithubApi.search({
-      kind: githubKind,
-      repos: [fallback],
-      state: "all",
-      query: query.trim() || null,
-      page: nextPage,
-      perPage: GITHUB_PAGE_SIZE,
-    }).then((pageResult) => {
-      setHits((current) => {
-        const seen = new Set(current.map((hit) => hit.id));
-        const extra = (pageResult.items ?? [])
-          .map((item) => hitFromSearchItem(item, githubKind))
-          .filter((hit) => !seen.has(hit.id));
-        return [...current, ...extra];
+    void wsGithubApi
+      .search({
+        kind: githubKind,
+        repos: [fallback],
+        state: "all",
+        query: query.trim() || null,
+        page: nextPage,
+        perPage: GITHUB_PAGE_SIZE,
+      })
+      .then((pageResult) => {
+        setHits((current) => {
+          const seen = new Set(current.map((hit) => hit.id));
+          const extra = (pageResult.items ?? [])
+            .map((item) => hitFromSearchItem(item, githubKind))
+            .filter((hit) => !seen.has(hit.id));
+          return [...current, ...extra];
+        });
+        const extraCount = pageResult.items?.length ?? 0;
+        setHasMore(Boolean(pageResult.has_more) || extraCount >= GITHUB_PAGE_SIZE);
+        setPage(nextPage);
+        requestAnimationFrame(() => {
+          if (viewport) viewport.scrollTop = scrollTop;
+        });
+      })
+      .catch(() => {
+        setHasMore(false);
+      })
+      .finally(() => {
+        setLoadingMore(false);
       });
-      const extraCount = pageResult.items?.length ?? 0;
-      setHasMore(Boolean(pageResult.has_more) || extraCount >= GITHUB_PAGE_SIZE);
-      setPage(nextPage);
-      requestAnimationFrame(() => {
-        if (viewport) viewport.scrollTop = scrollTop;
-      });
-    }).catch(() => {
-      setHasMore(false);
-    }).finally(() => {
-      setLoadingMore(false);
-    });
   }, [fallback, githubKind, hasMore, isGithub, loading, loadingMore, page, query]);
 
   useEffect(() => {
@@ -326,13 +345,16 @@ export function MdLiveEmbedPicker({
     return () => observer.disconnect();
   }, [hasMore, hits.length, loadMore]);
 
-  const insertHit = useCallback((hit: PickerHit) => {
-    if (hit.kind === "github") {
-      onInsert(markdownFromEmbedSpec(embedSpecFromGithubTarget(hit.target, hit.title)));
-      return;
-    }
-    onInsert(markdownFromEmbedSpec(embedSpecFromPath(hit.path, hit.isDir ? "folder" : "file")));
-  }, [onInsert]);
+  const insertHit = useCallback(
+    (hit: PickerHit) => {
+      if (hit.kind === "github") {
+        onInsert(markdownFromEmbedSpec(embedSpecFromGithubTarget(hit.target, hit.title)));
+        return;
+      }
+      onInsert(markdownFromEmbedSpec(embedSpecFromPath(hit.path, hit.isDir ? "folder" : "file")));
+    },
+    [onInsert],
+  );
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -398,53 +420,55 @@ export function MdLiveEmbedPicker({
             </div>
           ) : hits.length === 0 ? (
             <div className="px-2.5 py-2 text-xs text-muted-foreground">
-              {label(isGithub ? "slashGithubUrl" : query.trim() ? "slashNoResults" : "slashFilePath")}
-            </div>
-          ) : hits.map((hit, index) => (
-            <button
-              key={hit.id}
-              type="button"
-              title={hit.subtitle}
-              ref={(element) => {
-                itemRefs.current[index] = element;
-              }}
-              className={cn(
-                "flex h-8 w-full shrink-0 items-center gap-2 rounded-lg px-2.5 text-left text-sm hover:bg-muted",
-                index === selected && "bg-muted",
+              {label(
+                isGithub ? "slashGithubUrl" : query.trim() ? "slashNoResults" : "slashFilePath",
               )}
-              onMouseDown={(event) => {
-                event.preventDefault();
-                insertHit(hit);
-              }}
-            >
-              {hit.kind === "github" ? (
-                hit.target.kind === "pr"
-                  ? (
+            </div>
+          ) : (
+            hits.map((hit, index) => (
+              <button
+                key={hit.id}
+                type="button"
+                title={hit.subtitle}
+                ref={(element) => {
+                  itemRefs.current[index] = element;
+                }}
+                className={cn(
+                  "flex h-8 w-full shrink-0 items-center gap-2 rounded-lg px-2.5 text-left text-sm hover:bg-muted",
+                  index === selected && "bg-muted",
+                )}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  insertHit(hit);
+                }}
+              >
+                {hit.kind === "github" ? (
+                  hit.target.kind === "pr" ? (
                     <GithubPrStatusIcon
                       state={githubPrStateOf(hit.state, Boolean(hit.isDraft))}
                       className="size-4 shrink-0"
                     />
-                  )
-                  : (
+                  ) : (
                     <GithubIssueStatusIcon
                       state={githubIssueStateOf(hit.state)}
                       className="size-4 shrink-0"
                     />
                   )
-              ) : (
-                <MdLivePathIcon name={hit.title} isDir={hit.isDir} className="size-4" />
-              )}
-              {hit.kind === "github" ? (
-                <span className="font-mono text-xs text-muted-foreground">
-                  #{hit.target.number}
+                ) : (
+                  <MdLivePathIcon name={hit.title} isDir={hit.isDir} className="size-4" />
+                )}
+                {hit.kind === "github" ? (
+                  <span className="font-mono text-xs text-muted-foreground">
+                    #{hit.target.number}
+                  </span>
+                ) : null}
+                <HighlightText text={hit.title} query={highlight} />
+                <span className="ml-auto max-w-[55%] shrink truncate text-right text-[11px] text-muted-foreground">
+                  {hit.subtitle}
                 </span>
-              ) : null}
-              <HighlightText text={hit.title} query={highlight} />
-              <span className="ml-auto max-w-[55%] shrink truncate text-right text-[11px] text-muted-foreground">
-                {hit.subtitle}
-              </span>
-            </button>
-          ))}
+              </button>
+            ))
+          )}
           {loadingMore ? (
             <div className="flex h-8 items-center gap-2 px-2.5 text-xs text-muted-foreground">
               <Loader2 className="size-3.5 animate-spin" />

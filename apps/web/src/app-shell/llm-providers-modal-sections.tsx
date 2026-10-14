@@ -70,9 +70,7 @@ export function ProviderEditorFields({
         label={t("appShell.llmProviders.providerEditor.fields.name.label")}
         labelAccessory={
           showProviderNameIssue && providerNameIssue ? (
-            <span className="text-xs font-medium text-destructive">
-              {providerNameIssue}
-            </span>
+            <span className="text-xs font-medium text-destructive">{providerNameIssue}</span>
           ) : null
         }
         error={showProviderNameIssue}
@@ -87,34 +85,26 @@ export function ProviderEditorFields({
           }}
           placeholder={t("appShell.llmProviders.providerEditor.fields.name.placeholder")}
           className={cn(
-            showProviderNameIssue &&
-              "border-destructive focus-visible:ring-destructive/30",
+            showProviderNameIssue && "border-destructive focus-visible:ring-destructive/30",
           )}
         />
       </Field>
 
       <Field label={t("appShell.llmProviders.providerEditor.fields.key.label")}>
         <Input
-          value={
-            providerEditor.name.trim()
-              ? slugifyProviderId(providerEditor.name)
-              : ""
-          }
+          value={providerEditor.name.trim() ? slugifyProviderId(providerEditor.name) : ""}
           placeholder={t("appShell.llmProviders.providerEditor.fields.key.placeholder")}
           disabled
         />
       </Field>
 
-      <Field
-        label={t("appShell.llmProviders.providerEditor.fields.compatibility.label")}
-      >
+      <Field label={t("appShell.llmProviders.providerEditor.fields.compatibility.label")}>
         <Select
           value={providerEditor.kind}
           onValueChange={(value) => {
             const kind = value as ProviderDraft["kind"];
             const shouldSeedAnthropicDefault =
-              !providerEditor.max_output_tokens.trim() &&
-              kind === "anthropic-compatible";
+              !providerEditor.max_output_tokens.trim() && kind === "anthropic-compatible";
             setProviderEditor((current) =>
               current
                 ? {
@@ -149,9 +139,7 @@ export function ProviderEditorFields({
           <Switch
             checked={providerEditor.enabled}
             onCheckedChange={(checked) =>
-              setProviderEditor((current) =>
-                current ? { ...current, enabled: checked } : current,
-              )
+              setProviderEditor((current) => (current ? { ...current, enabled: checked } : current))
             }
           />
         </div>
@@ -169,16 +157,12 @@ export function ProviderEditorFields({
         />
       </Field>
 
-      <Field
-        label={t("appShell.llmProviders.providerEditor.fields.maxOutputTokens.label")}
-      >
+      <Field label={t("appShell.llmProviders.providerEditor.fields.maxOutputTokens.label")}>
         <Input
           value={providerEditor.max_output_tokens}
           onChange={(event) =>
             setProviderEditor((current) =>
-              current
-                ? { ...current, max_output_tokens: event.target.value }
-                : current,
+              current ? { ...current, max_output_tokens: event.target.value } : current,
             )
           }
           placeholder={
@@ -284,10 +268,7 @@ export function ProviderEditorFooter({
       <div className="flex w-full items-center">
         <div className="flex min-w-0 flex-1 items-center">
           {providerId ? (
-            <Popover
-              open={deleteConfirmOpen}
-              onOpenChange={onDeleteConfirmOpenChange}
-            >
+            <Popover open={deleteConfirmOpen} onOpenChange={onDeleteConfirmOpenChange}>
               <PopoverTrigger asChild>
                 <Button
                   type="button"
@@ -299,11 +280,7 @@ export function ProviderEditorFooter({
                   {t("appShell.llmProviders.common.delete")}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent
-                className="w-56 space-y-3 p-4"
-                side="top"
-                align="start"
-              >
+              <PopoverContent className="w-56 space-y-3 p-4" side="top" align="start">
                 <p className="text-sm text-foreground">
                   {t("appShell.llmProviders.providerEditor.deleteConfirm.title")}
                 </p>
@@ -349,8 +326,7 @@ export function ProviderEditorFooter({
                   "px-3",
                   testStatus === "pass" &&
                     "text-emerald-700 hover:text-emerald-700 dark:text-emerald-300",
-                  testStatus === "fail" &&
-                    "text-destructive hover:text-destructive",
+                  testStatus === "fail" && "text-destructive hover:text-destructive",
                   testStatus === "testing" &&
                     "text-amber-700 hover:text-amber-700 dark:text-amber-300",
                 )}

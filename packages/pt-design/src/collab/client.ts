@@ -1,9 +1,4 @@
-import {
-  WS_SUBTYPES,
-  type CollabRoom,
-  type CollabUser,
-  type SceneMessage,
-} from "./constants";
+import { WS_SUBTYPES, type CollabRoom, type CollabUser, type SceneMessage } from "./constants";
 import { decryptData, encryptData } from "./crypto";
 import { colorForCollaborator } from "./names";
 import { openOfficialSocket } from "./official";
@@ -27,7 +22,10 @@ export type CollabClient = {
   socketId: () => string | undefined;
   whenReady: (timeoutMs?: number) => Promise<boolean>;
   setUsername: (username: string) => void;
-  broadcastScene: (type: "SCENE_INIT" | "SCENE_UPDATE", elements: readonly unknown[]) => Promise<void>;
+  broadcastScene: (
+    type: "SCENE_INIT" | "SCENE_UPDATE",
+    elements: readonly unknown[],
+  ) => Promise<void>;
   broadcastPointer: (input: {
     pointer: { x: number; y: number; tool: "pointer" | "laser" };
     button: "up" | "down";
@@ -134,11 +132,7 @@ export function openCollabClient(input: {
     const encoded = new TextEncoder().encode(JSON.stringify(data));
     const { encryptedBuffer, iv } = await encryptData(input.room.roomKey, encoded);
     socket.send(
-      encodeBroadcast(
-        bytesToB64(new Uint8Array(encryptedBuffer)),
-        bytesToB64(iv),
-        volatile,
-      ),
+      encodeBroadcast(bytesToB64(new Uint8Array(encryptedBuffer)), bytesToB64(iv), volatile),
     );
   };
 

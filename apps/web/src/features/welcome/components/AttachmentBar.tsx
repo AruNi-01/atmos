@@ -56,7 +56,7 @@ export function AttachmentBar({ attachments, onRemove, onPreview, className }: A
                 ) : (
                   <ImageIcon className="m-auto size-5 text-muted-foreground" />
                 )}
-                <span className="pointer-events-none absolute bottom-0 left-0 right-0 truncate bg-background/80 px-1 py-0.5 text-[10px] leading-tight text-foreground">
+                <span className="pointer-events-none absolute right-0 bottom-0 left-0 truncate bg-background/80 px-1 py-0.5 text-[10px] leading-tight text-foreground">
                   {att.id}
                 </span>
               </div>
@@ -66,15 +66,11 @@ export function AttachmentBar({ attachments, onRemove, onPreview, className }: A
         );
         return (
           <div key={att.id} className="group relative shrink-0">
-            {isImage ? (
-              <ImageCopyMenuHost src={att.objectUrl}>{thumb}</ImageCopyMenuHost>
-            ) : (
-              thumb
-            )}
+            {isImage ? <ImageCopyMenuHost src={att.objectUrl}>{thumb}</ImageCopyMenuHost> : thumb}
             <Button
               type="button"
               variant="ghost"
-              className="absolute -right-1 -top-1 z-10 size-4 min-h-0 min-w-0 rounded-full border border-border/70 bg-background p-0 text-muted-foreground shadow-sm opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 [&>svg]:size-2.5"
+              className="absolute -top-1 -right-1 z-10 size-4 min-h-0 min-w-0 rounded-full border border-border/70 bg-background p-0 text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-muted hover:text-foreground [&>svg]:size-2.5"
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();

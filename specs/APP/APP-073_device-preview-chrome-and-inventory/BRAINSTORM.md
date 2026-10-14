@@ -30,6 +30,7 @@ Why it’s hard: create / boot / shutdown are host lifecycle, not stream feature
 ## Options
 
 ### Option A — Helper bump only
+
 Rebase serve-sim, ship the pin, leave chrome and create for later.
 
 **Pros**: Smallest diff; APP-070 claim model untouched.
@@ -37,6 +38,7 @@ Rebase serve-sim, ship the pin, leave chrome and create for later.
 **Unknown**: Patch conflict size on 0.1.48 chrome.
 
 ### Option B — Atmos chrome over the existing iframe, inventory in our service
+
 Keep iframe + one claim. Add Atmos chrome (appearance, Android camera) and an inventory panel whose verbs hit `DevicePreviewService` / `host_devices`. Create/boot/shutdown are one Computer API that branches on `platform`. Helpers are not asked to implement catalogs.
 
 **Pros**: Matches APP-070/071 layering; one UI; one claim rule; no second helper dialect; create is user-initiated so RAM stays explicit.
@@ -44,6 +46,7 @@ Keep iframe + one claim. Add Atmos chrome (appearance, Android camera) and an in
 **Unknown**: none for inject — TECH pins `imagefile:` + atomic PNG rewrite.
 
 ### Option C — Each helper implements create / boot / appearance / camera
+
 Patch serve-sim and serve-emu so each helper page grows its own device manager. Atmos only iframes.
 
 **Pros**: Looks like “the preview already has tools.”
@@ -51,6 +54,7 @@ Patch serve-sim and serve-emu so each helper page grows its own device manager. 
 **Unknown**: How we keep workspace exclusivity when the helper is the source of truth.
 
 ### Option D — Replace the iframe with a native Atmos phone canvas
+
 Consume helper stream/HID directly (APP-070 N1) and build inventory + appearance + camera on that canvas.
 
 **Pros**: One chrome forever.

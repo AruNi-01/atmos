@@ -25,7 +25,12 @@ function has(meta: ChartMeta, mark: string): boolean {
   return meta.marks.includes(mark);
 }
 
-function parseSeries(node: PtNode, count: number, fallbackLabels: readonly string[], fallback: number[][]): Series {
+function parseSeries(
+  node: PtNode,
+  count: number,
+  fallbackLabels: readonly string[],
+  fallback: number[][],
+): Series {
   const options = node.options;
   if (!options || options.length === 0) {
     return { labels: [...fallbackLabels], values: fallback.slice(0, count).map((row) => [...row]) };
@@ -45,7 +50,11 @@ function parseSeries(node: PtNode, count: number, fallbackLabels: readonly strin
   return { labels, values };
 }
 
-function cartesian(node: PtNode, meta: ChartMeta, extra?: { labels?: readonly string[]; values?: number[][] }): Series {
+function cartesian(
+  node: PtNode,
+  meta: ChartMeta,
+  extra?: { labels?: readonly string[]; values?: number[][] },
+): Series {
   const labels = extra?.labels ?? MONTHS;
   const values = extra?.values ?? [DESKTOP, MOBILE, OTHER];
   return parseSeries(node, meta.series, labels, values);
@@ -71,7 +80,10 @@ function curveOf(meta: ChartMeta): "natural" | "linear" | "step" {
   return "natural";
 }
 
-function linePath(points: { x: number; y: number }[], curve: "natural" | "linear" | "step"): string {
+function linePath(
+  points: { x: number; y: number }[],
+  curve: "natural" | "linear" | "step",
+): string {
   if (points.length === 0) return "";
   if (curve === "step") {
     let d = `M ${points[0]!.x} ${points[0]!.y}`;
@@ -99,7 +111,11 @@ function linePath(points: { x: number; y: number }[], curve: "natural" | "linear
   return d;
 }
 
-function closeArea(points: { x: number; y: number }[], baseline: number, curve: "natural" | "linear" | "step"): string {
+function closeArea(
+  points: { x: number; y: number }[],
+  baseline: number,
+  curve: "natural" | "linear" | "step",
+): string {
   if (points.length === 0) return "";
   return `${linePath(points, curve)} L ${points[points.length - 1]!.x} ${baseline} L ${points[0]!.x} ${baseline} Z`;
 }
@@ -108,7 +124,14 @@ function polar(cx: number, cy: number, r: number, angle: number): { x: number; y
   return { x: cx + r * Math.sin(angle), y: cy - r * Math.cos(angle) };
 }
 
-function arcPath(cx: number, cy: number, r: number, inner: number, start: number, end: number): string {
+function arcPath(
+  cx: number,
+  cy: number,
+  r: number,
+  inner: number,
+  start: number,
+  end: number,
+): string {
   const large = end - start > Math.PI ? 1 : 0;
   const s1 = polar(cx, cy, r, start);
   const e1 = polar(cx, cy, r, end);
@@ -161,10 +184,21 @@ function ChartCard({
         }}
       >
         <div style={{ padding: "10px 12px 4px", display: "flex", flexDirection: "column", gap: 2 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 8,
+              alignItems: "flex-start",
+            }}
+          >
             <div style={{ minWidth: 0 }}>
-              <div data-pt-text="title" style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.2 }}>{title}</div>
-              <div data-pt-text="description" style={{ fontSize: 11, color: T.muted }}>{description}</div>
+              <div data-pt-text="title" style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.2 }}>
+                {title}
+              </div>
+              <div data-pt-text="description" style={{ fontSize: 11, color: T.muted }}>
+                {description}
+              </div>
             </div>
             {toolbar}
           </div>
@@ -174,7 +208,12 @@ function ChartCard({
           {tooltip}
         </div>
         {legend}
-        <div data-pt-text="footer" style={{ padding: "4px 12px 10px", fontSize: 11, color: T.muted }}>{propText(node, "footer", meta.footer)}</div>
+        <div
+          data-pt-text="footer"
+          style={{ padding: "4px 12px 10px", fontSize: 11, color: T.muted }}
+        >
+          {propText(node, "footer", meta.footer)}
+        </div>
       </div>
     </ControlRoot>
   );
@@ -230,14 +269,32 @@ function Legend({
     <div
       data-pt-chart-legend=""
       data-pt-chart-icons={icons ? "true" : undefined}
-      style={{ display: "flex", gap: 12, justifyContent: "center", padding: "0 12px 4px", fontSize: 11 }}
+      style={{
+        display: "flex",
+        gap: 12,
+        justifyContent: "center",
+        padding: "0 12px 4px",
+        fontSize: 11,
+      }}
     >
       {items.map((item) => (
         <span key={item.label} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           {icons ? (
-            <span aria-hidden style={{ width: 10, height: 10, border: `1.5px solid ${T.fg}`, borderRadius: 2 }} />
+            <span
+              aria-hidden
+              style={{ width: 10, height: 10, border: `1.5px solid ${T.fg}`, borderRadius: 2 }}
+            />
           ) : (
-            <span aria-hidden style={{ width: 8, height: 8, borderRadius: 99, background: item.fill, boxShadow: `inset 0 0 0 1px ${T.fg}` }} />
+            <span
+              aria-hidden
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 99,
+                background: item.fill,
+                boxShadow: `inset 0 0 0 1px ${T.fg}`,
+              }}
+            />
           )}
           {item.label}
         </span>
@@ -262,12 +319,27 @@ function AxesSvg({
   const innerW = w - pad.l - pad.r;
   return (
     <g data-pt-chart-axes="">
-      <line x1={pad.l} y1={h - pad.b} x2={w - pad.r} y2={h - pad.b} stroke={T.fg} strokeWidth="1.2" />
+      <line
+        x1={pad.l}
+        y1={h - pad.b}
+        x2={w - pad.r}
+        y2={h - pad.b}
+        stroke={T.fg}
+        strokeWidth="1.2"
+      />
       <line x1={pad.l} y1={pad.t} x2={pad.l} y2={h - pad.b} stroke={T.fg} strokeWidth="1.2" />
       {labels.map((label, i) => {
         const x = pad.l + (innerW * (i + 0.5)) / labels.length;
         return (
-          <text key={label} x={x} y={h - 6} textAnchor="middle" fontSize="9" fill={T.fg} fontFamily={FONT}>
+          <text
+            key={label}
+            x={x}
+            y={h - 6}
+            textAnchor="middle"
+            fontSize="9"
+            fill={T.fg}
+            fontFamily={FONT}
+          >
             {label}
           </text>
         );
@@ -318,7 +390,9 @@ function CartesianPlot({
   const grouped = has(meta, "grouped");
   const negative = has(meta, "negative");
   const cols = series.values;
-  const totals = series.labels.map((_, i) => cols.reduce((sum, row) => sum + Math.abs(row[i] ?? 0), 0));
+  const totals = series.labels.map((_, i) =>
+    cols.reduce((sum, row) => sum + Math.abs(row[i] ?? 0), 0),
+  );
   const rawMax = Math.max(1, ...cols.flatMap((row) => row.map((v) => Math.abs(v))), 1);
   const gid = meta.id.replaceAll(".", "-");
 
@@ -363,13 +437,28 @@ function CartesianPlot({
       ) : null}
       {horizontal ? (
         <g data-pt-chart-axes="">
-          <line x1={pad.l} y1={h - pad.b} x2={w - pad.r} y2={h - pad.b} stroke={T.fg} strokeWidth="1.2" />
+          <line
+            x1={pad.l}
+            y1={h - pad.b}
+            x2={w - pad.r}
+            y2={h - pad.b}
+            stroke={T.fg}
+            strokeWidth="1.2"
+          />
           {has(meta, "mixed")
             ? null
             : series.labels.map((label, i) => {
                 const y = pad.t + (innerH * (i + 0.5)) / n;
                 return (
-                  <text key={label} x={pad.l - 6} y={y + 3} textAnchor="end" fontSize="8" fill={T.fg} fontFamily={FONT}>
+                  <text
+                    key={label}
+                    x={pad.l - 6}
+                    y={y + 3}
+                    textAnchor="end"
+                    fontSize="8"
+                    fill={T.fg}
+                    fontFamily={FONT}
+                  >
                     {label}
                   </text>
                 );
@@ -381,7 +470,10 @@ function CartesianPlot({
       {kind === "area"
         ? [...areaRows].reverse().map((points, reversedIndex) => {
             const seriesIndex = areaRows.length - 1 - reversedIndex;
-            const fill = has(meta, "gradient") && seriesIndex === 0 ? `url(#${gid}-grad)` : fillFor(seriesIndex);
+            const fill =
+              has(meta, "gradient") && seriesIndex === 0
+                ? `url(#${gid}-grad)`
+                : fillFor(seriesIndex);
             return (
               <path
                 key={`a-${seriesIndex}`}
@@ -398,7 +490,13 @@ function CartesianPlot({
             const points = row.map((value, i) => ({ x: xAt(i), y: yAt(value) }));
             return (
               <g key={`l-${seriesIndex}`}>
-                <path d={linePath(points, curve)} fill="none" stroke={T.fg} strokeWidth="1.8" opacity={1 - seriesIndex * 0.35} />
+                <path
+                  d={linePath(points, curve)}
+                  fill="none"
+                  stroke={T.fg}
+                  strokeWidth="1.8"
+                  opacity={1 - seriesIndex * 0.35}
+                />
                 {has(meta, "dots") || has(meta, "labels")
                   ? points.map((point, i) => {
                       const custom = has(meta, "dots-custom");
@@ -471,7 +569,13 @@ function CartesianPlot({
                     rx="2"
                   />
                   {has(meta, "mixed") ? (
-                    <text x={pad.l + 4} y={y + bh / 2 + 3} fontSize="8" fill={T.fg} fontFamily={FONT}>
+                    <text
+                      x={pad.l + 4}
+                      y={y + bh / 2 + 3}
+                      fontSize="8"
+                      fill={T.fg}
+                      fontFamily={FONT}
+                    >
                       {label}
                     </text>
                   ) : null}
@@ -504,7 +608,10 @@ function CartesianPlot({
               let acc = 0;
               const max = expand ? 1 : Math.max(1, ...totals);
               return (
-                <g key={label} data-pt-active-bar={kind === "tooltip" && i === 1 ? "true" : undefined}>
+                <g
+                  key={label}
+                  data-pt-active-bar={kind === "tooltip" && i === 1 ? "true" : undefined}
+                >
                   {cols.map((row, seriesIndex) => {
                     const v = row[i] ?? 0;
                     const top = expand ? (acc + v) / (totals[i] || 1) : acc + v;
@@ -532,7 +639,9 @@ function CartesianPlot({
               <g key={label}>
                 {cols.map((row, seriesIndex) => {
                   const value = row[i] ?? 0;
-                  const x = grouped ? xAt(i) - (barW * group) / 2 + seriesIndex * barW : xAt(i) - barW / 2;
+                  const x = grouped
+                    ? xAt(i) - (barW * group) / 2 + seriesIndex * barW
+                    : xAt(i) - barW / 2;
                   const bh = (value / rawMax) * innerH;
                   const active = has(meta, "active") && i === 2 && seriesIndex === 0;
                   return (
@@ -548,7 +657,14 @@ function CartesianPlot({
                         rx="2"
                       />
                       {has(meta, "labels") && seriesIndex === 0 ? (
-                        <text x={x + barW / 2} y={yAt(value) - 4} textAnchor="middle" fontSize="8" fill={T.fg} fontFamily={FONT}>
+                        <text
+                          x={x + barW / 2}
+                          y={yAt(value) - 4}
+                          textAnchor="middle"
+                          fontSize="8"
+                          fill={T.fg}
+                          fontFamily={FONT}
+                        >
                           {has(meta, "labels-custom") ? `${value}k` : value}
                         </text>
                       ) : null}
@@ -585,7 +701,10 @@ function PiePlot({
 }): ReactElement {
   const series = parseSeries(node, 1, PIE_LABELS, [PIE_VALUES]);
   const values = series.values[0]!;
-  const total = Math.max(1, values.reduce((a, b) => a + b, 0));
+  const total = Math.max(
+    1,
+    values.reduce((a, b) => a + b, 0),
+  );
   const cx = 170;
   const cy = 84;
   const donut = has(meta, "donut");
@@ -637,8 +756,22 @@ function PiePlot({
               </text>
             ) : has(meta, "labels") ? (
               <g data-pt-chart-label-outside="">
-                <line x1={rim.x} y1={rim.y} x2={outer.x} y2={outer.y} stroke={T.fg} strokeWidth="1" />
-                <text x={outer.x} y={outer.y} textAnchor="middle" fontSize="8" fill={T.fg} fontFamily={FONT}>
+                <line
+                  x1={rim.x}
+                  y1={rim.y}
+                  x2={outer.x}
+                  y2={outer.y}
+                  stroke={T.fg}
+                  strokeWidth="1"
+                />
+                <text
+                  x={outer.x}
+                  y={outer.y}
+                  textAnchor="middle"
+                  fontSize="8"
+                  fill={T.fg}
+                  fontFamily={FONT}
+                >
                   {has(meta, "labels-custom") ? `${slice.value}` : slice.label}
                 </text>
               </g>
@@ -670,7 +803,15 @@ function PiePlot({
         : null}
       {has(meta, "center-text") ? (
         <g data-pt-chart-center="">
-          <text x={cx} y={cy - 2} textAnchor="middle" fontSize="14" fontWeight="600" fill={T.fg} fontFamily={FONT}>
+          <text
+            x={cx}
+            y={cy - 2}
+            textAnchor="middle"
+            fontSize="14"
+            fontWeight="600"
+            fill={T.fg}
+            fontFamily={FONT}
+          >
             {(focus?.value ?? total).toLocaleString()}
           </text>
           <text x={cx} y={cy + 14} textAnchor="middle" fontSize="9" fill={T.fg} fontFamily={FONT}>
@@ -688,7 +829,11 @@ function RadarPlot({ meta, node }: { meta: ChartMeta; node: PtNode }): ReactElem
   const cy = 84;
   const r = 58;
   const n = series.labels.length;
-  const levels = has(meta, "grid-none") ? [] : has(meta, "grid-custom") ? [0.5, 1] : [0.33, 0.66, 1];
+  const levels = has(meta, "grid-none")
+    ? []
+    : has(meta, "grid-custom")
+      ? [0.5, 1]
+      : [0.33, 0.66, 1];
   const circle = has(meta, "grid-circle");
   const max = Math.max(1, ...series.values.flat());
   const ring = (level: number) =>
@@ -711,7 +856,9 @@ function RadarPlot({ meta, node }: { meta: ChartMeta; node: PtNode }): ReactElem
         : levels.map((level) => (
             <polygon
               key={level}
-              points={ring(level).map((p) => `${p.x},${p.y}`).join(" ")}
+              points={ring(level)
+                .map((p) => `${p.x},${p.y}`)
+                .join(" ")}
               fill={has(meta, "grid-fill") && level === 1 ? T.fillC : "none"}
               stroke={T.fg}
               strokeWidth="1"
@@ -722,7 +869,18 @@ function RadarPlot({ meta, node }: { meta: ChartMeta; node: PtNode }): ReactElem
         ? null
         : series.labels.map((_, i) => {
             const p = polar(cx, cy, r, (i * 2 * Math.PI) / n);
-            return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke={T.fg} strokeWidth="1" opacity="0.45" />;
+            return (
+              <line
+                key={i}
+                x1={cx}
+                y1={cy}
+                x2={p.x}
+                y2={p.y}
+                stroke={T.fg}
+                strokeWidth="1"
+                opacity="0.45"
+              />
+            );
           })}
       {series.values.map((row, seriesIndex) => {
         const pts = row.map((value, i) => polar(cx, cy, (value / max) * r, (i * 2 * Math.PI) / n));
@@ -735,7 +893,17 @@ function RadarPlot({ meta, node }: { meta: ChartMeta; node: PtNode }): ReactElem
               strokeWidth="1.6"
             />
             {has(meta, "dots")
-              ? pts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="3" fill={T.bg} stroke={T.fg} strokeWidth="1.3" />)
+              ? pts.map((p, i) => (
+                  <circle
+                    key={i}
+                    cx={p.x}
+                    cy={p.y}
+                    r="3"
+                    fill={T.bg}
+                    stroke={T.fg}
+                    strokeWidth="1.3"
+                  />
+                ))
               : null}
           </g>
         );
@@ -743,14 +911,29 @@ function RadarPlot({ meta, node }: { meta: ChartMeta; node: PtNode }): ReactElem
       {series.labels.map((label, i) => {
         const p = polar(cx, cy, r + 14, (i * 2 * Math.PI) / n);
         return (
-          <text key={label} x={p.x} y={p.y} textAnchor="middle" fontSize="8" fill={T.fg} fontFamily={FONT}>
+          <text
+            key={label}
+            x={p.x}
+            y={p.y}
+            textAnchor="middle"
+            fontSize="8"
+            fill={T.fg}
+            fontFamily={FONT}
+          >
             {has(meta, "labels-custom") ? label.slice(0, 3) : label}
           </text>
         );
       })}
       {has(meta, "radius-ticks")
         ? [50, 100, 150].map((tick, i) => (
-            <text key={tick} x={cx + 4} y={cy - r * ((i + 1) / 3)} fontSize="7" fill={T.fg} fontFamily={FONT}>
+            <text
+              key={tick}
+              x={cx + 4}
+              y={cy - r * ((i + 1) / 3)}
+              fontSize="7"
+              fill={T.fg}
+              fontFamily={FONT}
+            >
               {tick}
             </text>
           ))
@@ -760,7 +943,10 @@ function RadarPlot({ meta, node }: { meta: ChartMeta; node: PtNode }): ReactElem
 }
 
 function RadialPlot({ meta, node }: { meta: ChartMeta; node: PtNode }): ReactElement {
-  const series = parseSeries(node, meta.series, PIE_LABELS.slice(0, 3), [[275, 200, 187], [80, 120, 90]]);
+  const series = parseSeries(node, meta.series, PIE_LABELS.slice(0, 3), [
+    [275, 200, 187],
+    [80, 120, 90],
+  ]);
   const cx = 170;
   const cy = 86;
   const shape = has(meta, "shape");
@@ -773,7 +959,16 @@ function RadialPlot({ meta, node }: { meta: ChartMeta; node: PtNode }): ReactEle
     <svg viewBox="0 0 340 168" width="100%" height="100%" role="img" aria-label={meta.title}>
       {has(meta, "grid")
         ? [0.35, 0.62, 0.9].map((level) => (
-            <circle key={level} cx={cx} cy={cy} r={58 * level} fill="none" stroke={T.fg} strokeWidth="1" opacity="0.35" />
+            <circle
+              key={level}
+              cx={cx}
+              cy={cy}
+              r={58 * level}
+              fill="none"
+              stroke={T.fg}
+              strokeWidth="1"
+              opacity="0.35"
+            />
           ))
         : null}
       {stacked
@@ -784,9 +979,24 @@ function RadialPlot({ meta, node }: { meta: ChartMeta; node: PtNode }): ReactEle
             const a1 = start0 + (desktop / Math.max(1, sum)) * sweep;
             return (
               <g>
-                <path d={arcPath(cx, cy, 62, 40, start0, start0 + sweep)} fill={T.fillC} stroke={T.fg} strokeWidth="1" />
-                <path d={arcPath(cx, cy, 62, 40, start0, a1)} fill={T.fillA} stroke={T.fg} strokeWidth="1.2" />
-                <path d={arcPath(cx, cy, 62, 40, a1, start0 + sweep * (sum / (sum + 40)))} fill={T.fillB} stroke={T.fg} strokeWidth="1.2" />
+                <path
+                  d={arcPath(cx, cy, 62, 40, start0, start0 + sweep)}
+                  fill={T.fillC}
+                  stroke={T.fg}
+                  strokeWidth="1"
+                />
+                <path
+                  d={arcPath(cx, cy, 62, 40, start0, a1)}
+                  fill={T.fillA}
+                  stroke={T.fg}
+                  strokeWidth="1.2"
+                />
+                <path
+                  d={arcPath(cx, cy, 62, 40, a1, start0 + sweep * (sum / (sum + 40)))}
+                  fill={T.fillB}
+                  stroke={T.fg}
+                  strokeWidth="1.2"
+                />
               </g>
             );
           })()
@@ -796,10 +1006,27 @@ function RadialPlot({ meta, node }: { meta: ChartMeta; node: PtNode }): ReactEle
             const end = start0 + (value / 400) * sweep;
             return (
               <g key={i}>
-                <path d={arcPath(cx, cy, rr, inner, start0, start0 + sweep)} fill={T.fillC} stroke={T.fg} strokeWidth="1" />
-                <path d={arcPath(cx, cy, rr, inner, start0, end)} fill={fillFor(i)} stroke={T.fg} strokeWidth="1.2" />
+                <path
+                  d={arcPath(cx, cy, rr, inner, start0, start0 + sweep)}
+                  fill={T.fillC}
+                  stroke={T.fg}
+                  strokeWidth="1"
+                />
+                <path
+                  d={arcPath(cx, cy, rr, inner, start0, end)}
+                  fill={fillFor(i)}
+                  stroke={T.fg}
+                  strokeWidth="1.2"
+                />
                 {has(meta, "labels") ? (
-                  <text x={cx} y={18 + i * 12} textAnchor="middle" fontSize="8" fill={T.fg} fontFamily={FONT}>
+                  <text
+                    x={cx}
+                    y={18 + i * 12}
+                    textAnchor="middle"
+                    fontSize="8"
+                    fill={T.fg}
+                    fontFamily={FONT}
+                  >
                     {series.labels[i]} {value}
                   </text>
                 ) : null}
@@ -808,7 +1035,15 @@ function RadialPlot({ meta, node }: { meta: ChartMeta; node: PtNode }): ReactEle
           })}
       {has(meta, "center-text") ? (
         <g data-pt-chart-center="">
-          <text x={cx} y={cy - 2} textAnchor="middle" fontSize="14" fontWeight="600" fill={T.fg} fontFamily={FONT}>
+          <text
+            x={cx}
+            y={cy - 2}
+            textAnchor="middle"
+            fontSize="14"
+            fontWeight="600"
+            fill={T.fg}
+            fontFamily={FONT}
+          >
             {series.values[0]![0]}
           </text>
           <text x={cx} y={cy + 14} textAnchor="middle" fontSize="9" fill={T.fg} fontFamily={FONT}>
@@ -821,13 +1056,17 @@ function RadialPlot({ meta, node }: { meta: ChartMeta; node: PtNode }): ReactEle
 }
 
 function TooltipCard({ meta, series }: { meta: ChartMeta; series: Series }): ReactElement {
-  const indicator = has(meta, "indicator-none") ? "none" : has(meta, "indicator-line") ? "line" : "dot";
+  const indicator = has(meta, "indicator-none")
+    ? "none"
+    : has(meta, "indicator-line")
+      ? "line"
+      : "dot";
   const hideLabel = has(meta, "label-none");
   const label = has(meta, "label-custom")
     ? "Activity"
     : has(meta, "label-formatter")
       ? "Feb 2024"
-      : series.labels[1] ?? "Feb";
+      : (series.labels[1] ?? "Feb");
   const rows: { label: string; value: number; fill: string }[] = [
     { label: "Desktop", value: series.values[0]![1] ?? 305, fill: T.fillA },
     { label: "Mobile", value: series.values[1]?.[1] ?? 200, fill: T.fillB },
@@ -852,26 +1091,47 @@ function TooltipCard({ meta, series }: { meta: ChartMeta; series: Series }): Rea
     >
       {hideLabel ? null : <div style={{ fontWeight: 600, marginBottom: 6 }}>{label}</div>}
       {rows.map((row) => (
-        <div key={row.label} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+        <div
+          key={row.label}
+          style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}
+        >
           {indicator === "none" ? null : indicator === "line" ? (
             <span aria-hidden style={{ width: 8, height: 2, background: T.fg }} />
           ) : has(meta, "icons") ? (
-            <span aria-hidden style={{ width: 10, height: 10, border: `1.5px solid ${T.fg}`, borderRadius: 2 }} />
+            <span
+              aria-hidden
+              style={{ width: 10, height: 10, border: `1.5px solid ${T.fg}`, borderRadius: 2 }}
+            />
           ) : (
-            <span aria-hidden style={{ width: 8, height: 8, borderRadius: 99, background: row.fill, boxShadow: `inset 0 0 0 1px ${T.fg}` }} />
+            <span
+              aria-hidden
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 99,
+                background: row.fill,
+                boxShadow: `inset 0 0 0 1px ${T.fg}`,
+              }}
+            />
           )}
           <span style={{ flex: 1 }}>{row.label}</span>
-          <span style={{ fontWeight: 600 }}>{has(meta, "formatter") ? `${row.value} visitors` : row.value}</span>
+          <span style={{ fontWeight: 600 }}>
+            {has(meta, "formatter") ? `${row.value} visitors` : row.value}
+          </span>
         </div>
       ))}
       {has(meta, "advanced") ? (
-        <div style={{ marginTop: 6, color: T.muted }}>Total {rows.reduce((sum, row) => sum + row.value, 0)}</div>
+        <div style={{ marginTop: 6, color: T.muted }}>
+          Total {rows.reduce((sum, row) => sum + row.value, 0)}
+        </div>
       ) : null}
     </div>
   );
 }
 
-function extraSeries(meta: ChartMeta): { labels?: readonly string[]; values?: number[][] } | undefined {
+function extraSeries(
+  meta: ChartMeta,
+): { labels?: readonly string[]; values?: number[][] } | undefined {
   if (has(meta, "mixed")) return { labels: MIXED_LABELS, values: [MIXED_VALUES] };
   if (has(meta, "negative")) return { labels: NEG_LABELS, values: [NEG_VALUES] };
   return undefined;
@@ -887,14 +1147,20 @@ function legendItems(meta: ChartMeta): { label: string; fill: string }[] | null 
   return items;
 }
 
-export function ChartRenderer({ node, mode, meta }: PtRendererProps & { meta: ChartMeta }): ReactElement {
+export function ChartRenderer({
+  node,
+  mode,
+  meta,
+}: PtRendererProps & { meta: ChartMeta }): ReactElement {
   const pieInteractive = has(meta, "interactive") && meta.kind === "pie";
   const interactive = has(meta, "interactive") && meta.kind !== "pie";
   const pieLabels = node.options?.map((option) => option.label) ?? [...PIE_LABELS];
   const rangeOptions = pieInteractive ? pieLabels : [...CARTESIAN_RANGES];
   const [range, setRange] = useState(rangeOptions[0]!);
   const extra = extraSeries(meta);
-  const series = interactive ? sliceSeries(cartesian(node, meta, extra), range) : cartesian(node, meta, extra);
+  const series = interactive
+    ? sliceSeries(cartesian(node, meta, extra), range)
+    : cartesian(node, meta, extra);
   const legend = legendItems(meta);
   const toolbar =
     interactive || pieInteractive ? (
@@ -912,7 +1178,15 @@ export function ChartRenderer({ node, mode, meta }: PtRendererProps & { meta: Ch
       <CartesianPlot
         meta={meta}
         series={series}
-        kind={meta.kind === "tooltip" ? "tooltip" : meta.kind === "bar" ? "bar" : meta.kind === "line" ? "line" : "area"}
+        kind={
+          meta.kind === "tooltip"
+            ? "tooltip"
+            : meta.kind === "bar"
+              ? "bar"
+              : meta.kind === "line"
+                ? "line"
+                : "area"
+        }
       />
     );
 

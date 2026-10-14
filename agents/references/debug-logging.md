@@ -58,7 +58,7 @@ let sessions   = count_atmos_client_sessions(&socket_path); // Option<usize> —
 const dlog = getDebugLogger("terminal", "http://localhost:30303");
 
 dlog.log("WS_CONNECTING", "Opening WebSocket", { url, sessionId });
-dlog.log("WS_OPEN", "Connected");   // data is optional
+dlog.log("WS_OPEN", "Connected"); // data is optional
 ```
 
 ### Deriving the API base URL from a WebSocket URL at runtime
@@ -92,9 +92,9 @@ dlog?.log("WS_OPEN", "Connected", { sessionId });
 
 ## Where logs appear
 
-| Source | File path |
-|--------|-----------|
-| Backend | `./logs/debug/<prefix>-YYYY-MM-DD.log` |
+| Source   | File path                                       |
+| -------- | ----------------------------------------------- |
+| Backend  | `./logs/debug/<prefix>-YYYY-MM-DD.log`          |
 | Frontend | `./logs/debug/frontend-<prefix>-YYYY-MM-DD.log` |
 
 Tail a live log:
@@ -111,6 +111,7 @@ Once the bug is fixed, **remove the call sites** from production code.
 **Keep the infrastructure** — the utilities and the `/api/system/debug-log` endpoint are permanent and reusable.
 
 Files to keep:
+
 - `crates/infra/src/utils/debug_logging.rs`
 - `packages/shared/src/debug/debug-logger.ts`
 - `apps/api/src/api/system/handlers.rs` → `ingest_frontend_debug_log` handler

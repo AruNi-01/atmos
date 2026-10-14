@@ -424,10 +424,8 @@ describe("terminal title APP-036 unique + contested agent matching", () => {
     expect(resolveAgentForTitle("/Users/me/.grok/bin/grok", agents)?.id).toBe("grok-build");
     expect(resolveAgentForTitle("/opt/bin/cursor-agent", agents)?.id).toBe("cursor");
     expect(
-      resolveAgentForTitle(
-        "/Users/me/.local/share/cursor-agent/versions/2026.07/agent",
-        agents,
-      )?.id,
+      resolveAgentForTitle("/Users/me/.local/share/cursor-agent/versions/2026.07/agent", agents)
+        ?.id,
     ).toBe("cursor");
     expect(resolveAgentForTitle("/Users/me/.grok/versions/current/agent", agents)?.id).toBe(
       "grok-build",
@@ -578,8 +576,7 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
   });
 
   it("filters shell user@host:cwd and path-only OSC noise", () => {
-    const shellTitle =
-      "aarynlu@AarynLuDeMacBook-Air:~/.atmos/workspaces/atmos/abra";
+    const shellTitle = "aarynlu@AarynLuDeMacBook-Air:~/.atmos/workspaces/atmos/abra";
     expect(
       getTerminalDisplayMeta({
         baseTitle: "1",
@@ -594,9 +591,7 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
         oscTitle: "/Users/me/proj",
       }).displayTitle,
     ).toBe("/Users/me/proj");
-    expect(
-      appendNativeOscTitle("atmos/abra", shellTitle),
-    ).toBe("atmos/abra");
+    expect(appendNativeOscTitle("atmos/abra", shellTitle)).toBe("atmos/abra");
   });
 
   it("filters shell builtins/navigation (ls) but keeps program CLIs (git/npm)", () => {
@@ -655,8 +650,7 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
   });
 
   it("filters shell preexec pipelines and process inspection commands", () => {
-    const pipeline =
-      "ps aux | grep --color=auto -i iris | grep --color=auto -v grep;";
+    const pipeline = "ps aux | grep --color=auto -i iris | grep --color=auto -v grep;";
     expect(
       getTerminalDisplayMeta({
         baseTitle: "1",
@@ -679,12 +673,7 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
       }).oscSuffix,
     ).toBe("");
     // Chained / redirected command lines are never agent topics.
-    for (const cmd of [
-      "echo hi && ls",
-      "cat file > out",
-      "echo $(date)",
-      "true || false",
-    ]) {
+    for (const cmd of ["echo hi && ls", "cat file > out", "echo $(date)", "true || false"]) {
       expect(
         getTerminalDisplayMeta({
           baseTitle: "1",
@@ -696,8 +685,7 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
   });
 
   it("clears previous OSC when an ignored shell command arrives, keeps agent topics on path redraw", () => {
-    const pipeline =
-      "ps aux | grep --color=auto -i iris | grep --color=auto -v grep;";
+    const pipeline = "ps aux | grep --color=auto -i iris | grep --color=auto -v grep;";
     expect(isShellPreexecCommandOscTitle(pipeline)).toBe(true);
     expect(isShellPreexecCommandOscTitle("debugging auth")).toBe(false);
     expect(isShellPreexecCommandOscTitle("fix src/api")).toBe(false);
@@ -717,21 +705,13 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
     expect(nextOscTitleAfterIncoming(undefined, "pwd")).toBeUndefined();
 
     // Idle user@host:cwd noise after a finished shell command → clear suffix.
-    expect(
-      nextOscTitleAfterIncoming(
-        pipeline,
-        "aarynlu@Host:~/OpenSource/atmos",
-      ),
-    ).toBeUndefined();
+    expect(nextOscTitleAfterIncoming(pipeline, "aarynlu@Host:~/OpenSource/atmos")).toBeUndefined();
     // Path/host redraw after a real agent topic → keep topic (agent may not
     // re-emit immediately; prompt redraw must not erase it while still running).
     // Shell CMD_END (9999) is what clears after the agent exits — see below.
-    expect(
-      nextOscTitleAfterIncoming(
-        "debugging auth",
-        "aarynlu@Host:~/OpenSource/atmos",
-      ),
-    ).toBe("debugging auth");
+    expect(nextOscTitleAfterIncoming("debugging auth", "aarynlu@Host:~/OpenSource/atmos")).toBe(
+      "debugging auth",
+    );
     // Explicit empty still clears.
     expect(nextOscTitleAfterIncoming("debugging auth", "")).toBeUndefined();
     expect(nextOscTitleAfterIncoming("debugging auth", undefined)).toBeUndefined();

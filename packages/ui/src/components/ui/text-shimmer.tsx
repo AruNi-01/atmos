@@ -1,8 +1,8 @@
-'use client';
-import React, { useMemo, useRef, type JSX } from 'react';
-import { motion } from 'motion/react';
-import { cn } from '../../lib/utils';
-import { usePauseWhenInert } from '../../lib/use-pause-when-inert';
+"use client";
+import React, { useMemo, useRef, type JSX } from "react";
+import { motion } from "motion/react";
+import { cn } from "../../lib/utils";
+import { usePauseWhenInert } from "../../lib/use-pause-when-inert";
 
 export type TextShimmerProps = {
   children: string;
@@ -16,7 +16,7 @@ export type TextShimmerProps = {
 
 function TextShimmerComponent({
   children,
-  as: Component = 'p',
+  as: Component = "p",
   className,
   style,
   duration = 2,
@@ -29,9 +29,9 @@ function TextShimmerComponent({
   // Prefer motion.<tag> for intrinsic elements. motion.create() has produced
   // null element types during Next 16.3 Turbopack Windows prerender (CI).
   const MotionComponent = useMemo(() => {
-    if (typeof Component === 'string') {
+    if (typeof Component === "string") {
       const preset = (motion as unknown as Record<string, unknown>)[Component];
-      if (typeof preset === 'object' && preset !== null) {
+      if (typeof preset === "object" && preset !== null) {
         return preset as React.ElementType;
       }
     }
@@ -47,15 +47,15 @@ function TextShimmerComponent({
   }, [children, spread]);
 
   const shimmerClassName = cn(
-    'relative inline-block bg-[length:250%_100%,auto] bg-clip-text',
-    'text-transparent [--base-color:#a1a1aa] [--base-gradient-color:#000]',
-    '[background-repeat:no-repeat,padding-box] [--bg:linear-gradient(90deg,#0000_calc(50%-var(--spread)),var(--base-gradient-color),#0000_calc(50%+var(--spread)))]',
-    'dark:[--base-color:#71717a] dark:[--base-gradient-color:#ffffff] dark:[--bg:linear-gradient(90deg,#0000_calc(50%-var(--spread)),var(--base-gradient-color),#0000_calc(50%+var(--spread)))]',
+    "relative inline-block bg-[length:250%_100%,auto] bg-clip-text",
+    "text-transparent [--base-color:#a1a1aa] [--base-gradient-color:#000]",
+    "[background-repeat:no-repeat,padding-box] [--bg:linear-gradient(90deg,#0000_calc(50%-var(--spread)),var(--base-gradient-color),#0000_calc(50%+var(--spread)))]",
+    "dark:[--base-color:#71717a] dark:[--base-gradient-color:#ffffff] dark:[--bg:linear-gradient(90deg,#0000_calc(50%-var(--spread)),var(--base-gradient-color),#0000_calc(50%+var(--spread)))]",
     className,
   );
 
   const shimmerStyle = {
-    '--spread': `${dynamicSpread}px`,
+    "--spread": `${dynamicSpread}px`,
     backgroundImage: `var(--bg), linear-gradient(var(--base-color), var(--base-color))`,
     ...style,
   } as React.CSSProperties;
@@ -75,12 +75,12 @@ function TextShimmerComponent({
     <Animated
       ref={hostRef}
       className={shimmerClassName}
-      initial={{ backgroundPosition: '100% center' }}
-      animate={motionOn ? { backgroundPosition: '0% center' } : false}
+      initial={{ backgroundPosition: "100% center" }}
+      animate={motionOn ? { backgroundPosition: "0% center" } : false}
       transition={{
         repeat: motionOn ? Infinity : 0,
         duration,
-        ease: 'linear',
+        ease: "linear",
       }}
       style={shimmerStyle}
     >

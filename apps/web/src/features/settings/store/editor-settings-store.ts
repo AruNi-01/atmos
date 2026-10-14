@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { createTranslator } from 'next-intl';
-import { create } from 'zustand';
-import { functionSettingsApi } from '@/api/ws-api';
-import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
-import { toastManager } from '@workspace/ui';
-import { currentAppLocale } from '@/shared/lib/current-app-locale';
-import enMessages from '../../../../messages/en.json';
-import zhMessages from '../../../../messages/zh.json';
+import { createTranslator } from "next-intl";
+import { create } from "zustand";
+import { functionSettingsApi } from "@/api/ws-api";
+import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
+import { toastManager } from "@workspace/ui";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
 
 interface EditorSettingsState {
   autoSave: boolean;
@@ -33,20 +33,20 @@ interface EditorSettingsState {
   setMdToggleDefaultOpen: (mdToggleDefaultOpen: boolean) => Promise<void>;
 }
 
-type SettingsLocale = 'en' | 'zh';
+type SettingsLocale = "en" | "zh";
 
 let cachedLocale: SettingsLocale | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedTranslator: any = null;
 
 function editorSettingsT(key: string, values?: Record<string, string | number>) {
-  const locale: SettingsLocale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  const locale: SettingsLocale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedTranslator || cachedLocale !== locale) {
     cachedLocale = locale;
     cachedTranslator = createTranslator({
       locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'settings.store.editor',
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "settings.store.editor",
     });
   }
 
@@ -89,9 +89,9 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
     } catch {
       set({ loading: false });
       toastManager.add({
-        title: editorSettingsT('loadFailedTitle'),
-        description: editorSettingsT('loadFailedDescription'),
-        type: 'error',
+        title: editorSettingsT("loadFailedTitle"),
+        description: editorSettingsT("loadFailedDescription"),
+        type: "error",
       });
     }
   },
@@ -101,13 +101,13 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
     set({ lineWrap });
 
     try {
-      await functionSettingsApi.update('editor', 'line_wrap', lineWrap);
+      await functionSettingsApi.update("editor", "line_wrap", lineWrap);
     } catch {
       set({ lineWrap: previous });
       toastManager.add({
-        title: editorSettingsT('syncFailedTitle'),
-        description: editorSettingsT('syncFailedDescription'),
-        type: 'error',
+        title: editorSettingsT("syncFailedTitle"),
+        description: editorSettingsT("syncFailedDescription"),
+        type: "error",
       });
     }
   },
@@ -117,13 +117,13 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
     set({ autoSave });
 
     try {
-      await functionSettingsApi.update('editor', 'auto_save', autoSave);
+      await functionSettingsApi.update("editor", "auto_save", autoSave);
     } catch {
       set({ autoSave: previous });
       toastManager.add({
-        title: editorSettingsT('syncFailedTitle'),
-        description: editorSettingsT('syncFailedDescription'),
-        type: 'error',
+        title: editorSettingsT("syncFailedTitle"),
+        description: editorSettingsT("syncFailedDescription"),
+        type: "error",
       });
     }
   },
@@ -133,13 +133,13 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
     set({ bracketMatching });
 
     try {
-      await functionSettingsApi.update('editor', 'bracket_matching', bracketMatching);
+      await functionSettingsApi.update("editor", "bracket_matching", bracketMatching);
     } catch {
       set({ bracketMatching: previous });
       toastManager.add({
-        title: editorSettingsT('syncFailedTitle'),
-        description: editorSettingsT('syncFailedDescription'),
-        type: 'error',
+        title: editorSettingsT("syncFailedTitle"),
+        description: editorSettingsT("syncFailedDescription"),
+        type: "error",
       });
     }
   },
@@ -149,18 +149,18 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
     set({ minimap });
 
     try {
-      await functionSettingsApi.update('editor', 'minimap', minimap);
+      await functionSettingsApi.update("editor", "minimap", minimap);
       toastManager.add({
-        title: editorSettingsT('reloadRequiredTitle'),
-        description: editorSettingsT('reloadRequiredDescription'),
-        type: 'info',
+        title: editorSettingsT("reloadRequiredTitle"),
+        description: editorSettingsT("reloadRequiredDescription"),
+        type: "info",
       });
     } catch {
       set({ minimap: previous });
       toastManager.add({
-        title: editorSettingsT('syncFailedTitle'),
-        description: editorSettingsT('syncFailedDescription'),
-        type: 'error',
+        title: editorSettingsT("syncFailedTitle"),
+        description: editorSettingsT("syncFailedDescription"),
+        type: "error",
       });
     }
   },
@@ -170,13 +170,13 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
     set({ breadcrumbs });
 
     try {
-      await functionSettingsApi.update('editor', 'breadcrumbs', breadcrumbs);
+      await functionSettingsApi.update("editor", "breadcrumbs", breadcrumbs);
     } catch {
       set({ breadcrumbs: previous });
       toastManager.add({
-        title: editorSettingsT('syncFailedTitle'),
-        description: editorSettingsT('syncFailedDescription'),
-        type: 'error',
+        title: editorSettingsT("syncFailedTitle"),
+        description: editorSettingsT("syncFailedDescription"),
+        type: "error",
       });
     }
   },
@@ -186,13 +186,13 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
     set({ lineHighlight });
 
     try {
-      await functionSettingsApi.update('editor', 'line_highlight', lineHighlight);
+      await functionSettingsApi.update("editor", "line_highlight", lineHighlight);
     } catch {
       set({ lineHighlight: previous });
       toastManager.add({
-        title: editorSettingsT('syncFailedTitle'),
-        description: editorSettingsT('syncFailedDescription'),
-        type: 'error',
+        title: editorSettingsT("syncFailedTitle"),
+        description: editorSettingsT("syncFailedDescription"),
+        type: "error",
       });
     }
   },
@@ -202,13 +202,13 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
     set({ gitIntegration });
 
     try {
-      await functionSettingsApi.update('editor', 'git_integration', gitIntegration);
+      await functionSettingsApi.update("editor", "git_integration", gitIntegration);
     } catch {
       set({ gitIntegration: previous });
       toastManager.add({
-        title: editorSettingsT('syncFailedTitle'),
-        description: editorSettingsT('syncFailedDescription'),
-        type: 'error',
+        title: editorSettingsT("syncFailedTitle"),
+        description: editorSettingsT("syncFailedDescription"),
+        type: "error",
       });
     }
   },
@@ -218,13 +218,13 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
     set({ gitBlame });
 
     try {
-      await functionSettingsApi.update('editor', 'git_blame', gitBlame);
+      await functionSettingsApi.update("editor", "git_blame", gitBlame);
     } catch {
       set({ gitBlame: previous });
       toastManager.add({
-        title: editorSettingsT('syncFailedTitle'),
-        description: editorSettingsT('syncFailedDescription'),
-        type: 'error',
+        title: editorSettingsT("syncFailedTitle"),
+        description: editorSettingsT("syncFailedDescription"),
+        type: "error",
       });
     }
   },
@@ -234,13 +234,13 @@ export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => 
     set({ mdToggleDefaultOpen });
 
     try {
-      await functionSettingsApi.update('editor', 'md_toggle_default_open', mdToggleDefaultOpen);
+      await functionSettingsApi.update("editor", "md_toggle_default_open", mdToggleDefaultOpen);
     } catch {
       set({ mdToggleDefaultOpen: previous });
       toastManager.add({
-        title: editorSettingsT('syncFailedTitle'),
-        description: editorSettingsT('syncFailedDescription'),
-        type: 'error',
+        title: editorSettingsT("syncFailedTitle"),
+        description: editorSettingsT("syncFailedDescription"),
+        type: "error",
       });
     }
   },

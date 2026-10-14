@@ -3,10 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 describe("DiscussionDiffBlock", () => {
-  const source = readFileSync(
-    join(import.meta.dir, "../DiscussionDiffBlock.tsx"),
-    "utf8",
-  );
+  const source = readFileSync(join(import.meta.dir, "../DiscussionDiffBlock.tsx"), "utf8");
 
   it("matches PR discussion chrome: muted header + MultiFileDiff without Pierre file header", () => {
     expect(source).toContain("MultiFileDiff");

@@ -8,10 +8,7 @@ export const PLACE_VIEWPORT_CHROME = { left: 24, top: 72, right: 376, bottom: 64
 
 export function rectsOverlap(a: PlaceRect, b: PlaceRect, gap = 0): boolean {
   return (
-    a.x < b.x + b.w + gap &&
-    a.x + a.w + gap > b.x &&
-    a.y < b.y + b.h + gap &&
-    a.y + a.h + gap > b.y
+    a.x < b.x + b.w + gap && a.x + a.w + gap > b.x && a.y < b.y + b.h + gap && a.y + a.h + gap > b.y
   );
 }
 

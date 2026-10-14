@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { create } from 'zustand';
-import type { ApiConfig } from '@/shared/lib/desktop-runtime';
-import type { LocalComputerStatus } from '@/features/connection/lib/atmos-computer-local';
+import { create } from "zustand";
+import type { ApiConfig } from "@/shared/lib/desktop-runtime";
+import type { LocalComputerStatus } from "@/features/connection/lib/atmos-computer-local";
 
-export type HostedConnectionTarget = 'local' | 'relay';
-export type HostedBootstrapState = 'idle' | 'checking' | 'onboarding' | 'connected';
-export type HostedLocalProbeState = 'idle' | 'checking' | 'available' | 'unavailable';
+export type HostedConnectionTarget = "local" | "relay";
+export type HostedBootstrapState = "idle" | "checking" | "onboarding" | "connected";
+export type HostedLocalProbeState = "idle" | "checking" | "available" | "unavailable";
 
 interface HostedConnectionState {
   enabled: boolean;
@@ -28,19 +28,19 @@ interface HostedConnectionState {
 
 export const useHostedConnectionStore = create<HostedConnectionState>((set) => ({
   enabled: false,
-  bootstrapState: 'idle',
-  localProbeState: 'idle',
+  bootstrapState: "idle",
+  localProbeState: "idle",
   localApiConfig: null,
   localStatus: null,
   localError: null,
   remoteError: null,
   connectedTarget: null,
 
-  initialize: enabled =>
+  initialize: (enabled) =>
     set({
       enabled,
-      bootstrapState: enabled ? 'checking' : 'idle',
-      localProbeState: enabled ? 'checking' : 'idle',
+      bootstrapState: enabled ? "checking" : "idle",
+      localProbeState: enabled ? "checking" : "idle",
       localApiConfig: null,
       localStatus: null,
       localError: null,
@@ -50,8 +50,8 @@ export const useHostedConnectionStore = create<HostedConnectionState>((set) => (
 
   startChecking: () =>
     set({
-      bootstrapState: 'checking',
-      localProbeState: 'checking',
+      bootstrapState: "checking",
+      localProbeState: "checking",
       localError: null,
       remoteError: null,
       connectedTarget: null,
@@ -59,31 +59,31 @@ export const useHostedConnectionStore = create<HostedConnectionState>((set) => (
 
   setLocalAvailable: (localApiConfig, localStatus) =>
     set({
-      localProbeState: 'available',
+      localProbeState: "available",
       localApiConfig,
       localStatus,
       localError: null,
     }),
 
-  setLocalUnavailable: localError =>
+  setLocalUnavailable: (localError) =>
     set({
-      localProbeState: 'unavailable',
+      localProbeState: "unavailable",
       localApiConfig: null,
       localStatus: null,
       localError,
     }),
 
-  setRemoteError: remoteError => set({ remoteError }),
+  setRemoteError: (remoteError) => set({ remoteError }),
 
   setOnboarding: () =>
     set({
-      bootstrapState: 'onboarding',
+      bootstrapState: "onboarding",
       connectedTarget: null,
     }),
 
-  setConnected: connectedTarget =>
+  setConnected: (connectedTarget) =>
     set({
-      bootstrapState: 'connected',
+      bootstrapState: "connected",
       connectedTarget,
       remoteError: null,
     }),

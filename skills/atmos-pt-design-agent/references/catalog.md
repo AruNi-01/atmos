@@ -42,14 +42,14 @@ The Charts catalog is first-class. `pt_catalog_list` returns **70** gallery type
 
 Families (pick a variant from `pt_catalog_list`):
 
-| Family | Catalog prefix | XML tag prefix |
-|--------|----------------|----------------|
-| Area | `chart.area-` | `<chart-area-…>` |
-| Bar | `chart.bar-` | `<chart-bar-…>` |
-| Line | `chart.line-` | `<chart-line-…>` |
-| Pie | `chart.pie-` | `<chart-pie-…>` |
-| Radar | `chart.radar-` | `<chart-radar-…>` |
-| Radial | `chart.radial-` | `<chart-radial-…>` |
+| Family        | Catalog prefix   | XML tag prefix      |
+| ------------- | ---------------- | ------------------- |
+| Area          | `chart.area-`    | `<chart-area-…>`    |
+| Bar           | `chart.bar-`     | `<chart-bar-…>`     |
+| Line          | `chart.line-`    | `<chart-line-…>`    |
+| Pie           | `chart.pie-`     | `<chart-pie-…>`     |
+| Radar         | `chart.radar-`   | `<chart-radar-…>`   |
+| Radial        | `chart.radial-`  | `<chart-radial-…>`  |
 | Tooltip demos | `chart.tooltip-` | `<chart-tooltip-…>` |
 
 Sketch charts, not live data. Nested `<option>` rows are the series: label is the category; `value` is a number, or comma-separated numbers for multiple series. `title`, `description`, and `footer` are optional text.

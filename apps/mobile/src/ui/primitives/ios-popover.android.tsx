@@ -7,7 +7,12 @@ import type {
 } from "./ios-popover.types";
 
 export { POPOVER_PRESENT_ANIMATION } from "./ios-popover.types";
-export type { IosPopoverBackground, IosPopoverDirection, IosPopoverProps, IosPopoverTriggerKind } from "./ios-popover.types";
+export type {
+  IosPopoverBackground,
+  IosPopoverDirection,
+  IosPopoverProps,
+  IosPopoverTriggerKind,
+} from "./ios-popover.types";
 
 type PopoverContextValue = {
   direction: IosPopoverDirection;
@@ -26,11 +31,7 @@ function usePopoverContext() {
   return value;
 }
 
-function IosPopoverRoot({
-  children,
-  direction = "any",
-  trigger = "tap",
-}: IosPopoverProps) {
+function IosPopoverRoot({ children, direction = "any", trigger = "tap" }: IosPopoverProps) {
   const [visible, setVisible] = useState(false);
   const value = useMemo(
     () => ({ direction, setVisible, trigger, visible }),
@@ -40,13 +41,7 @@ function IosPopoverRoot({
   return <PopoverContext.Provider value={value}>{children}</PopoverContext.Provider>;
 }
 
-function Trigger({
-  children,
-  style,
-}: {
-  children?: ReactNode;
-  style?: StyleProp<ViewStyle>;
-}) {
+function Trigger({ children, style }: { children?: ReactNode; style?: StyleProp<ViewStyle> }) {
   const { setVisible, trigger } = usePopoverContext();
   const open = () => setVisible(true);
 
@@ -79,7 +74,10 @@ function Content({
 
   return (
     <Modal animationType="fade" onRequestClose={close} transparent visible={visible}>
-      <Pressable onPress={close} style={[styles.backdrop, pinToBottom ? styles.backdropBottom : styles.backdropTop]}>
+      <Pressable
+        onPress={close}
+        style={[styles.backdrop, pinToBottom ? styles.backdropBottom : styles.backdropTop]}
+      >
         <View style={styles.cardShadow}>
           <Pressable onPress={() => {}} style={[styles.card, style]}>
             {children}

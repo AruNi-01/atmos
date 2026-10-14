@@ -1,34 +1,31 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { useTranslations } from 'next-intl';
-import { Switch } from '@workspace/ui';
-import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
+import React from "react";
+import { useTranslations } from "next-intl";
+import { Switch } from "@workspace/ui";
+import { useExperimentSettingsStore } from "@/features/settings/store/experiment-settings-store";
 import {
   SettingsGroup,
   SettingsSection,
-} from '@/features/settings/components/settings/SettingsGroupCard';
-import { SettingsToggleRow } from '@/features/settings/components/settings/SettingsToggleRow';
+} from "@/features/settings/components/settings/SettingsGroupCard";
+import { SettingsToggleRow } from "@/features/settings/components/settings/SettingsToggleRow";
 
 export function ExperimentSettingsSection() {
-  const t = useTranslations('settings.experimentSection');
-  const sectionT = useTranslations('settings.modal.sections');
-  const {
-    centerWikiTabEnabled,
-    loadSettings,
-    setCenterWikiTabEnabled,
-  } = useExperimentSettingsStore();
+  const t = useTranslations("settings.experimentSection");
+  const sectionT = useTranslations("settings.modal.sections");
+  const { centerWikiTabEnabled, loadSettings, setCenterWikiTabEnabled } =
+    useExperimentSettingsStore();
 
   React.useEffect(() => {
     void loadSettings();
   }, [loadSettings]);
 
   return (
-    <SettingsSection id="experiments" title={sectionT('experiments.label')}>
+    <SettingsSection id="experiments" title={sectionT("experiments.label")}>
       <SettingsGroup>
         <SettingsToggleRow
-          title={t('centerWikiTab.title')}
-          description={t('centerWikiTab.description')}
+          title={t("centerWikiTab.title")}
+          description={t("centerWikiTab.description")}
           checked={centerWikiTabEnabled}
           onCheckedChange={(checked) => void setCenterWikiTabEnabled(checked)}
         />

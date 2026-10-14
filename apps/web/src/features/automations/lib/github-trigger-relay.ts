@@ -3,7 +3,11 @@ import type { AutomationGithubRelayRequest } from "@atmos/api-types/ws/dto/autom
 
 import { wsRequest } from "@/api/ws/request";
 import { parseGithubTriggerConfig } from "@/api/ws/automation-dtos";
-import type { GithubEventFamily, GithubInt64, GithubTriggerConfig } from "@/features/automations/types";
+import type {
+  GithubEventFamily,
+  GithubInt64,
+  GithubTriggerConfig,
+} from "@/features/automations/types";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
@@ -14,12 +18,8 @@ let cachedLocale: AutomationsLocale | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedTranslator: any = null;
 
-function automationsT(
-  key: string,
-  values?: Record<string, string | number>,
-): string {
-  const locale: AutomationsLocale =
-    currentAppLocale("en") === "zh" ? "zh" : "en";
+function automationsT(key: string, values?: Record<string, string | number>): string {
+  const locale: AutomationsLocale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedTranslator || cachedLocale !== locale) {
     cachedLocale = locale;
     cachedTranslator = createTranslator({
@@ -90,13 +90,11 @@ export async function createGithubSetupSession(
   server_id: string;
 }> {
   if (!hasGithubRelayPrerequisites(prereqs) || !prereqs.serverId) {
-    throw new Error(
-      automationsT("githubRelay.errors.connectComputerBeforeSetup"),
-    );
+    throw new Error(automationsT("githubRelay.errors.connectComputerBeforeSetup"));
   }
   return githubRelayRequest(prereqs, "automation_github_setup_session", {
-      server_id: prereqs.serverId,
-      return_url: returnUrl,
+    server_id: prereqs.serverId,
+    return_url: returnUrl,
   });
 }
 
@@ -129,21 +127,19 @@ export async function upsertGithubRoute(
   enabled: boolean,
 ): Promise<GithubRouteUpsertResult> {
   if (!hasGithubRelayPrerequisites(prereqs) || !prereqs.serverId) {
-    throw new Error(
-      automationsT("githubRelay.errors.connectComputerBeforeSync"),
-    );
+    throw new Error(automationsT("githubRelay.errors.connectComputerBeforeSync"));
   }
   return githubRelayRequest(prereqs, "automation_github_event_route_upsert", {
-      route_id: config.route_id,
-      server_id: prereqs.serverId,
-      automation_guid: automationGuid,
-      installation_id: config.installation_id,
-      repository_id: config.repository_id ?? null,
-      repository_full_name: config.repository_full_name,
-      event_name: githubEventName(config.event_family),
-      action: config.actions[0] ?? null,
-      filters: relayFilters(config),
-      enabled,
+    route_id: config.route_id,
+    server_id: prereqs.serverId,
+    automation_guid: automationGuid,
+    installation_id: config.installation_id,
+    repository_id: config.repository_id ?? null,
+    repository_full_name: config.repository_full_name,
+    event_name: githubEventName(config.event_family),
+    action: config.actions[0] ?? null,
+    filters: relayFilters(config),
+    enabled,
   });
 }
 
@@ -156,9 +152,7 @@ export async function deleteGithubRoute(
     return;
   }
   if (!hasGithubRelayPrerequisites(prereqs)) {
-    throw new Error(
-      automationsT("githubRelay.errors.connectComputerBeforeRemove"),
-    );
+    throw new Error(automationsT("githubRelay.errors.connectComputerBeforeRemove"));
   }
   try {
     await githubRelayRequest(prereqs, "automation_github_event_route_delete", {

@@ -67,18 +67,18 @@ export function SimulatorCreateDeviceDialog({
     setErrorReason(null);
   }, [open]);
 
-  const runtimes = platform === "ios" ? inventory?.ios.runtimes ?? [] : inventory?.android.runtimes ?? [];
+  const runtimes =
+    platform === "ios" ? (inventory?.ios.runtimes ?? []) : (inventory?.android.runtimes ?? []);
   const selectedRuntime = runtimes.find((runtime) => runtime.id === runtimeId) ?? null;
   const deviceTypes =
     platform === "ios"
-      ? selectedRuntime?.supported_device_types ?? []
-      : inventory?.android.device_types ?? [];
+      ? (selectedRuntime?.supported_device_types ?? [])
+      : (inventory?.android.device_types ?? []);
 
   const trimmedName = name.trim();
   const androidNameInvalid =
     platform === "android" && trimmedName.length > 0 && !isAndroidAvdName(trimmedName);
-  const canSubmit =
-    Boolean(runtimeId && deviceTypeId) && !androidNameInvalid && !submitting;
+  const canSubmit = Boolean(runtimeId && deviceTypeId) && !androidNameInvalid && !submitting;
 
   const onSubmit = React.useCallback(async () => {
     if (!canSubmit) return;
@@ -203,7 +203,12 @@ export function SimulatorCreateDeviceDialog({
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             {t("actions.cancel")}
           </Button>
-          <Button type="button" loading={submitting} disabled={!canSubmit} onClick={() => void onSubmit()}>
+          <Button
+            type="button"
+            loading={submitting}
+            disabled={!canSubmit}
+            onClick={() => void onSubmit()}
+          >
             {t("createDialog.confirm")}
           </Button>
         </DialogFooter>
@@ -235,11 +240,7 @@ function FieldSelect({
       {options.length === 0 ? (
         <p className="text-sm text-muted-foreground">{empty}</p>
       ) : (
-        <Select
-          value={value || undefined}
-          onValueChange={onChange}
-          disabled={disabled}
-        >
+        <Select value={value || undefined} onValueChange={onChange} disabled={disabled}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder={placeholder} />
           </SelectTrigger>

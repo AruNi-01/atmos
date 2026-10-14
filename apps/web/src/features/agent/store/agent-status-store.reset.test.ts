@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { useAgentAttentionStore } from "./agent-attention-store";
-import {
-  AGENT_STATE,
-  useAgentStatusStore,
-  type AgentStatusRecord,
-} from "./agent-status-store";
+import { AGENT_STATE, useAgentStatusStore, type AgentStatusRecord } from "./agent-status-store";
 import { useWorkspaceAgentGroupingHoldStore } from "./workspace-agent-grouping-hold";
 
 function runningSession(contextId: string): AgentStatusRecord {
@@ -54,8 +50,6 @@ describe("resetForConnectionChange", () => {
     expect(hooks.serverWorkspaceGroupKeys).toEqual({});
     expect(hooks.statusHydrated).toBe(false);
     expect(useAgentAttentionStore.getState().panes.size).toBe(0);
-    expect(
-      useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1"),
-    ).toBe(false);
+    expect(useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1")).toBe(false);
   });
 });

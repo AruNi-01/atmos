@@ -29,13 +29,16 @@ crates/core-service/
 ## Coding Conventions
 
 ### Orchestration
+
 - Services should call multiple Engines (L2) and Repos (L1) to fulfill a business goal
 - Services emit domain/application events for client notifications; `apps/api` adapts those events to WebSocket notifications
 
 ### Type Safety
+
 - Use `types.rs` for domain-specific models used across services
 
 ### Error Handling
+
 - Use `ServiceError` from `error.rs` to wrap engine/repo errors
 
 ---
@@ -63,11 +66,13 @@ crates/core-service/
 ## Safety Rails
 
 ### NEVER
+
 - Put technical implementation details here — use `core-engine`
 - Access database directly — use repositories from `infra`
 - Depend on `apps/api`, Axum, `WsMessage`, `WsAction`, `WsManager`, or browser WebSocket DTOs
 
 ### ALWAYS
+
 - Orchestrate multiple L2 and L1 components to fulfill business goals
 - Use `ServiceError` for consistent error handling
 - Keep transport adaptation in `apps/api`; expose ordinary service methods and events

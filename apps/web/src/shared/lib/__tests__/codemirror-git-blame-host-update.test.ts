@@ -97,7 +97,13 @@ describe("APP-074 blame EOL widget follows host facet", () => {
       parent,
       state: EditorState.create({
         doc: "hello\n",
-        extensions: [blameCompartment.of(createGitBlameExtensions(host("first subject", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")))],
+        extensions: [
+          blameCompartment.of(
+            createGitBlameExtensions(
+              host("first subject", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            ),
+          ),
+        ],
       }),
     });
 
@@ -109,7 +115,9 @@ describe("APP-074 blame EOL widget follows host facet", () => {
 
     view.dispatch({
       effects: blameCompartment.reconfigure(
-        createGitBlameExtensions(host("second subject", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")),
+        createGitBlameExtensions(
+          host("second subject", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+        ),
       ),
     });
 

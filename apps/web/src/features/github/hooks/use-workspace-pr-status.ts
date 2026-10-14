@@ -77,16 +77,10 @@ export function pickBranchHeadPr(
   if (!head || !Array.isArray(prs) || prs.length === 0) return null;
   const matches = prs.filter((pr) => headNameOf(pr) === head);
   if (matches.length === 0) return null;
-  return matches.reduce((latest, pr) =>
-    Number(pr.number) > Number(latest.number) ? pr : latest,
-  );
+  return matches.reduce((latest, pr) => (Number(pr.number) > Number(latest.number) ? pr : latest));
 }
 
-function toManagedPayload(
-  owner: string,
-  repo: string,
-  pr: HeadBranchPrLike,
-): GithubPrPayload {
+function toManagedPayload(owner: string, repo: string, pr: HeadBranchPrLike): GithubPrPayload {
   const number = Number(pr.number);
   const head = String(pr.head_ref || pr.headRefName || "").trim();
   const base = String(pr.base_ref || pr.baseRefName || "").trim();
@@ -125,24 +119,11 @@ export function useWorkspacePrStatus(
 
   const needsRemote = !stored?.owner?.trim() || !stored?.repo?.trim();
   const hasExplicitRemote = Boolean(options.owner?.trim() && options.repo?.trim());
-  const statusPath =
-    needsRemote && !hasExplicitRemote
-      ? options.repoPath?.trim() || null
-      : null;
+  const statusPath = needsRemote && !hasExplicitRemote ? options.repoPath?.trim() || null : null;
   const statusQuery = useGitStatusQuery(statusPath);
 
-  const owner = (
-    stored?.owner ||
-    options.owner ||
-    statusQuery.data?.github_owner ||
-    ""
-  ).trim();
-  const repo = (
-    stored?.repo ||
-    options.repo ||
-    statusQuery.data?.github_repo ||
-    ""
-  ).trim();
+  const owner = (stored?.owner || options.owner || statusQuery.data?.github_owner || "").trim();
+  const repo = (stored?.repo || options.repo || statusQuery.data?.github_repo || "").trim();
 
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
@@ -202,9 +183,7 @@ export function useWorkspacePrStatus(
     if (!managed) return null;
     // Prefer header branch-list cache when present.
     const fromHeader = Array.isArray(branchPrCacheQuery.data)
-      ? (branchPrCacheQuery.data as BranchPr[]).find(
-          (pr) => Number(pr.number) === managed.number,
-        )
+      ? (branchPrCacheQuery.data as BranchPr[]).find((pr) => Number(pr.number) === managed.number)
       : null;
     if (fromHeader) return fromHeader;
     // Fall back to repo list row.
@@ -231,15 +210,11 @@ export function useWorkspacePrStatus(
     });
   }, [branchPr, detailQuery.data, managed]);
 
-  const discovering =
-    shouldDiscoverByBranch &&
-    repoPrQuery.isLoading &&
-    !discoveredPr;
+  const discovering = shouldDiscoverByBranch && repoPrQuery.isLoading && !discoveredPr;
 
   return {
     presentation,
     isLoadingChecks:
-      discovering ||
-      (canQueryDetail && detailQuery.isFetching && detailQuery.data == null),
+      discovering || (canQueryDetail && detailQuery.isFetching && detailQuery.data == null),
   };
 }

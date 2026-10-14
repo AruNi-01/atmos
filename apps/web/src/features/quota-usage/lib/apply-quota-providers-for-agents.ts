@@ -15,9 +15,7 @@ import { usageProviderIdsForAgents } from "@/features/quota-usage/lib/agent-quot
 export async function applyQuotaProviderVisibility(
   enabledProviderIds: Iterable<string>,
 ): Promise<void> {
-  const enabled = new Set(
-    Array.from(enabledProviderIds, (id) => id.trim()).filter(Boolean),
-  );
+  const enabled = new Set(Array.from(enabledProviderIds, (id) => id.trim()).filter(Boolean));
 
   const providers = Array.from(enabled, (provider_id) => ({
     provider_id,
@@ -28,9 +26,7 @@ export async function applyQuotaProviderVisibility(
   // Backend turns unspecified known providers off for both flags.
   // When `providers` is empty, every known provider is forced off — no collect.
   await quotaUsageApi.applyProviderVisibility(providers);
-  await useLayoutSettingsStore
-    .getState()
-    .setFooterShowUsageCarousel(enabled.size > 0);
+  await useLayoutSettingsStore.getState().setFooterShowUsageCarousel(enabled.size > 0);
 }
 
 /**

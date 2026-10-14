@@ -1,10 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { Group, Project, Workspace } from "@/shared/types/domain";
-import {
-  buildUserGroupViews,
-  findGroupIdForMember,
-  UNGROUPED_USER_GROUP_KEY,
-} from "./user-groups";
+import { buildUserGroupViews, findGroupIdForMember, UNGROUPED_USER_GROUP_KEY } from "./user-groups";
 import { STANDALONE_GROUP_ID } from "@/features/automations/lib/standalone-sidebar";
 
 function workspace(partial: Partial<Workspace> & Pick<Workspace, "id" | "projectId">): Workspace {

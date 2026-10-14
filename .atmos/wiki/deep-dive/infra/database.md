@@ -48,6 +48,7 @@ erDiagram
 ```
 
 ### 关键设计决策
+
 1. **UUID 作为主键**: 确保了在分布式环境或未来可能的数据库迁移中，主键的全局唯一性。
 2. **状态枚举存储**: 工作区状态以字符串形式存储，兼顾了可读性和未来的可扩展性。
 3. **软归档机制**: 通过 `is_archived` 字段实现逻辑删除，确保用户数据在误操作后仍可恢复。
@@ -61,6 +62,7 @@ SeaORM 为 Atmos 提供了以下核心能力：
 - **自动迁移**: 强大的迁移工具链，确保开发环境与生产环境的数据库模式始终同步。
 
 ### 数据库连接池管理
+
 Atmos 在 `crates/infra/src/db/connection.rs` 中管理连接池。我们针对 SQLite 进行了特殊优化（如开启 WAL 模式），以提升并发读写性能。
 
 ## 迁移管理 (Migrations)
@@ -68,6 +70,7 @@ Atmos 在 `crates/infra/src/db/connection.rs` 中管理连接池。我们针对 
 Atmos 的数据库模式演进是版本化的。所有的变更都记录在 `crates/infra/src/db/migration/` 中。
 
 ### 迁移执行流程
+
 1. **启动检测**: 服务启动时，`MigrationExecutor` 会自动检查 `sea_ini_migration` 表。
 2. **顺序执行**: 按照时间戳顺序执行尚未应用的迁移脚本。
 3. **原子性**: 每个迁移都在事务中运行，确保模式变更要么全部成功，要么全部回滚。
@@ -77,6 +80,7 @@ Atmos 的数据库模式演进是版本化的。所有的变更都记录在 `cra
 为了防止业务逻辑（Core Service）直接依赖于具体的 ORM 代码，我们引入了 Repository 模式。
 
 ### 接口与实现分离
+
 - **Trait 定义**: 在 `core-service` 或 `infra` 中定义数据访问接口（如 `WorkspaceRepo`）。
 - **具体实现**: 在 `infra/src/db/repo/` 中使用 SeaORM 实现这些接口。
 
@@ -91,13 +95,13 @@ pub trait WorkspaceRepo: Send + Sync {
 
 ## 关键源码分析
 
-| 文件路径 | 核心职责 |
-|:---|:---|
-| `crates/infra/src/db/entities/` | 定义 SeaORM 实体类，对应数据库表结构。 |
-| `crates/infra/src/db/migration/` | 存储所有数据库迁移脚本，定义模式演进历史。 |
-| `crates/infra/src/db/repo/` | 实现具体的 Repository，封装 SeaORM 的查询逻辑。 |
-| `crates/infra/src/db/connection.rs` | 负责数据库连接池的初始化与配置。 |
-| `crates/infra/src/db/mod.rs` | 数据库模块的入口，提供初始化接口。 |
+| 文件路径                            | 核心职责                                        |
+| :---------------------------------- | :---------------------------------------------- |
+| `crates/infra/src/db/entities/`     | 定义 SeaORM 实体类，对应数据库表结构。          |
+| `crates/infra/src/db/migration/`    | 存储所有数据库迁移脚本，定义模式演进历史。      |
+| `crates/infra/src/db/repo/`         | 实现具体的 Repository，封装 SeaORM 的查询逻辑。 |
+| `crates/infra/src/db/connection.rs` | 负责数据库连接池的初始化与配置。                |
+| `crates/infra/src/db/mod.rs`        | 数据库模块的入口，提供初始化接口。              |
 
 ## 总结
 

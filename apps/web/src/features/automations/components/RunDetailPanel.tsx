@@ -13,11 +13,7 @@ import {
   DropdownMenuTrigger,
   cn,
 } from "@workspace/ui";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from "@workspace/ui/components/motion/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/motion/tabs";
 import { ChevronDown, FileText, LoaderCircle, MessageSquare, Square, Terminal } from "lucide-react";
 
 import {
@@ -135,7 +131,7 @@ export function RunDetailPanel({
           <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
             <FileText className="size-4 shrink-0" />
             <span className="truncate">{t("title")}</span>
-            <span className="truncate font-mono text-xs font-normal tabular-nums text-muted-foreground">
+            <span className="truncate font-mono text-xs font-normal text-muted-foreground tabular-nums">
               {formatShortId(run.guid)}
             </span>
           </div>
@@ -153,17 +149,25 @@ export function RunDetailPanel({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col p-4">
-        <Collapsible open={metadataOpen} onOpenChange={setMetadataOpen} className="shrink-0 overflow-hidden rounded-md border border-border bg-muted/10">
+        <Collapsible
+          open={metadataOpen}
+          onOpenChange={setMetadataOpen}
+          className="shrink-0 overflow-hidden rounded-md border border-border bg-muted/10"
+        >
           <CollapsibleTrigger className="group flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-muted/30">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <StatusBadge status={run.status} />
-              <span className="text-xs text-muted-foreground">{triggerKindLabel(t, run.trigger_kind)}</span>
+              <span className="text-xs text-muted-foreground">
+                {triggerKindLabel(t, run.trigger_kind)}
+              </span>
               <span className="text-xs text-border">/</span>
-              <span className="text-xs tabular-nums text-muted-foreground">{formatDateTime(run.started_at)}</span>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {formatDateTime(run.started_at)}
+              </span>
               {run.exit_code !== null ? (
                 <>
                   <span className="text-xs text-border">/</span>
-                  <span className="text-xs tabular-nums text-muted-foreground">
+                  <span className="text-xs text-muted-foreground tabular-nums">
                     {t("inline.exitCode", { code: run.exit_code })}
                   </span>
                 </>
@@ -173,18 +177,32 @@ export function RunDetailPanel({
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="grid gap-3 border-t border-border p-3 md:grid-cols-2">
-              <MetadataItem label={t("metadata.status")} value={<StatusBadge status={run.status} />} />
-              <MetadataItem label={t("metadata.trigger")} value={triggerKindLabel(t, run.trigger_kind)} />
+              <MetadataItem
+                label={t("metadata.status")}
+                value={<StatusBadge status={run.status} />}
+              />
+              <MetadataItem
+                label={t("metadata.trigger")}
+                value={triggerKindLabel(t, run.trigger_kind)}
+              />
               {githubSource?.repository ? (
                 <MetadataItem label={t("metadata.repository")} value={githubSource.repository} />
               ) : null}
-              {githubSource?.event ? <MetadataItem label={t("metadata.event")} value={githubSource.event} /> : null}
+              {githubSource?.event ? (
+                <MetadataItem label={t("metadata.event")} value={githubSource.event} />
+              ) : null}
               {githubSource?.sourceUrl ? (
                 <MetadataItem label={t("metadata.source")} value={githubSource.sourceUrl} />
               ) : null}
               <MetadataItem label={t("metadata.started")} value={formatDateTime(run.started_at)} />
-              <MetadataItem label={t("metadata.completed")} value={formatDateTime(run.completed_at)} />
-              <MetadataItem label={t("metadata.exitCode")} value={run.exit_code === null ? t("metadata.none") : String(run.exit_code)} />
+              <MetadataItem
+                label={t("metadata.completed")}
+                value={formatDateTime(run.completed_at)}
+              />
+              <MetadataItem
+                label={t("metadata.exitCode")}
+                value={run.exit_code === null ? t("metadata.none") : String(run.exit_code)}
+              />
               <MetadataItem
                 label={t("metadata.runner")}
                 value={
@@ -202,7 +220,9 @@ export function RunDetailPanel({
                   )
                 }
               />
-              {run.error_message ? <MetadataItem label={t("metadata.error")} value={run.error_message} /> : null}
+              {run.error_message ? (
+                <MetadataItem label={t("metadata.error")} value={run.error_message} />
+              ) : null}
             </div>
           </CollapsibleContent>
         </Collapsible>
@@ -217,7 +237,11 @@ export function RunDetailPanel({
             {ARTIFACT_OPTIONS.map((option) => {
               const Icon = option.icon;
               return (
-                <TabsTrigger key={option.kind} value={option.kind} className="h-7 gap-1.5 px-3 text-xs">
+                <TabsTrigger
+                  key={option.kind}
+                  value={option.kind}
+                  className="h-7 gap-1.5 px-3 text-xs"
+                >
                   {artifactLoading && activeArtifact === option.kind ? (
                     <LoaderCircle className="size-3.5 animate-spin" />
                   ) : (
@@ -231,7 +255,11 @@ export function RunDetailPanel({
 
           <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border bg-muted/10">
             <ArtifactContent
-              artifact={artifact?.run_guid === run.guid && artifact.artifact === activeArtifact ? artifact : null}
+              artifact={
+                artifact?.run_guid === run.guid && artifact.artifact === activeArtifact
+                  ? artifact
+                  : null
+              }
               activeArtifact={activeArtifact}
               loading={artifactLoading}
               running={run.status === "running"}
@@ -287,8 +315,7 @@ function ArtifactContent({
     if (!element) {
       return;
     }
-    stickToBottomRef.current =
-      element.scrollHeight - element.scrollTop - element.clientHeight < 48;
+    stickToBottomRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < 48;
   }, []);
 
   if (loading && !artifact) {
@@ -313,7 +340,7 @@ function ArtifactContent({
       <pre
         ref={scrollRef as React.RefObject<HTMLPreElement>}
         onScroll={handleScroll}
-        className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words p-3 text-xs leading-5 text-foreground"
+        className="min-h-0 flex-1 overflow-auto p-3 text-xs leading-5 break-words whitespace-pre-wrap text-foreground"
       >
         {formatted || (running ? t("artifact.waitingForOutput") : t("artifact.noContent"))}
       </pre>
@@ -326,7 +353,7 @@ function ArtifactContent({
       onScroll={handleScroll}
       className={cn("min-h-0 flex-1 overflow-auto px-4 py-3 text-sm text-foreground")}
     >
-      <MarkdownRenderer className="prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 [&_pre]:max-w-full [&_pre]:overflow-x-auto">
+      <MarkdownRenderer className="prose-sm dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 max-w-none [&_pre]:max-w-full [&_pre]:overflow-x-auto">
         {formatted || (running ? t("artifact.waitingForOutput") : t("artifact.noContent"))}
       </MarkdownRenderer>
     </div>
@@ -353,8 +380,7 @@ function RunFollowUpActions({
   const running = run.status === "running";
   const cancelBusy = busyAction === `cancel:${run.guid}`;
   const continueBusy =
-    busyAction === `continue-terminal:${run.guid}` ||
-    busyAction === `continue-chat:${run.guid}`;
+    busyAction === `continue-terminal:${run.guid}` || busyAction === `continue-chat:${run.guid}`;
   const openBusy = busyAction === `open:${run.guid}`;
 
   return (
@@ -378,9 +404,7 @@ function RunFollowUpActions({
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button size="sm" disabled={continueBusy}>
-              {continueBusy ? (
-                <LoaderCircle className="size-4 animate-spin" />
-              ) : null}
+              {continueBusy ? <LoaderCircle className="size-4 animate-spin" /> : null}
               {t("actions.continue")}
               <ChevronDown className="size-3.5" />
             </Button>
@@ -393,10 +417,7 @@ function RunFollowUpActions({
               <Terminal className="size-4" />
               {t("actions.continueInTerminal")}
             </DropdownMenuItem>
-            <DropdownMenuItem
-              className="cursor-pointer"
-              onClick={() => void onContinueInChat(run)}
-            >
+            <DropdownMenuItem className="cursor-pointer" onClick={() => void onContinueInChat(run)}>
               <MessageSquare className="size-4" />
               {t("actions.continueInChat")}
             </DropdownMenuItem>
@@ -404,11 +425,7 @@ function RunFollowUpActions({
         </DropdownMenu>
       ) : null}
       {followUp === "open-terminal" ? (
-        <Button
-          size="sm"
-          onClick={() => void onOpenRunSurface(run)}
-          disabled={openBusy}
-        >
+        <Button size="sm" onClick={() => void onOpenRunSurface(run)} disabled={openBusy}>
           {openBusy ? (
             <LoaderCircle className="size-4 animate-spin" />
           ) : (
@@ -418,11 +435,7 @@ function RunFollowUpActions({
         </Button>
       ) : null}
       {followUp === "open-chat" ? (
-        <Button
-          size="sm"
-          onClick={() => void onOpenRunSurface(run)}
-          disabled={openBusy}
-        >
+        <Button size="sm" onClick={() => void onOpenRunSurface(run)} disabled={openBusy}>
           {openBusy ? (
             <LoaderCircle className="size-4 animate-spin" />
           ) : (

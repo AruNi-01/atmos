@@ -130,7 +130,7 @@ describe("Interact markup", () => {
     const badge = markup(moduleOf("badge"), "interact");
     expect(badge).toContain("border-radius:var(--pt-radius, 3px)");
     const chart = markup(moduleOf("chart"), "interact");
-    expect(chart).toContain("rx=\"var(--pt-radius, 3px)\"");
+    expect(chart).toContain('rx="var(--pt-radius, 3px)"');
   });
 
   test("card interact markup insets the bordered surface", () => {

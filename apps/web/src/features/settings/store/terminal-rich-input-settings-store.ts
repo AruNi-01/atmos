@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import { create } from 'zustand';
-import { toastManager } from '@workspace/ui';
-import { useTranslations } from 'next-intl';
+import * as React from "react";
+import { create } from "zustand";
+import { toastManager } from "@workspace/ui";
+import { useTranslations } from "next-intl";
 
-import { functionSettingsApi } from '@/api/ws-api';
-import { getComputerQueryScope } from '@/api/query/query-scope';
-import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
+import { functionSettingsApi } from "@/api/ws-api";
+import { getComputerQueryScope } from "@/api/query/query-scope";
+import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 
 export const DEFAULT_TERMINAL_RICH_INPUT_ENABLED = true;
 export const DEFAULT_TERMINAL_RICH_INPUT_TRIGGER_BAR_VISIBLE = true;
@@ -38,23 +38,23 @@ let hydratedEnabledFromServer = false;
 let hydratedTriggerBarFromServer = false;
 
 function asBoolean(value: unknown, fallback: boolean): boolean {
-  return typeof value === 'boolean' ? value : fallback;
+  return typeof value === "boolean" ? value : fallback;
 }
 
 function terminalRichInputSettingsText(
-  key: 'syncFailedTitle' | 'enabledFailed' | 'triggerBarFailed',
+  key: "syncFailedTitle" | "enabledFailed" | "triggerBarFailed",
 ): string {
   if (terminalRichInputSettingsTranslator) {
     return terminalRichInputSettingsTranslator(key);
   }
 
   switch (key) {
-    case 'syncFailedTitle':
-      return 'Settings Sync Failed';
-    case 'enabledFailed':
-      return 'Failed to update Terminal Rich Input.';
-    case 'triggerBarFailed':
-      return 'Failed to update the Rich Input trigger bar.';
+    case "syncFailedTitle":
+      return "Settings Sync Failed";
+    case "enabledFailed":
+      return "Failed to update Terminal Rich Input.";
+    case "triggerBarFailed":
+      return "Failed to update the Rich Input trigger bar.";
   }
 }
 
@@ -141,12 +141,7 @@ const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((s
     });
 
     try {
-      await functionSettingsApi.update(
-        'terminal',
-        'rich_input_enabled',
-        enabled,
-        expectedScope,
-      );
+      await functionSettingsApi.update("terminal", "rich_input_enabled", enabled, expectedScope);
       // Always advance the rollback snapshot for a successful write so a later
       // failed toggle does not roll back past a value that did persist.
       lastPersistedEnabled = enabled;
@@ -165,9 +160,9 @@ const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((s
         set({ enabled: lastPersistedEnabled });
       }
       toastManager.add({
-        title: terminalRichInputSettingsText('syncFailedTitle'),
-        description: terminalRichInputSettingsText('enabledFailed'),
-        type: 'error',
+        title: terminalRichInputSettingsText("syncFailedTitle"),
+        description: terminalRichInputSettingsText("enabledFailed"),
+        type: "error",
       });
     }
   },
@@ -183,8 +178,8 @@ const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((s
 
     try {
       await functionSettingsApi.update(
-        'terminal',
-        'rich_input_trigger_bar_visible',
+        "terminal",
+        "rich_input_trigger_bar_visible",
         visible,
         expectedScope,
       );
@@ -204,9 +199,9 @@ const terminalRichInputSettingsStore = create<TerminalRichInputSettingsState>((s
         set({ triggerBarVisible: lastPersistedTriggerBarVisible });
       }
       toastManager.add({
-        title: terminalRichInputSettingsText('syncFailedTitle'),
-        description: terminalRichInputSettingsText('triggerBarFailed'),
-        type: 'error',
+        title: terminalRichInputSettingsText("syncFailedTitle"),
+        description: terminalRichInputSettingsText("triggerBarFailed"),
+        type: "error",
       });
     }
   },
@@ -216,7 +211,7 @@ export const useTerminalRichInputSettingsStore = Object.assign(
   function useTerminalRichInputSettingsStore(
     ...args: Parameters<typeof terminalRichInputSettingsStore>
   ) {
-    const t = useTranslations('settings.terminalRichInputSettingsStore');
+    const t = useTranslations("settings.terminalRichInputSettingsStore");
 
     React.useEffect(() => {
       // Keep the newest translator; never null out on unmount so long-lived

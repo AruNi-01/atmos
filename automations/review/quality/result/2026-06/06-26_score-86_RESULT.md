@@ -8,21 +8,21 @@
 
 被审查提交：
 
-| hash | author | message |
-| --- | --- | --- |
-| `60519e7f` | AarynLu | `refactor: share cli updater logic` |
-| `20374521` | AarynLu | `fix: install checked cli release` |
-| `31918cdc` | AarynLu | `fix: fail invalid cli install result` |
-| `a8de1d16` | AarynLu | `fix: satisfy rust ci` |
-| `4ab40737` | AarynLu | `fix: address linux clippy` |
-| `77de9546` | AarynLu | `fix: address token usage clippy` |
-| `f23e941f` | AarynLu | `fix: address diagnostics clippy` |
-| `7886d3f4` | AarynLu | `fix: update infra migration test` |
+| hash       | author   | message                                                              |
+| ---------- | -------- | -------------------------------------------------------------------- |
+| `60519e7f` | AarynLu  | `refactor: share cli updater logic`                                  |
+| `20374521` | AarynLu  | `fix: install checked cli release`                                   |
+| `31918cdc` | AarynLu  | `fix: fail invalid cli install result`                               |
+| `a8de1d16` | AarynLu  | `fix: satisfy rust ci`                                               |
+| `4ab40737` | AarynLu  | `fix: address linux clippy`                                          |
+| `77de9546` | AarynLu  | `fix: address token usage clippy`                                    |
+| `f23e941f` | AarynLu  | `fix: address diagnostics clippy`                                    |
+| `7886d3f4` | AarynLu  | `fix: update infra migration test`                                   |
 | `57e91ba6` | AruNi_Lu | `Merge pull request #136 from AruNi-01/codex/quality-fix/2026-06-25` |
-| `ee79fe57` | AarynLu | `fix: refine pr modal file changes scrolling` |
-| `74a79424` | AarynLu | `feat: improve github modal interactions` |
-| `ac9fe4df` | AarynLu | `Refactor Atmos runtime and frontend integrations` |
-| `07d2701f` | AarynLu | `refactor: reuse agent fix toolbar in review actions` |
+| `ee79fe57` | AarynLu  | `fix: refine pr modal file changes scrolling`                        |
+| `74a79424` | AarynLu  | `feat: improve github modal interactions`                            |
+| `ac9fe4df` | AarynLu  | `Refactor Atmos runtime and frontend integrations`                   |
+| `07d2701f` | AarynLu  | `refactor: reuse agent fix toolbar in review actions`                |
 
 备注：`57e91ba6` 是合并提交，本身没有额外文件 diff；相关代码内容已由其子提交覆盖审查。
 

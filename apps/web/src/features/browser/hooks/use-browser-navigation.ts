@@ -1,16 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "react";
 
-import type {
-  BrowserBridgeController,
-  BrowserTransportMode,
-} from '../lib/browser-bridge/types';
+import type { BrowserBridgeController, BrowserTransportMode } from "../lib/browser-bridge/types";
 import {
   MAX_HISTORY_LENGTH,
   canonicalizeUrl,
   normalizeUrl,
   type PreviewLoadError,
-} from '../lib/browser-utils';
+} from "../lib/browser-utils";
 
 interface UsePreviewNavigationParams {
   activeUrl: string;
@@ -20,7 +17,7 @@ interface UsePreviewNavigationParams {
   iframeRef: RefObject<HTMLIFrameElement | null>;
   iframeUrlWatcherCleanupRef: MutableRefObject<(() => void) | null>;
   normalizedActiveUrlRef: MutableRefObject<string>;
-  preferredTransportMode: BrowserTransportMode | 'unavailable';
+  preferredTransportMode: BrowserTransportMode | "unavailable";
   setActiveUrl: (url: string) => void;
   setCurrentPageTitle: (title: string) => void;
   setDesktopCommittedUrl: (url: string) => void;
@@ -99,7 +96,7 @@ export function useBrowserNavigation({
 
       setIsUrlInputFocused(false);
       if (canonicalizeUrl(finalUrl) !== normalizedActiveUrlRef.current) {
-        setCurrentPageTitle('');
+        setCurrentPageTitle("");
       }
       setPreviewLoadError(null);
       skipExternalHistorySyncRef.current = true;
@@ -148,29 +145,29 @@ export function useBrowserNavigation({
     setHistory([activeUrl]);
     historyIndexRef.current = 0;
     setHistoryIndex(0);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- seed history once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seed history once on mount
   }, [activeUrl]);
 
   const handleRefresh = useCallback(() => {
     if (!url.trim()) return;
     setIsPreviewLoading(true);
-    if (preferredTransportMode === 'desktop') {
+    if (preferredTransportMode === "desktop") {
       forceDesktopNavigationRef.current = true;
     }
     navigateToUrl(url);
   }, [forceDesktopNavigationRef, navigateToUrl, preferredTransportMode, setIsPreviewLoading, url]);
 
   const handleGoHome = useCallback(() => {
-    setUrl('');
-    setActiveUrl('');
-    setCurrentPageTitle('');
+    setUrl("");
+    setActiveUrl("");
+    setCurrentPageTitle("");
     setIsElementPickerEnabled(false);
     setPreviewLoadError(null);
-    setRequestedIframeUrl('');
-    desktopCommittedUrlRef.current = '';
+    setRequestedIframeUrl("");
+    desktopCommittedUrlRef.current = "";
     desktopPreviewUrlRef.current = null;
-    setDesktopCommittedUrl('');
-    setIframeSrc('');
+    setDesktopCommittedUrl("");
+    setIframeSrc("");
     teardownTransport();
   }, [
     desktopCommittedUrlRef,
@@ -188,10 +185,10 @@ export function useBrowserNavigation({
 
   const navigateIframeInPlace = useCallback(
     (targetUrl: string): boolean => {
-      if (preferredTransportMode === 'desktop') {
+      if (preferredTransportMode === "desktop") {
         const controller = transportControllerRef.current;
         // Need an open desktop session; host <webview> owns the actual load via src.
-        if (controller?.mode !== 'desktop') return false;
+        if (controller?.mode !== "desktop") return false;
 
         const targetCanonicalUrl = canonicalizeUrl(targetUrl) || targetUrl;
         skipExternalHistorySyncRef.current = true;
@@ -202,7 +199,7 @@ export function useBrowserNavigation({
         desktopPreviewUrlRef.current = targetCanonicalUrl;
         setPreviewLoadError(null);
         setIsPreviewLoading(true);
-        setCurrentPageTitle('');
+        setCurrentPageTitle("");
         setUrl(targetUrl);
         setActiveUrl(targetUrl);
         return true;
@@ -217,7 +214,7 @@ export function useBrowserNavigation({
         skipExternalHistorySyncRef.current = true;
         setPreviewLoadError(null);
         setIsPreviewLoading(true);
-        setCurrentPageTitle('');
+        setCurrentPageTitle("");
         setUrl(targetUrl);
         setActiveUrl(targetUrl);
         iframeWin.location.replace(targetUrl);

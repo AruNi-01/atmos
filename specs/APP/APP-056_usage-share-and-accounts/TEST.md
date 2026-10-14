@@ -15,61 +15,61 @@
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S14 |
-| M2 | S2, S3, S4, S19 |
-| M3 | S5, S6 |
-| M4 | S5, S12 |
-| M5 | S5, S7, S8 |
-| M6 | S7, S8, S9 |
-| M7 | S10, S11 |
-| M8 | S6, S15 |
-| M9 | S6, S15 |
-| M10 | S16 |
-| M11 | S1 |
-| M12 | S3, S4, S27 |
-| M13 | S18, S20, S21 |
-| M14 | S22, S23, S28 |
-| M15 | S21, S24 |
-| M16 | S25, S26 |
+| PRD item | Scenario IDs    |
+| -------- | --------------- |
+| M1       | S1, S14         |
+| M2       | S2, S3, S4, S19 |
+| M3       | S5, S6          |
+| M4       | S5, S12         |
+| M5       | S5, S7, S8      |
+| M6       | S7, S8, S9      |
+| M7       | S10, S11        |
+| M8       | S6, S15         |
+| M9       | S6, S15         |
+| M10      | S16             |
+| M11      | S1              |
+| M12      | S3, S4, S27     |
+| M13      | S18, S20, S21   |
+| M14      | S22, S23, S28   |
+| M15      | S21, S24        |
+| M16      | S25, S26        |
 
 Nice-to-have / cross-cutting (not PRD M-ids): public profile S13; OG S17; CORS S29; credential non-logging S30.
 
 ## Execution map
 
-| ID | Level | Expected tool | Target / command | Fixtures | Status |
-|----|-------|---------------|------------------|----------|--------|
-| S1 | Web unit / manual | bun test | Token Usage overview signed-out (no hub session) | local api mock | pending |
-| S2 | Hub integration | bun test | Better Auth GitHub callback mock → `user` + `account` | D1 + fake provider | pending |
-| S3 | Hub integration | bun test | `GET /v1/me` with session cookie | D1 session | pending |
-| S4 | Hub integration | bun test | Better Auth / custom logout → `/v1/me` 401 | D1 session | pending |
-| S5 | Hub integration | bun test | `POST /v1/usage/shares` | session + snapshot | pending |
-| S6 | Hub/client unit | bun test | `packages/hub` `redactSnapshot` + client builder | overview fixture | pending |
-| S7 | Hub integration | bun test | `GET /v1/public/shares/:id` unlisted | share row | pending |
-| S8 | Hub integration | bun test | public profile lists only public | shares + profile | pending |
-| S9 | Landing | Playwright `e2e/` | `/s/:id` render | mock hub | pending |
-| S10 | Hub integration | bun test | `PATCH /v1/usage/shares/:id` | share row | pending |
-| S11 | Hub integration | bun test | `DELETE` revoke → public 404; no cache headers that stale | share row | pending |
-| S12 | Web integration | bun test | copy share URL UI | mock hub | pending |
-| S13 | Hub + landing | bun test / Playwright | handle + `/u/:handle` | account | pending |
-| S14 | API regression | cargo | `cargo test -p token-usage` | none | pending |
-| S15 | Hub unit | bun test | recursive denylist / cost strip / size reject | malicious JSON | pending |
-| S16 | Static | grep | no usage-share product routes in `packages/relay/src` | tree | pending |
-| S17 | Hub integration | bun test | OG PUT ownership + PNG magic + public `og_image_url` | R2 mock | pending |
-| S18 | Hub integration | bun test | `GET /v1/devices` after enroll | session | pending |
-| S19 | Hub integration | bun test | Google OAuth mock → linked `account` | D1 | pending |
-| S20 | Hub integration | bun test | `POST /v1/devices` credential once | session | pending |
-| S21 | Relay integration | bun test | `GET /v1/computers` Bearer device_credential | projected device | pending |
-| S22 | Hub+Relay | bun test | rotate preserves computers | devices+computers | pending |
-| S23 | Hub+Relay | bun test | old credential 401 after projected rotate | devices | pending |
-| S24 | Relay | bun test | two devices same `user_id` see computers | devices | pending |
-| S25 | Relay | bun test | `POST /v1/register_tokens` with device Bearer | device | pending |
-| S26 | Web UI | review / Playwright | no generate-Access-Token primary CTA | UI | pending |
-| S27 | Hub unit | bun test | password provider disabled / social only | better-auth config | pending |
-| S28 | Hub+Relay | bun test | device revoke projects; Relay 401 | devices | pending |
-| S29 | Hub | bun test | CORS credentials + origin allowlist | OPTIONS/GET | pending |
-| S30 | Static/unit | grep + unit | device credential never logged in hub/relay paths | code | pending |
+| ID  | Level             | Expected tool         | Target / command                                          | Fixtures           | Status  |
+| --- | ----------------- | --------------------- | --------------------------------------------------------- | ------------------ | ------- |
+| S1  | Web unit / manual | bun test              | Token Usage overview signed-out (no hub session)          | local api mock     | pending |
+| S2  | Hub integration   | bun test              | Better Auth GitHub callback mock → `user` + `account`     | D1 + fake provider | pending |
+| S3  | Hub integration   | bun test              | `GET /v1/me` with session cookie                          | D1 session         | pending |
+| S4  | Hub integration   | bun test              | Better Auth / custom logout → `/v1/me` 401                | D1 session         | pending |
+| S5  | Hub integration   | bun test              | `POST /v1/usage/shares`                                   | session + snapshot | pending |
+| S6  | Hub/client unit   | bun test              | `packages/hub` `redactSnapshot` + client builder          | overview fixture   | pending |
+| S7  | Hub integration   | bun test              | `GET /v1/public/shares/:id` unlisted                      | share row          | pending |
+| S8  | Hub integration   | bun test              | public profile lists only public                          | shares + profile   | pending |
+| S9  | Landing           | Playwright `e2e/`     | `/s/:id` render                                           | mock hub           | pending |
+| S10 | Hub integration   | bun test              | `PATCH /v1/usage/shares/:id`                              | share row          | pending |
+| S11 | Hub integration   | bun test              | `DELETE` revoke → public 404; no cache headers that stale | share row          | pending |
+| S12 | Web integration   | bun test              | copy share URL UI                                         | mock hub           | pending |
+| S13 | Hub + landing     | bun test / Playwright | handle + `/u/:handle`                                     | account            | pending |
+| S14 | API regression    | cargo                 | `cargo test -p token-usage`                               | none               | pending |
+| S15 | Hub unit          | bun test              | recursive denylist / cost strip / size reject             | malicious JSON     | pending |
+| S16 | Static            | grep                  | no usage-share product routes in `packages/relay/src`     | tree               | pending |
+| S17 | Hub integration   | bun test              | OG PUT ownership + PNG magic + public `og_image_url`      | R2 mock            | pending |
+| S18 | Hub integration   | bun test              | `GET /v1/devices` after enroll                            | session            | pending |
+| S19 | Hub integration   | bun test              | Google OAuth mock → linked `account`                      | D1                 | pending |
+| S20 | Hub integration   | bun test              | `POST /v1/devices` credential once                        | session            | pending |
+| S21 | Relay integration | bun test              | `GET /v1/computers` Bearer device_credential              | projected device   | pending |
+| S22 | Hub+Relay         | bun test              | rotate preserves computers                                | devices+computers  | pending |
+| S23 | Hub+Relay         | bun test              | old credential 401 after projected rotate                 | devices            | pending |
+| S24 | Relay             | bun test              | two devices same `user_id` see computers                  | devices            | pending |
+| S25 | Relay             | bun test              | `POST /v1/register_tokens` with device Bearer             | device             | pending |
+| S26 | Web UI            | review / Playwright   | no generate-Access-Token primary CTA                      | UI                 | pending |
+| S27 | Hub unit          | bun test              | password provider disabled / social only                  | better-auth config | pending |
+| S28 | Hub+Relay         | bun test              | device revoke projects; Relay 401                         | devices            | pending |
+| S29 | Hub               | bun test              | CORS credentials + origin allowlist                       | OPTIONS/GET        | pending |
+| S30 | Static/unit       | grep + unit           | device credential never logged in hub/relay paths         | code               | pending |
 
 ## Scenarios
 
@@ -217,7 +217,6 @@ Nice-to-have / cross-cutting (not PRD M-ids): public profile S13; OG S17; CORS S
 - **Then**: device appears with `device_id` / label; raw credential is not returned.
 - **Signals**: response has no `device_credential` field; `revoked_at` null.
 
-
 ### S19 - Google OAuth creates/links account
 
 - **Level**: Hub integration
@@ -318,12 +317,12 @@ Nice-to-have / cross-cutting (not PRD M-ids): public profile S13; OG S17; CORS S
 
 **Setup:** Agent Browser skill / `agent-browser skills get core --full` not executed in this authoring pass → **overall status: `not_run`**.
 
-| # | Check | Status |
-|---|--------|--------|
-| 1 | Token Usage → Share → Publish: copy and empty states clear (en/zh if applicable) | not_run |
-| 2 | Public `/s/...` at 390px width: no horizontal overflow; stats readable | not_run |
-| 3 | After unpublish, hard refresh shows 404 (no stale cache) | not_run |
-| 4 | Signed-out publish attempt never exposes other users’ data | not_run |
+| #   | Check                                                                            | Status  |
+| --- | -------------------------------------------------------------------------------- | ------- |
+| 1   | Token Usage → Share → Publish: copy and empty states clear (en/zh if applicable) | not_run |
+| 2   | Public `/s/...` at 390px width: no horizontal overflow; stats readable           | not_run |
+| 3   | After unpublish, hard refresh shows 404 (no stale cache)                         | not_run |
+| 4   | Signed-out publish attempt never exposes other users’ data                       | not_run |
 
 ## Regression checklist
 
@@ -366,6 +365,6 @@ Nice-to-have / cross-cutting (not PRD M-ids): public profile S13; OG S17; CORS S
 
 > Fill after implementation / test runs.
 
-| Date | What ran | Result | Gaps |
-|------|----------|--------|------|
-| — | — | not_started | Spec only |
+| Date | What ran | Result      | Gaps      |
+| ---- | -------- | ----------- | --------- |
+| —    | —        | not_started | Spec only |

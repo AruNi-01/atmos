@@ -31,7 +31,9 @@ afterEach(() => {
 
 describe("normalizeCanvasMaxRenderedTerminals", () => {
   it("falls back for non-finite values and clamps finite values into bounds", () => {
-    expect(normalizeCanvasMaxRenderedTerminals(Number.NaN)).toBe(DEFAULT_CANVAS_MAX_RENDERED_TERMINALS);
+    expect(normalizeCanvasMaxRenderedTerminals(Number.NaN)).toBe(
+      DEFAULT_CANVAS_MAX_RENDERED_TERMINALS,
+    );
     expect(normalizeCanvasMaxRenderedTerminals(Number.POSITIVE_INFINITY)).toBe(
       DEFAULT_CANVAS_MAX_RENDERED_TERMINALS,
     );
@@ -47,7 +49,9 @@ describe("normalizeCanvasTerminalContextMaxLines", () => {
       DEFAULT_CANVAS_TERMINAL_CONTEXT_MAX_LINES,
     );
     expect(normalizeCanvasTerminalContextMaxLines(10)).toBe(MIN_CANVAS_TERMINAL_CONTEXT_MAX_LINES);
-    expect(normalizeCanvasTerminalContextMaxLines(9999)).toBe(MAX_CANVAS_TERMINAL_CONTEXT_MAX_LINES);
+    expect(normalizeCanvasTerminalContextMaxLines(9999)).toBe(
+      MAX_CANVAS_TERMINAL_CONTEXT_MAX_LINES,
+    );
     expect(normalizeCanvasTerminalContextMaxLines(300)).toBe(300);
   });
 });

@@ -8,16 +8,16 @@
 
 ```typescript
 // ❌ ANTI-PATTERN
-const [firstName, setFirstName] = useState('Taylor');
-const [lastName, setLastName] = useState('Swift');
-const [fullName, setFullName] = useState('');
+const [firstName, setFirstName] = useState("Taylor");
+const [lastName, setLastName] = useState("Swift");
+const [fullName, setFullName] = useState("");
 
 useEffect(() => {
-  setFullName(firstName + ' ' + lastName); // Extra render!
+  setFullName(firstName + " " + lastName); // Extra render!
 }, [firstName, lastName]);
 
 // ✅ CORRECT: Calculate during render
-const fullName = firstName + ' ' + lastName;
+const fullName = firstName + " " + lastName;
 ```
 
 **Detection:** `useEffect` that only calls `setState` with computed values from dependencies.
@@ -51,7 +51,7 @@ function handleBuyClick() {
 // ❌ ANTI-PATTERN
 function ProfilePage({ userId }: { userId: string }) {
   const [comment, setComment] = useState('');
-  
+
   useEffect(() => {
     setComment(''); // Reset on user change
   }, [userId]);
@@ -73,28 +73,28 @@ function ProfilePage({ userId }: { userId: string }) {
 // ❌ ANTI-PATTERN: No cleanup
 useEffect(() => {
   fetch(`/api/user/${userId}`)
-    .then(res => res.json())
-    .then(data => setUser(data)); // May set state after unmount
+    .then((res) => res.json())
+    .then((data) => setUser(data)); // May set state after unmount
 }, [userId]);
 
 // ✅ CORRECT: AbortController for cleanup
 useEffect(() => {
   const controller = new AbortController();
-  
+
   fetch(`/api/user/${userId}`, { signal: controller.signal })
-    .then(res => res.json())
-    .then(data => setUser(data))
-    .catch(err => {
-      if (err.name !== 'AbortError') setError(err);
+    .then((res) => res.json())
+    .then((data) => setUser(data))
+    .catch((err) => {
+      if (err.name !== "AbortError") setError(err);
     });
-  
+
   return () => controller.abort();
 }, [userId]);
 
 // ✅ BETTER: Use TanStack Query
 const { data: user } = useQuery({
-  queryKey: ['user', userId],
-  queryFn: () => fetch(`/api/user/${userId}`).then(r => r.json()),
+  queryKey: ["user", userId],
+  queryFn: () => fetch(`/api/user/${userId}`).then((r) => r.json()),
 });
 ```
 
@@ -105,13 +105,13 @@ const { data: user } = useQuery({
 ```typescript
 // ❌ ANTI-PATTERN: No cleanup
 useEffect(() => {
-  window.addEventListener('resize', handleResize);
+  window.addEventListener("resize", handleResize);
 }, []);
 
 // ✅ CORRECT
 useEffect(() => {
-  window.addEventListener('resize', handleResize);
-  return () => window.removeEventListener('resize', handleResize);
+  window.addEventListener("resize", handleResize);
+  return () => window.removeEventListener("resize", handleResize);
 }, []);
 ```
 
@@ -131,7 +131,7 @@ useEffect(() => {
 // ✅ CORRECT: Functional update removes count dependency
 useEffect(() => {
   const id = setInterval(() => {
-    setCount(c => c + increment);
+    setCount((c) => c + increment);
   }, 1000);
   return () => clearInterval(id);
 }, [increment]);
@@ -210,14 +210,14 @@ const updateUser = (name: string) => {
 
 ### Immutable Operations Reference
 
-| Operation | ❌ Mutating | ✅ Immutable |
-|-----------|------------|-------------|
-| Add | `arr.push(item)` | `[...arr, item]` |
-| Add at start | `arr.unshift(item)` | `[item, ...arr]` |
-| Remove | `arr.splice(i, 1)` | `arr.filter((_, idx) => idx !== i)` |
-| Update | `arr[i] = newItem` | `arr.map((x, idx) => idx === i ? newItem : x)` |
-| Sort | `arr.sort()` | `[...arr].sort()` |
-| Reverse | `arr.reverse()` | `[...arr].reverse()` |
+| Operation    | ❌ Mutating         | ✅ Immutable                                   |
+| ------------ | ------------------- | ---------------------------------------------- |
+| Add          | `arr.push(item)`    | `[...arr, item]`                               |
+| Add at start | `arr.unshift(item)` | `[item, ...arr]`                               |
+| Remove       | `arr.splice(i, 1)`  | `arr.filter((_, idx) => idx !== i)`            |
+| Update       | `arr[i] = newItem`  | `arr.map((x, idx) => idx === i ? newItem : x)` |
+| Sort         | `arr.sort()`        | `[...arr].sort()`                              |
+| Reverse      | `arr.reverse()`     | `[...arr].reverse()`                           |
 
 ## Memoization Anti-Patterns
 
@@ -225,10 +225,7 @@ const updateUser = (name: string) => {
 
 ```typescript
 // ❌ ANTI-PATTERN: Overhead > benefit
-const fullName = useMemo(
-  () => `${firstName} ${lastName}`,
-  [firstName, lastName]
-);
+const fullName = useMemo(() => `${firstName} ${lastName}`, [firstName, lastName]);
 
 // ✅ CORRECT: Just compute it
 const fullName = `${firstName} ${lastName}`;
@@ -244,7 +241,7 @@ function Parent() {
   const handleClick = useCallback(() => {
     console.log('clicked');
   }, []);
-  
+
   return <Child onClick={handleClick} />; // Child still re-renders!
 }
 
@@ -257,7 +254,7 @@ function Parent() {
   const handleClick = useCallback(() => {
     console.log('clicked');
   }, []);
-  
+
   return <Child onClick={handleClick} />; // Now Child skips re-render
 }
 ```
@@ -270,7 +267,7 @@ const MemoizedList = React.memo(List);
 
 function Parent() {
   return (
-    <MemoizedList 
+    <MemoizedList
       style={{ color: 'red' }} // New object every render!
       onClick={() => handleClick()} // New function every render!
     />
@@ -282,7 +279,7 @@ const style = { color: 'red' }; // Or useMemo if dynamic
 
 function Parent() {
   const handleClick = useCallback(() => { /* ... */ }, []);
-  
+
   return <MemoizedList style={style} onClick={handleClick} />;
 }
 ```
@@ -339,7 +336,7 @@ type InputProps = { label: string } & (ControlledProps | UncontrolledProps);
 
 ```typescript
 // ❌ ANTI-PATTERN (without noUncheckedIndexedAccess)
-const arr: string[] = ['a', 'b'];
+const arr: string[] = ["a", "b"];
 console.log(arr[10].toUpperCase()); // Runtime error!
 
 // ✅ CORRECT
@@ -391,6 +388,7 @@ function Parent() {
 ### 3. God Components (Too Much Responsibility)
 
 **Symptoms:**
+
 - Component > 300 lines
 - 10+ pieces of state
 - Multiple unrelated concerns
@@ -439,7 +437,7 @@ function GrandParent({ user }: { user: User }) {
 
 ```typescript
 // ❌ ANTI-PATTERN: Creates stale data
-const { data } = useQuery({ queryKey: ['todos'], queryFn: fetchTodos });
+const { data } = useQuery({ queryKey: ["todos"], queryFn: fetchTodos });
 const [todos, setTodos] = useState<Todo[]>([]);
 
 useEffect(() => {
@@ -447,7 +445,7 @@ useEffect(() => {
 }, [data]);
 
 // ✅ CORRECT: Query is the source of truth
-const { data: todos } = useQuery({ queryKey: ['todos'], queryFn: fetchTodos });
+const { data: todos } = useQuery({ queryKey: ["todos"], queryFn: fetchTodos });
 ```
 
 ### 2. Global State for Local Concerns
@@ -489,19 +487,20 @@ const fish = useStore((state) => state.fish);
 ```typescript
 // ❌ ANTI-PATTERN: index.ts that re-exports everything
 // src/components/index.ts
-export * from './Button';
-export * from './Input';
-export * from './Modal';
+export * from "./Button";
+export * from "./Input";
+export * from "./Modal";
 // ... 50 more exports
 
 // Importing one thing loads everything!
-import { Button } from '@/components';
+import { Button } from "@/components";
 
 // ✅ CORRECT: Direct imports
-import { Button } from '@/components/Button';
+import { Button } from "@/components/Button";
 ```
 
 **Problems with barrel files:**
+
 - Loads all exports even when importing one
 - Circular dependency risks
 - Tree-shaking breaks

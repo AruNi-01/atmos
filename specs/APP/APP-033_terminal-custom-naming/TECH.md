@@ -56,7 +56,7 @@ Add to `TerminalCenterTab`:
 ```ts
 export interface TerminalCenterTab {
   id: string;
-  title: string;      // auto name, still used for dedup/uniqueness
+  title: string; // auto name, still used for dedup/uniqueness
   closable: boolean;
   customTitle?: string; // user override, display-only, persisted
 }
@@ -106,9 +106,9 @@ cleanPanes[id] = {
   projectName: pane.projectName,
   workspaceName: pane.workspaceName,
   isNewPane: pane.isNewPane,
-  customLabel: pane.customLabel,     // NEW
+  customLabel: pane.customLabel, // NEW
   keepAgentName: pane.keepAgentName, // NEW
-  keepCwd: pane.keepCwd,             // NEW
+  keepCwd: pane.keepCwd, // NEW
 };
 ```
 
@@ -137,7 +137,12 @@ useTerminalToolbarTitle(options: {
 Logic (leaves `getTerminalDisplayMeta` unchanged). Note the flags **default to true** — treat `undefined` as `true` so pre-existing panes and freshly renamed panes keep agent/CWD context by default. Agent and CWD are **mutually exclusive** (agent wins):
 
 ```ts
-const auto = getTerminalDisplayMeta({ baseTitle, dynamicTitle: mergedDynamic, configuredAgents, agent: mergedAgent });
+const auto = getTerminalDisplayMeta({
+  baseTitle,
+  dynamicTitle: mergedDynamic,
+  configuredAgents,
+  agent: mergedAgent,
+});
 const custom = customLabel?.trim();
 
 if (!custom) {
@@ -207,13 +212,13 @@ The grid component that renders `TerminalGridContextMenu` resolves the focused p
 
 Add to `apps/web/messages/en.json` and `apps/web/messages/zh.json`:
 
-| Key | en | zh |
-|-----|----|----|
-| `contextMenu.renameTab` | Rename Tab | 重命名标签 |
-| `contextMenu.renameTitle` | Rename Title | 重命名标题 |
-| `contextMenu.keepAgentName` | Keep Agent Name | 保留 Agent 名称 |
-| `contextMenu.keepCwd` | Keep CWD | 保留当前目录 |
-| `contextMenu.renamePlaceholder` | Enter a name… | 输入名称… |
+| Key                             | en              | zh              |
+| ------------------------------- | --------------- | --------------- |
+| `contextMenu.renameTab`         | Rename Tab      | 重命名标签      |
+| `contextMenu.renameTitle`       | Rename Title    | 重命名标题      |
+| `contextMenu.keepAgentName`     | Keep Agent Name | 保留 Agent 名称 |
+| `contextMenu.keepCwd`           | Keep CWD        | 保留当前目录    |
+| `contextMenu.renamePlaceholder` | Enter a name…   | 输入名称…       |
 
 (Final Chinese wording to be confirmed during implementation; must be natural, not English copy.)
 
@@ -237,13 +242,13 @@ sequenceDiagram
 
 ## 9. Risks & mitigations
 
-| Risk | Mitigation |
-|------|-----------|
-| Forgetting to add new fields to the `cleanPanes` whitelist → names silently not persisted | Explicit checklist item in TEST (persist-and-refresh scenario); the whitelist is the single serialization choke point. |
-| Fixed `Term` tab overwrites `customTitle` in `normalizePersistedTerminalTabs` / `buildPersistedTerminalWorkspaceLayout` | Force `title` for the fixed tab but keep `customTitle` untouched; display uses `customTitle || "Term"`. |
-| Toggles confusing when no custom name set | Disable/mute the checkboxes until a custom name exists (M5). |
-| Scoped pane twin (`terminal-mosaic-scoped-pane-window.tsx`) not updated | Update both pane window components; TEST covers a split/scoped pane. |
-| Custom name accidentally used as tmux window name | Never write `customLabel` into `label`/`tmuxWindowName`; getters for window name ignore `customLabel`. |
+| Risk                                                                                                                    | Mitigation                                                                                                             |
+| ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Forgetting to add new fields to the `cleanPanes` whitelist → names silently not persisted                               | Explicit checklist item in TEST (persist-and-refresh scenario); the whitelist is the single serialization choke point. |
+| Fixed `Term` tab overwrites `customTitle` in `normalizePersistedTerminalTabs` / `buildPersistedTerminalWorkspaceLayout` | Force `title` for the fixed tab but keep `customTitle` untouched; display uses `customTitle                            |     | "Term"`. |
+| Toggles confusing when no custom name set                                                                               | Disable/mute the checkboxes until a custom name exists (M5).                                                           |
+| Scoped pane twin (`terminal-mosaic-scoped-pane-window.tsx`) not updated                                                 | Update both pane window components; TEST covers a split/scoped pane.                                                   |
+| Custom name accidentally used as tmux window name                                                                       | Never write `customLabel` into `label`/`tmuxWindowName`; getters for window name ignore `customLabel`.                 |
 
 ## 10. Rollout
 

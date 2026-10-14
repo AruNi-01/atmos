@@ -25,9 +25,9 @@ describe("session-list-snapshot-store", () => {
     const key = sessionListKeys.gitBranches("/repo/b");
     useSessionListSnapshotStore.getState().set(key, { local: ["main"], remote: ["origin/main"] });
     // Simulate Query GC / unmount: store is the session authority.
-    expect(
-      useSessionListSnapshotStore.getState().get<{ local: string[] }>(key)?.local,
-    ).toEqual(["main"]);
+    expect(useSessionListSnapshotStore.getState().get<{ local: string[] }>(key)?.local).toEqual([
+      "main",
+    ]);
   });
 
   it("clearAll drops every snapshot", () => {
@@ -43,9 +43,9 @@ describe("session-list-snapshot-store", () => {
 
   it("serialize keys stay stable for the same inputs", () => {
     expect(sessionListKeys.gitStatus("/a")).toBe(sessionListKeys.gitStatus("/a"));
-    expect(
+    expect(sessionListKeys.gitLog("/a", "main", 0, 30)).toBe(
       sessionListKeys.gitLog("/a", "main", 0, 30),
-    ).toBe(sessionListKeys.gitLog("/a", "main", 0, 30));
+    );
     expect(sessionListKeys.gitLog("/a", "main", 0, 30)).not.toBe(
       sessionListKeys.gitLog("/a", "main", 1, 30),
     );

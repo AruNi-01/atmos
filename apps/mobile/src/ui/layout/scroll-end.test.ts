@@ -107,7 +107,9 @@ describe("session list scroll end", () => {
   });
 
   test("an unmeasured list does not ask and does not arm", () => {
-    expect(sessionListDistanceFromEnd({ contentHeight: 0, offsetY: 0, viewportHeight: 700 })).toBeNull();
+    expect(
+      sessionListDistanceFromEnd({ contentHeight: 0, offsetY: 0, viewportHeight: 700 }),
+    ).toBeNull();
     const decision = sessionListShouldRequestNextPage({
       armed: false,
       contentHeight: 0,

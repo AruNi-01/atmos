@@ -226,18 +226,12 @@ describe("workspace info hover session", () => {
 
 describe("left sidebar workspace info hover wiring", () => {
   it("uses a shared host so list hops replace content instead of re-waiting", () => {
-    const content = readFileSync(
-      join(import.meta.dir, "../sidebar/WorkspaceContent.tsx"),
-      "utf8",
-    );
+    const content = readFileSync(join(import.meta.dir, "../sidebar/WorkspaceContent.tsx"), "utf8");
     const host = readFileSync(
       join(import.meta.dir, "../sidebar/WorkspaceInfoHoverHost.tsx"),
       "utf8",
     );
-    const sidebar = readFileSync(
-      join(import.meta.dir, "../LeftSidebar.tsx"),
-      "utf8",
-    );
+    const sidebar = readFileSync(join(import.meta.dir, "../LeftSidebar.tsx"), "utf8");
 
     expect(content).toContain("workspaceInfoHoverSession.enter");
     expect(content).toContain("instanceId: hoverInstanceId");

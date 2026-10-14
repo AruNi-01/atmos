@@ -43,11 +43,7 @@ export function AttentionSummaryPanel({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs font-medium tracking-wide text-slate-600 dark:text-slate-300">
-              {isLoading
-                ? t("loadingTitle")
-                : isError
-                  ? t("errorTitle")
-                  : t("readyTitle")}
+              {isLoading ? t("loadingTitle") : isError ? t("errorTitle") : t("readyTitle")}
             </p>
             {isReady && typeof summary.canCloseSession === "boolean" ? (
               <span
@@ -58,15 +54,13 @@ export function AttentionSummaryPanel({
                     : "bg-amber-500/15 text-amber-700 dark:text-amber-300",
                 )}
               >
-                {summary.canCloseSession
-                  ? t("canCloseBadge")
-                  : t("keepOpenBadge")}
+                {summary.canCloseSession ? t("canCloseBadge") : t("keepOpenBadge")}
               </span>
             ) : null}
             {onDismiss && (isReady || isError) ? (
               <button
                 type="button"
-                className="ml-auto -mr-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="-mr-1 ml-auto rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
                 onClick={onDismiss}
               >
                 {t("dismiss")}
@@ -94,9 +88,7 @@ export function AttentionSummaryPanel({
 
           {isReady ? (
             <>
-              <p className="mt-1.5 text-sm leading-5 text-foreground">
-                {summary.summary}
-              </p>
+              <p className="mt-1.5 text-sm leading-5 text-foreground">{summary.summary}</p>
               {summary.nextSteps.length > 0 ? (
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
                   {summary.nextSteps.map((step) => (

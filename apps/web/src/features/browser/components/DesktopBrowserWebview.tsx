@@ -94,8 +94,7 @@ export function DesktopBrowserWebview({
   onDomReady,
   onLoadingChange,
 }: DesktopBrowserWebviewProps) {
-  const isElectron =
-    typeof window !== "undefined" ? isElectronShell() : false;
+  const isElectron = typeof window !== "undefined" ? isElectronShell() : false;
   const { resolvedTheme } = useTheme();
   const guestColorScheme = resolveGuestColorScheme(resolvedTheme);
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -186,16 +185,13 @@ export function DesktopBrowserWebview({
       // -3 = aborted (navigation superseded); ignore.
       if (detail.errorCode === -3) return;
       if (detail.isMainFrame === false) return;
-      console.error(
-        "[browser] webview did-fail-load",
-        {
-          errorCode: detail.errorCode,
-          errorDescription: detail.errorDescription,
-          validatedURL: detail.validatedURL,
-          isMainFrame: detail.isMainFrame,
-          sessionId: attach?.sessionId,
-        },
-      );
+      console.error("[browser] webview did-fail-load", {
+        errorCode: detail.errorCode,
+        errorDescription: detail.errorDescription,
+        validatedURL: detail.validatedURL,
+        isMainFrame: detail.isMainFrame,
+        sessionId: attach?.sessionId,
+      });
       onLoadingChange?.(false);
     };
 
@@ -242,14 +238,7 @@ export function DesktopBrowserWebview({
       el.removeEventListener("did-stop-loading", onStopLoading as EventListener);
       el.removeEventListener("did-fail-load", onFail as EventListener);
     };
-  }, [
-    shouldMountGuest,
-    attach,
-    navUrl,
-    onBindGuest,
-    onDomReady,
-    onLoadingChange,
-  ]);
+  }, [shouldMountGuest, attach, navUrl, onBindGuest, onDomReady, onLoadingChange]);
 
   useEffect(() => {
     if (!isElectron || !layoutHidden) return;
@@ -268,9 +257,7 @@ export function DesktopBrowserWebview({
 
     const applyLocal = () => {
       try {
-        void el.insertCSS?.(
-          `:root, html { color-scheme: ${guestColorScheme} !important; }`,
-        );
+        void el.insertCSS?.(`:root, html { color-scheme: ${guestColorScheme} !important; }`);
         void el.executeJavaScript?.(
           `(() => {
             try {

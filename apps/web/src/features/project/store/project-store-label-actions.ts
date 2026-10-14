@@ -1,29 +1,29 @@
-'use client';
+"use client";
 
-import { toastManager } from '@workspace/ui';
-import { getComputerQueryScope } from '@/api/query/query-scope';
-import { wsProjectApi, wsWorkspaceApi, type WorkspaceLabelModel } from '@/api/ws-api';
-import type { WorkspaceLabel } from '@/shared/types/domain';
-import { waitForConnection } from './project-store-connection';
-import type { ProjectStore, ProjectStoreGet, ProjectStoreSet } from './project-store-types';
+import { toastManager } from "@workspace/ui";
+import { getComputerQueryScope } from "@/api/query/query-scope";
+import { wsProjectApi, wsWorkspaceApi, type WorkspaceLabelModel } from "@/api/ws-api";
+import type { WorkspaceLabel } from "@/shared/types/domain";
+import { waitForConnection } from "./project-store-connection";
+import type { ProjectStore, ProjectStoreGet, ProjectStoreSet } from "./project-store-types";
 import {
   cancelProjectBootstrapQuery,
   invalidateProjectBootstrap,
   patchProjectBootstrapSnapshotAt,
-} from '@/features/project/hooks/use-project-bootstrap-query';
+} from "@/features/project/hooks/use-project-bootstrap-query";
 
-type WorkspaceLabelSource = 'manual' | 'gitHub_issue' | 'gitHub_pr';
+type WorkspaceLabelSource = "manual" | "gitHub_issue" | "gitHub_pr";
 
 type ProjectStoreLabelActions = Pick<
   ProjectStore,
-  | 'fetchWorkspaceLabels'
-  | 'createWorkspaceLabel'
-  | 'updateWorkspaceLabel'
-  | 'deleteWorkspaceLabel'
-  | 'restoreWorkspaceLabel'
-  | 'updateWorkspaceLabels'
-  | 'markWorkspaceVisited'
-  | 'markProjectVisited'
+  | "fetchWorkspaceLabels"
+  | "createWorkspaceLabel"
+  | "updateWorkspaceLabel"
+  | "deleteWorkspaceLabel"
+  | "restoreWorkspaceLabel"
+  | "updateWorkspaceLabels"
+  | "markWorkspaceVisited"
+  | "markProjectVisited"
 >;
 
 function mapWorkspaceLabelModel(label: WorkspaceLabelModel): WorkspaceLabel {
@@ -57,7 +57,7 @@ export function createProjectStoreLabelActions(
       return mappedLabels;
     },
 
-    createWorkspaceLabel: async ({ name, color, source = 'manual' }) => {
+    createWorkspaceLabel: async ({ name, color, source = "manual" }) => {
       const scope = getComputerQueryScope();
       await waitForConnection();
       const label = await wsWorkspaceApi.createLabel({ name, color, source });
@@ -123,7 +123,10 @@ export function createProjectStoreLabelActions(
       try {
         const scope = getComputerQueryScope();
         await waitForConnection();
-        await wsWorkspaceApi.updateLabels(workspaceId, labels.map((label) => label.id));
+        await wsWorkspaceApi.updateLabels(
+          workspaceId,
+          labels.map((label) => label.id),
+        );
 
         await cancelProjectBootstrapQuery(scope);
         patchProjectBootstrapSnapshotAt(scope, (current) => ({
@@ -140,11 +143,11 @@ export function createProjectStoreLabelActions(
           ),
         }));
       } catch (error) {
-        console.error('Error updating workspace labels:', error);
+        console.error("Error updating workspace labels:", error);
         toastManager.add({
-          title: 'Error',
-          description: 'Failed to update workspace labels',
-          type: 'error',
+          title: "Error",
+          description: "Failed to update workspace labels",
+          type: "error",
         });
         throw error;
       }
@@ -182,7 +185,7 @@ export function createProjectStoreLabelActions(
           return changed ? { ...current, projects } : current;
         });
       } catch (error) {
-        console.error('Error marking workspace visited:', error);
+        console.error("Error marking workspace visited:", error);
       }
     },
 
@@ -203,7 +206,7 @@ export function createProjectStoreLabelActions(
           return changed ? { ...current, projects } : current;
         });
       } catch (error) {
-        console.error('Error marking project visited:', error);
+        console.error("Error marking project visited:", error);
       }
     },
   };

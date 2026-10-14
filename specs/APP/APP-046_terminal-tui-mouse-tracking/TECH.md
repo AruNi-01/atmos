@@ -26,13 +26,13 @@ flowchart LR
 
 Event modes are exclusive (last enable wins), matching `@xterm/xterm` `CoreMouseService`:
 
-| DECSET | Event |
-|--------|--------|
-| 9 | X10 |
-| 1000 | Normal (VT200) |
-| 1002 | Button / drag |
-| 1003 | **Any** (hover) |
-| 1000/1002/1003 reset | None |
+| DECSET               | Event           |
+| -------------------- | --------------- |
+| 9                    | X10             |
+| 1000                 | Normal (VT200)  |
+| 1002                 | Button / drag   |
+| 1003                 | **Any** (hover) |
+| 1000/1002/1003 reset | None            |
 
 Format is independent: default / utf8 (1005) / **sgr (1006)** / urxvt (1015) / sgr_pixels (1016). Optional focus (1004).
 
@@ -57,11 +57,11 @@ Format is independent: default / utf8 (1005) / **sgr (1006)** / urxvt (1015) / s
 
 ### 3.2 Persist API — `TmuxEngine`
 
-| Method | Target |
-|--------|--------|
+| Method                                     | Target                                          |
+| ------------------------------------------ | ----------------------------------------------- |
 | `get_pane_mouse_tracking(session, window)` | `display-message -p '#{@atmos_mouse_tracking}'` |
-| `set_pane_mouse_tracking(...)` | `set-option -pt session:window.0 …` |
-| `get/set_pane_mouse_tracking_by_id(%N)` | control-mode reader (pane id only) |
+| `set_pane_mouse_tracking(...)`             | `set-option -pt session:window.0 …`             |
+| `get/set_pane_mouse_tracking_by_id(%N)`    | control-mode reader (pane id only)              |
 
 Unset / empty → `None` (never observed).  
 `none` → observed inactive.
@@ -85,11 +85,11 @@ pub mouse_tracking_sequence: Option<String>,
 
 Resolution:
 
-| Observed | Result |
-|----------|--------|
-| `Some(active)` | `restore=true`, sequence = `restore_sequence()` |
-| `Some(none)` | `restore=false`, no sequence |
-| `None` | heuristic via `should_restore_tui_mouse_tracking(alternate, cmd)` → default sequence with 1003 |
+| Observed       | Result                                                                                         |
+| -------------- | ---------------------------------------------------------------------------------------------- |
+| `Some(active)` | `restore=true`, sequence = `restore_sequence()`                                                |
+| `Some(none)`   | `restore=false`, no sequence                                                                   |
+| `None`         | heuristic via `should_restore_tui_mouse_tracking(alternate, cmd)` → default sequence with 1003 |
 
 Heuristic true when:
 
@@ -131,13 +131,13 @@ mouse_tracking_sequence?: string | null;
 
 ## 5. Layer rules
 
-| Layer | Responsibility |
-|-------|----------------|
-| `core-engine` | Parse, persist format, resolve, tmux option I/O |
-| `core-service` | Feed live stream into tracker |
-| `apps/api` | Pass snapshot fields to clients |
-| `packages/shared` | Client restore payload contract |
-| `apps/web` / `apps/mobile` | Apply sequence to xterm |
+| Layer                      | Responsibility                                  |
+| -------------------------- | ----------------------------------------------- |
+| `core-engine`              | Parse, persist format, resolve, tmux option I/O |
+| `core-service`             | Feed live stream into tracker                   |
+| `apps/api`                 | Pass snapshot fields to clients                 |
+| `packages/shared`          | Client restore payload contract                 |
+| `apps/web` / `apps/mobile` | Apply sequence to xterm                         |
 
 ## 6. Rollout
 
@@ -147,13 +147,13 @@ mouse_tracking_sequence?: string | null;
 
 ## 7. Risks & mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| First attach never saw DECSET | Heuristic default includes 1003 |
-| set-option spam | Only on state change |
-| Init suppress miss | Observe during suppress |
+| Risk                            | Mitigation                                                             |
+| ------------------------------- | ---------------------------------------------------------------------- |
+| First attach never saw DECSET   | Heuristic default includes 1003                                        |
+| set-option spam                 | Only on state change                                                   |
+| Init suppress miss              | Observe during suppress                                                |
 | Downgrade via incomplete ENABLE | Default and CMD_START include 1003; prefer exact sequence when present |
-| Wheel stolen on non-TUI | Heuristic + observed-none; no blanket enable |
+| Wheel stolen on non-TUI         | Heuristic + observed-none; no blanket enable                           |
 
 ## 8. Verification pointers
 

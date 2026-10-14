@@ -47,7 +47,14 @@ export function SessionRowList({
   return (
     <>
       {actionError && !deleteRow ? (
-        <Text style={{ color: palette.red, fontSize: 13, paddingHorizontal: spacing.rowX, paddingVertical: 8 }}>
+        <Text
+          style={{
+            color: palette.red,
+            fontSize: 13,
+            paddingHorizontal: spacing.rowX,
+            paddingVertical: 8,
+          }}
+        >
           {actionError}
         </Text>
       ) : null}

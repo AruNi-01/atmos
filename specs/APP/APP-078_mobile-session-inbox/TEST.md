@@ -15,60 +15,60 @@ Bucket rules and the inbox join are pure functions. Prove those in Rust and Bun.
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S14 |
-| M2 | S2 |
-| M3 | S3 |
-| M4 | S4, S5 |
-| M5 | S6 |
-| M6 | S7, S8 |
-| M7 | S9, S10 |
-| M8 | S11, S12 |
-| M9 | S13 |
-| M10 | S15, S16 |
-| M11 | S17 |
-| M12 | S11, S18 |
-| M13 | S19 |
-| M14 | S20, S21, S22 |
-| M15 | S23 |
-| M16 | S24, S25 |
-| M17 | S26 |
-| M18 | S27 |
-| N1 | deferred |
-| N2 | deferred |
+| PRD item | Scenario IDs  |
+| -------- | ------------- |
+| M1       | S1, S14       |
+| M2       | S2            |
+| M3       | S3            |
+| M4       | S4, S5        |
+| M5       | S6            |
+| M6       | S7, S8        |
+| M7       | S9, S10       |
+| M8       | S11, S12      |
+| M9       | S13           |
+| M10      | S15, S16      |
+| M11      | S17           |
+| M12      | S11, S18      |
+| M13      | S19           |
+| M14      | S20, S21, S22 |
+| M15      | S23           |
+| M16      | S24, S25      |
+| M17      | S26           |
+| M18      | S27           |
+| N1       | deferred      |
+| N2       | deferred      |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Manual | iOS simulator | `cd apps/mobile && bun run ios` | signed-in Computer | Tab bar shows Workspace and Session | planned |
-| S2 | Manual | iOS simulator | same as S1 | bootstrap with one workspace | Workspace list still opens `/workspace/:id`; title is native | planned |
-| S3 | Manual | iOS simulator | same as S1 | signed out | Workspace shows connect; Session shows not-connected empty state | planned |
-| S4 | Bun | `bun test` | `apps/mobile/src/features/sessions/session-inbox.test.ts` | four panes, one per bucket | counts and card order permission, attention, running, done | planned |
-| S5 | Bun | `bun test` | same file | zero panes | all four counts are 0 | planned |
-| S6 | Bun | `bun test` | same file | mixed buckets | bucket filter returns only that key | planned |
-| S7 | Bun | `bun test` | same file | six timestamped panes | recent list length 5, newest first | planned |
-| S8 | Bun | `bun test` | same file | pane with `updatedAt: null` | absent from recent, present in done | planned |
-| S9 | Bun | `bun test` | same file | two candidates, one workspace | two rows | planned |
-| S10 | Bun | `bun test` | same file | one chat snapshot, one side-chat candidate | chat dropped; side-chat kept | planned |
-| S11 | Rust | `cargo test` | `cargo test -p core-service session_agent_group` | two panes, one context | two snapshots; workspace rollup still one group and omits done | planned |
-| S12 | Rust | `cargo test` | same | idle sweep then attention latch | snapshot remains attention; no live idle row required | planned |
-| S13 | Bun | `bun test` | `session-row-subtitle.test.ts` | partial names, project-scoped pane | middle-dot line omits empty segments and workspace | planned |
-| S14 | Manual | iOS simulator | S1 | switch tabs twice | tab state not remounted from a dynamic hide | planned |
-| S15 | Bun | `bun test` | `pick-branch-pr.test.ts` | two PRs, one head match, draft flag | highest matching number; draft beats open | planned |
-| S16 | Bun | `bun test` | same | empty list / thrown lookup | `prState` null | planned |
-| S17 | Manual | iOS simulator | open a row | workspace with two windows | terminal strip selects the tapped window | planned |
-| S18 | Rust + catalog | `cargo test` and `bun run --filter @atmos/api-types check-actions` | extract fixtures include `agent_session_status_list` | — | action listed; response has `sessions` | planned |
-| S19 | Bun | `bun test` | inbox reducer test | running snapshot then permission event for same pane | pane moves to permission; counts follow | planned |
-| S20 | Rust | `cargo test` | `cargo test -p core-service session_agent_catalog` | pane goes idle, then idle cleanup, then a fresh service loaded from the same DB | row still listed as done with the stored time; live map empty | planned |
-| S21 | Rust | `cargo test` | same | archive that session id; workspace `is_archived` on another | both omitted from the list | planned |
-| S22 | Rust | `cargo test` | same | running pane receives another running progress event, then Done, then Running | one write on enter Running, none on progress, one on Done, one on Running again; `updated_at` never moves backwards | planned |
-| S23 | Bun | `bun test` | `apps/web` sidebar view parse test | missing `workspace_sidebar.view` | parsed view is `workspace` | planned |
-| S24 | Bun | `bun test` | `apps/web/src/app-shell/sidebar/session-grouping.test.ts` | two terminals and one chat in one workspace | three rows; chat kept | planned |
-| S25 | Bun | `bun test` | same | row formatter | line one is title and time; line two joins project, workspace, branch, PR and skips empties | planned |
-| S26 | Bun | `bun test` | same | agent group-by with two panes in one workspace, one running and one permission | two groups; workspace rollup helper still returns one permission group | planned |
-| S27 | Manual | Web sidebar | open a terminal row and a chat row | one workspace with both surfaces | terminal focuses that pane; chat opens that Agent Chat; kanban board stays workspace cards | planned |
+| Scenario | Level          | Expected tool                                                      | Target command / method                                   | Fixture / data                                                                  | Signals                                                                                                             | Status  |
+| -------- | -------------- | ------------------------------------------------------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------- |
+| S1       | Manual         | iOS simulator                                                      | `cd apps/mobile && bun run ios`                           | signed-in Computer                                                              | Tab bar shows Workspace and Session                                                                                 | planned |
+| S2       | Manual         | iOS simulator                                                      | same as S1                                                | bootstrap with one workspace                                                    | Workspace list still opens `/workspace/:id`; title is native                                                        | planned |
+| S3       | Manual         | iOS simulator                                                      | same as S1                                                | signed out                                                                      | Workspace shows connect; Session shows not-connected empty state                                                    | planned |
+| S4       | Bun            | `bun test`                                                         | `apps/mobile/src/features/sessions/session-inbox.test.ts` | four panes, one per bucket                                                      | counts and card order permission, attention, running, done                                                          | planned |
+| S5       | Bun            | `bun test`                                                         | same file                                                 | zero panes                                                                      | all four counts are 0                                                                                               | planned |
+| S6       | Bun            | `bun test`                                                         | same file                                                 | mixed buckets                                                                   | bucket filter returns only that key                                                                                 | planned |
+| S7       | Bun            | `bun test`                                                         | same file                                                 | six timestamped panes                                                           | recent list length 5, newest first                                                                                  | planned |
+| S8       | Bun            | `bun test`                                                         | same file                                                 | pane with `updatedAt: null`                                                     | absent from recent, present in done                                                                                 | planned |
+| S9       | Bun            | `bun test`                                                         | same file                                                 | two candidates, one workspace                                                   | two rows                                                                                                            | planned |
+| S10      | Bun            | `bun test`                                                         | same file                                                 | one chat snapshot, one side-chat candidate                                      | chat dropped; side-chat kept                                                                                        | planned |
+| S11      | Rust           | `cargo test`                                                       | `cargo test -p core-service session_agent_group`          | two panes, one context                                                          | two snapshots; workspace rollup still one group and omits done                                                      | planned |
+| S12      | Rust           | `cargo test`                                                       | same                                                      | idle sweep then attention latch                                                 | snapshot remains attention; no live idle row required                                                               | planned |
+| S13      | Bun            | `bun test`                                                         | `session-row-subtitle.test.ts`                            | partial names, project-scoped pane                                              | middle-dot line omits empty segments and workspace                                                                  | planned |
+| S14      | Manual         | iOS simulator                                                      | S1                                                        | switch tabs twice                                                               | tab state not remounted from a dynamic hide                                                                         | planned |
+| S15      | Bun            | `bun test`                                                         | `pick-branch-pr.test.ts`                                  | two PRs, one head match, draft flag                                             | highest matching number; draft beats open                                                                           | planned |
+| S16      | Bun            | `bun test`                                                         | same                                                      | empty list / thrown lookup                                                      | `prState` null                                                                                                      | planned |
+| S17      | Manual         | iOS simulator                                                      | open a row                                                | workspace with two windows                                                      | terminal strip selects the tapped window                                                                            | planned |
+| S18      | Rust + catalog | `cargo test` and `bun run --filter @atmos/api-types check-actions` | extract fixtures include `agent_session_status_list`      | —                                                                               | action listed; response has `sessions`                                                                              | planned |
+| S19      | Bun            | `bun test`                                                         | inbox reducer test                                        | running snapshot then permission event for same pane                            | pane moves to permission; counts follow                                                                             | planned |
+| S20      | Rust           | `cargo test`                                                       | `cargo test -p core-service session_agent_catalog`        | pane goes idle, then idle cleanup, then a fresh service loaded from the same DB | row still listed as done with the stored time; live map empty                                                       | planned |
+| S21      | Rust           | `cargo test`                                                       | same                                                      | archive that session id; workspace `is_archived` on another                     | both omitted from the list                                                                                          | planned |
+| S22      | Rust           | `cargo test`                                                       | same                                                      | running pane receives another running progress event, then Done, then Running   | one write on enter Running, none on progress, one on Done, one on Running again; `updated_at` never moves backwards | planned |
+| S23      | Bun            | `bun test`                                                         | `apps/web` sidebar view parse test                        | missing `workspace_sidebar.view`                                                | parsed view is `workspace`                                                                                          | planned |
+| S24      | Bun            | `bun test`                                                         | `apps/web/src/app-shell/sidebar/session-grouping.test.ts` | two terminals and one chat in one workspace                                     | three rows; chat kept                                                                                               | planned |
+| S25      | Bun            | `bun test`                                                         | same                                                      | row formatter                                                                   | line one is title and time; line two joins project, workspace, branch, PR and skips empties                         | planned |
+| S26      | Bun            | `bun test`                                                         | same                                                      | agent group-by with two panes in one workspace, one running and one permission  | two groups; workspace rollup helper still returns one permission group                                              | planned |
+| S27      | Manual         | Web sidebar                                                        | open a terminal row and a chat row                        | one workspace with both surfaces                                                | terminal focuses that pane; chat opens that Agent Chat; kanban board stays workspace cards                          | planned |
 
 ## Scenarios
 

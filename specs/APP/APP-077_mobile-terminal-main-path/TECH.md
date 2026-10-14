@@ -20,10 +20,10 @@ Home (index, kept)
 
 ## Overlay rule
 
-| Surface | Component |
-|---------|-----------|
-| Drawer / sheet (group list, Computer Connect, Workspaces, Create Workspace, Sign-in) | Expo Router `formSheet` or `@expo/ui` `BottomSheet` |
-| Popover (account, workspace switcher, Ctrl/Move/Agent) | `expo-ios-popover` on iOS; RN modal overlay on Android — **not** a BottomSheet |
+| Surface                                                                              | Component                                                                      |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| Drawer / sheet (group list, Computer Connect, Workspaces, Create Workspace, Sign-in) | Expo Router `formSheet` or `@expo/ui` `BottomSheet`                            |
+| Popover (account, workspace switcher, Ctrl/Move/Agent)                               | `expo-ios-popover` on iOS; RN modal overlay on Android — **not** a BottomSheet |
 
 Do not use `PopoverTransition.Matched` for the group list; that presents a sheet and would mix drawer/popover.
 

@@ -4,10 +4,7 @@ import type {
   AutomationSummary,
 } from "@/features/automations/types";
 
-export type AutomationRunFollowUpKind =
-  | "continue-menu"
-  | "open-terminal"
-  | "open-chat";
+export type AutomationRunFollowUpKind = "continue-menu" | "open-terminal" | "open-chat";
 
 type RunLandingFields = Pick<
   AutomationRunDetail,
@@ -28,9 +25,7 @@ type RunEnvironmentTarget = {
   id: string;
 };
 
-export function parseExecuteMode(
-  raw: string | null | undefined,
-): AutomationExecuteMode {
+export function parseExecuteMode(raw: string | null | undefined): AutomationExecuteMode {
   if (raw === "terminal" || raw === "chat") return raw;
   return "headless";
 }
@@ -73,9 +68,7 @@ export function parseStandaloneScope(scope: string): string | null {
 }
 
 export function isStandaloneAutomationScope(scope: string): boolean {
-  const host = scope.includes("::space::")
-    ? scope.slice(0, scope.indexOf("::space::"))
-    : scope;
+  const host = scope.includes("::space::") ? scope.slice(0, scope.indexOf("::space::")) : scope;
   return host === "automation:standalone" || parseStandaloneScope(host) !== null;
 }
 
@@ -121,15 +114,18 @@ export function runEnvironmentTarget(
   automation?: Pick<AutomationSummary, "guid" | "execute_mode" | "target_kind">,
 ): RunEnvironmentTarget | null {
   const scope = run.surface_scope_id ?? "";
-  const standaloneGuid = parseStandaloneScope(scope) ?? (
-    (run.target_kind === "standalone" || automation?.target_kind === "standalone")
+  const standaloneGuid =
+    parseStandaloneScope(scope) ??
+    (run.target_kind === "standalone" || automation?.target_kind === "standalone"
       ? run.automation_guid
-      : null
-  );
+      : null);
   if (standaloneGuid) {
     return { kind: "standalone", id: standaloneGuid };
   }
-  if (run.target_kind === "project" || (!run.workspace_guid && !run.created_workspace_guid && run.project_guid)) {
+  if (
+    run.target_kind === "project" ||
+    (!run.workspace_guid && !run.created_workspace_guid && run.project_guid)
+  ) {
     const projectId = scope || run.project_guid;
     if (projectId) {
       return { kind: "project", id: projectId };

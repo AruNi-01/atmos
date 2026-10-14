@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import {
-  MotionValue,
-  motion,
-  useSpring,
-  useTransform,
-} from "motion/react";
+import { MotionValue, motion, useSpring, useTransform } from "motion/react";
 import { cn } from "../../lib/utils";
 
 const TRANSITION = {
@@ -50,10 +45,7 @@ function Digit({
       }
     };
     measure();
-    const ro =
-      typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(measure)
-        : null;
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
     ro?.observe(el);
     return () => ro?.disconnect();
   }, []);
@@ -104,10 +96,7 @@ function DigitGlyph({
   // No layoutId — layoutId re-animates position when a parent (e.g. hover
   // tooltip) moves with the pointer, which pulls digits out of the bubble.
   return (
-    <motion.span
-      style={{ y }}
-      className="absolute inset-0 flex items-center justify-center"
-    >
+    <motion.span style={{ y }} className="absolute inset-0 flex items-center justify-center">
       {digit}
     </motion.span>
   );
@@ -135,9 +124,7 @@ export function SlidingNumber({
   const safe = Number.isFinite(value) ? value : 0;
   const absValue = Math.abs(safe);
   const rendered =
-    decimals != null && decimals >= 0
-      ? absValue.toFixed(decimals)
-      : String(absValue);
+    decimals != null && decimals >= 0 ? absValue.toFixed(decimals) : String(absValue);
   const [integerPart, decimalPart] = rendered.split(".");
   const integerValue = parseInt(integerPart || "0", 10);
   const neededPlaces = Math.max(1, (integerPart || "0").length);
@@ -166,9 +153,7 @@ export function SlidingNumber({
   }, [neededPlaces, heldPlaces]);
 
   const placeCount =
-    padStart && integerValue < 10
-      ? Math.max(2, heldPlaces)
-      : Math.max(neededPlaces, heldPlaces);
+    padStart && integerValue < 10 ? Math.max(2, heldPlaces) : Math.max(neededPlaces, heldPlaces);
   const integerPlaces = Array.from({ length: placeCount }, (_, i) =>
     Math.pow(10, placeCount - i - 1),
   );
@@ -187,18 +172,13 @@ export function SlidingNumber({
       const id = window.setTimeout(() => setHeldDecimals(0), PLACE_SHRINK_MS);
       return () => window.clearTimeout(id);
     }
-    const id = window.setTimeout(
-      () => setHeldDecimals(decimalLen),
-      PLACE_SHRINK_MS,
-    );
+    const id = window.setTimeout(() => setHeldDecimals(decimalLen), PLACE_SHRINK_MS);
     return () => window.clearTimeout(id);
   }, [decimalLen, heldDecimals]);
 
   const decimalSlots = Math.max(decimalLen, heldDecimals);
   const decimalValue =
-    decimalPart != null
-      ? parseInt(decimalPart.padEnd(decimalSlots, "0"), 10)
-      : 0;
+    decimalPart != null ? parseInt(decimalPart.padEnd(decimalSlots, "0"), 10) : 0;
 
   return (
     <div className={cn("inline-flex items-center leading-none", className)}>

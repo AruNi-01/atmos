@@ -11,15 +11,13 @@
 ### Implementation Pattern
 
 ```tsx
-useHotkeys(
-  "mod+shift+h",
+useHotkeys("mod+shift+h", handleToggleCanvas, { enableOnFormTags: true, preventDefault: true }, [
   handleToggleCanvas,
-  { enableOnFormTags: true, preventDefault: true },
-  [handleToggleCanvas],
-);
+]);
 ```
 
 **Key requirements:**
+
 - `enableOnFormTags: true` — Required for terminal compatibility
 - `preventDefault: true` — Prevent browser default behavior
 
@@ -45,18 +43,19 @@ const { onCloseAutoFocusPrevent } = useFocusRestore(isOpen);
 ```
 
 The hook:
+
 - Captures `document.activeElement` when `open` → `true`
 - Restores focus via `requestAnimationFrame` when `open` → `false` (deferred to let the UI library's cleanup run first)
 - Returns `onCloseAutoFocusPrevent` to pass to Radix `PopoverContent` / `DialogContent`
 
 ### Per-Component Application
 
-| Overlay Library | Pattern |
-|----------------|---------|
-| **Radix Popover** | Use `useFocusRestore`, pass `onCloseAutoFocusPrevent` to `PopoverContent` |
-| **Radix Dialog** | Use `useFocusRestore`, pass `onCloseAutoFocusPrevent` to `DialogContent` |
-| **Base UI Menu** | Capture in hotkey handler: `actionMenuFocusRef.current = document.activeElement` BEFORE `setIsOpen(true)`, then pass `finalFocus={actionMenuFocusRef}` to `MenuPanel` |
-| **Custom overlay** | Manual: save `document.activeElement` in an effect/ref when overlay opens, restore in close handler |
+| Overlay Library    | Pattern                                                                                                                                                               |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Radix Popover**  | Use `useFocusRestore`, pass `onCloseAutoFocusPrevent` to `PopoverContent`                                                                                             |
+| **Radix Dialog**   | Use `useFocusRestore`, pass `onCloseAutoFocusPrevent` to `DialogContent`                                                                                              |
+| **Base UI Menu**   | Capture in hotkey handler: `actionMenuFocusRef.current = document.activeElement` BEFORE `setIsOpen(true)`, then pass `finalFocus={actionMenuFocusRef}` to `MenuPanel` |
+| **Custom overlay** | Manual: save `document.activeElement` in an effect/ref when overlay opens, restore in close handler                                                                   |
 
 > **Why Base UI Menu is different:** Its focus management runs synchronously during open, so `document.activeElement` changes before any effect can capture it. Capture must happen in the hotkey handler, before the state setter fires.
 
@@ -92,10 +91,10 @@ The hook:
 <ShortcutGroup
   title="Workspace"
   shortcuts={[
-    { keys: ['⌘', 'N'], description: 'New workspace overlay' },
-    { keys: ['⌘', '⇧', 'H'], description: 'Toggle Presentation overlay' }, // New shortcut
-    { keys: ['⌘', '⇧', 'K'], description: 'Expand Kanban overlay' },
-    { keys: ['⌘', '⇧', '↵'], description: 'Open / create workspace (In new workspace overlay)' },
+    { keys: ["⌘", "N"], description: "New workspace overlay" },
+    { keys: ["⌘", "⇧", "H"], description: "Toggle Presentation overlay" }, // New shortcut
+    { keys: ["⌘", "⇧", "K"], description: "Expand Kanban overlay" },
+    { keys: ["⌘", "⇧", "↵"], description: "Open / create workspace (In new workspace overlay)" },
   ]}
 />
 ```

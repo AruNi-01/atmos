@@ -65,8 +65,7 @@ for (const file of files) {
 const ptDesignSrc = join(root, "packages/pt-design/src");
 const PT_FORBIDDEN =
   /from\s+["']@atmos\/(api-types|api-client|hub-client|relay-client|shared)(\/[^"']*)?["']|from\s+["']@workspace\/ui["']|apps\/cli/;
-const PT_EXCALIDRAW =
-  /from\s+["']@excalidraw\/excalidraw["']/;
+const PT_EXCALIDRAW = /from\s+["']@excalidraw\/excalidraw["']/;
 
 function walkPt(dir: string, files: string[] = []): string[] {
   if (!existsSyncSafe(dir)) return files;
@@ -75,7 +74,11 @@ function walkPt(dir: string, files: string[] = []): string[] {
     const p = join(dir, name);
     const st = statSync(p);
     if (st.isDirectory()) walkPt(p, files);
-    else if (/\.(ts|tsx|js|mjs)$/.test(name) && !name.endsWith(".test.ts") && !name.endsWith(".test.tsx")) {
+    else if (
+      /\.(ts|tsx|js|mjs)$/.test(name) &&
+      !name.endsWith(".test.ts") &&
+      !name.endsWith(".test.tsx")
+    ) {
       files.push(p);
     }
   }

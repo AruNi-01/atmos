@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  type MutableRefObject,
-  useCallback,
-  useLayoutEffect,
-  useState,
-} from "react";
+import { type MutableRefObject, useCallback, useLayoutEffect, useState } from "react";
 
 export type PortalLayout = {
   trigger: {
@@ -96,18 +91,10 @@ export function anchoredSizeScale(
   next: { width: number; height: number },
   currentScale: { x: number; y: number } = { x: 1, y: 1 },
 ): { x: number; y: number } | null {
-  if (
-    previous.width < 1
-    || previous.height < 1
-    || next.width < 1
-    || next.height < 1
-  ) {
+  if (previous.width < 1 || previous.height < 1 || next.width < 1 || next.height < 1) {
     return null;
   }
-  if (
-    Math.abs(previous.width - next.width) < 1 &&
-    Math.abs(previous.height - next.height) < 1
-  ) {
+  if (Math.abs(previous.width - next.width) < 1 && Math.abs(previous.height - next.height) < 1) {
     return null;
   }
   const x = (previous.width * currentScale.x) / next.width;

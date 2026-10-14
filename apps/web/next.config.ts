@@ -36,29 +36,15 @@ const codemirrorPackages = [
   "@codemirror/view",
 ] as const;
 const codemirrorTurbopackAliases = Object.fromEntries(
-  codemirrorPackages.map((packageName) => [
-    packageName,
-    `./node_modules/${packageName}`,
-  ]),
+  codemirrorPackages.map((packageName) => [packageName, `./node_modules/${packageName}`]),
 );
 // Prefer apps/web/node_modules (bun workspace install layout). Fall back to
 // monorepo root only when the package is hoisted there.
 const codemirrorWebpackAliases = Object.fromEntries(
   codemirrorPackages.map((packageName) => {
-    const webLocal = path.join(
-      webAppDir,
-      "node_modules",
-      ...packageName.split("/"),
-    );
-    const rootHoisted = path.join(
-      repoRoot,
-      "node_modules",
-      ...packageName.split("/"),
-    );
-    return [
-      packageName,
-      existsSync(webLocal) ? webLocal : rootHoisted,
-    ];
+    const webLocal = path.join(webAppDir, "node_modules", ...packageName.split("/"));
+    const rootHoisted = path.join(repoRoot, "node_modules", ...packageName.split("/"));
+    return [packageName, existsSync(webLocal) ? webLocal : rootHoisted];
   }),
 );
 

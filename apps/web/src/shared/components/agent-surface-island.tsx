@@ -48,7 +48,7 @@ const GLASS_SHELL = cn(
   "border shadow-lg",
   "bg-background/50 text-foreground backdrop-blur-2xl backdrop-saturate-150",
   "border-border/50",
-  "dark:bg-background/40 dark:border-border/40",
+  "dark:border-border/40 dark:bg-background/40",
 );
 
 const MAX_HISTORY_ROWS = 100;
@@ -148,7 +148,7 @@ export function AgentSurfaceIsland({
   return (
     <div
       ref={islandRef}
-      className="pointer-events-none absolute bottom-4 right-4 z-[60] flex max-w-[min(100%,22rem)] flex-col items-end gap-2"
+      className="pointer-events-none absolute right-4 bottom-4 z-[60] flex max-w-[min(100%,22rem)] flex-col items-end gap-2"
     >
       <AnimatePresence>
         {expanded ? (
@@ -185,7 +185,7 @@ export function AgentSurfaceIsland({
           aria-label={isWorking ? copy.workingAria : copy.idleAria}
           onClick={() => setExpanded((v) => !v)}
           className={cn(
-            "flex h-8 max-w-[min(100%,20rem)] items-center gap-2 rounded-full py-0 pl-2.5 pr-3",
+            "flex h-8 max-w-[min(100%,20rem)] items-center gap-2 rounded-full py-0 pr-3 pl-2.5",
             "transition-[transform,box-shadow] duration-200 ease-out",
             "hover:scale-[1.02] active:scale-[0.98]",
             GLASS_SHELL,
@@ -326,7 +326,7 @@ function HistoryRow({
         </ImageCopyMenuHost>
       ) : null}
       <time
-        className="shrink-0 tabular-nums text-[10px] text-muted-foreground"
+        className="shrink-0 text-[10px] text-muted-foreground tabular-nums"
         dateTime={new Date(row.time).toISOString()}
       >
         {formatTime(row.time, locale)}
@@ -349,13 +349,7 @@ function isScreenshotRow(row: SummarizedFeedRow): boolean {
   return command === "screenshot" || command === "pt-screenshot";
 }
 
-function HistoryIcon({
-  className,
-  row,
-}: {
-  className?: string;
-  row: SummarizedFeedRow;
-}) {
+function HistoryIcon({ className, row }: { className?: string; row: SummarizedFeedRow }) {
   if (isScreenshotRow(row)) return <Camera className={className} aria-hidden />;
   if (row.label.includes("writing")) return <Type className={className} aria-hidden />;
 
@@ -393,7 +387,7 @@ function IslandStatusLabel({
   return (
     <span
       key={labelKey}
-      className="block max-w-[14rem] truncate whitespace-nowrap text-sm font-medium"
+      className="block max-w-[14rem] truncate text-sm font-medium whitespace-nowrap"
       aria-live="polite"
       aria-atomic
     >

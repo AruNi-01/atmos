@@ -25,13 +25,15 @@ describe("resolveAgentChatAttentionReason", () => {
   });
 
   it("returns task-complete when that is the only latch", () => {
-    expect(
-      resolveAgentChatAttentionReason("abc", panes([["chat:abc", "task_complete"]])),
-    ).toBe("task_complete");
+    expect(resolveAgentChatAttentionReason("abc", panes([["chat:abc", "task_complete"]]))).toBe(
+      "task_complete",
+    );
   });
 
   it("ignores drafts and empty ids", () => {
-    expect(resolveAgentChatAttentionReason("draft:xyz", panes([["draft:xyz", "task_complete"]]))).toBeNull();
+    expect(
+      resolveAgentChatAttentionReason("draft:xyz", panes([["draft:xyz", "task_complete"]])),
+    ).toBeNull();
     expect(resolveAgentChatAttentionReason("", panes([["chat:", "task_complete"]]))).toBeNull();
   });
 });

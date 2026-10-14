@@ -24,18 +24,10 @@ export function getSidebarPeekOverlayWidthPx(rootWidth: number, size: number) {
     return null;
   }
 
-  return Math.max(
-    SIDEBAR_PEEK_HIT_AREA_PX,
-    Math.round((rootWidth * size) / 100),
-  );
+  return Math.max(SIDEBAR_PEEK_HIT_AREA_PX, Math.round((rootWidth * size) / 100));
 }
 
-export function SidebarPeekShell({
-  side,
-  collapsed,
-  widthPx,
-  children,
-}: SidebarPeekShellProps) {
+export function SidebarPeekShell({ side, collapsed, widthPx, children }: SidebarPeekShellProps) {
   const {
     handleFocusLeave,
     handlePointerLeave,
@@ -97,8 +89,7 @@ export function SidebarPeekShell({
               : "translate-x-full peer-hover:translate-x-0 hover:translate-x-0"),
         )}
         style={{
-          width:
-            widthPx == null ? "min(360px, calc(100vw - 48px))" : `${widthPx}px`,
+          width: widthPx == null ? "min(360px, calc(100vw - 48px))" : `${widthPx}px`,
           ...peekInsetStyle,
         }}
         onPointerEnter={showPeek}

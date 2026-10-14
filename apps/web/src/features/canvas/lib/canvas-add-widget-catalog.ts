@@ -16,9 +16,7 @@ import { CANVAS_TERMINAL_DEFAULT_SIZE } from "@/features/canvas/lib/canvas-termi
 
 export const CANVAS_TERMINAL_ADD_ITEM_TYPE = "terminal" as const;
 
-export type AddableCanvasItemType =
-  | AddableCanvasWidgetType
-  | typeof CANVAS_TERMINAL_ADD_ITEM_TYPE;
+export type AddableCanvasItemType = AddableCanvasWidgetType | typeof CANVAS_TERMINAL_ADD_ITEM_TYPE;
 
 export const CANVAS_TERMINAL_ADD_ITEM = {
   group: "workspace" as const,
@@ -76,10 +74,7 @@ export function buildProjectContext(project: Project): CanvasContextRef {
   };
 }
 
-export function buildWorkspaceContext(
-  project: Project,
-  workspace: Workspace,
-): CanvasContextRef {
+export function buildWorkspaceContext(project: Project, workspace: Workspace): CanvasContextRef {
   return {
     contextScope: "workspace",
     projectId: project.id,
@@ -100,9 +95,7 @@ export function normalizeQuery(query: string): string {
   return query.trim().toLocaleLowerCase();
 }
 
-export function buildCanvasAddContextOptions(
-  projects: Project[],
-): CanvasAddContextOption[] {
+export function buildCanvasAddContextOptions(projects: Project[]): CanvasAddContextOption[] {
   return projects.flatMap((project) => {
     const projectOption: CanvasAddContextOption = {
       value: `project:${project.id}`,
@@ -113,34 +106,28 @@ export function buildCanvasAddContextOptions(
       projectName: project.name,
       path: project.mainFilePath,
       workspaceCount: project.workspaces.length,
-      searchText: buildSearchText([
-        project.name,
-        project.mainFilePath,
-        project.targetBranch ?? "",
-      ]),
+      searchText: buildSearchText([project.name, project.mainFilePath, project.targetBranch ?? ""]),
       context: buildProjectContext(project),
     };
-    const workspaceOptions = project.workspaces.map(
-      (workspace): CanvasAddContextOption => ({
-        value: `workspace:${workspace.id}`,
-        kind: "workspace",
-        label: workspace.displayName || workspace.name,
-        detail: `${project.name} / ${workspace.branch}`,
-        projectId: project.id,
-        projectName: project.name,
-        branch: workspace.branch,
-        path: workspace.localPath,
-        searchText: buildSearchText([
-          workspace.displayName ?? "",
-          workspace.name,
-          workspace.branch,
-          workspace.localPath,
-          project.name,
-          project.mainFilePath,
-        ]),
-        context: buildWorkspaceContext(project, workspace),
-      }),
-    );
+    const workspaceOptions = project.workspaces.map((workspace): CanvasAddContextOption => ({
+      value: `workspace:${workspace.id}`,
+      kind: "workspace",
+      label: workspace.displayName || workspace.name,
+      detail: `${project.name} / ${workspace.branch}`,
+      projectId: project.id,
+      projectName: project.name,
+      branch: workspace.branch,
+      path: workspace.localPath,
+      searchText: buildSearchText([
+        workspace.displayName ?? "",
+        workspace.name,
+        workspace.branch,
+        workspace.localPath,
+        project.name,
+        project.mainFilePath,
+      ]),
+      context: buildWorkspaceContext(project, workspace),
+    }));
     return [projectOption, ...workspaceOptions];
   });
 }

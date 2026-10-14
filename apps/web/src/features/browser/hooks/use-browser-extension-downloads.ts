@@ -107,7 +107,8 @@ export function useBrowserExtensionDownloads({
       toastManager.add({
         type: "success",
         title: "Extension package downloaded",
-        description: "Unzip atmos-inspector-extension.zip, then load the extracted folder in Chrome or Edge.",
+        description:
+          "Unzip atmos-inspector-extension.zip, then load the extracted folder in Chrome or Edge.",
       });
     } catch (error) {
       toastManager.add({

@@ -17,9 +17,7 @@ export function normalizeRelayUrl(value?: string | null): string {
   const trimmed = (value ?? "").trim();
   if (!trimmed) return DEFAULT_RELAY_URL;
 
-  const withProtocol = /^https?:\/\//i.test(trimmed)
-    ? trimmed
-    : `https://${trimmed}`;
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
   return stripTrailingSlashes(withProtocol);
 }
 

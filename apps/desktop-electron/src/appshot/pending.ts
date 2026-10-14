@@ -52,10 +52,7 @@ export type AutoAcceptState =
 export class PendingStore {
   private entries = new Map<string, PendingEntry>();
 
-  insert(
-    capture: PendingCapture,
-    nowMs: number = Date.now(),
-  ): { expiresInMs: number } {
+  insert(capture: PendingCapture, nowMs: number = Date.now()): { expiresInMs: number } {
     this.prune(nowMs);
     const blocked = capture.permissions.some(
       (p) =>
@@ -74,8 +71,7 @@ export class PendingStore {
     this.entries.set(capture.previewId, {
       capture,
       createdAtMs: nowMs,
-      expiresAtMs:
-        nowMs + (blocked ? BLOCKED_PENDING_TTL_MS : RECOVERABLE_PENDING_TTL_MS),
+      expiresAtMs: nowMs + (blocked ? BLOCKED_PENDING_TTL_MS : RECOVERABLE_PENDING_TTL_MS),
       blockedByPermissions: blocked,
       autoAcceptHeld: false,
       autoAcceptAfterMs: blocked
@@ -112,15 +108,11 @@ export class PendingStore {
     entry.autoAcceptHeld = held;
     if (!held) {
       const delay = Math.max(500, resumeInMs ?? PREVIEW_EXPIRES_IN_MS);
-      entry.autoAcceptAfterMs =
-        nowMs + delay + NATIVE_AUTO_ACCEPT_GRACE_MS;
+      entry.autoAcceptAfterMs = nowMs + delay + NATIVE_AUTO_ACCEPT_GRACE_MS;
     }
   }
 
-  autoAcceptState(
-    previewId: string,
-    nowMs: number = Date.now(),
-  ): AutoAcceptState {
+  autoAcceptState(previewId: string, nowMs: number = Date.now()): AutoAcceptState {
     this.prune(nowMs);
     const entry = this.entries.get(previewId);
     if (!entry) return { kind: "missing" };

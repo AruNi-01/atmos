@@ -30,12 +30,14 @@ Closes #00ddc1
 ## 主要变更文件
 
 **Frontend:**
+
 - `apps/web/src/components/dialogs/CreateWorkspaceDialog.tsx`
 - `apps/web/src/components/dialogs/ImportGithubIssuesDialog.tsx`
 - `apps/web/src/components/layout/sidebar/WorkspaceKanbanView.tsx`
 - `apps/web/src/api/ws-api.ts`
 
 **Backend:**
+
 - `crates/core-engine/src/github/mod.rs`
 - `crates/core-service/src/service/ws_message.rs`
 - `crates/infra/src/websocket/message.rs`

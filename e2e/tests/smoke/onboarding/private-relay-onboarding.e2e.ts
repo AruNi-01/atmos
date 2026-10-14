@@ -2,9 +2,7 @@ import { expect, test } from "../../../fixtures/test";
 import { expectHealthyRoute, stubOnboardingRelayNetwork } from "../support/app-smoke";
 
 test.describe("smoke onboarding private relay", () => {
-  test("@smoke expands private relay fields without saving remote settings", async ({
-    page,
-  }) => {
+  test("@smoke expands private relay fields without saving remote settings", async ({ page }) => {
     await stubOnboardingRelayNetwork(page);
     await expectHealthyRoute(page, "/setup");
 

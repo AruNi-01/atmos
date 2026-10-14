@@ -98,7 +98,11 @@ export function matchingTerminalEntryId(
   const byWindow = entries.find((entry) => {
     const windowName = entry.tmuxWindowName?.trim() ?? "";
     const workspaceId = entry.workspaceId?.trim() ?? "";
-    return windowName.length > 0 && workspaceId.length > 0 && requested === `${workspaceId}:${windowName}`;
+    return (
+      windowName.length > 0 &&
+      workspaceId.length > 0 &&
+      requested === `${workspaceId}:${windowName}`
+    );
   });
   return byWindow?.id ?? null;
 }
@@ -123,7 +127,7 @@ export function resolveActiveTerminalEntry(
   activeEntryId: string | null | undefined,
 ): MobileTerminalEntry | null {
   const nextActiveId = nextActiveTerminalEntryId(entries, activeEntryId);
-  return nextActiveId ? entries.find((entry) => entry.id === nextActiveId) ?? null : null;
+  return nextActiveId ? (entries.find((entry) => entry.id === nextActiveId) ?? null) : null;
 }
 
 export type TerminalGroupItem = {

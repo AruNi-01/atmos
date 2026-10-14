@@ -13,28 +13,28 @@ M1 spans a new Expo app plus existing Relay / Atmos WebSocket surfaces. We use u
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S19, S20 |
-| M2 | S1, S18 |
-| M3 | S2, S3, S4 |
-| M4 | S2, S5, S6 |
-| M5 | S7, S8 |
-| M6 | S8, S9, S10 |
-| M7 | S11, S12 |
-| M8 | S13, S14 |
-| M9 | S13, S15 |
-| M10 | S16 |
-| M11 | S16, S17 |
-| M12 | S18 |
-| M13 | S19 |
-| M14 | S20 |
-| M15 | S20, S21 |
-| M16 | S22 |
-| M17 | S23, S24, S25 |
-| M18 | S26, S27 |
-| M19 | S4 |
-| M20 | S28 |
+| PRD item | Scenario IDs  |
+| -------- | ------------- |
+| M1       | S1, S19, S20  |
+| M2       | S1, S18       |
+| M3       | S2, S3, S4    |
+| M4       | S2, S5, S6    |
+| M5       | S7, S8        |
+| M6       | S8, S9, S10   |
+| M7       | S11, S12      |
+| M8       | S13, S14      |
+| M9       | S13, S15      |
+| M10      | S16           |
+| M11      | S16, S17      |
+| M12      | S18           |
+| M13      | S19           |
+| M14      | S20           |
+| M15      | S20, S21      |
+| M16      | S22           |
+| M17      | S23, S24, S25 |
+| M18      | S26, S27      |
+| M19      | S4            |
+| M20      | S28           |
 
 ## Scenarios
 

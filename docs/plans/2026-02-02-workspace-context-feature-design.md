@@ -15,12 +15,14 @@
 ### 1.1 Context Info（紧凑两行）
 
 **有 Workspace 时**：
+
 ```
 Project: atmos    Workspace: feature-auth (🔀 feature/user-auth)
 Path: ~/projects/atmos/workspaces/..    Created: 2026-02-01 14:30
 ```
 
 **仅有 Project（main 分支开发）**：
+
 ```
 Project: atmos    Branch: 🔀 main
 Path: ~/projects/atmos
@@ -42,12 +44,14 @@ Path: ~/projects/atmos
   - `- [-] xxx` = CANCELLED
 
 **交互**:
+
 - 状态图标可点击切换
 - 双击文本可编辑
 - Hover 显示删除按钮
 - 底部 "Add Task" 按钮添加新任务
 
 **视觉**:
+
 - TODO: checkbox 空框图标
 - PROGRESS: 进行中图标（如 loader 或半填充）
 - DONE: checkbox 勾选图标，文本颜色变浅
@@ -66,6 +70,7 @@ Path: ~/projects/atmos
 - 刷新按钮在最右边
 
 **Agent Review 下拉选项**（UI 先实现，功能后续）:
+
 - 🤖 Code Agent Review
 - 🔗 Qodo
 - 🔗 Devin Review
@@ -81,6 +86,7 @@ Path: ~/projects/atmos
 ```
 
 **Define Requirements 步骤**:
+
 - 可选步骤，用户可跳过
 - 显示 Markdown 编辑器
 - 底部按钮: "Skip" 和 "Save & Continue"

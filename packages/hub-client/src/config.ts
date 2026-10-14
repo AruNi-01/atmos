@@ -32,9 +32,7 @@ export function hubBaseUrl(): string {
   // Convenience when apps have not bootstrapped yet (Next.js / Node).
   if (typeof process !== "undefined" && process.env) {
     const fromEnv =
-      process.env.NEXT_PUBLIC_ATMOS_HUB_URL?.trim() ||
-      process.env.ATMOS_HUB_URL?.trim() ||
-      "";
+      process.env.NEXT_PUBLIC_ATMOS_HUB_URL?.trim() || process.env.ATMOS_HUB_URL?.trim() || "";
     if (fromEnv) return normalizeBase(fromEnv);
   }
   return "";

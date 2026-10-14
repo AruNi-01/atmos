@@ -4,10 +4,7 @@ import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
-import {
-  CANVAS_TERMINAL_SHAPE_TYPE,
-  type CanvasTerminalShape,
-} from "./canvas-terminal-shape";
+import { CANVAS_TERMINAL_SHAPE_TYPE, type CanvasTerminalShape } from "./canvas-terminal-shape";
 import { extractCanvasTerminalText, formatCanvasTerminalForCopy } from "./canvas-terminal-copy";
 import type { TerminalRef } from "@/features/terminal/components/Terminal";
 
@@ -187,11 +184,7 @@ export function getSortedChildShapes(editor: Editor, parentId: TLShapeId): TLSha
   return shapes.filter((shape) => shape.parentId === parentId);
 }
 
-export function formatCanvasShapeBlock(
-  shape: TLShape,
-  body: string,
-  depth = 3,
-): string {
+export function formatCanvasShapeBlock(shape: TLShape, body: string, depth = 3): string {
   const header = shapeHeading(shape, depth);
   if (!body.trim()) {
     return `${header}\n${indentBodyLines(canvasShapeTextT("noTextContent"), depth)}`;
@@ -267,7 +260,9 @@ export async function formatShapeTextForCopyAsync(
           })
         ).text;
     const header = shapeHeading(shape, depth);
-    return body.trim() ? `${header}\n\n${body.trim()}` : `${header}\n${canvasShapeTextT("noTextContent")}`;
+    return body.trim()
+      ? `${header}\n\n${body.trim()}`
+      : `${header}\n${canvasShapeTextT("noTextContent")}`;
   }
 
   const body = plainTextFromShape(shape) ?? "";

@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  DEFAULT_CENTER_SPACE_ID,
-  makeCenterSpaceKey,
-} from "@/app-shell/center-space/center-space";
+import { DEFAULT_CENTER_SPACE_ID, makeCenterSpaceKey } from "@/app-shell/center-space/center-space";
 import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/lib/terminal-layout-document";
 import {
   findLiveResourceSessionLocation,
@@ -269,8 +266,6 @@ describe("findLiveResourceSessionLocation", () => {
       },
     };
     expect(findLiveResourceSessionLocation(panes, HOST, null)).toBeNull();
-    expect(findLiveResourceSessionLocation(panes, HOST, "sess-neighbor")?.paneId).toBe(
-      "neighbor",
-    );
+    expect(findLiveResourceSessionLocation(panes, HOST, "sess-neighbor")?.paneId).toBe("neighbor");
   });
 });

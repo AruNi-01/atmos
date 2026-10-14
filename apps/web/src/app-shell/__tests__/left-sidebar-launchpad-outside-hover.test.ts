@@ -2,10 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const launchpad = readFileSync(
-  join(import.meta.dir, "../LeftSidebarLaunchpad.tsx"),
-  "utf8",
-);
+const launchpad = readFileSync(join(import.meta.dir, "../LeftSidebarLaunchpad.tsx"), "utf8");
 
 describe("left sidebar outside launchpad hover", () => {
   it("drives animated icons from the whole row like settings sidebar", () => {
@@ -76,7 +73,7 @@ describe("left sidebar outside launchpad hover", () => {
   it("renders inside grid items as icons only", () => {
     const card = launchpad.slice(
       launchpad.indexOf("function LaunchpadCard"),
-      launchpad.lastIndexOf("TooltipContent side=\"bottom\""),
+      launchpad.lastIndexOf('TooltipContent side="bottom"'),
     );
     expect(card).toContain("justify-center");
     expect(card).toContain("aria-label={label}");
@@ -121,4 +118,3 @@ describe("left sidebar outside launchpad hover", () => {
     expect(launchpad).toContain("border-destructive");
   });
 });
-

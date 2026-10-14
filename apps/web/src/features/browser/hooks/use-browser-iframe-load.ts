@@ -3,10 +3,7 @@
 import { useCallback } from "react";
 import type { MutableRefObject, RefObject } from "react";
 
-import type {
-  BrowserBridgeController,
-  BrowserTransportMode,
-} from "../lib/browser-bridge/types";
+import type { BrowserBridgeController, BrowserTransportMode } from "../lib/browser-bridge/types";
 import {
   canonicalizeUrl,
   detectBrowserErrorDocument,
@@ -75,13 +72,14 @@ export function useBrowserIframeLoad({
     try {
       const iframeWindow = iframeRef.current?.contentWindow;
       const iframeDocument = iframeRef.current?.contentDocument;
-      const detectedError = iframeWindow && iframeDocument
-        ? detectBrowserErrorDocument(
-            iframeWindow.location.href || iframeSrc,
-            iframeDocument.title?.trim() ?? "",
-            iframeDocument.body?.innerText ?? "",
-          )
-        : null;
+      const detectedError =
+        iframeWindow && iframeDocument
+          ? detectBrowserErrorDocument(
+              iframeWindow.location.href || iframeSrc,
+              iframeDocument.title?.trim() ?? "",
+              iframeDocument.body?.innerText ?? "",
+            )
+          : null;
       setPreviewLoadError(detectedError);
       if (detectedError) {
         setCurrentPageTitle(detectedError.title);

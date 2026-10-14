@@ -1,41 +1,35 @@
-'use client';
+"use client";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type MutableRefObject,
-} from 'react';
-import { parseDiffFromFile } from '@pierre/diffs';
-import type { CodeViewItem, FileContents } from '@pierre/diffs';
-import type { CodeViewHandle } from '@pierre/diffs/react';
-import { useTranslations } from 'next-intl';
-import { toastManager } from '@workspace/ui';
-import { fsApi } from '@/api/ws-api';
-import { invalidateGitQueries } from '@/features/git/hooks/use-git-changed-files-query';
-import { useGitStore } from '@/features/git/store/use-git-store';
-import type { DiffChangeGroupKind } from '@/features/diff/lib/diff-editor-paths';
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
+import { parseDiffFromFile } from "@pierre/diffs";
+import type { CodeViewItem, FileContents } from "@pierre/diffs";
+import type { CodeViewHandle } from "@pierre/diffs/react";
+import { useTranslations } from "next-intl";
+import { toastManager } from "@workspace/ui";
+import { fsApi } from "@/api/ws-api";
+import { invalidateGitQueries } from "@/features/git/hooks/use-git-changed-files-query";
+import { useGitStore } from "@/features/git/store/use-git-store";
+import type { DiffChangeGroupKind } from "@/features/diff/lib/diff-editor-paths";
 import {
   diffSideCacheKey,
   getNextItemVersion,
   isBinaryAnnotation,
   type DiffListAnnotationMeta,
-} from '@/features/diff/lib/diff-code-view-shared';
-import type { LoadedDiffContents } from '@/features/diff/components/useDiffPromptStash';
+} from "@/features/diff/lib/diff-code-view-shared";
+import type { LoadedDiffContents } from "@/features/diff/components/useDiffPromptStash";
 
 /** Worktree change groups whose new side maps to a local file we can write. */
 export function isEditableWorktreeGroup(
   kind: DiffChangeGroupKind | null,
-): kind is 'staged' | 'unstaged' | 'untracked' {
-  return kind === 'staged' || kind === 'unstaged' || kind === 'untracked';
+): kind is "staged" | "unstaged" | "untracked" {
+  return kind === "staged" || kind === "unstaged" || kind === "untracked";
 }
 
 export function toAbsoluteRepoPath(repoPath: string, relativePath: string): string {
-  if (relativePath.startsWith('/')) {
+  if (relativePath.startsWith("/")) {
     return relativePath;
   }
-  const normalizedRepo = repoPath.endsWith('/') ? repoPath.slice(0, -1) : repoPath;
+  const normalizedRepo = repoPath.endsWith("/") ? repoPath.slice(0, -1) : repoPath;
   return `${normalizedRepo}/${relativePath}`;
 }
 
@@ -45,7 +39,7 @@ export function rebuildDiffItem(
   base: CodeViewItem<DiffListAnnotationMeta>,
   edit: boolean,
 ): CodeViewItem<DiffListAnnotationMeta> {
-  if (base.type !== 'diff') return base;
+  if (base.type !== "diff") return base;
   const fileDiff = parseDiffFromFile(
     {
       name: path,
@@ -91,7 +85,7 @@ export function useDiffWorktreeEdit({
   loadedContentsRef,
   resetKey,
 }: UseDiffWorktreeEditArgs) {
-  const t = useTranslations('diff.codeView');
+  const t = useTranslations("diff.codeView");
   const stageFiles = useGitStore((s) => s.stageFiles);
 
   const [editingPath, setEditingPath] = useState<string | null>(null);
@@ -113,19 +107,16 @@ export function useDiffWorktreeEdit({
 
   const canEditWorktree = isEditableWorktreeGroup(effectiveGroupKind);
 
-  const isBinaryItem = useCallback(
-    (item: CodeViewItem<DiffListAnnotationMeta> | undefined) => {
-      if (item == null || item.type !== 'diff') return true;
-      return item.annotations?.some((annotation) => isBinaryAnnotation(annotation)) ?? false;
-    },
-    [],
-  );
+  const isBinaryItem = useCallback((item: CodeViewItem<DiffListAnnotationMeta> | undefined) => {
+    if (item == null || item.type !== "diff") return true;
+    return item.annotations?.some((annotation) => isBinaryAnnotation(annotation)) ?? false;
+  }, []);
 
   const setItemEditMode = useCallback(
     (path: string, edit: boolean) => {
       const viewer = codeViewRef.current;
       const item = viewer?.getItem(path);
-      if (viewer == null || item == null || item.type !== 'diff') return false;
+      if (viewer == null || item == null || item.type !== "diff") return false;
       if (isBinaryItem(item)) return false;
       item.edit = edit;
       item.collapsed = false;
@@ -143,9 +134,9 @@ export function useDiffWorktreeEdit({
       if (currentEditing && currentEditing !== path) {
         if (isEditDirtyRef.current) {
           toastManager.add({
-            title: t('edit.unsavedTitle'),
-            description: t('edit.unsavedDescription'),
-            type: 'error',
+            title: t("edit.unsavedTitle"),
+            description: t("edit.unsavedDescription"),
+            type: "error",
           });
           return;
         }
@@ -153,7 +144,7 @@ export function useDiffWorktreeEdit({
         draftContentsRef.current.delete(currentEditing);
       }
       if (!setItemEditMode(path, true)) return;
-      const original = loadedContentsRef.current.get(path)?.newContent ?? '';
+      const original = loadedContentsRef.current.get(path)?.newContent ?? "";
       draftContentsRef.current.set(path, original);
       setEditingPath(path);
       setIsEditDirty(false);
@@ -179,7 +170,7 @@ export function useDiffWorktreeEdit({
     const viewer = codeViewRef.current;
     const item = viewer?.getItem(path);
     const original = loadedContentsRef.current.get(path);
-    if (viewer == null || item == null || item.type !== 'diff' || original == null) {
+    if (viewer == null || item == null || item.type !== "diff" || original == null) {
       return;
     }
     // End the session then re-open so the editor document is rebuilt from the
@@ -197,8 +188,7 @@ export function useDiffWorktreeEdit({
     const path = editingPathRef.current;
     if (path == null || isSavingEditRef.current) return;
     const draft =
-      draftContentsRef.current.get(path) ??
-      loadedContentsRef.current.get(path)?.newContent;
+      draftContentsRef.current.get(path) ?? loadedContentsRef.current.get(path)?.newContent;
     if (draft == null) return;
 
     isSavingEditRef.current = true;
@@ -206,12 +196,12 @@ export function useDiffWorktreeEdit({
     try {
       const absolutePath = toAbsoluteRepoPath(repoPath, path);
       await fsApi.writeFile(absolutePath, draft);
-      if (effectiveGroupKind === 'staged') {
+      if (effectiveGroupKind === "staged") {
         await stageFiles([path]);
       }
       const previous = loadedContentsRef.current.get(path);
       loadedContentsRef.current.set(path, {
-        oldContent: previous?.oldContent ?? '',
+        oldContent: previous?.oldContent ?? "",
         newContent: draft,
       });
       draftContentsRef.current.set(path, draft);
@@ -219,7 +209,7 @@ export function useDiffWorktreeEdit({
       const viewer = codeViewRef.current;
       const item = viewer?.getItem(path);
       const contents = loadedContentsRef.current.get(path);
-      if (viewer != null && item != null && item.type === 'diff' && contents != null) {
+      if (viewer != null && item != null && item.type === "diff" && contents != null) {
         viewer.updateItem(rebuildDiffItem(path, contents, item, false));
       }
 
@@ -229,23 +219,15 @@ export function useDiffWorktreeEdit({
       await invalidateGitQueries(repoPath);
     } catch (error) {
       toastManager.add({
-        title: t('edit.saveFailedTitle'),
-        description:
-          error instanceof Error ? error.message : t('edit.saveFailedFallback'),
-        type: 'error',
+        title: t("edit.saveFailedTitle"),
+        description: error instanceof Error ? error.message : t("edit.saveFailedFallback"),
+        type: "error",
       });
     } finally {
       isSavingEditRef.current = false;
       setIsSavingEdit(false);
     }
-  }, [
-    codeViewRef,
-    effectiveGroupKind,
-    loadedContentsRef,
-    repoPath,
-    stageFiles,
-    t,
-  ]);
+  }, [codeViewRef, effectiveGroupKind, loadedContentsRef, repoPath, stageFiles, t]);
 
   const handleEditButtonClick = useCallback(() => {
     if (editingPath != null) {
@@ -259,18 +241,11 @@ export function useDiffWorktreeEdit({
     if (selectedPath) {
       handleEnterEdit(selectedPath);
     }
-  }, [
-    editingPath,
-    handleEnterEdit,
-    handleExitEdit,
-    handleSaveEdit,
-    isEditDirty,
-    selectedPath,
-  ]);
+  }, [editingPath, handleEnterEdit, handleExitEdit, handleSaveEdit, isEditDirty, selectedPath]);
 
   const handleItemEditChange = useCallback(
     (item: CodeViewItem<DiffListAnnotationMeta>, file: FileContents) => {
-      const original = loadedContentsRef.current.get(item.id)?.newContent ?? '';
+      const original = loadedContentsRef.current.get(item.id)?.newContent ?? "";
       draftContentsRef.current.set(item.id, file.contents);
       if (editingPathRef.current === item.id) {
         setIsEditDirty(file.contents !== original);
@@ -283,7 +258,7 @@ export function useDiffWorktreeEdit({
   useEffect(() => {
     if (!canEditWorktree || editingPath == null) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's') {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "s") {
         return;
       }
       event.preventDefault();
@@ -291,8 +266,8 @@ export function useDiffWorktreeEdit({
       if (!isEditDirtyRef.current) return;
       void handleSaveEdit();
     };
-    window.addEventListener('keydown', onKeyDown, true);
-    return () => window.removeEventListener('keydown', onKeyDown, true);
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [canEditWorktree, editingPath, handleSaveEdit]);
 
   // Drop edit session when the group reloads or leaves worktree mode.

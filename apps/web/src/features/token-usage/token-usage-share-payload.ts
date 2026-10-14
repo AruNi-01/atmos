@@ -58,10 +58,7 @@ export type TokenUsageSharePayload = {
   by_day: TokenUsageShareDay[];
 };
 
-function topKeys(
-  totals: Map<string, number>,
-  extra: Iterable<string> = [],
-): Set<string> {
+function topKeys(totals: Map<string, number>, extra: Iterable<string> = []): Set<string> {
   const ranked = [...totals.entries()]
     .filter(([id]) => id !== "other")
     .sort((a, b) => b[1] - a[1])
@@ -87,9 +84,7 @@ function collapseDims(
       kept.set(row.id, {
         id: row.id,
         total_tokens: (prev?.total_tokens ?? 0) + row.total_tokens,
-        ...(includeCost
-          ? { cost_usd: (prev?.cost_usd ?? 0) + (row.cost_usd ?? 0) }
-          : {}),
+        ...(includeCost ? { cost_usd: (prev?.cost_usd ?? 0) + (row.cost_usd ?? 0) } : {}),
       });
     } else {
       otherTokens += row.total_tokens;
@@ -236,12 +231,9 @@ export function mapOverviewToSharePayload(
       range_end: overview.summary.range_end,
       client_count: overview.by_client?.length ?? 0,
       model_count: modelIds.size,
-      ...(includeCost
-        ? { total_cost_usd: overview.summary.total_cost_usd ?? 0 }
-        : {}),
+      ...(includeCost ? { total_cost_usd: overview.summary.total_cost_usd ?? 0 } : {}),
       mix,
-      ...(typeof overview.computer_count === "number" &&
-      overview.computer_count > 1
+      ...(typeof overview.computer_count === "number" && overview.computer_count > 1
         ? { computer_count: Math.floor(overview.computer_count) }
         : {}),
     },
@@ -262,10 +254,7 @@ function emptyBreakdown() {
   };
 }
 
-function residualTokens(
-  rows: Array<{ total_tokens: number }>,
-  total: number,
-): number {
+function residualTokens(rows: Array<{ total_tokens: number }>, total: number): number {
   const sum = rows.reduce((acc, row) => acc + row.total_tokens, 0);
   return Math.max(0, total - sum);
 }
@@ -276,9 +265,7 @@ export function inflateSharePayload(
   dimension: "agent" | "model",
 ): TokenUsageOverviewResponse {
   const years = [
-    ...new Set(
-      payload.by_day.map((d) => d.date.slice(0, 4)).filter((y) => y.length === 4),
-    ),
+    ...new Set(payload.by_day.map((d) => d.date.slice(0, 4)).filter((y) => y.length === 4)),
   ].sort();
 
   return {
@@ -304,10 +291,7 @@ export function inflateSharePayload(
         ? [
             {
               client_id: "other",
-              total_tokens: residualTokens(
-                payload.by_client,
-                payload.summary.total_tokens,
-              ),
+              total_tokens: residualTokens(payload.by_client, payload.summary.total_tokens),
               total_cost_usd: null,
               message_count: 0,
               model_count: 0,
@@ -340,10 +324,7 @@ export function inflateSharePayload(
               cache_read_tokens: 0,
               cache_write_tokens: 0,
               reasoning_tokens: 0,
-              total_tokens: residualTokens(
-                payload.by_model,
-                payload.summary.total_tokens,
-              ),
+              total_tokens: residualTokens(payload.by_model, payload.summary.total_tokens),
               cost_usd: null,
               message_count: 0,
             },
@@ -370,8 +351,7 @@ export function inflateSharePayload(
           model_id: dimension === "model" ? row.id : "",
           provider_id:
             dimension === "model"
-              ? (payload.by_model.find((m) => m.id === row.id)?.provider_id ??
-                "")
+              ? (payload.by_model.find((m) => m.id === row.id)?.provider_id ?? "")
               : "",
           breakdown: emptyBreakdown(),
           total_tokens: row.total_tokens,

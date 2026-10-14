@@ -4,13 +4,7 @@ import { colors } from "@/theme/colors";
 import { TerminalIcon } from "@/ui/icons/lucide-native";
 
 /** Centered terminal heading: agent icon plus the broadcast session title. */
-export function TerminalHeadingTitle({
-  agentId,
-  title,
-}: {
-  agentId?: string;
-  title: string;
-}) {
+export function TerminalHeadingTitle({ agentId, title }: { agentId?: string; title: string }) {
   const { width } = useWindowDimensions();
   const maxWidth = Math.max(120, width - 168);
 

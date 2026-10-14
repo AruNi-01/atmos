@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { BreakoutErrorPage } from '@/shared/components/breakout-error-page';
+import { useEffect } from "react";
+import { BreakoutErrorPage } from "@/shared/components/breakout-error-page";
 
 export default function AppError({
   error,
@@ -11,7 +11,7 @@ export default function AppError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error('[AppError]', error);
+    console.error("[AppError]", error);
   }, [error]);
 
   return (

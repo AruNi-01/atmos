@@ -55,11 +55,7 @@ async function desktopCmdAvailable(): Promise<boolean> {
 }
 
 function snapshotIdentity(snapshot: AgentChatSessionHandoffSnapshot): string {
-  return [
-    snapshot.contextKey,
-    snapshot.chatId ?? "",
-    String(snapshot.updatedAt),
-  ].join(":");
+  return [snapshot.contextKey, snapshot.chatId ?? "", String(snapshot.updatedAt)].join(":");
 }
 
 export function getAgentChatSessionHandoffIdentity(
@@ -118,9 +114,11 @@ function publishHandoffEvent(event: Omit<AgentChatSessionHandoffEvent, "sourceId
     sourceId: SOURCE_ID,
     at: Date.now(),
   };
-  const BroadcastChannelCtor = (window as Window & {
-    BroadcastChannel?: typeof BroadcastChannel;
-  }).BroadcastChannel;
+  const BroadcastChannelCtor = (
+    window as Window & {
+      BroadcastChannel?: typeof BroadcastChannel;
+    }
+  ).BroadcastChannel;
   if (BroadcastChannelCtor) {
     const channel = new BroadcastChannelCtor(CHANNEL_NAME);
     channel.postMessage(payload);
@@ -195,7 +193,9 @@ export async function readAgentChatSessionHandoff(
   if (!raw) return null;
 
   try {
-    const parsed = JSON.parse(raw) as AgentChatSessionHandoffSnapshot | AgentChatSessionHandoffEvent;
+    const parsed = JSON.parse(raw) as
+      | AgentChatSessionHandoffSnapshot
+      | AgentChatSessionHandoffEvent;
     if ("token" in parsed && parsed.token && isDesktopRuntime()) {
       return readAgentChatSessionHandoff(contextKey, expectedChatId, parsed.token);
     }
@@ -215,9 +215,11 @@ export function subscribeAgentChatSessionHandoff(
   if (!canUseWindow()) return () => {};
 
   let channel: BroadcastChannel | null = null;
-  const BroadcastChannelCtor = (window as Window & {
-    BroadcastChannel?: typeof BroadcastChannel;
-  }).BroadcastChannel;
+  const BroadcastChannelCtor = (
+    window as Window & {
+      BroadcastChannel?: typeof BroadcastChannel;
+    }
+  ).BroadcastChannel;
   if (BroadcastChannelCtor) {
     channel = new BroadcastChannelCtor(CHANNEL_NAME);
     channel.addEventListener("message", (event) => {

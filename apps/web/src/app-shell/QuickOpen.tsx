@@ -1,6 +1,6 @@
-import React from 'react';
-import { Command } from 'lucide-react';
-import { useHotkeys } from 'react-hotkeys-hook';
+import React from "react";
+import { Command } from "lucide-react";
+import { useHotkeys } from "react-hotkeys-hook";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,36 +15,33 @@ import {
   Blocks,
   toastManager,
   cn,
-} from '@workspace/ui';
+} from "@workspace/ui";
 
-import { useEffect, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 
-import { fsApi, appApi } from '@/api/ws-api';
-import { Workspace } from '@/shared/types/domain';
+import { fsApi, appApi } from "@/api/ws-api";
+import { Workspace } from "@/shared/types/domain";
 import {
   getQuickOpenAppsByGroup,
   QUICK_OPEN_APP_MAP,
   QuickOpenAppIcon,
   type QuickOpenAppName,
-} from '@/app-shell/quick-open-apps';
+} from "@/app-shell/quick-open-apps";
 
 interface QuickOpenProps {
   workspace?: Workspace | null;
   path?: string | null;
 }
 
-import { readQuickOpenLastUsed, writeQuickOpenLastUsed } from '@/shared/stores/use-ui-pref-hooks';
-import {
-  HEADER_CHIP_HOVER_CLASS,
-  HEADER_CHIP_SURFACE_CLASS,
-} from '@/app-shell/header-parts';
+import { readQuickOpenLastUsed, writeQuickOpenLastUsed } from "@/shared/stores/use-ui-pref-hooks";
+import { HEADER_CHIP_HOVER_CLASS, HEADER_CHIP_SURFACE_CLASS } from "@/app-shell/header-parts";
 
 export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
-  const t = useTranslations('appShell');
+  const t = useTranslations("appShell");
 
-  const [lastUsedApp, setLastUsedApp] = useState<QuickOpenAppName>('Finder');
-  const [homeDir, setHomeDir] = useState<string>('');
+  const [lastUsedApp, setLastUsedApp] = useState<QuickOpenAppName>("Finder");
+  const [homeDir, setHomeDir] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -56,7 +53,7 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
       setLastUsedApp(saved as QuickOpenAppName);
     }
 
-    fsApi.getHomeDir().then(dir => {
+    fsApi.getHomeDir().then((dir) => {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setHomeDir(dir);
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -64,32 +61,33 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
     });
   }, []);
 
-
-
   const getWorktreePath = React.useCallback(() => {
     if (path) return path;
     if (workspace) return workspace.localPath;
-    return '';
+    return "";
   }, [path, workspace]);
 
-  const handleOpenApp = React.useCallback(async (appName: QuickOpenAppName) => {
-    // Save to local storage
-    writeQuickOpenLastUsed(appName);
-    setLastUsedApp(appName);
+  const handleOpenApp = React.useCallback(
+    async (appName: QuickOpenAppName) => {
+      // Save to local storage
+      writeQuickOpenLastUsed(appName);
+      setLastUsedApp(appName);
 
-    const path = getWorktreePath();
-    if (!path) return;
+      const path = getWorktreePath();
+      if (!path) return;
 
-    try {
-      await appApi.openWith(appName, path);
-    } catch (error) {
-      toastManager.add({
-        title: t('quickOpen.failedToOpen'),
-        description: error instanceof Error ? error.message : t('quickOpen.unknownError'),
-        type: 'error'
-      });
-    }
-  }, [getWorktreePath, t]);
+      try {
+        await appApi.openWith(appName, path);
+      } catch (error) {
+        toastManager.add({
+          title: t("quickOpen.failedToOpen"),
+          description: error instanceof Error ? error.message : t("quickOpen.unknownError"),
+          type: "error",
+        });
+      }
+    },
+    [getWorktreePath, t],
+  );
 
   const handleMainClick = React.useCallback(() => {
     handleOpenApp(lastUsedApp);
@@ -107,26 +105,26 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
   useEffect(() => {
     const handleQuickOpenHotkey = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
-      if (event.key.toLowerCase() !== 'o' && event.code !== 'KeyO') return;
+      if (event.key.toLowerCase() !== "o" && event.code !== "KeyO") return;
       event.preventDefault();
       event.stopImmediatePropagation();
       handleMainClick();
     };
 
-    window.addEventListener('keydown', handleQuickOpenHotkey, { capture: true });
+    window.addEventListener("keydown", handleQuickOpenHotkey, { capture: true });
     return () => {
-      window.removeEventListener('keydown', handleQuickOpenHotkey, { capture: true });
+      window.removeEventListener("keydown", handleQuickOpenHotkey, { capture: true });
     };
   }, [handleMainClick]);
 
-  const currentApp = QUICK_OPEN_APP_MAP[lastUsedApp] || QUICK_OPEN_APP_MAP['Finder'];
-  const CurrentLabel = currentApp?.label || t('quickOpen.open');
+  const currentApp = QUICK_OPEN_APP_MAP[lastUsedApp] || QUICK_OPEN_APP_MAP["Finder"];
+  const CurrentLabel = currentApp?.label || t("quickOpen.open");
 
-  useHotkeys('mod+o', handleMainClick, {
+  useHotkeys("mod+o", handleMainClick, {
     enableOnContentEditable: true,
     enableOnFormTags: true,
     preventDefault: true,
-    description: t('quickOpen.hotkeyDescription', { app: CurrentLabel })
+    description: t("quickOpen.hotkeyDescription", { app: CurrentLabel }),
   });
 
   return (
@@ -136,55 +134,95 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
         HEADER_CHIP_SURFACE_CLASS,
         HEADER_CHIP_HOVER_CLASS,
       )}
-      onMouseLeave={() => { if (!isDropdownOpen) setIsExpanded(false); }}
+      onMouseLeave={() => {
+        if (!isDropdownOpen) setIsExpanded(false);
+      }}
     >
       {/* Main Action Button */}
       <button
         onClick={handleMainClick}
         onMouseEnter={() => setIsExpanded(true)}
         className="flex h-full items-center overflow-hidden rounded-l-md border-r border-border/50 px-2 outline-none hover:cursor-pointer hover:bg-accent"
-        title={t('quickOpen.openWithShortcut', { app: CurrentLabel })}
+        title={t("quickOpen.openWithShortcut", { app: CurrentLabel })}
       >
         <span className="flex size-4 shrink-0 items-center justify-center">
-          <QuickOpenAppIcon iconName={currentApp.iconName} themed={currentApp.themed} className="size-3.5" />
+          <QuickOpenAppIcon
+            iconName={currentApp.iconName}
+            themed={currentApp.themed}
+            className="size-3.5"
+          />
         </span>
-        <span className={`ml-0 overflow-hidden whitespace-nowrap text-[13px] font-medium text-muted-foreground transition-all duration-200 ease-out ${isExpanded ? 'ml-2 max-w-24 opacity-100 text-foreground' : 'max-w-0 opacity-0'}`}>
-          {t('quickOpen.open')}
+        <span
+          className={`ml-0 overflow-hidden text-[13px] font-medium whitespace-nowrap text-muted-foreground transition-all duration-200 ease-out ${isExpanded ? "ml-2 max-w-24 text-foreground opacity-100" : "max-w-0 opacity-0"}`}
+        >
+          {t("quickOpen.open")}
         </span>
-        <kbd className={`pointer-events-none hidden h-4 select-none items-center gap-1 overflow-hidden rounded border bg-muted font-mono text-[10px] font-medium text-foreground/90 transition-all duration-200 ease-out sm:flex ${isExpanded ? 'ml-2 max-w-16 px-1.5 opacity-100' : 'ml-0 max-w-0 px-0 opacity-0'}`}>
-          <Command className="size-3" /><span className="text-xs">O</span>
+        <kbd
+          className={`pointer-events-none hidden h-4 items-center gap-1 overflow-hidden rounded border bg-muted font-mono text-[10px] font-medium text-foreground/90 transition-all duration-200 ease-out select-none sm:flex ${isExpanded ? "ml-2 max-w-16 px-1.5 opacity-100" : "ml-0 max-w-0 px-0 opacity-0"}`}
+        >
+          <Command className="size-3" />
+          <span className="text-xs">O</span>
         </kbd>
       </button>
 
       {/* Dropdown Trigger */}
-      <DropdownMenu onOpenChange={(open) => { setIsDropdownOpen(open); if (!open) setIsExpanded(false); }}>
+      <DropdownMenu
+        onOpenChange={(open) => {
+          setIsDropdownOpen(open);
+          if (!open) setIsExpanded(false);
+        }}
+      >
         <DropdownMenuTrigger asChild>
           <button className="flex h-full items-center justify-center rounded-r-md px-1.5 outline-none hover:bg-accent">
             <ChevronDown className="size-3 shrink-0 text-muted-foreground opacity-60 transition-opacity hover:opacity-100" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
-          {getQuickOpenAppsByGroup('system').map((app) => (
-            <DropdownMenuItem key={app.name} className="cursor-pointer" onClick={() => handleOpenApp(app.name)}>
-              <QuickOpenAppIcon iconName={app.iconName} themed={app.themed} className="mr-2 size-4" />
+          {getQuickOpenAppsByGroup("system").map((app) => (
+            <DropdownMenuItem
+              key={app.name}
+              className="cursor-pointer"
+              onClick={() => handleOpenApp(app.name)}
+            >
+              <QuickOpenAppIcon
+                iconName={app.iconName}
+                themed={app.themed}
+                className="mr-2 size-4"
+              />
               <span>{app.label}</span>
             </DropdownMenuItem>
           ))}
 
           <DropdownMenuSeparator />
 
-          {getQuickOpenAppsByGroup('editors').map((app) => (
-            <DropdownMenuItem key={app.name} className="cursor-pointer" onClick={() => handleOpenApp(app.name)}>
-              <QuickOpenAppIcon iconName={app.iconName} themed={app.themed} className="mr-2 size-4" />
+          {getQuickOpenAppsByGroup("editors").map((app) => (
+            <DropdownMenuItem
+              key={app.name}
+              className="cursor-pointer"
+              onClick={() => handleOpenApp(app.name)}
+            >
+              <QuickOpenAppIcon
+                iconName={app.iconName}
+                themed={app.themed}
+                className="mr-2 size-4"
+              />
               <span>{app.label}</span>
             </DropdownMenuItem>
           ))}
 
           <DropdownMenuSeparator />
 
-          {getQuickOpenAppsByGroup('terminals').map((app) => (
-            <DropdownMenuItem key={app.name} className="cursor-pointer" onClick={() => handleOpenApp(app.name)}>
-              <QuickOpenAppIcon iconName={app.iconName} themed={app.themed} className="mr-2 size-4" />
+          {getQuickOpenAppsByGroup("terminals").map((app) => (
+            <DropdownMenuItem
+              key={app.name}
+              className="cursor-pointer"
+              onClick={() => handleOpenApp(app.name)}
+            >
+              <QuickOpenAppIcon
+                iconName={app.iconName}
+                themed={app.themed}
+                className="mr-2 size-4"
+              />
               <span>{app.label}</span>
             </DropdownMenuItem>
           ))}
@@ -194,12 +232,20 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
           <DropdownMenuSub>
             <DropdownMenuSubTrigger className="cursor-pointer">
               <QuickOpenAppIcon iconName="vscode" className="mr-2 size-4" />
-              <span>{t('quickOpen.vsCode')}</span>
+              <span>{t("quickOpen.vsCode")}</span>
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
-              {getQuickOpenAppsByGroup('vscode').map((app) => (
-                <DropdownMenuItem key={app.name} className="cursor-pointer" onClick={() => handleOpenApp(app.name)}>
-                  <QuickOpenAppIcon iconName={app.iconName} themed={app.themed} className="mr-2 size-4" />
+              {getQuickOpenAppsByGroup("vscode").map((app) => (
+                <DropdownMenuItem
+                  key={app.name}
+                  className="cursor-pointer"
+                  onClick={() => handleOpenApp(app.name)}
+                >
+                  <QuickOpenAppIcon
+                    iconName={app.iconName}
+                    themed={app.themed}
+                    className="mr-2 size-4"
+                  />
                   <span>{app.label}</span>
                 </DropdownMenuItem>
               ))}
@@ -209,13 +255,21 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
           <DropdownMenuSub>
             <DropdownMenuSubTrigger className="cursor-pointer">
               <QuickOpenAppIcon iconName="jet_brains" className="mr-2 size-4" />
-              <span>{t('quickOpen.jetbrains')}</span>
+              <span>{t("quickOpen.jetbrains")}</span>
             </DropdownMenuSubTrigger>
 
             <DropdownMenuSubContent>
-              {getQuickOpenAppsByGroup('jetbrains').map((app) => (
-                <DropdownMenuItem key={app.name} className="cursor-pointer" onClick={() => handleOpenApp(app.name)}>
-                  <QuickOpenAppIcon iconName={app.iconName} themed={app.themed} className="mr-2 size-4" />
+              {getQuickOpenAppsByGroup("jetbrains").map((app) => (
+                <DropdownMenuItem
+                  key={app.name}
+                  className="cursor-pointer"
+                  onClick={() => handleOpenApp(app.name)}
+                >
+                  <QuickOpenAppIcon
+                    iconName={app.iconName}
+                    themed={app.themed}
+                    className="mr-2 size-4"
+                  />
                   <span>{app.label}</span>
                 </DropdownMenuItem>
               ))}
@@ -226,9 +280,8 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
 
           <DropdownMenuItem className="cursor-pointer" onClick={handleCopyPath}>
             <Copy className="mr-2 size-4" />
-            <span>{t('quickOpen.copyPath')}</span>
+            <span>{t("quickOpen.copyPath")}</span>
           </DropdownMenuItem>
-
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

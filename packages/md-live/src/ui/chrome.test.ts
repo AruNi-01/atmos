@@ -247,7 +247,9 @@ describe("md-live ui chrome", () => {
     expect(css).toMatch(/\.md-live \.editor table \{[^}]*width: 100%;[^}]*table-layout: fixed/s);
     expect(css).toContain("border-bottom: 1px solid rgb(228 228 231)");
     expect(css).toContain(".md-live .editor tr:last-child td");
-    expect(css).not.toMatch(/\.md-live \.editor th,\n\.md-live \.editor td \{\n  padding: .*;\n  border: 1px solid/);
+    expect(css).not.toMatch(
+      /\.md-live \.editor th,\n\.md-live \.editor td \{\n  padding: .*;\n  border: 1px solid/,
+    );
   });
 
   test("overlay selector ignores clicks outside hosts", () => {

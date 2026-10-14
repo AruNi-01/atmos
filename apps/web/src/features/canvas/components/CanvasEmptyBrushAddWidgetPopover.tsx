@@ -2,16 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import {
-  Check,
-  ChevronsUpDown,
-  Folder,
-  FolderGit2,
-  Loader2,
-  Plus,
-  Search,
-  X,
-} from "lucide-react";
+import { Check, ChevronsUpDown, Folder, FolderGit2, Loader2, Plus, Search, X } from "lucide-react";
 import type { Editor, TLShapeId } from "tldraw";
 import {
   Button,
@@ -98,9 +89,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
   const [contextQuery, setContextQuery] = React.useState("");
   const [componentQuery, setComponentQuery] = React.useState("");
   const [isAdding, setIsAdding] = React.useState(false);
-  const [viewportRect, setViewportRect] = React.useState(() =>
-    rectToViewportStyle(editor, region),
-  );
+  const [viewportRect, setViewportRect] = React.useState(() => rectToViewportStyle(editor, region));
   const componentSearchRef = React.useRef<HTMLInputElement | null>(null);
   const contextSearchRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -143,10 +132,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
     return cleanup;
   }, [editor, region]);
 
-  const contextOptions = React.useMemo(
-    () => buildCanvasAddContextOptions(projects),
-    [projects],
-  );
+  const contextOptions = React.useMemo(() => buildCanvasAddContextOptions(projects), [projects]);
   const selectedContext = contextOptions.find((option) => option.value === selectedContextValue);
   const frameId = React.useMemo(
     () => findFrameContainingPageRect(editor, region),
@@ -155,7 +141,9 @@ export function CanvasEmptyBrushAddWidgetPopover({
 
   const getEntryLabel = React.useCallback(
     (type: AddableCanvasItemType) =>
-      type === CANVAS_TERMINAL_ADD_ITEM_TYPE ? t("terminal.label") : getCanvasAddItemEntry(type).label,
+      type === CANVAS_TERMINAL_ADD_ITEM_TYPE
+        ? t("terminal.label")
+        : getCanvasAddItemEntry(type).label,
     [t],
   );
   const getEntryDescription = React.useCallback(
@@ -189,9 +177,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
   const groupedItemTypes = React.useMemo(() => {
     return CANVAS_WIDGET_GROUPS.map((group) => ({
       group,
-      itemTypes: filteredItemTypes.filter(
-        (type) => getCanvasAddItemEntry(type).group === group.id,
-      ),
+      itemTypes: filteredItemTypes.filter((type) => getCanvasAddItemEntry(type).group === group.id),
     })).filter((entry) => entry.itemTypes.length > 0);
   }, [filteredItemTypes]);
 
@@ -261,7 +247,11 @@ export function CanvasEmptyBrushAddWidgetPopover({
     setContextPickerOpen(false);
     setContextQuery("");
     // Match main Add Widget: without context, context-bound widgets are unselectable.
-    if (value == null && selectedItemType && getCanvasAddItemEntry(selectedItemType).requiresContext) {
+    if (
+      value == null &&
+      selectedItemType &&
+      getCanvasAddItemEntry(selectedItemType).requiresContext
+    ) {
       setSelectedItemType(null);
     }
   };
@@ -272,7 +262,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
         <div
           className={cn(
             "pointer-events-none absolute rounded-md border border-dashed border-primary/55 bg-primary/5",
-            "animate-in fade-in-0 zoom-in-95 duration-150",
+            "animate-in duration-150 fade-in-0 zoom-in-95",
           )}
           style={{
             left: viewportRect.left,
@@ -288,8 +278,8 @@ export function CanvasEmptyBrushAddWidgetPopover({
         className={cn(
           "absolute inset-0 flex items-center justify-center p-4 transition-[opacity,transform] duration-200 ease-out",
           open
-            ? "pointer-events-none opacity-100 scale-100"
-            : "pointer-events-none opacity-0 scale-95",
+            ? "pointer-events-none scale-100 opacity-100"
+            : "pointer-events-none scale-95 opacity-0",
         )}
       >
         <div
@@ -297,7 +287,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
           aria-modal="true"
           aria-label={tEmpty("title")}
           className={cn(
-            "pointer-events-auto flex w-[min(32rem,calc(100vw-1.5rem))] max-h-[min(40rem,calc(100vh-1.5rem))] flex-col overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-md outline-none",
+            "pointer-events-auto flex max-h-[min(40rem,calc(100vh-1.5rem))] w-[min(32rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-md outline-none",
           )}
           onPointerDown={(event) => event.stopPropagation()}
         >
@@ -307,7 +297,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
                 <Plus className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="truncate">{tEmpty("title")}</span>
               </div>
-              <div className="mt-1 text-xs tabular-nums text-muted-foreground">
+              <div className="mt-1 text-xs text-muted-foreground tabular-nums">
                 {tEmpty("sizeHint", {
                   width: Math.round(region.w),
                   height: Math.round(region.h),
@@ -324,7 +314,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
             </button>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 [scrollbar-gutter:stable]">
+          <div className="min-h-0 flex-1 [scrollbar-gutter:stable] space-y-4 overflow-y-auto overscroll-contain p-4">
             <section className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="text-xs font-medium text-muted-foreground">
@@ -341,7 +331,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
                     type="button"
                     className={cn(
                       "flex min-h-11 w-full items-center gap-2.5 rounded-md border border-border/70 bg-muted/35 px-3 py-2 text-left",
-                      "hover:border-foreground/30 hover:bg-accent/60 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
+                      "hover:border-foreground/30 hover:bg-accent/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:outline-none",
                     )}
                   >
                     <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/70 bg-muted/50">
@@ -360,9 +350,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
                             : tEmpty("contextButtonPlaceholder")}
                       </span>
                       <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-                        {selectedContext
-                          ? selectedContext.detail
-                          : tEmpty("contextButtonHint")}
+                        {selectedContext ? selectedContext.detail : tEmpty("contextButtonHint")}
                       </span>
                     </span>
                     <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
@@ -377,13 +365,13 @@ export function CanvasEmptyBrushAddWidgetPopover({
                 >
                   <div className="border-b border-border/70 p-2">
                     <div className="relative">
-                      <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         ref={contextSearchRef}
                         value={contextQuery}
                         onChange={(event) => setContextQuery(event.target.value)}
                         placeholder={t("contextPicker.searchPlaceholder")}
-                        className="h-9 border-border/80 bg-muted/30 pl-8 pr-8 text-sm"
+                        className="h-9 border-border/80 bg-muted/30 pr-8 pl-8 text-sm"
                       />
                       {contextQuery ? (
                         <button
@@ -393,7 +381,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
                             setContextQuery("");
                             contextSearchRef.current?.focus();
                           }}
-                          className="absolute right-2 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                          className="absolute top-1/2 right-2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
                         >
                           <X className="size-3.5" />
                         </button>
@@ -407,7 +395,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
                       onClick={() => selectContext(null)}
                       className={cn(
                         "flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-sm",
-                        "hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
+                        "hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:outline-none",
                         selectedContextValue == null && "bg-accent text-accent-foreground",
                       )}
                     >
@@ -432,7 +420,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
                             onClick={() => selectContext(option.value)}
                             className={cn(
                               "flex w-full items-start gap-2 rounded-md px-2.5 py-2 text-left",
-                              "hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
+                              "hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:outline-none",
                               active && "bg-accent text-accent-foreground",
                             )}
                           >
@@ -489,13 +477,13 @@ export function CanvasEmptyBrushAddWidgetPopover({
               </div>
 
               <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   ref={componentSearchRef}
                   value={componentQuery}
                   onChange={(event) => setComponentQuery(event.target.value)}
                   placeholder={tEmpty("componentSearchPlaceholder")}
-                  className="h-9 border-border/80 bg-muted/30 pl-8 pr-8 text-sm"
+                  className="h-9 border-border/80 bg-muted/30 pr-8 pl-8 text-sm"
                 />
                 {componentQuery ? (
                   <button
@@ -505,7 +493,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
                       setComponentQuery("");
                       componentSearchRef.current?.focus();
                     }}
-                    className="absolute right-2 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                    className="absolute top-1/2 right-2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
                   >
                     <X className="size-3.5" />
                   </button>
@@ -540,7 +528,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
                               }
                               className={cn(
                                 "flex min-h-[4.25rem] items-start gap-2.5 rounded-md bg-muted/35 p-2.5 text-left",
-                                "enabled:hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
+                                "focus-visible:ring-2 focus-visible:ring-ring/45 focus-visible:outline-none enabled:hover:bg-accent/60",
                                 "disabled:cursor-not-allowed disabled:bg-muted/20 disabled:opacity-45",
                                 active && "bg-accent",
                               )}
@@ -586,9 +574,7 @@ export function CanvasEmptyBrushAddWidgetPopover({
               {t("actions.cancel")}
             </Button>
             <Button size="sm" className="gap-1.5" disabled={!canAdd} onClick={handleAdd}>
-              {isLoadingProjects || isAdding ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : null}
+              {isLoadingProjects || isAdding ? <Loader2 className="size-3.5 animate-spin" /> : null}
               {selectedItemType === CANVAS_TERMINAL_ADD_ITEM_TYPE
                 ? t("actions.addTerminal")
                 : t("actions.addWidget")}

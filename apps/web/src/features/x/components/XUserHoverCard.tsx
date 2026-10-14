@@ -50,9 +50,7 @@ function XUserCardBody({
   const profileUrl = `https://x.com/${username}`;
   const displayName = card?.name || name || card?.username || username;
   const displayAvatar = card?.avatar_url || avatarUrl || null;
-  const joinedLabel = card?.joined
-    ? formatXJoinedDate(card.joined, locale)
-    : null;
+  const joinedLabel = card?.joined ? formatXJoinedDate(card.joined, locale) : null;
 
   return (
     <>
@@ -91,9 +89,7 @@ function XUserCardBody({
       </div>
 
       <div className="flex flex-col text-left">
-        <span className="text-base leading-snug font-semibold text-foreground">
-          {displayName}
-        </span>
+        <span className="text-base leading-snug font-semibold text-foreground">{displayName}</span>
         <a
           href={profileUrl}
           target="_blank"
@@ -106,13 +102,9 @@ function XUserCardBody({
       </div>
 
       {card?.bio ? (
-        <p className="mt-2 text-left text-sm leading-relaxed text-foreground">
-          {card.bio}
-        </p>
+        <p className="mt-2 text-left text-sm leading-relaxed text-foreground">{card.bio}</p>
       ) : isLoading ? (
-        <p className="mt-2 text-left font-mono text-[11px] text-muted-foreground">
-          {t("loading")}
-        </p>
+        <p className="mt-2 text-left font-mono text-[11px] text-muted-foreground">{t("loading")}</p>
       ) : null}
 
       {card ? (

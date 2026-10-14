@@ -42,9 +42,7 @@ export function subscribeMdLiveTerminalGridMount(listener: () => void): () => vo
   };
 }
 
-export function waitForMdLiveTerminalGrid(
-  timeoutMs = 4000,
-): Promise<TerminalGridHandle | null> {
+export function waitForMdLiveTerminalGrid(timeoutMs = 4000): Promise<TerminalGridHandle | null> {
   if (grid) return Promise.resolve(grid);
   return new Promise((resolve) => {
     let settled = false;

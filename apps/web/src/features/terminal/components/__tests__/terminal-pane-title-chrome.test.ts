@@ -58,8 +58,12 @@ describe("terminal pane title chrome", () => {
   it("follows center-stage rounded-xl at bottom card corners so the attention pulse is not clipped", () => {
     const css = readSibling("terminal-grid.css");
     const split = readSibling("TerminalSplitView.tsx");
-    expect(css).toContain("[data-edge-bottom][data-edge-left] .terminal-pane.agent-attention-ring::after");
-    expect(css).toContain("[data-edge-bottom][data-edge-right] .terminal-pane.agent-attention-ring::after");
+    expect(css).toContain(
+      "[data-edge-bottom][data-edge-left] .terminal-pane.agent-attention-ring::after",
+    );
+    expect(css).toContain(
+      "[data-edge-bottom][data-edge-right] .terminal-pane.agent-attention-ring::after",
+    );
     expect(css).toContain("border-bottom-left-radius: var(--radius-xl)");
     expect(css).toContain("border-bottom-right-radius: var(--radius-xl)");
     expect(split).toContain("unitSquareEdgeFlags");
@@ -71,13 +75,20 @@ describe("terminal pane title chrome", () => {
   it("rounds dock-preview corners that sit on the mosaic outer edges", () => {
     const css = readSibling("terminal-grid.css");
     const split = readSibling("TerminalSplitView.tsx");
-    expect(css).toContain('.terminal-dock-preview[data-edge-top][data-edge-left][data-edge="top"]::after');
-    expect(css).toContain('.terminal-dock-preview[data-edge-top][data-edge-left][data-edge="left"]::after');
-    expect(css).toContain('.terminal-dock-preview[data-edge-bottom][data-edge-left][data-edge="bottom"]::after');
-    expect(css).toContain('.terminal-dock-preview[data-edge-bottom][data-edge-right][data-edge="bottom"]::after');
+    expect(css).toContain(
+      '.terminal-dock-preview[data-edge-top][data-edge-left][data-edge="top"]::after',
+    );
+    expect(css).toContain(
+      '.terminal-dock-preview[data-edge-top][data-edge-left][data-edge="left"]::after',
+    );
+    expect(css).toContain(
+      '.terminal-dock-preview[data-edge-bottom][data-edge-left][data-edge="bottom"]::after',
+    );
+    expect(css).toContain(
+      '.terminal-dock-preview[data-edge-bottom][data-edge-right][data-edge="bottom"]::after',
+    );
     expect(css).toContain("border-top-left-radius: var(--radius-xl)");
     expect(split).toContain("data-edge-top");
     expect(split).toContain("edges={edges}");
   });
 });
-

@@ -1,40 +1,45 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CodeView, type CodeViewHandle } from '@pierre/diffs/react';
-import type { CodeViewItem, DiffLineAnnotation } from '@pierre/diffs';
-import { parseDiffFromFile, processFile } from '@pierre/diffs';
-import { useLocale, useTranslations } from 'next-intl';
-import { useTheme } from 'next-themes';
-import { Avatar, AvatarImage, AvatarFallback } from '@workspace/ui';
-import { MessageSquare } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { enUS, zhCN } from 'date-fns/locale';
-import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
-import { DiffCodeViewScaffold } from '@/features/diff/components/DiffCodeViewScaffold';
-import { BinaryDiffCard } from '@/features/diff/components/BinaryDiffCard';
-import { sortByDiffTreePath } from '@/features/diff/lib/diff-file-order';
-import { binaryDiffPlaceholders } from '@/features/diff/lib/diff-content-kind';
-import type { PrFile } from '@/features/github/hooks/use-github';
-import type { GitFileDiffResponse } from '@/api/ws-api-types';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
+import type { CodeViewItem, DiffLineAnnotation } from "@pierre/diffs";
+import { parseDiffFromFile, processFile } from "@pierre/diffs";
+import { useLocale, useTranslations } from "next-intl";
+import { useTheme } from "next-themes";
+import { Avatar, AvatarImage, AvatarFallback } from "@workspace/ui";
+import { MessageSquare } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { enUS, zhCN } from "date-fns/locale";
+import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
+import { DiffCodeViewScaffold } from "@/features/diff/components/DiffCodeViewScaffold";
+import { BinaryDiffCard } from "@/features/diff/components/BinaryDiffCard";
+import { sortByDiffTreePath } from "@/features/diff/lib/diff-file-order";
+import { binaryDiffPlaceholders } from "@/features/diff/lib/diff-content-kind";
+import type { PrFile } from "@/features/github/hooks/use-github";
+import type { GitFileDiffResponse } from "@/api/ws-api-types";
 import {
   applyCollapseModeToItems,
   diffSideCacheKey,
-} from '@/features/diff/lib/diff-code-view-shared';
-import { useDiffWorkerPoolReady } from '@/features/diff/components/DiffWorkerPoolProvider';
-import { DiffCodeViewSettingsMenu } from '@/features/diff/components/DiffCodeViewSettingsMenu';
-import { ATMOS_DIFF_THEME, buildSharedDiffViewOptions, CODE_VIEW_HOST_CLASS, getAtmosDiffThemeType } from '@/features/diff/lib/diff-view-constants';
-import { useScrollFadeRef } from '@/features/diff/lib/use-scroll-fade-element';
-import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
+} from "@/features/diff/lib/diff-code-view-shared";
+import { useDiffWorkerPoolReady } from "@/features/diff/components/DiffWorkerPoolProvider";
+import { DiffCodeViewSettingsMenu } from "@/features/diff/components/DiffCodeViewSettingsMenu";
+import {
+  ATMOS_DIFF_THEME,
+  buildSharedDiffViewOptions,
+  CODE_VIEW_HOST_CLASS,
+  getAtmosDiffThemeType,
+} from "@/features/diff/lib/diff-view-constants";
+import { useScrollFadeRef } from "@/features/diff/lib/use-scroll-fade-element";
+import { useDiffSettingsStore } from "@/features/settings/store/diff-settings-store";
 import {
   findDiffItemIdAtScrollTop,
   renderDiffHeaderPrefix,
   scrollCodeViewToItem,
-} from '@/features/diff/lib/code-view-ui';
-import { AgentFixButton } from '@/features/agent-fix/components/AgentFixButton';
-import type { AgentFixContextRef, AgentFixPromptSource } from '@/features/agent-fix/types';
-import { buildPrReviewThreadFixPrompt } from '@/features/github/lib/agent-fix-prompts';
-import { cn } from '@/shared/lib/utils';
+} from "@/features/diff/lib/code-view-ui";
+import { AgentFixButton } from "@/features/agent-fix/components/AgentFixButton";
+import type { AgentFixContextRef, AgentFixPromptSource } from "@/features/agent-fix/types";
+import { buildPrReviewThreadFixPrompt } from "@/features/github/lib/agent-fix-prompts";
+import { cn } from "@/shared/lib/utils";
 
 interface ReviewComment {
   id?: number;
@@ -75,7 +80,7 @@ function groupCommentsByPath(comments: ReviewComment[]): Map<string, ReviewComme
   }
   const byPath = new Map<string, ReviewComment[][]>();
   for (const thread of threadMap.values()) {
-    const path = thread[0]?.path ?? '';
+    const path = thread[0]?.path ?? "";
     if (!byPath.has(path)) byPath.set(path, []);
     byPath.get(path)!.push(thread);
   }
@@ -90,31 +95,34 @@ function FileCommentThread({
   thread: ReviewComment[];
 }) {
   const locale = useLocale();
-  const t = useTranslations('github.prFilesTab');
-  const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
+  const t = useTranslations("github.prFilesTab");
+  const relativeTimeLocale = locale.startsWith("zh") ? zhCN : enUS;
   const first = thread[0];
   const firstLine = first?.line ?? first?.original_line ?? null;
   const firstLogin = first?.user?.login?.trim();
   const firstAvatarUrl =
     first?.user?.avatar_url ??
-    (firstLogin
-      ? `https://github.com/${firstLogin.replace('[bot]', '')}.png?size=32`
-      : undefined);
+    (firstLogin ? `https://github.com/${firstLogin.replace("[bot]", "")}.png?size=32` : undefined);
   const [collapsed, setCollapsed] = React.useState(false);
   const [agentFixSettingsOpen, setAgentFixSettingsOpen] = React.useState(false);
   return (
     <div
-      className="border border-border/50 rounded-lg overflow-hidden bg-background my-1 mx-2 text-[12px] block"
-      style={{ contain: 'layout inline-size', containerType: 'inline-size', minWidth: 0, maxWidth: '100%' }}
+      className="mx-2 my-1 block overflow-hidden rounded-lg border border-border/50 bg-background text-[12px]"
+      style={{
+        contain: "layout inline-size",
+        containerType: "inline-size",
+        minWidth: 0,
+        maxWidth: "100%",
+      }}
     >
       <div
         role="button"
         tabIndex={0}
         aria-expanded={!collapsed}
-        className="group/file-thread bg-muted/30 px-3 py-1.5 border-b border-border/30 text-[10px] text-muted-foreground flex min-w-0 items-center gap-1.5 w-full text-left cursor-pointer hover:bg-muted/50"
+        className="group/file-thread flex w-full min-w-0 cursor-pointer items-center gap-1.5 border-b border-border/30 bg-muted/30 px-3 py-1.5 text-left text-[10px] text-muted-foreground hover:bg-muted/50"
         onClick={() => setCollapsed((v) => !v)}
         onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
+          if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             setCollapsed((value) => !value);
           }
@@ -122,7 +130,7 @@ function FileCommentThread({
       >
         {firstLogin && (
           <>
-            <Avatar className="size-4 border border-border/50 shrink-0">
+            <Avatar className="size-4 shrink-0 border border-border/50">
               <AvatarImage src={firstAvatarUrl} />
               <AvatarFallback className="text-[6px]">
                 {firstLogin.substring(0, 2).toUpperCase()}
@@ -146,15 +154,17 @@ function FileCommentThread({
               agentFixSettingsOpen && "opacity-0",
             )}
           >
-            {firstLine != null ? t('thread.lineLabel', { line: firstLine }) : t('thread.commentLabel')}
+            {firstLine != null
+              ? t("thread.lineLabel", { line: firstLine })
+              : t("thread.commentLabel")}
           </span>
           {agentFixSource ? (
             <span
               className={cn(
-                "invisible pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 opacity-0",
-                "group-hover/file-thread:visible group-hover/file-thread:pointer-events-auto group-hover/file-thread:opacity-100",
-                "group-focus-visible/file-thread:visible group-focus-visible/file-thread:pointer-events-auto group-focus-visible/file-thread:opacity-100",
-                agentFixSettingsOpen && "visible pointer-events-auto opacity-100",
+                "pointer-events-none invisible absolute top-1/2 right-0 -translate-y-1/2 opacity-0",
+                "group-hover/file-thread:pointer-events-auto group-hover/file-thread:visible group-hover/file-thread:opacity-100",
+                "group-focus-visible/file-thread:pointer-events-auto group-focus-visible/file-thread:visible group-focus-visible/file-thread:opacity-100",
+                agentFixSettingsOpen && "pointer-events-auto visible opacity-100",
               )}
               onClick={(event) => event.stopPropagation()}
               onKeyDown={(event) => event.stopPropagation()}
@@ -172,16 +182,23 @@ function FileCommentThread({
       {!collapsed && (
         <div className="overflow-x-hidden">
           {thread.map((c, i) => (
-            <div key={c.id ?? i} className="px-3 py-2 border-b border-border/50 last:border-0 min-w-0 overflow-hidden">
+            <div
+              key={c.id ?? i}
+              className="min-w-0 overflow-hidden border-b border-border/50 px-3 py-2 last:border-0"
+            >
               {i > 0 && (
-                <div className="flex items-center gap-2 mb-1">
-                  <Avatar className="size-4 border border-border/50 shrink-0">
-                    <AvatarImage src={c.user?.avatar_url ?? `https://github.com/${c.user?.login}.png?size=32`} />
-                      <AvatarFallback className="text-[6px]">{c.user?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                <div className="mb-1 flex items-center gap-2">
+                  <Avatar className="size-4 shrink-0 border border-border/50">
+                    <AvatarImage
+                      src={c.user?.avatar_url ?? `https://github.com/${c.user?.login}.png?size=32`}
+                    />
+                    <AvatarFallback className="text-[6px]">
+                      {c.user?.login?.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
                   </Avatar>
-                  <span className="font-semibold text-foreground/90 truncate">{c.user?.login}</span>
+                  <span className="truncate font-semibold text-foreground/90">{c.user?.login}</span>
                   {c.created_at && (
-                    <span className="text-[10px] text-muted-foreground/60 ml-auto shrink-0">
+                    <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/60">
                       {formatDistanceToNow(new Date(c.created_at), {
                         addSuffix: true,
                         locale: relativeTimeLocale,
@@ -190,9 +207,9 @@ function FileCommentThread({
                   )}
                 </div>
               )}
-              <div className="min-w-0 max-w-full overflow-x-auto overflow-y-hidden">
-                <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[12px] leading-relaxed [&_pre]:overflow-x-auto prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1">
-                  {c.body ?? ''}
+              <div className="max-w-full min-w-0 overflow-x-auto overflow-y-hidden">
+                <MarkdownRenderer className="prose prose-sm dark:prose-invert prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1 max-w-none text-[12px] leading-relaxed [&_pre]:overflow-x-auto">
+                  {c.body ?? ""}
                 </MarkdownRenderer>
               </div>
             </div>
@@ -205,22 +222,22 @@ function FileCommentThread({
 
 type PrAnnotationMeta =
   | {
-      kind: 'line-thread';
+      kind: "line-thread";
       threadIndex: number;
       path: string;
     }
   | {
-      kind: 'binary';
+      kind: "binary";
       path: string;
       diff: GitFileDiffResponse;
-      panel: 'previous' | 'current';
+      panel: "previous" | "current";
     };
 
 function prStatusToGitStatus(status: string): string {
-  if (status === 'added') return 'A';
-  if (status === 'removed') return 'D';
-  if (status === 'renamed') return 'R';
-  return 'M';
+  if (status === "added") return "A";
+  if (status === "removed") return "D";
+  if (status === "renamed") return "R";
+  return "M";
 }
 
 export function PRFilesTab({
@@ -238,7 +255,7 @@ export function PRFilesTab({
   url,
   focusFilePath,
 }: PRFilesTabProps) {
-  const t = useTranslations('github.prFilesTab');
+  const t = useTranslations("github.prFilesTab");
   const { resolvedTheme } = useTheme();
   const workerPoolReady = useDiffWorkerPoolReady();
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -257,9 +274,7 @@ export function PRFilesTab({
     setWordWrap,
     setDiffIndicators,
   } = useDiffSettingsStore();
-  const [collapseMode, setCollapseMode] = useState<'expanded' | 'collapsed'>(
-    'expanded',
-  );
+  const [collapseMode, setCollapseMode] = useState<"expanded" | "collapsed">("expanded");
   const pathByFileNameRef = useRef<Map<string, string>>(new Map());
   const codeViewRef = useRef<CodeViewHandle<PrAnnotationMeta | undefined>>(null);
   const setCodeViewHost = useScrollFadeRef<HTMLDivElement>();
@@ -271,33 +286,30 @@ export function PRFilesTab({
     void loadDiffSettings();
   }, [loadDiffSettings]);
 
-  const codeViewMountKey = useMemo(
-    () => files.map((f) => f.filename).join('|'),
-    [files],
-  );
+  const codeViewMountKey = useMemo(() => files.map((f) => f.filename).join("|"), [files]);
 
   const orderedFiles = useMemo(
-    () => sortByDiffTreePath(files.map((file) => ({ path: file.filename, file }))).map((entry) => entry.file),
+    () =>
+      sortByDiffTreePath(files.map((file) => ({ path: file.filename, file }))).map(
+        (entry) => entry.file,
+      ),
     [files],
   );
-  const commentsByPath = useMemo(
-    () => groupCommentsByPath(reviewComments),
-    [reviewComments],
-  );
+  const commentsByPath = useMemo(() => groupCommentsByPath(reviewComments), [reviewComments]);
   const buildFileThreadAgentFixSource = useCallback(
     (thread: ReviewComment[]): AgentFixPromptSource | undefined => {
       if (!prNumber) return undefined;
       const first = thread[0];
-      const path = first?.path || '';
+      const path = first?.path || "";
       if (!path) return undefined;
       const line = first?.line ?? first?.original_line ?? null;
-      const fileName = path.split('/').filter(Boolean).pop() || path;
+      const fileName = path.split("/").filter(Boolean).pop() || path;
       return {
-        id: `pr-review-file:${owner}/${repo}#${prNumber}:${path}:${line ?? 'line'}:${first?.id ?? 'thread'}`,
-        family: 'pr_review',
+        id: `pr-review-file:${owner}/${repo}#${prNumber}:${path}:${line ?? "line"}:${first?.id ?? "thread"}`,
+        family: "pr_review",
         context: agentFixContext,
-        label: t('agentFix.label', { fileName }),
-        disabledReason: agentFixContext ? null : t('agentFix.disabledReason'),
+        label: t("agentFix.label", { fileName }),
+        disabledReason: agentFixContext ? null : t("agentFix.disabledReason"),
         getPrompt: () => ({
           prompt: buildPrReviewThreadFixPrompt(
             {
@@ -312,12 +324,12 @@ export function PRFilesTab({
             {
               path,
               line,
-              diffHunk: first?.diff_hunk || '',
+              diffHunk: first?.diff_hunk || "",
               comments: thread,
             },
           ),
-          terminalTabTitle: t('agentFix.terminalTabTitle', { prNumber }),
-          terminalPaneLabel: t('agentFix.terminalPaneLabel', { fileName }),
+          terminalTabTitle: t("agentFix.terminalTabTitle", { prNumber }),
+          terminalPaneLabel: t("agentFix.terminalPaneLabel", { fileName }),
         }),
       };
     },
@@ -329,22 +341,19 @@ export function PRFilesTab({
         path: file.filename,
         additions: file.additions,
         deletions: file.deletions,
-        isBinary: file.kind === 'binary' || (!file.patch && file.kind !== 'text'),
+        isBinary: file.kind === "binary" || (!file.patch && file.kind !== "text"),
       })),
     [orderedFiles],
   );
 
-  const { codeViewItems, fileLevelThreads, pathByFileName, itemIds } =
-    useMemo(() => {
+  const { codeViewItems, fileLevelThreads, pathByFileName, itemIds } = useMemo(() => {
     const items: CodeViewItem<PrAnnotationMeta>[] = [];
     const fileThreads = new Map<string, ReviewComment[][]>();
     const nextPathByFileName = new Map<string, string>();
 
     for (const file of orderedFiles) {
       const threads = commentsByPath.get(file.filename) ?? [];
-      const lineThreads = threads.filter(
-        (t) => t[0]?.line != null || t[0]?.original_line != null,
-      );
+      const lineThreads = threads.filter((t) => t[0]?.line != null || t[0]?.original_line != null);
       const nonLineThreads = threads.filter(
         (t) => t[0]?.line == null && t[0]?.original_line == null,
       );
@@ -352,10 +361,9 @@ export function PRFilesTab({
         fileThreads.set(file.filename, nonLineThreads);
       }
 
-      const pushPlaceholderDiff = (reason: 'binary' | 'too_large' | 'empty') => {
+      const pushPlaceholderDiff = (reason: "binary" | "too_large" | "empty") => {
         const gitStatus = prStatusToGitStatus(file.status);
-        const { oldText, newText, annotations: binaryAnns } =
-          binaryDiffPlaceholders(gitStatus);
+        const { oldText, newText, annotations: binaryAnns } = binaryDiffPlaceholders(gitStatus);
         const fileDiff = parseDiffFromFile(
           {
             name: file.filename,
@@ -373,12 +381,12 @@ export function PRFilesTab({
           status: gitStatus,
           compare_ref: null,
           kind:
-            reason === 'too_large' || file.kind === 'too_large'
-              ? 'too_large'
-              : reason === 'empty'
-                ? 'text'
-                : 'binary',
-          preview_kind: file.preview_kind ?? 'none',
+            reason === "too_large" || file.kind === "too_large"
+              ? "too_large"
+              : reason === "empty"
+                ? "text"
+                : "binary",
+          preview_kind: file.preview_kind ?? "none",
           old_text: null,
           new_text: null,
           old_size: null,
@@ -391,13 +399,13 @@ export function PRFilesTab({
         nextPathByFileName.set(fileDiff.name, file.filename);
         items.push({
           id: file.filename,
-          type: 'diff',
+          type: "diff",
           fileDiff,
           annotations: binaryAnns.map((ann) => ({
             side: ann.side,
             lineNumber: ann.lineNumber,
             metadata: {
-              kind: 'binary' as const,
+              kind: "binary" as const,
               path: file.filename,
               diff: synthetic,
               panel: ann.panel,
@@ -408,13 +416,9 @@ export function PRFilesTab({
       };
 
       // Empty / missing patch, binary, or too-large → placeholder (never feed pierre null lines).
-      if (!file.patch?.trim() || file.kind === 'binary' || file.kind === 'too_large') {
+      if (!file.patch?.trim() || file.kind === "binary" || file.kind === "too_large") {
         pushPlaceholderDiff(
-          file.kind === 'too_large'
-            ? 'too_large'
-            : !file.patch?.trim()
-              ? 'empty'
-              : 'binary',
+          file.kind === "too_large" ? "too_large" : !file.patch?.trim() ? "empty" : "binary",
         );
         continue;
       }
@@ -433,7 +437,7 @@ export function PRFilesTab({
       const deletionLen = fileDiff?.deletionLines?.length ?? 0;
       const hunkLen = fileDiff?.hunks?.length ?? 0;
       if (!fileDiff || (additionLen === 0 && deletionLen === 0) || hunkLen === 0) {
-        pushPlaceholderDiff('empty');
+        pushPlaceholderDiff("empty");
         continue;
       }
 
@@ -441,12 +445,12 @@ export function PRFilesTab({
         (thread, threadIndex) => {
           const first = thread[0];
           const lineNumber = first?.line ?? first?.original_line ?? 1;
-          const side = first?.side === 'LEFT' ? 'deletions' : 'additions';
+          const side = first?.side === "LEFT" ? "deletions" : "additions";
           return {
-            side: side as 'deletions' | 'additions',
+            side: side as "deletions" | "additions",
             lineNumber,
             metadata: {
-              kind: 'line-thread' as const,
+              kind: "line-thread" as const,
               threadIndex,
               path: file.filename,
             },
@@ -457,7 +461,7 @@ export function PRFilesTab({
       nextPathByFileName.set(fileDiff.name, file.filename);
       items.push({
         id: file.filename,
-        type: 'diff',
+        type: "diff",
         fileDiff,
         annotations,
         cacheKey: file.filename,
@@ -499,14 +503,14 @@ export function PRFilesTab({
   );
 
   const handleToggleCollapseMode = useCallback(() => {
-    const next = collapseMode === 'expanded' ? 'collapsed' : 'expanded';
+    const next = collapseMode === "expanded" ? "collapsed" : "expanded";
     setCollapseMode(next);
     applyCollapseModeToItems(codeViewRef, itemIdsRef.current, next);
   }, [collapseMode]);
 
   const renderAnnotation = useCallback(
     (annotation: DiffLineAnnotation<PrAnnotationMeta>) => {
-      if (annotation.metadata?.kind === 'binary') {
+      if (annotation.metadata?.kind === "binary") {
         return (
           <BinaryDiffCard
             embedded
@@ -517,18 +521,13 @@ export function PRFilesTab({
           />
         );
       }
-      if (annotation.metadata?.kind !== 'line-thread') return null;
+      if (annotation.metadata?.kind !== "line-thread") return null;
       const threads = commentsByPath.get(annotation.metadata.path) ?? [];
-      const lineThreads = threads.filter(
-        (t) => t[0]?.line != null || t[0]?.original_line != null,
-      );
+      const lineThreads = threads.filter((t) => t[0]?.line != null || t[0]?.original_line != null);
       const thread = lineThreads[annotation.metadata.threadIndex];
       if (!thread) return null;
       return (
-        <FileCommentThread
-          thread={thread}
-          agentFixSource={buildFileThreadAgentFixSource(thread)}
-        />
+        <FileCommentThread thread={thread} agentFixSource={buildFileThreadAgentFixSource(thread)} />
       );
     },
     [buildFileThreadAgentFixSource, commentsByPath],
@@ -566,7 +565,7 @@ export function PRFilesTab({
     const scrollKey = `${codeViewMountKey}:${focusFilePath}`;
     if (scrolledFocusRef.current === scrollKey) return;
     const frame = requestAnimationFrame(() => {
-      scrollCodeViewToItem(codeViewRef.current, focusFilePath, { behavior: 'smooth' });
+      scrollCodeViewToItem(codeViewRef.current, focusFilePath, { behavior: "smooth" });
       scrolledFocusRef.current = scrollKey;
     });
     return () => cancelAnimationFrame(frame);
@@ -580,11 +579,7 @@ export function PRFilesTab({
     return instance.subscribeToScroll((scrollTop, viewer) => {
       codeViewScrollTopRef.current = scrollTop;
       if (itemIdsRef.current.length === 0) return;
-      const activeId = findDiffItemIdAtScrollTop(
-        viewer,
-        scrollTop,
-        itemIdsRef.current,
-      );
+      const activeId = findDiffItemIdAtScrollTop(viewer, scrollTop, itemIdsRef.current);
       if (activeId == null || activeId === scrollActiveIdRef.current) return;
       scrollActiveIdRef.current = activeId;
       setSelectedPath(activeId);
@@ -602,14 +597,13 @@ export function PRFilesTab({
 
   const handleSelect = (path: string) => {
     setSelectedPath(path);
-    scrollCodeViewToItem(codeViewRef.current, path, { behavior: 'smooth' });
+    scrollCodeViewToItem(codeViewRef.current, path, { behavior: "smooth" });
   };
 
   const handleCodeViewWheelCapture = useCallback(
     (event: React.WheelEvent<HTMLDivElement>) => {
       const currentScrollTop =
-        codeViewRef.current?.getInstance()?.getScrollTop() ??
-        codeViewScrollTopRef.current;
+        codeViewRef.current?.getInstance()?.getScrollTop() ?? codeViewScrollTopRef.current;
       if (event.deltaY >= -8 || currentScrollTop > 1) return;
       onCodeViewTopBoundaryWheel?.(event.deltaY);
       event.preventDefault();
@@ -622,7 +616,7 @@ export function PRFilesTab({
     <div className="flex items-center gap-2">
       <div className="flex-1" />
       {orderedFiles.length > 0 && (
-        <div className="flex items-center gap-2 shrink-0 text-[11px] font-mono font-medium">
+        <div className="flex shrink-0 items-center gap-2 font-mono text-[11px] font-medium">
           <span className="text-emerald-500">+{totalStats.additions}</span>
           <span className="text-red-500">-{totalStats.deletions}</span>
         </div>
@@ -646,14 +640,14 @@ export function PRFilesTab({
 
   if (loading) {
     return (
-      <div className="flex flex-col h-full min-h-0">
+      <div className="flex h-full min-h-0 flex-col">
         <DiffCodeViewScaffold
           items={treeItems}
           selectedPath={selectedCodeViewPath ?? undefined}
-          ariaLabel={t('tree.ariaLabel')}
+          ariaLabel={t("tree.ariaLabel")}
           toolbar={toolbar}
           loading
-          loadingTreeLabel={t('tree.loadingLabel')}
+          loadingTreeLabel={t("tree.loadingLabel")}
           onSelectFile={() => {}}
         >
           <div />
@@ -663,17 +657,17 @@ export function PRFilesTab({
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex h-full min-h-0 flex-col">
       <DiffCodeViewScaffold
         items={treeItems}
         selectedPath={selectedCodeViewPath ?? undefined}
-        ariaLabel={t('tree.ariaLabel')}
+        ariaLabel={t("tree.ariaLabel")}
         toolbar={toolbar}
         renderFileInlineDecoration={(item) => {
           const count = commentsByPath.get(item.path)?.length ?? 0;
           if (!count) return null;
           return (
-            <span className="ml-1 flex items-center gap-0.5 text-[11px] text-muted-foreground shrink-0">
+            <span className="ml-1 flex shrink-0 items-center gap-0.5 text-[11px] text-muted-foreground">
               <MessageSquare className="size-3" />
               {count}
             </span>
@@ -681,7 +675,7 @@ export function PRFilesTab({
         }}
         onSelectFile={handleSelect}
       >
-          {workerPoolReady && codeViewItems.length > 0 ? (
+        {workerPoolReady && codeViewItems.length > 0 ? (
           <div
             className="min-h-0 flex-1 overflow-hidden"
             onWheelCapture={handleCodeViewWheelCapture}
@@ -697,23 +691,25 @@ export function PRFilesTab({
               className={CODE_VIEW_HOST_CLASS}
             />
           </div>
-          ) : !loading ? (
-            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-              {t('empty.noDiffContent')}
+        ) : !loading ? (
+          <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+            {t("empty.noDiffContent")}
+          </div>
+        ) : null}
+        {Array.from(fileLevelThreads.entries()).map(([path, threads]) => (
+          <div key={path} className="border-t border-border/30 px-2 py-1">
+            <div className="truncate px-2 py-1 font-mono text-[10px] text-muted-foreground">
+              {path}
             </div>
-          ) : null}
-          {Array.from(fileLevelThreads.entries()).map(([path, threads]) => (
-            <div key={path} className="border-t border-border/30 px-2 py-1">
-              <div className="text-[10px] text-muted-foreground px-2 py-1 font-mono truncate">{path}</div>
-              {threads.map((thread, i) => (
-                <FileCommentThread
-                  key={i}
-                  thread={thread}
-                  agentFixSource={buildFileThreadAgentFixSource(thread)}
-                />
-              ))}
-            </div>
-          ))}
+            {threads.map((thread, i) => (
+              <FileCommentThread
+                key={i}
+                thread={thread}
+                agentFixSource={buildFileThreadAgentFixSource(thread)}
+              />
+            ))}
+          </div>
+        ))}
       </DiffCodeViewScaffold>
     </div>
   );

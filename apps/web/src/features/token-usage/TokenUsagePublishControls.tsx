@@ -30,18 +30,12 @@ import {
   storeDeviceCredential,
   type HubUsagePage,
 } from "@/api/hub-client";
-import {
-  getHubAuthClient,
-  hubGetSession,
-} from "@/api/hub-auth-client";
+import { getHubAuthClient, hubGetSession } from "@/api/hub-auth-client";
 import {
   HUB_OAUTH_STARTED_EVENT,
   HubAuthUIProvider,
 } from "@/features/settings/components/HubAuthUIProvider";
-import {
-  HUB_AUTH_DONE_CHANNEL,
-  HUB_AUTH_DONE_MESSAGE,
-} from "@/app/hub-auth/hub-auth-channel";
+import { HUB_AUTH_DONE_CHANNEL, HUB_AUTH_DONE_MESSAGE } from "@/app/hub-auth/hub-auth-channel";
 import { loadComputerClientSettingsFromDisk } from "@/features/connection/lib/sync-computer-client-settings";
 import { applyIdentityBearingComputerSettings } from "@/features/connection/lib/query-identity-lifecycle";
 import { clearWebRelayClientCache } from "@/features/connection/lib/create-web-relay-client";
@@ -97,12 +91,10 @@ function PrefixedField({
     <InputGroup className="h-8">
       <InputGroupAddon
         align="inline-start"
-        className="h-8 shrink-0 gap-1 whitespace-nowrap pl-2 pr-0 text-[11px] font-normal text-muted-foreground"
+        className="h-8 shrink-0 gap-1 pr-0 pl-2 text-[11px] font-normal whitespace-nowrap text-muted-foreground"
       >
         {icon ? (
-          <span className="flex size-3 shrink-0 items-center justify-center">
-            {icon}
-          </span>
+          <span className="flex size-3 shrink-0 items-center justify-center">{icon}</span>
         ) : null}
         <span>{prefix}</span>
       </InputGroupAddon>
@@ -112,10 +104,7 @@ function PrefixedField({
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className={cn(
-          "h-8 min-w-0 text-xs",
-          flushPrefix ? "!pl-0" : "pl-1.5",
-        )}
+        className={cn("h-8 min-w-0 text-xs", flushPrefix ? "!pl-0" : "pl-1.5")}
       />
       {trailing}
     </InputGroup>
@@ -134,9 +123,7 @@ function PublishBody({
   const t = useTranslations("appShell.tokenUsageDialog.publish");
   const signInT = useTranslations("settings.accountSection");
   const qc = useQueryClient();
-  const desktop =
-    isDesktopRuntime() ||
-    process.env.NEXT_PUBLIC_BUILD_TARGET === "desktop";
+  const desktop = isDesktopRuntime() || process.env.NEXT_PUBLIC_BUILD_TARGET === "desktop";
 
   const authClient = React.useMemo(() => getHubAuthClient(), []);
   const { data: liveSession } = authClient.useSession();
@@ -236,11 +223,7 @@ function PublishBody({
       try {
         if (desktop) {
           const disk = await loadComputerClientSettingsFromDisk();
-          const cred = (
-            disk?.device_credential ||
-            disk?.access_token ||
-            ""
-          ).trim();
+          const cred = (disk?.device_credential || disk?.access_token || "").trim();
           if (cred.length >= 32 && !cancelled) {
             storeDeviceCredential({
               device_id: disk?.device_id ?? "device",
@@ -279,11 +262,7 @@ function PublishBody({
 
   const claimed = Boolean(page?.handle_claimed && page.handle);
   const live = page?.visibility === "public" || page?.visibility === "unlisted";
-  const updateDisabled =
-    disabled ||
-    busy ||
-    !overview ||
-    (!claimed && handle.trim().length < 3);
+  const updateDisabled = disabled || busy || !overview || (!claimed && handle.trim().length < 3);
   const handleSlug = page?.handle || handle.trim().toLowerCase();
   const pageUrl = !handleSlug
     ? null
@@ -331,7 +310,7 @@ function PublishBody({
 
   return (
     <>
-      <div className="space-y-3 px-2.5 pb-2.5 pt-2">
+      <div className="space-y-3 px-2.5 pt-2 pb-2.5">
         <div className="space-y-1.5">
           <p className="text-xs font-medium">{t("handleLabel")}</p>
           <PrefixedField
@@ -344,17 +323,12 @@ function PublishBody({
             aria-label={t("handleLabel")}
             trailing={
               claimed && pageUrl ? (
-                <InputGroupAddon
-                  align="inline-end"
-                  className="pr-1.5 has-[>button]:mr-0"
-                >
+                <InputGroupAddon align="inline-end" className="pr-1.5 has-[>button]:mr-0">
                   <button
                     type="button"
                     aria-label={t("openPage")}
                     className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-                    onClick={() =>
-                      window.open(pageUrl, "_blank", "noopener,noreferrer")
-                    }
+                    onClick={() => window.open(pageUrl, "_blank", "noopener,noreferrer")}
                   >
                     <ExternalLink className="size-3" />
                   </button>
@@ -390,9 +364,7 @@ function PublishBody({
           <p className="text-xs font-medium">{t("visibility.public")}</p>
           <Switch
             checked={visibility === "public"}
-            onCheckedChange={(checked) =>
-              setVisibility(checked ? "public" : "unlisted")
-            }
+            onCheckedChange={(checked) => setVisibility(checked ? "public" : "unlisted")}
             disabled={!signedIn || busy}
             aria-label={t("visibility.public")}
           />
@@ -401,10 +373,7 @@ function PublishBody({
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
 
         <div
-          className={cn(
-            "flex items-center gap-2",
-            signedIn ? "justify-between" : "justify-end",
-          )}
+          className={cn("flex items-center gap-2", signedIn ? "justify-between" : "justify-end")}
         >
           {signedIn ? (
             <Button
@@ -465,9 +434,7 @@ function PublishBody({
               view="SIGN_IN"
               socialLayout="vertical"
               className="w-full max-w-none"
-              redirectTo={
-                typeof window !== "undefined" ? window.location.origin : "/"
-              }
+              redirectTo={typeof window !== "undefined" ? window.location.origin : "/"}
               localization={{
                 SIGN_IN: signInT("signInDialogTitle"),
                 DISABLED_CREDENTIALS_DESCRIPTION: desktop
@@ -485,10 +452,7 @@ function PublishBody({
   );
 }
 
-function mapPublishError(
-  error: unknown,
-  t: (key: string) => string,
-): string {
+function mapPublishError(error: unknown, t: (key: string) => string): string {
   const msg = error instanceof Error ? error.message : "";
   if (msg === "username_taken") return t("errors.usernameTaken");
   if (msg === "handle_immutable") return t("errors.handleLocked");

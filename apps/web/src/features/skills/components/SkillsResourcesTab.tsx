@@ -25,9 +25,7 @@ export function SkillsResourcesTab({
         <PageEmptyState
           icon={hasQuery ? <IconSearch /> : <IconBookmark />}
           title={hasQuery ? t("empty.noMatchesTitle") : t("empty.noneTitle")}
-          description={
-            hasQuery ? t("empty.noMatchesDescription") : t("empty.noneDescription")
-          }
+          description={hasQuery ? t("empty.noMatchesDescription") : t("empty.noneDescription")}
           actions={
             hasQuery ? (
               <EmptyAction emphasis="quiet" onClick={onClearSearch}>
@@ -42,7 +40,9 @@ export function SkillsResourcesTab({
             <section key={category.id} className="space-y-4">
               <div className="flex items-end justify-between gap-4 border-b border-border/60 pb-3">
                 <div>
-                  <h3 className="text-sm font-semibold tracking-wide text-foreground">{category.title}</h3>
+                  <h3 className="text-sm font-semibold tracking-wide text-foreground">
+                    {category.title}
+                  </h3>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {t("category.resourceCount", { count: category.items.length })}
                   </p>
@@ -63,19 +63,21 @@ export function SkillsResourcesTab({
                   >
                     <div className="flex flex-1 flex-col justify-between">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex items-start gap-3">
+                        <div className="flex min-w-0 items-start gap-3">
                           <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-muted/20 text-primary group-hover:bg-primary/5">
                             <Link2 className="size-5" />
                           </div>
                           <div className="min-w-0">
-                            <h4 className="truncate text-sm font-semibold tracking-tight text-foreground">{item.title}</h4>
+                            <h4 className="truncate text-sm font-semibold tracking-tight text-foreground">
+                              {item.title}
+                            </h4>
                             <p className="mt-1 text-xs text-muted-foreground">{category.title}</p>
                           </div>
                         </div>
                         <ExternalLink className="size-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
                       </div>
 
-                      <p className="mt-4 line-clamp-3 text-[13px] leading-relaxed text-muted-foreground text-pretty">
+                      <p className="mt-4 line-clamp-3 text-[13px] leading-relaxed text-pretty text-muted-foreground">
                         {item.description}
                       </p>
                     </div>

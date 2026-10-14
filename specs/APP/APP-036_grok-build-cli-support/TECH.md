@@ -57,20 +57,20 @@ Add **Grok Build** as a first-class terminal agent end-to-end: built-in manifest
 
 ## PRD → design map
 
-| PRD | Design |
-|-----|--------|
-| M1 built-in | `builtin_agents.json` + consumers already load it |
-| M2 interactive | `interactiveParams: "--always-approve"` |
-| M3 models | `modelList.command: ["grok","models"]`, `grok_line_list` parser (`parse_grok_model_catalog`) |
-| M4 reasoning | `reasoningSupport.mode: "manual", arg: "--reasoning-effort"` |
-| M5 Cursor cmd | `cursor.cmd` + `modelList` → `cursor-agent` |
-| M6 titles unique | exact first-token match; drop substring `includes` |
-| M7 contested `agent` | backend identity probe + client title map |
-| M8 automation stream | new `StdoutParser::GrokStreamingJson` |
-| M9 hooks | engine install + service handler + API route |
-| M10 UI | store/labels/settings cards + icons |
-| M11 usage | `crates/quota-usage` provider `grok` + web icon |
-| N1 icons | `apps/web/public/agents/grok-build.svg` (+ mobile asset) from Downloads |
+| PRD                  | Design                                                                                       |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| M1 built-in          | `builtin_agents.json` + consumers already load it                                            |
+| M2 interactive       | `interactiveParams: "--always-approve"`                                                      |
+| M3 models            | `modelList.command: ["grok","models"]`, `grok_line_list` parser (`parse_grok_model_catalog`) |
+| M4 reasoning         | `reasoningSupport.mode: "manual", arg: "--reasoning-effort"`                                 |
+| M5 Cursor cmd        | `cursor.cmd` + `modelList` → `cursor-agent`                                                  |
+| M6 titles unique     | exact first-token match; drop substring `includes`                                           |
+| M7 contested `agent` | backend identity probe + client title map                                                    |
+| M8 automation stream | new `StdoutParser::GrokStreamingJson`                                                        |
+| M9 hooks             | engine install + service handler + API route                                                 |
+| M10 UI               | store/labels/settings cards + icons                                                          |
+| M11 usage            | `crates/quota-usage` provider `grok` + web icon                                              |
+| N1 icons             | `apps/web/public/agents/grok-build.svg` (+ mobile asset) from Downloads                      |
 
 ---
 
@@ -105,9 +105,9 @@ Add **Grok Build** as a first-class terminal agent end-to-end: built-in manifest
 
 **Modify Cursor entry:**
 
-| Field | From | To |
-|-------|------|-----|
-| `cmd` | `agent` | `cursor-agent` |
+| Field               | From                        | To                                 |
+| ------------------- | --------------------------- | ---------------------------------- |
+| `cmd`               | `agent`                     | `cursor-agent`                     |
 | `modelList.command` | `["agent","--list-models"]` | `["cursor-agent","--list-models"]` |
 
 Do **not** migrate user `~/.atmos/agent/terminal_code_agent.json` overrides.
@@ -149,12 +149,12 @@ Grok NDJSON (verified):
 
 `parse_grok_streaming_json(value)`:
 
-| `type` | Behavior |
-|--------|----------|
-| `text` | `final_stdout(data)` — assistant text, write_to_final |
-| `thought` | `event_stdout(format!("[thinking] {data}"))` — same pattern as Claude thinking_delta (non-final) |
-| `end` | optional `event_stdout` with stopReason; no more text |
-| other / parse fail | ignore line (debug log) or pass-through non-JSON as non-final |
+| `type`             | Behavior                                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| `text`             | `final_stdout(data)` — assistant text, write_to_final                                            |
+| `thought`          | `event_stdout(format!("[thinking] {data}"))` — same pattern as Claude thinking_delta (non-final) |
+| `end`              | optional `event_stdout` with stopReason; no more text                                            |
+| other / parse fail | ignore line (debug log) or pass-through non-JSON as non-final                                    |
 
 Unit tests: fixtures from live probe samples (plain multi-delta thought + text + end).
 
@@ -163,6 +163,7 @@ Structured JSONL parsers buffer raw bytes until a complete newline-delimited rec
 #### 2.3 Model catalog normalization — `parse_grok_model_catalog`
 
 <!-- updated 2026-07-16: live Grok output includes login/default status lines -->
+
 Begin after `Available models:` and accept only bullet rows. Strip trailing ` (default)` (case-insensitive) from model id/label and set `is_default: true`.
 
 #### 2.4 Hooks service — `service/agent_hooks.rs` + new module
@@ -183,18 +184,18 @@ fn hook_event_name(payload: &Value) -> &str {
 
 **State mapping** (PRD M9):
 
-| Normalized event | State |
-|------------------|--------|
-| `SessionStart` / `session_start` | Idle |
-| `UserPromptSubmit` / `user_prompt_submit` | Running |
-| `PreToolUse` / `pre_tool_use` | Running |
-| `PostToolUse` / `post_tool_use` | Running |
-| `PostToolUseFailure` / `post_tool_use_failure` | Running |
-| `Notification` / `notification` | if `notificationType`/`notification_type` ∈ {`permission_prompt`,`elicitation_dialog`} → **PermissionRequest**; else **no-op** |
-| `PermissionDenied` / `permission_denied` | no-op |
-| `Stop` / `stop` / `StopFailure` / `stop_failure` | Idle |
-| `SessionEnd` / `session_end` | Idle |
-| Subagent* / *Compact | no-op |
+| Normalized event                                 | State                                                                                                                          |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `SessionStart` / `session_start`                 | Idle                                                                                                                           |
+| `UserPromptSubmit` / `user_prompt_submit`        | Running                                                                                                                        |
+| `PreToolUse` / `pre_tool_use`                    | Running                                                                                                                        |
+| `PostToolUse` / `post_tool_use`                  | Running                                                                                                                        |
+| `PostToolUseFailure` / `post_tool_use_failure`   | Running                                                                                                                        |
+| `Notification` / `notification`                  | if `notificationType`/`notification_type` ∈ {`permission_prompt`,`elicitation_dialog`} → **PermissionRequest**; else **no-op** |
+| `PermissionDenied` / `permission_denied`         | no-op                                                                                                                          |
+| `Stop` / `stop` / `StopFailure` / `stop_failure` | Idle                                                                                                                           |
+| `SessionEnd` / `session_end`                     | Idle                                                                                                                           |
+| Subagent* / *Compact                             | no-op                                                                                                                          |
 
 Ownership rule: same as Claude — skip if session actively owned by another tool unless idle.
 
@@ -218,6 +219,7 @@ pub fn resolve_command_identity(command: &str) -> ContestedCliOwner
 **Algorithm for `agent`:**
 
 <!-- updated 2026-07-16: implementation review found the shell lookup unbounded on an async worker -->
+
 1. Scan the API process `PATH` directly for an executable `agent`; do not start a login shell.
 2. `fs::canonicalize` realpath.
 3. Classify:
@@ -245,13 +247,21 @@ pub fn resolve_command_identity(command: &str) -> ContestedCliOwner
   "hooks": {
     "SessionStart": [{ "hooks": [{ "type": "command", "command": "<cmd>", "timeout": 5 }] }],
     "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "<detached-stdin-cmd>" }] }],
-    "PreToolUse": [{ "matcher": ".*", "hooks": [{ "type": "command", "command": "<detached-stdin-cmd>" }] }],
-    "PostToolUse": [{ "matcher": ".*", "hooks": [{ "type": "command", "command": "<detached-stdin-cmd>" }] }],
-    "PostToolUseFailure": [{ "matcher": ".*", "hooks": [{ "type": "command", "command": "<detached-stdin-cmd>" }] }],
-    "Notification": [{
-      "matcher": ".*",
-      "hooks": [{ "type": "command", "command": "<detached-stdin-cmd>" }]
-    }],
+    "PreToolUse": [
+      { "matcher": ".*", "hooks": [{ "type": "command", "command": "<detached-stdin-cmd>" }] }
+    ],
+    "PostToolUse": [
+      { "matcher": ".*", "hooks": [{ "type": "command", "command": "<detached-stdin-cmd>" }] }
+    ],
+    "PostToolUseFailure": [
+      { "matcher": ".*", "hooks": [{ "type": "command", "command": "<detached-stdin-cmd>" }] }
+    ],
+    "Notification": [
+      {
+        "matcher": ".*",
+        "hooks": [{ "type": "command", "command": "<detached-stdin-cmd>" }]
+      }
+    ],
     "Stop": [{ "hooks": [{ "type": "command", "command": "<detached-stdin-cmd>" }] }],
     "StopFailure": [{ "hooks": [{ "type": "command", "command": "<detached-stdin-cmd>" }] }],
     "SessionEnd": [{ "hooks": [{ "type": "command", "command": "<cmd-or-stdin>", "timeout": 5 }] }]
@@ -260,6 +270,7 @@ pub fn resolve_command_identity(command: &str) -> ContestedCliOwner
 ```
 
 <!-- updated 2026-07-16: current Grok ignores the Claude-style async property -->
+
 - **Command pattern:** gate `ATMOS_MANAGED=1`, set hook version, and **forward stdin** for all events so `sessionId` / `notificationType` are preserved. High-frequency handlers first consume stdin, then detach a fully redirected sender; curl uses short connect/total deadlines. Do not emit unsupported `"async": true`.
 - **Runner contract:** current upstream `xai-grok-hooks` waits for the shell child and uses `kill_on_drop` only on timeout; it does not terminate the detached process group after a normal shell exit. Keep all sender stdio redirected so shell completion is not held open.
 - **URL:** `http://localhost:{port}/hooks/grok-build`
@@ -333,29 +344,30 @@ Wire `options` from toolbar hooks (`use-terminal-toolbar-title.ts`, mosaic panes
 
 Matrix:
 
-| dynamicTitle | contestedOwners.agent | expected toolbarAgent |
-|--------------|----------------------|------------------------|
-| `grok …` | any | Grok Build |
-| `cursor-agent …` | any | Cursor |
-| `agent …` | grok-build | Grok Build |
-| `agent …` | cursor | Cursor |
-| `agent …` | unknown | none / not Cursor |
-| `cursor-agent` must not match a leftover cmd `agent` via substring | — | Cursor only |
+| dynamicTitle                                                       | contestedOwners.agent | expected toolbarAgent |
+| ------------------------------------------------------------------ | --------------------- | --------------------- |
+| `grok …`                                                           | any                   | Grok Build            |
+| `cursor-agent …`                                                   | any                   | Cursor                |
+| `agent …`                                                          | grok-build            | Grok Build            |
+| `agent …`                                                          | cursor                | Cursor                |
+| `agent …`                                                          | unknown               | none / not Cursor     |
+| `cursor-agent` must not match a leftover cmd `agent` via substring | —                     | Cursor only           |
 
 ### 6. Frontend — `apps/web`
 
-| Area | Change |
-|------|--------|
-| `terminal-agent-run-config.ts` | `modelFlagForAgent`: add `grok-build` → `--model` |
-| `agent-hooks-store.ts` | `AGENT_TOOL.GROK_BUILD = "grok-build"`, labels, icon ids |
-| `AgentHookStatusCard.tsx` | install report field + HOOK_TOOL_META entry |
-| `agent-vendor.ts` | vendor `"grok"` / map `grok-build`, `grok` |
-| Settings search keywords | `grok`, `grok build` |
-| `AgentIcon.tsx` | **Remove** dangerous alias `"agent": ["cursor"]` (breaks freehand identity). Add remap `grok-build` → icon file; theme handling |
-| Title consumers | pass contested owner map into title helpers; fetch cli-identity |
-| i18n | only if new user-facing strings (hooks card label can reuse English agent name like others) |
+| Area                           | Change                                                                                                                          |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `terminal-agent-run-config.ts` | `modelFlagForAgent`: add `grok-build` → `--model`                                                                               |
+| `agent-hooks-store.ts`         | `AGENT_TOOL.GROK_BUILD = "grok-build"`, labels, icon ids                                                                        |
+| `AgentHookStatusCard.tsx`      | install report field + HOOK_TOOL_META entry                                                                                     |
+| `agent-vendor.ts`              | vendor `"grok"` / map `grok-build`, `grok`                                                                                      |
+| Settings search keywords       | `grok`, `grok build`                                                                                                            |
+| `AgentIcon.tsx`                | **Remove** dangerous alias `"agent": ["cursor"]` (breaks freehand identity). Add remap `grok-build` → icon file; theme handling |
+| Title consumers                | pass contested owner map into title helpers; fetch cli-identity                                                                 |
+| i18n                           | only if new user-facing strings (hooks card label can reuse English agent name like others)                                     |
 
 <!-- updated 2026-07-16: `-p` is Grok single-turn mode, not an interactive prompt flag -->
+
 Interactive Grok workspace prompts are positional (`grok --always-approve "<prompt>"`). Only headless automation uses `--output-format streaming-json -p <prompt>`, with model/reasoning options placed before `-p`.
 
 Hook status/install/uninstall UI calls the relay-aware `agentHooksApi`; feature components must not resolve a loopback base directly.
@@ -437,14 +449,14 @@ This is the same CLI chat-proxy billing surface the Grok CLI / OpenUsage use. Re
 
 **Mapping to `LiveFetchResult`:**
 
-| Field | Source |
-|-------|--------|
-| Primary `usage_summary.percent` | Prefer `productUsage[GrokBuild].usagePercent`, else `creditUsagePercent` |
-| `reset_at` | `currentPeriod.end` or `billingPeriodEnd` (RFC3339 → unix) |
-| Window label | `USAGE_PERIOD_TYPE_WEEKLY` → **Weekly**; monthly → **Monthly**; else **Credits** |
-| Account rows | email, team_id, plan hint (`oidc` → SuperGrok) |
-| On-demand | cap/used cents when present |
-| `fetch_message` | `Grok CLI billing (cli-chat-proxy)` |
+| Field                           | Source                                                                           |
+| ------------------------------- | -------------------------------------------------------------------------------- |
+| Primary `usage_summary.percent` | Prefer `productUsage[GrokBuild].usagePercent`, else `creditUsagePercent`         |
+| `reset_at`                      | `currentPeriod.end` or `billingPeriodEnd` (RFC3339 → unix)                       |
+| Window label                    | `USAGE_PERIOD_TYPE_WEEKLY` → **Weekly**; monthly → **Monthly**; else **Credits** |
+| Account rows                    | email, team_id, plan hint (`oidc` → SuperGrok)                                   |
+| On-demand                       | cap/used cents when present                                                      |
+| `fetch_message`                 | `Grok CLI billing (cli-chat-proxy)`                                              |
 
 Optional secondary probe (same bearer): plain `GET …/v1/billing` for absolute cents (`monthlyLimit`/`used`) when percent path lacks numbers — not required if credits format succeeds.
 
@@ -452,14 +464,14 @@ Optional secondary probe (same bearer): plain `GET …/v1/billing` for absolute 
 
 #### Wiring
 
-| File | Change |
-|------|--------|
-| `providers/grok.rs` | **NEW** — auth parse + billing fetch + detail sections |
-| `providers/mod.rs` | `pub(crate) mod grok` |
-| `runtime.rs` | `LiveProviderKind::Grok`, `ProviderSpec`, `collect_live` arm |
-| `constants.rs` | billing URL constant |
-| `apps/web/.../usage-popover-components.tsx` | add `grok` to `PROVIDER_ICON_IDS` |
-| `apps/web/public/ai-provider/grok.svg` | monochrome mask icon (from Grok brand asset) |
+| File                                        | Change                                                       |
+| ------------------------------------------- | ------------------------------------------------------------ |
+| `providers/grok.rs`                         | **NEW** — auth parse + billing fetch + detail sections       |
+| `providers/mod.rs`                          | `pub(crate) mod grok`                                        |
+| `runtime.rs`                                | `LiveProviderKind::Grok`, `ProviderSpec`, `collect_live` arm |
+| `constants.rs`                              | billing URL constant                                         |
+| `apps/web/.../usage-popover-components.tsx` | add `grok` to `PROVIDER_ICON_IDS`                            |
+| `apps/web/public/ai-provider/grok.svg`      | monochrome mask icon (from Grok brand asset)                 |
 
 No new WebSocket actions — existing usage overview pipeline picks up the new provider automatically.
 
@@ -478,7 +490,7 @@ No new DB tables. In-memory / config only.
 // AgentToolType addition
 GrokBuild, // serde "grok-build"
 
-// StdoutParser addition  
+// StdoutParser addition
 GrokStreamingJson, // serde "grok_streaming_json"
 
 // Contested identity
@@ -486,7 +498,7 @@ enum ContestedCliOwner { GrokBuild, Cursor, Unknown }
 ```
 
 ```ts
-type AgentToolType = /* existing */ | "grok-build";
+type AgentToolType = /* existing */ "grok-build";
 type ContestedCommandOwner = "grok-build" | "cursor" | "unknown";
 ```
 
@@ -507,11 +519,11 @@ forwarded from `apps/api` as today.
 
 ### REST (justified)
 
-| Method | Path | Why REST |
-|--------|------|----------|
-| `POST` | `/hooks/grok-build` | External Grok CLI process POSTs (same as other agents) |
-| `GET`/`POST` | `/hooks/install`, `/hooks/status`, per-tool install | existing pattern |
-| `GET` | `/hooks/cli-identity?command=agent` | one-shot local binary probe; not a session stream |
+| Method       | Path                                                | Why REST                                               |
+| ------------ | --------------------------------------------------- | ------------------------------------------------------ |
+| `POST`       | `/hooks/grok-build`                                 | External Grok CLI process POSTs (same as other agents) |
+| `GET`/`POST` | `/hooks/install`, `/hooks/status`, per-tool install | existing pattern                                       |
+| `GET`        | `/hooks/cli-identity?command=agent`                 | one-shot local binary probe; not a session stream      |
 
 ---
 
@@ -555,14 +567,14 @@ Each step 1–4 is independently mergeable with tests green.
 
 ## Risks & tradeoffs
 
-| Topic | Decision | Why |
-|-------|----------|-----|
-| Interactive flags | `--always-approve` | Matches Atmos “yolo” presets for other CLIs; user-overridable |
-| Headless output | `streaming-json` only | PRD locked; dedicated parser |
-| Contested probe | API host PATH | Same machine as local runtime; perfect tmux env parity is hard without per-pane which |
+| Topic                        | Decision                            | Why                                                                                         |
+| ---------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------- |
+| Interactive flags            | `--always-approve`                  | Matches Atmos “yolo” presets for other CLIs; user-overridable                               |
+| Headless output              | `streaming-json` only               | PRD locked; dedicated parser                                                                |
+| Contested probe              | API host PATH                       | Same machine as local runtime; perfect tmux env parity is hard without per-pane which       |
 | Notification install matcher | `.*` + server-side type filter only | Grok OR-regex dialect unconfirmed; server keeps only permission_prompt / elicitation_dialog |
-| Icon | theme pair from user assets | Brand fidelity; avoid wrong invert |
-| Cursor default cmd | hard cutover to `cursor-agent` | Fixes wrong binary; user overrides preserved |
+| Icon                         | theme pair from user assets         | Brand fidelity; avoid wrong invert                                                          |
+| Cursor default cmd           | hard cutover to `cursor-agent`      | Fixes wrong binary; user overrides preserved                                                |
 
 **Rollback:** revert manifest Cursor cmd + remove Grok entry; uninstall Grok hooks file; remove parser variant unused.
 

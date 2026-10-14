@@ -130,12 +130,12 @@ After impl returns:
 
 Lead agent review verdict:
 
-| Review | Lead agent |
-|--------|------------|
-| pass, no P0/P1 | Mark `done` if architecture still matches TECH |
-| fail | Rework impl same Owns, brief = `REWORK` list; review again |
-| refactor framed as P0 | Downgrade or ignore; do not expand slice |
-| conflicts with TECH | Ask HUMAN; do not rewrite PRD to match code |
+| Review                | Lead agent                                                 |
+| --------------------- | ---------------------------------------------------------- |
+| pass, no P0/P1        | Mark `done` if architecture still matches TECH             |
+| fail                  | Rework impl same Owns, brief = `REWORK` list; review again |
+| refactor framed as P0 | Downgrade or ignore; do not expand slice                   |
+| conflicts with TECH   | Ask HUMAN; do not rewrite PRD to match code                |
 
 Even a one-line product fix goes impl → review. Parent self-review as final gate = violation.
 
@@ -147,11 +147,11 @@ When all slices are `done`, hand off to `atmos-specs-test-run`. Parent delivers:
 
 ## Subagent selection
 
-| Work | `subagent_type` | Writes disk |
-|------|-----------------|-------------|
-| Impl / rework / cleanup | `generalPurpose` | Owns only |
-| Slice review | `generalPurpose` | No |
-| Lead agent path discovery | Parent Grep/Read, or `explore` | No |
+| Work                      | `subagent_type`                | Writes disk |
+| ------------------------- | ------------------------------ | ----------- |
+| Impl / rework / cleanup   | `generalPurpose`               | Owns only   |
+| Slice review              | `generalPurpose`               | No          |
+| Lead agent path discovery | Parent Grep/Read, or `explore` | No          |
 
 Do not use `best-of-n-runner` as default parallel impl (isolated worktree + merge bypasses file mutex). Do not replace checklist-driven slice review with `bugbot` / `security-review`.
 

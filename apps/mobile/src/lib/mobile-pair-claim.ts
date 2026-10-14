@@ -86,11 +86,7 @@ function delay(ms: number): Promise<void> {
 
 function xhrFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const url =
-    typeof input === "string"
-      ? input
-      : input instanceof URL
-        ? input.toString()
-        : input.url;
+    typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
   const method = (
     init?.method ??
     (typeof input === "string" || input instanceof URL ? "GET" : input.method) ??

@@ -28,25 +28,13 @@ export function useGithubUserCardQuery(params: {
   const useWs = source !== "public" && wsAvailable;
 
   const wsQuery = useQuery(
-    githubUserCardQueryOptions(
-      scope,
-      connectionState,
-      { login },
-      { enabled: enabled && useWs },
-    ),
+    githubUserCardQueryOptions(scope, connectionState, { login }, { enabled: enabled && useWs }),
   );
 
-  const { usePublic } = resolveGithubUserCardSources(
-    source,
-    wsAvailable,
-    wsQuery.isError,
-  );
+  const { usePublic } = resolveGithubUserCardSources(source, wsAvailable, wsQuery.isError);
 
   const publicQuery = useQuery(
-    publicGithubUserCardQueryOptions(
-      { login },
-      { enabled: enabled && usePublic },
-    ),
+    publicGithubUserCardQueryOptions({ login }, { enabled: enabled && usePublic }),
   );
 
   const card = wsQuery.data ?? publicQuery.data;
@@ -55,9 +43,8 @@ export function useGithubUserCardQuery(params: {
     (enabled && usePublic && publicQuery.isFetching && !card);
   const isError = Boolean(
     enabled &&
-      !card &&
-      ((useWs && wsQuery.isError && !usePublic) ||
-        (usePublic && publicQuery.isError)),
+    !card &&
+    ((useWs && wsQuery.isError && !usePublic) || (usePublic && publicQuery.isError)),
   );
 
   return { data: card, isFetching, isError };

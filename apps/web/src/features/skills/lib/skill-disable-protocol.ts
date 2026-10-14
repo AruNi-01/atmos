@@ -59,9 +59,7 @@ export function upsertSkillDisableSessionAction(
   const existing = actions.find((action) => action.id === skillId);
   if (existing) {
     return actions.map((action) =>
-      action.id === skillId
-        ? { ...action, name: skillName, currentEnabled: afterEnabled }
-        : action,
+      action.id === skillId ? { ...action, name: skillName, currentEnabled: afterEnabled } : action,
     );
   }
   return [

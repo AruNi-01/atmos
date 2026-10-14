@@ -17,10 +17,7 @@ function reviewTargetKey(target: ReviewTarget): {
 }
 
 /** Stable key for a review target. Used to construct the TanStack Query key. */
-export function reviewSessionsKey(
-  scope: ComputerQueryScope,
-  target: ReviewTarget,
-): QueryKey {
+export function reviewSessionsKey(scope: ComputerQueryScope, target: ReviewTarget): QueryKey {
   return queryKeys.computer.reviewSessions(scope, reviewTargetKey(target));
 }
 

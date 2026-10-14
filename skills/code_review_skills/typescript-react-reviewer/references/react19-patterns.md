@@ -15,7 +15,7 @@ interface FormState {
 async function createPost(prevState: FormState, formData: FormData): Promise<FormState> {
   const title = formData.get('title') as string;
   if (!title) return { error: 'Title required', success: false };
-  
+
   await fetch('/api/posts', { method: 'POST', body: JSON.stringify({ title }) });
   return { error: null, success: true };
 }
@@ -39,6 +39,7 @@ function NewPostForm() {
 ```
 
 **Review Points:**
+
 - Action function must return consistent object shape
 - Actions should be pure (return new state, not mutate)
 - Check that error handling covers all failure cases
@@ -105,7 +106,7 @@ function MessageThread({ messages }: { messages: Message[] }) {
   async function sendMessage(formData: FormData) {
     const text = formData.get('message') as string;
     addOptimisticMessage(text);
-    
+
     startTransition(async () => {
       await deliverMessage(text);
     });
@@ -128,6 +129,7 @@ function MessageThread({ messages }: { messages: Message[] }) {
 ```
 
 **Review Points:**
+
 - Optimistic state should be visually distinct (opacity, spinner)
 - Consider what happens on error (automatic revert)
 - Wrap async operations in `startTransition`
@@ -180,18 +182,19 @@ function HorizontalRule({ show }: { show: boolean }) {
 ```
 
 **Review Points:**
+
 - Always wrap `use(promise)` in `<Suspense>`
 - Promise must come from props, state, or outside component
 - Never create promise inline in render
 
 ## Server vs Client Components
 
-| Server Components | Client Components |
-|-------------------|-------------------|
-| No directive needed | Must start with `'use client'` |
-| Can access DB, filesystem | Can use useState, useEffect |
-| Zero client JS | Ships JS to browser |
-| Cannot use hooks | Full interactivity |
+| Server Components         | Client Components              |
+| ------------------------- | ------------------------------ |
+| No directive needed       | Must start with `'use client'` |
+| Can access DB, filesystem | Can use useState, useEffect    |
+| Zero client JS            | Ships JS to browser            |
+| Cannot use hooks          | Full interactivity             |
 
 ### Boundary Placement
 
@@ -202,7 +205,7 @@ Push `'use client'` as low as possible in the tree.
 // ProductPage.tsx (Server Component - no directive)
 async function ProductPage({ id }: { id: string }) {
   const product = await db.query(`SELECT * FROM products WHERE id = $1`, [id]);
-  
+
   return (
     <article>
       <h1>{product.name}</h1>           {/* Server: no JS */}
@@ -231,6 +234,7 @@ function ProductPage({ id }) {
 Props passed from Server to Client Components must be serializable.
 
 **Cannot pass:**
+
 - Functions (except Server Actions)
 - Classes
 - Symbols

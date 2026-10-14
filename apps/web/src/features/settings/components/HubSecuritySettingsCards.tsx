@@ -11,10 +11,7 @@ import React from "react";
 import { GitHubIcon, GoogleIcon } from "@daveyplate/better-auth-ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import {
-  HUB_AUTH_DONE_CHANNEL,
-  HUB_AUTH_DONE_MESSAGE,
-} from "@/app/hub-auth/hub-auth-channel";
+import { HUB_AUTH_DONE_CHANNEL, HUB_AUTH_DONE_MESSAGE } from "@/app/hub-auth/hub-auth-channel";
 import {
   Button,
   Skeleton,
@@ -30,10 +27,7 @@ import {
   type HubLinkedAccount,
   type HubSocialProvider,
 } from "@/api/hub-auth-client";
-import {
-  isHubSocialProvider,
-  openHubOAuth,
-} from "@/features/settings/components/hub-oauth-open";
+import { isHubSocialProvider, openHubOAuth } from "@/features/settings/components/hub-oauth-open";
 import {
   SettingsGroupCard,
   SettingsGroupRow,
@@ -66,10 +60,7 @@ function LinkedAccountsCard() {
     const map = new Map<string, HubLinkedAccount>();
     for (const a of accountsQuery.data ?? []) {
       // Normalize provider id (some responses use provider vs providerId).
-      const raw =
-        a.providerId ||
-        (a as { provider?: string }).provider ||
-        "";
+      const raw = a.providerId || (a as { provider?: string }).provider || "";
       const id = String(raw).toLowerCase();
       if (isHubSocialProvider(id)) {
         map.set(id, { ...a, providerId: id });
@@ -141,91 +132,82 @@ function LinkedAccountsCard() {
   }, [qc]);
 
   return (
-    <SettingsGroupCard
-      title={t("linkedAccounts")}
-      description={t("linkedAccountsDescription")}
-    >
+    <SettingsGroupCard title={t("linkedAccounts")} description={t("linkedAccountsDescription")}>
       {accountsQuery.isLoading ? (
         <div className="space-y-3 py-3">
           <Skeleton className="h-14 w-full rounded-lg" />
           <Skeleton className="h-14 w-full rounded-lg" />
         </div>
       ) : (
-      <TooltipProvider delayDuration={200}>
-        {PROVIDERS.map(({ id, name, Icon }) => {
-          const account = linkedByProvider.get(id) ?? null;
-          const busy = busyProvider === id;
-          // One Atmos user ↔ many providers, but only one account per provider.
-          // Never offer Link when this provider is already connected.
-          const isLinked = Boolean(account);
-          const onlyOneLinked = linkedByProvider.size <= 1;
-          const unlinkBlocked = isLinked && onlyOneLinked;
+        <TooltipProvider delayDuration={200}>
+          {PROVIDERS.map(({ id, name, Icon }) => {
+            const account = linkedByProvider.get(id) ?? null;
+            const busy = busyProvider === id;
+            // One Atmos user ↔ many providers, but only one account per provider.
+            // Never offer Link when this provider is already connected.
+            const isLinked = Boolean(account);
+            const onlyOneLinked = linkedByProvider.size <= 1;
+            const unlinkBlocked = isLinked && onlyOneLinked;
 
-          const unlinkButton = (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="relative shrink-0"
-              disabled={busy || unlinkBlocked}
-              onClick={() => {
-                if (account && !unlinkBlocked) void unlink(account);
-              }}
-            >
-              {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
-              {t("unlink")}
-            </Button>
-          );
+            const unlinkButton = (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="relative shrink-0"
+                disabled={busy || unlinkBlocked}
+                onClick={() => {
+                  if (account && !unlinkBlocked) void unlink(account);
+                }}
+              >
+                {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                {t("unlink")}
+              </Button>
+            );
 
-          return (
-            <SettingsGroupRow
-              key={id}
-              wide
-              title={
-                <span className="inline-flex items-center gap-2">
-                  <Icon className="size-4 shrink-0" />
-                  {name}
-                </span>
-              }
-              description={
-                isLinked && account
-                  ? linkedSubtitle(account)
-                  : t("notLinked")
-              }
-            >
-              {isLinked ? (
-                unlinkBlocked ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="inline-flex cursor-not-allowed">
-                        {unlinkButton}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-xs">
-                      {t("errors.cannotUnlinkLast")}
-                    </TooltipContent>
-                  </Tooltip>
+            return (
+              <SettingsGroupRow
+                key={id}
+                wide
+                title={
+                  <span className="inline-flex items-center gap-2">
+                    <Icon className="size-4 shrink-0" />
+                    {name}
+                  </span>
+                }
+                description={isLinked && account ? linkedSubtitle(account) : t("notLinked")}
+              >
+                {isLinked ? (
+                  unlinkBlocked ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex cursor-not-allowed">{unlinkButton}</span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs">
+                        {t("errors.cannotUnlinkLast")}
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    unlinkButton
+                  )
                 ) : (
-                  unlinkButton
-                )
-              ) : (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="default"
-                  className="relative shrink-0"
-                  disabled={busy || accountsQuery.isError}
-                  title={t("linkOpensNewTab")}
-                  onClick={() => void link(id)}
-                >
-                  {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
-                  {t("link")}
-                </Button>
-              )}
-            </SettingsGroupRow>
-          );
-        })}
-      </TooltipProvider>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="default"
+                    className="relative shrink-0"
+                    disabled={busy || accountsQuery.isError}
+                    title={t("linkOpensNewTab")}
+                    onClick={() => void link(id)}
+                  >
+                    {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                    {t("link")}
+                  </Button>
+                )}
+              </SettingsGroupRow>
+            );
+          })}
+        </TooltipProvider>
       )}
       {error ? <p className="px-2 py-3 text-xs text-destructive">{error}</p> : null}
       {accountsQuery.isError ? (

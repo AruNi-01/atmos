@@ -19,9 +19,9 @@ import {
 
 describe("desktop-use client", () => {
   it("builds Runtime Desktop Use URLs on loopback (APP-076)", () => {
-    expect(desktopUseRuntimeUrl("/api/desktop-use/status", { host: "127.0.0.1", port: 30303 })).toBe(
-      "http://127.0.0.1:30303/api/desktop-use/status",
-    );
+    expect(
+      desktopUseRuntimeUrl("/api/desktop-use/status", { host: "127.0.0.1", port: 30303 }),
+    ).toBe("http://127.0.0.1:30303/api/desktop-use/status");
   });
 
   it("resolves only the canonical ~/.atmos/bin path", () => {
@@ -42,9 +42,7 @@ describe("desktop-use client", () => {
     writeFileSync(join(binDir, binName), "#!/bin/sh\n");
     // Even with a staged packaged binary, resolve stays on canonical home path.
     const resolved = resolveAtmosCliPath({ home: join(root, "fake-home") });
-    expect(resolved).toBe(
-      join(root, "fake-home", ".atmos", "bin", binName),
-    );
+    expect(resolved).toBe(join(root, "fake-home", ".atmos", "bin", binName));
     expect(isAtmosCliInstalled({ home: join(root, "fake-home") })).toBe(false);
   });
 
@@ -87,13 +85,8 @@ describe("desktop-use client", () => {
     const du = join(root, "desktop-use");
     mkdirSync(du, { recursive: true });
     const reqPath = join(du, "cli-requirement.json");
-    writeFileSync(
-      reqPath,
-      JSON.stringify({ schema_version: 1, min_cli_version: "2026.8.10" }),
-    );
-    expect(
-      resolveCliRequirementPath({ resourcesPath: root, repoRoot: null }),
-    ).toBe(reqPath);
+    writeFileSync(reqPath, JSON.stringify({ schema_version: 1, min_cli_version: "2026.8.10" }));
+    expect(resolveCliRequirementPath({ resourcesPath: root, repoRoot: null })).toBe(reqPath);
 
     const below = enrichCliStatusWithRequirement(
       {

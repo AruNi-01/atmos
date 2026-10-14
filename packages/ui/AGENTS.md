@@ -38,12 +38,15 @@ packages/ui/
 ## Coding Conventions
 
 ### Tailwind v4
+
 - Uses pure CSS theme tokens in `src/styles/globals.css`
 
 ### Pure Components
+
 - UI components should not have side effects or direct API calls
 
 ### Icons
+
 - Put reusable icons in `src/components/icons/`
 - Put animated icons in `src/components/icons/`, not `src/components/ui/`
 - `src/components/ui/` is for composable UI primitives/components, not icon assets
@@ -54,13 +57,14 @@ packages/ui/
 ## Safety Rails
 
 ### NEVER
+
 - Add API calls or side effects to UI components
 - Break semantic color variable conventions
 - Add business logic to components
 
 ### ALWAYS
+
 - Keep components atomic and reusable
 - Use semantic CSS variables for theming
 - Keep icon placement consistent: reusable icon files live under `src/components/icons/`
 - Import other files in this package with `@workspace/ui/...` or a relative path. Do not use `@/` — Next/Turbopack has one import map per app and will resolve `@/` as `apps/web/src`.
-

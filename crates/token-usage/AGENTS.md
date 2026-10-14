@@ -28,10 +28,12 @@ crates/token-usage/
 ## Coding Conventions
 
 ### Token Counting
+
 - Uses `tokscale-core` vendor library for accurate token counting
 - Supports multiple tokenization schemes (tiktoken, cl100k_base, etc.)
 
 ### Service Interface
+
 ```rust
 pub use service::{
     TokenUsageService,      // Main service
@@ -47,6 +49,7 @@ pub use models::{
 ```
 
 ### Integration
+
 - Used by `core-service` for tracking token usage across operations
 - Provides both synchronous and async interfaces
 
@@ -55,13 +58,14 @@ pub use models::{
 ## Safety Rails
 
 ### NEVER
+
 - Assume all text uses the same tokenization — different models use different schemes
 - Count tokens naively by characters/words — use proper tokenization
 - Expose tokscale-core internals — keep wrapped in service layer
 
 ### ALWAYS
+
 - Use the correct tokenizer for each model (claude, gpt-4, etc.)
 - Handle tokenization errors gracefully
 - Maintain accuracy over performance when counting tokens
 - Keep vendor dependency isolated in service layer
-

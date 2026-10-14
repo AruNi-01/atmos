@@ -72,10 +72,7 @@ describe("unknown directive fallback", () => {
     };
     const tree = apply({
       type: "root",
-      children: [
-        { type: "paragraph", children: [inline] },
-        card,
-      ],
+      children: [{ type: "paragraph", children: [inline] }, card],
     });
     expect(tree.children?.[0]?.children?.[0]).toEqual(inline);
     expect(tree.children?.[1]).toEqual(card);
@@ -95,9 +92,7 @@ describe("unknown directive fallback", () => {
           type: "containerDirective",
           name: "note",
           attributes: {},
-          children: [
-            { type: "paragraph", children: [{ type: "text", value: "body" }] },
-          ],
+          children: [{ type: "paragraph", children: [{ type: "text", value: "body" }] }],
         },
       ],
     });

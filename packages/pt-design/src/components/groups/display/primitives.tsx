@@ -273,11 +273,22 @@ function DirectionRenderer({ node, mode, onCommit, onAction }: PtRendererProps):
   });
   return (
     <ControlRoot node={node} mode={mode}>
-      <div dir={dir} style={{ ...FILL, display: "flex", alignItems: "center", gap: 8, padding: "0 8px" }}>
-        <button type="button" style={chip("ltr")} onClick={() => emit(node, { value: "ltr" }, onCommit, onAction, "change")}>
+      <div
+        dir={dir}
+        style={{ ...FILL, display: "flex", alignItems: "center", gap: 8, padding: "0 8px" }}
+      >
+        <button
+          type="button"
+          style={chip("ltr")}
+          onClick={() => emit(node, { value: "ltr" }, onCommit, onAction, "change")}
+        >
           LTR
         </button>
-        <button type="button" style={chip("rtl")} onClick={() => emit(node, { value: "rtl" }, onCommit, onAction, "change")}>
+        <button
+          type="button"
+          style={chip("rtl")}
+          onClick={() => emit(node, { value: "rtl" }, onCommit, onAction, "change")}
+        >
           RTL
         </button>
       </div>
@@ -288,7 +299,8 @@ function DirectionRenderer({ node, mode, onCommit, onAction }: PtRendererProps):
 export const directionModule: PtComponentModule = {
   type: "direction",
   defaultBBox: dirBBox,
-  defaultNode: (id) => ptNode(id, "direction", dirBBox, { props: { label: "Text direction" }, value: "ltr" }),
+  defaultNode: (id) =>
+    ptNode(id, "direction", dirBBox, { props: { label: "Text direction" }, value: "ltr" }),
   Renderer: DirectionRenderer,
   agentDescription: "LTR / RTL toggle. value is ltr or rtl.",
   xmlExample: `<direction id="dir" label="Text direction" value="ltr" x="0" y="0" width="200" height="48"/>`,
@@ -307,7 +319,16 @@ function MarkerRenderer({ node, mode }: PtRendererProps): ReactElement {
           <span style={{ flex: 1, height: 1, background: T.border }} />
         </div>
       ) : (
-        <div style={{ ...FILL, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: T.muted }}>
+        <div
+          style={{
+            ...FILL,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 12,
+            color: T.muted,
+          }}
+        >
           {label}
         </div>
       )}
@@ -318,7 +339,10 @@ function MarkerRenderer({ node, mode }: PtRendererProps): ReactElement {
 export const markerModule: PtComponentModule = {
   type: "marker",
   defaultBBox: markerBBox,
-  defaultNode: (id) => ptNode(id, "marker", markerBBox, { props: { label: "Alex joined the thread", variant: "status" } }),
+  defaultNode: (id) =>
+    ptNode(id, "marker", markerBBox, {
+      props: { label: "Alex joined the thread", variant: "status" },
+    }),
   Renderer: MarkerRenderer,
   agentDescription: "Inline status or date separator. props.variant is status or separator.",
   xmlExample: `<marker id="join" label="Alex joined the thread" variant="status" x="0" y="0" width="280" height="28"/>`,

@@ -7,14 +7,21 @@ import { classifyMdLiveMedia } from "@atmos/md-live/ui";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
 import { documentDirectory, normalizeFsPath } from "./md-live-media-path";
 
-function resolveAbsoluteMediaPath(src: string, documentPath: string, workspaceRoot: string | null): string | null {
+function resolveAbsoluteMediaPath(
+  src: string,
+  documentPath: string,
+  workspaceRoot: string | null,
+): string | null {
   if (!src || src.startsWith("http://") || src.startsWith("https://") || src.startsWith("data:")) {
     return null;
   }
   const normalized = normalizeFsPath(src);
   if (normalized.startsWith("/")) return normalized;
   const fromDir = documentDirectory(documentPath, workspaceRoot);
-  if (!fromDir) return workspaceRoot ? `${normalizeFsPath(workspaceRoot).replace(/\/$/, "")}/${normalized.replace(/^\.\//, "")}` : null;
+  if (!fromDir)
+    return workspaceRoot
+      ? `${normalizeFsPath(workspaceRoot).replace(/\/$/, "")}/${normalized.replace(/^\.\//, "")}`
+      : null;
   const joined = `${fromDir.replace(/\/$/, "")}/${normalized.replace(/^\.\//, "")}`;
   const parts: string[] = [];
   for (const part of joined.split("/")) {
@@ -26,8 +33,13 @@ function resolveAbsoluteMediaPath(src: string, documentPath: string, workspaceRo
   return `${prefix}${parts.join("/")}`;
 }
 
-async function mediaUrl(src: string, documentPath: string, workspaceRoot: string | null): Promise<string> {
-  if (src.startsWith("http://") || src.startsWith("https://") || src.startsWith("data:")) return src;
+async function mediaUrl(
+  src: string,
+  documentPath: string,
+  workspaceRoot: string | null,
+): Promise<string> {
+  if (src.startsWith("http://") || src.startsWith("https://") || src.startsWith("data:"))
+    return src;
   const abs = resolveAbsoluteMediaPath(src, documentPath, workspaceRoot);
   if (!abs) return src;
   const cfg = await getRuntimeApiConfig();

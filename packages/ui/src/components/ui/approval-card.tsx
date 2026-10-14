@@ -139,11 +139,7 @@ function RollingDigits({ value }: { value: string }) {
     prevRef.current = value;
     const fromN = parseInt(from, 10);
     const toN = parseInt(value, 10);
-    setDir(
-      Number.isFinite(fromN) && Number.isFinite(toN) && toN < fromN
-        ? "down"
-        : "up",
-    );
+    setDir(Number.isFinite(fromN) && Number.isFinite(toN) && toN < fromN ? "down" : "up");
     setOldVal(from);
     setNewVal(value);
     setRolling(true);
@@ -204,13 +200,7 @@ function TodoDashedIcon() {
   const dash = 0.022;
   const gap = 1 / dots - dash;
   return (
-    <svg
-      className={styles.todoIcon}
-      viewBox="0 0 24 24"
-      width="16"
-      height="16"
-      aria-hidden="true"
-    >
+    <svg className={styles.todoIcon} viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
       <circle
         cx="12"
         cy="12"
@@ -302,9 +292,7 @@ export function ApprovalCard({
   className,
 }: ApprovalCardProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [otherSelected, setOtherSelected] = useState<Record<string, boolean>>(
-    {},
-  );
+  const [otherSelected, setOtherSelected] = useState<Record<string, boolean>>({});
   const [customDraft, setCustomDraft] = useState<Record<string, string>>({});
   const [step, setStep] = useState(0);
   const [planExpanded, setPlanExpanded] = useState(false);
@@ -348,8 +336,7 @@ export function ApprovalCard({
 
   const safeStep = Math.min(step, Math.max(questions.length - 1, 0));
   const allAnswered =
-    questions.length > 0 &&
-    questions.every((q) => Boolean(answers[q.id]?.trim()));
+    questions.length > 0 && questions.every((q) => Boolean(answers[q.id]?.trim()));
   const stepLabel = `${safeStep + 1} / ${questions.length}`;
 
   const isOtherChoice = (q: ApprovalQuestion) => {
@@ -404,14 +391,11 @@ export function ApprovalCard({
     : hasPlanBody
       ? "body"
       : "todos";
-  const showPlanSummaryText =
-    Boolean(trimmedPlanSummary) && activePlanPane !== "body";
+  const showPlanSummaryText = Boolean(trimmedPlanSummary) && activePlanPane !== "body";
   const showPlanIntro = showPlanHeadline || showPlanSummaryText;
   // Keep the inactive pane mounted only when switching so we can crossfade.
-  const mountPlanBody =
-    hasPlanBody && (canSwitchPlanPanes || activePlanPane === "body");
-  const mountPlanTodos =
-    hasPlanTodos && (canSwitchPlanPanes || activePlanPane === "todos");
+  const mountPlanBody = hasPlanBody && (canSwitchPlanPanes || activePlanPane === "body");
+  const mountPlanTodos = hasPlanTodos && (canSwitchPlanPanes || activePlanPane === "todos");
 
   useEffect(() => {
     if (variant !== "plan" || !canSwitchPlanPanes) {
@@ -439,21 +423,12 @@ export function ApprovalCard({
 
   const resolvedApprove =
     approveLabel ??
-    (variant === "questions"
-      ? "Continue"
-      : variant === "command"
-        ? "Run"
-        : "Approve");
+    (variant === "questions" ? "Continue" : variant === "command" ? "Run" : "Approve");
 
-  const resolvedReject =
-    rejectLabel ?? (variant === "plan" ? "View Plan" : "Skip");
+  const resolvedReject = rejectLabel ?? (variant === "plan" ? "View Plan" : "Skip");
 
   const canContinue =
-    variant === "questions"
-      ? allAnswered
-      : variant === "command"
-        ? Boolean(command.trim())
-        : true;
+    variant === "questions" ? allAnswered : variant === "command" ? Boolean(command.trim()) : true;
 
   const handleApprove = (nextAnswers?: Record<string, string>) => {
     if (variant === "questions") {
@@ -554,15 +529,10 @@ export function ApprovalCard({
     setStep(Math.min(Math.max(next, 0), questions.length - 1));
   };
 
-  const showFooter =
-    !readOnly || (variant === "questions" && questions.length > 1);
+  const showFooter = !readOnly || (variant === "questions" && questions.length > 1);
 
   const Icon =
-    variant === "questions"
-      ? MessageCircleQuestion
-      : variant === "command"
-        ? Terminal
-        : ListTodo;
+    variant === "questions" ? MessageCircleQuestion : variant === "command" ? Terminal : ListTodo;
 
   return (
     <div
@@ -576,10 +546,7 @@ export function ApprovalCard({
         if (safeStep !== questions.length - 1 || !canContinue) return;
         const el = e.target as HTMLElement;
         if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") return;
-        if (
-          el.closest(`.${styles.btnGhost}`) ||
-          el.closest(`.${styles.btnPrimary}`)
-        ) {
+        if (el.closest(`.${styles.btnGhost}`) || el.closest(`.${styles.btnPrimary}`)) {
           return;
         }
         e.preventDefault();
@@ -636,14 +603,9 @@ export function ApprovalCard({
                     aria-hidden={active ? undefined : true}
                   >
                     <div className={styles.qPrompt}>{q.prompt}</div>
-                    <div
-                      className={styles.options}
-                      role="radiogroup"
-                      aria-label={q.prompt}
-                    >
+                    <div className={styles.options} role="radiogroup" aria-label={q.prompt}>
                       {q.options.map((opt, oi) => {
-                        const selected =
-                          answers[q.id] === opt && !isOtherChoice(q);
+                        const selected = answers[q.id] === opt && !isOtherChoice(q);
                         const letter = String.fromCharCode(65 + oi);
                         return (
                           <button
@@ -675,13 +637,11 @@ export function ApprovalCard({
                           readOnly={readOnly}
                           otherOn={isOtherChoice(q)}
                           draft={
-                            customDraft[q.id]
-                            ?? (isOtherChoice(q)
-                              && answers[q.id]
-                              && !q.options.includes(answers[q.id])
+                            customDraft[q.id] ??
+                            (isOtherChoice(q) && answers[q.id] && !q.options.includes(answers[q.id])
                               ? answers[q.id]
-                              : "")
-                            ?? ""
+                              : "") ??
+                            ""
                           }
                           inputRef={(el) => {
                             customInputRefs.current[q.id] = el;
@@ -746,11 +706,7 @@ export function ApprovalCard({
                     <div className={styles.todoWell}>
                       <div className={styles.todoHead}>
                         <span className={styles.todoHeadIcon}>
-                          <ListChecks
-                            className={styles.todoListIcon}
-                            strokeWidth={2}
-                            aria-hidden
-                          />
+                          <ListChecks className={styles.todoListIcon} strokeWidth={2} aria-hidden />
                         </span>
                         <span className={styles.todoTitle}>To-dos</span>
                         <span className={styles.todoCount}>{plan.length}</span>
@@ -808,11 +764,7 @@ export function ApprovalCard({
                             }}
                           >
                             <span className={styles.todoMoreIcon} aria-hidden>
-                              <svg
-                                className={styles.todoMoreGlyph}
-                                viewBox="0 0 24 24"
-                                aria-hidden
-                              >
+                              <svg className={styles.todoMoreGlyph} viewBox="0 0 24 24" aria-hidden>
                                 {planExpanded ? (
                                   <rect
                                     x="4.75"
@@ -845,178 +797,170 @@ export function ApprovalCard({
       </div>
 
       {showFooter ? (
-      <div className={styles.actions}>
-        {variant === "questions" ? (
-          <div
-            className={styles.stepNav}
-            aria-label={`Question ${safeStep + 1} of ${questions.length}`}
-          >
-            <button
-              type="button"
-              className={styles.stepArrow}
-              aria-label="Previous question"
-              disabled={safeStep <= 0}
-              onClick={(e) => {
-                e.preventDefault();
-                goToStep(safeStep - 1);
-              }}
+        <div className={styles.actions}>
+          {variant === "questions" ? (
+            <div
+              className={styles.stepNav}
+              aria-label={`Question ${safeStep + 1} of ${questions.length}`}
             >
-              <ChevronUp
-                className={styles.stepArrowIcon}
-                strokeWidth={2}
-                aria-hidden
-              />
-            </button>
-            <span className={styles.stepBadge} aria-live="polite">
-              <RollingDigits value={stepLabel} />
-            </span>
-            <button
-              type="button"
-              className={styles.stepArrow}
-              aria-label="Next question"
-              disabled={safeStep >= questions.length - 1}
-              onClick={(e) => {
-                e.preventDefault();
-                goToStep(safeStep + 1);
-              }}
-            >
-              <ChevronDown
-                className={styles.stepArrowIcon}
-                strokeWidth={2}
-                aria-hidden
-              />
-            </button>
-          </div>
-        ) : autoEnabled && autoUI !== "gone" ? (
-          <div
-            className={`${styles.autoApprove}${
-              autoUI === "leaving" ? ` ${styles.autoApproveOut}` : ""
-            }`}
-            aria-live="polite"
-            aria-label={`Auto approve in ${autoSecs} seconds`}
-          >
-            <span className={styles.autoApproveTip}>
-            <button
-              type="button"
-              className={styles.autoApproveCancel}
-              aria-label="Cancel auto approve"
-              disabled={autoUI !== "active"}
-              onClick={(e) => {
-                e.preventDefault();
-                cancelAutoApprove();
-              }}
-            >
-              <svg
-                className={styles.autoApprovePie}
-                viewBox="0 0 24 24"
-                width="16"
-                height="16"
-                aria-hidden
+              <button
+                type="button"
+                className={styles.stepArrow}
+                aria-label="Previous question"
+                disabled={safeStep <= 0}
+                onClick={(e) => {
+                  e.preventDefault();
+                  goToStep(safeStep - 1);
+                }}
               >
-                <circle
-                  className={styles.autoApprovePieTrack}
-                  cx="12"
-                  cy="12"
-                  r="9"
-                  fill="none"
-                  strokeWidth="1.8"
-                />
-                <circle
-                  className={styles.autoApprovePieFill}
-                  cx="12"
-                  cy="12"
-                  r="9"
-                  fill="none"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  pathLength={1}
-                  strokeDasharray={1}
-                  style={{
-                    strokeDashoffset:
-                      1 - ((autoApproveSeconds ?? 0) - autoSecs) / (autoApproveSeconds ?? 1),
-                  }}
-                  transform="rotate(-90 12 12)"
-                />
-              </svg>
-              <span className={styles.autoApproveCancelGlyph} aria-hidden>
-                <X size={8} strokeWidth={2.5} />
+                <ChevronUp className={styles.stepArrowIcon} strokeWidth={2} aria-hidden />
+              </button>
+              <span className={styles.stepBadge} aria-live="polite">
+                <RollingDigits value={stepLabel} />
               </span>
-            </button>
-            </span>
-            <span className={styles.autoApproveLabel}>
-              Auto Approve in{" "}
-              <span className={styles.autoApproveSecs}>
-                <RollingDigits value={String(autoSecs)} />
-              </span>
-              s
-            </span>
-          </div>
-        ) : (
-          <span className={styles.actionsSpacer} aria-hidden />
-        )}
-        {readOnly ? null : (
-        <div className={styles.actionBtns}>
-          {actions && actions.length > 0 ? (
-            actions.map((action) => {
-              const isPrimary = (action.variant ?? "ghost") === "primary";
-              return (
+              <button
+                type="button"
+                className={styles.stepArrow}
+                aria-label="Next question"
+                disabled={safeStep >= questions.length - 1}
+                onClick={(e) => {
+                  e.preventDefault();
+                  goToStep(safeStep + 1);
+                }}
+              >
+                <ChevronDown className={styles.stepArrowIcon} strokeWidth={2} aria-hidden />
+              </button>
+            </div>
+          ) : autoEnabled && autoUI !== "gone" ? (
+            <div
+              className={`${styles.autoApprove}${
+                autoUI === "leaving" ? ` ${styles.autoApproveOut}` : ""
+              }`}
+              aria-live="polite"
+              aria-label={`Auto approve in ${autoSecs} seconds`}
+            >
+              <span className={styles.autoApproveTip}>
                 <button
-                  key={action.id}
                   type="button"
-                  className={isPrimary ? styles.btnPrimary : styles.btnGhost}
-                  disabled={variant === "command" ? !canContinue : false}
-                  title={action.label}
+                  className={styles.autoApproveCancel}
+                  aria-label="Cancel auto approve"
+                  disabled={autoUI !== "active"}
                   onClick={(e) => {
                     e.preventDefault();
-                    onAction?.(action.id);
+                    cancelAutoApprove();
                   }}
                 >
-                  <span className={styles.btnLabel}>{action.label}</span>
-                  {isPrimary ? (
+                  <svg
+                    className={styles.autoApprovePie}
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    aria-hidden
+                  >
+                    <circle
+                      className={styles.autoApprovePieTrack}
+                      cx="12"
+                      cy="12"
+                      r="9"
+                      fill="none"
+                      strokeWidth="1.8"
+                    />
+                    <circle
+                      className={styles.autoApprovePieFill}
+                      cx="12"
+                      cy="12"
+                      r="9"
+                      fill="none"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      pathLength={1}
+                      strokeDasharray={1}
+                      style={{
+                        strokeDashoffset:
+                          1 - ((autoApproveSeconds ?? 0) - autoSecs) / (autoApproveSeconds ?? 1),
+                      }}
+                      transform="rotate(-90 12 12)"
+                    />
+                  </svg>
+                  <span className={styles.autoApproveCancelGlyph} aria-hidden>
+                    <X size={8} strokeWidth={2.5} />
+                  </span>
+                </button>
+              </span>
+              <span className={styles.autoApproveLabel}>
+                Auto Approve in{" "}
+                <span className={styles.autoApproveSecs}>
+                  <RollingDigits value={String(autoSecs)} />
+                </span>
+                s
+              </span>
+            </div>
+          ) : (
+            <span className={styles.actionsSpacer} aria-hidden />
+          )}
+          {readOnly ? null : (
+            <div className={styles.actionBtns}>
+              {actions && actions.length > 0 ? (
+                actions.map((action) => {
+                  const isPrimary = (action.variant ?? "ghost") === "primary";
+                  return (
+                    <button
+                      key={action.id}
+                      type="button"
+                      className={isPrimary ? styles.btnPrimary : styles.btnGhost}
+                      disabled={variant === "command" ? !canContinue : false}
+                      title={action.label}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onAction?.(action.id);
+                      }}
+                    >
+                      <span className={styles.btnLabel}>{action.label}</span>
+                      {isPrimary ? (
+                        <CornerDownLeft
+                          className={styles.btnSubmitIcon}
+                          size={12}
+                          strokeWidth={2}
+                          aria-hidden
+                        />
+                      ) : null}
+                    </button>
+                  );
+                })
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className={styles.btnGhost}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleReject();
+                    }}
+                  >
+                    {resolvedReject}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.btnPrimary}
+                    disabled={!canContinue}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleApprove();
+                    }}
+                  >
+                    {resolvedApprove}
                     <CornerDownLeft
                       className={styles.btnSubmitIcon}
                       size={12}
                       strokeWidth={2}
                       aria-hidden
                     />
-                  ) : null}
-                </button>
-              );
-            })
-          ) : (
-            <>
-              <button
-                type="button"
-                className={styles.btnGhost}
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleReject();
-                }}
-              >
-                {resolvedReject}
-              </button>
-              <button
-                type="button"
-                className={styles.btnPrimary}
-                disabled={!canContinue}
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleApprove();
-                }}
-              >
-                {resolvedApprove}
-                <CornerDownLeft
-                  className={styles.btnSubmitIcon}
-                  size={12}
-                  strokeWidth={2}
-                  aria-hidden
-                />
-              </button>
-            </>
+                  </button>
+                </>
+              )}
+            </div>
           )}
         </div>
-        )}
-      </div>
       ) : null}
     </div>
   );

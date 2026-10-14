@@ -29,23 +29,14 @@ export function installBrowserWebviewHooks(
     const prefsRecord = webPreferences as unknown as Record<string, unknown>;
 
     const partitionFromPrefs =
-      typeof webPreferences.partition === "string"
-        ? webPreferences.partition
-        : "";
+      typeof webPreferences.partition === "string" ? webPreferences.partition : "";
     const partitionFromParams =
-      typeof paramsRecord.partition === "string"
-        ? (paramsRecord.partition as string)
-        : "";
-    const tagPartition =
-      partitionFromParams || partitionFromPrefs || BROWSER_PARTITION;
+      typeof paramsRecord.partition === "string" ? (paramsRecord.partition as string) : "";
+    const tagPartition = partitionFromParams || partitionFromPrefs || BROWSER_PARTITION;
 
-    const src =
-      typeof paramsRecord.src === "string" ? (paramsRecord.src as string) : "";
+    const src = typeof paramsRecord.src === "string" ? (paramsRecord.src as string) : "";
 
-    const preferredSessionId = extractPreferredSessionId(
-      paramsRecord,
-      prefsRecord,
-    );
+    const preferredSessionId = extractPreferredSessionId(paramsRecord, prefsRecord);
 
     const decision = evaluateWillAttach({
       partition: tagPartition,
@@ -56,16 +47,16 @@ export function installBrowserWebviewHooks(
 
     if (!decision.allow) {
       console.warn(
-        `[browser] will-attach-webview DENY: ${decision.reason} src=${src || "(empty)"} partition=${tagPartition} preferred=${preferredSessionId ?? "(none)"} registered=${manager.listRegisteredSessions().map((s) => `${s.sessionId.slice(0, 8)}:pending=${s.pendingAttach}`).join(",")}`,
+        `[browser] will-attach-webview DENY: ${decision.reason} src=${src || "(empty)"} partition=${tagPartition} preferred=${preferredSessionId ?? "(none)"} registered=${manager
+          .listRegisteredSessions()
+          .map((s) => `${s.sessionId.slice(0, 8)}:pending=${s.pendingAttach}`)
+          .join(",")}`,
       );
       event.preventDefault();
       return;
     }
 
-    forceGuestWebPreferences(
-      prefsRecord,
-      manager.getPreloadAbsolutePath(),
-    );
+    forceGuestWebPreferences(prefsRecord, manager.getPreloadAbsolutePath());
     webPreferences.partition = BROWSER_PARTITION;
 
     const existingArgs = Array.isArray(webPreferences.additionalArguments)
@@ -73,8 +64,7 @@ export function installBrowserWebviewHooks(
       : [];
     webPreferences.additionalArguments = [
       ...existingArgs.filter(
-        (a) =>
-          typeof a !== "string" || !a.startsWith("--atmos-browser-session="),
+        (a) => typeof a !== "string" || !a.startsWith("--atmos-browser-session="),
       ),
       `--atmos-browser-session=${decision.sessionId}`,
     ];

@@ -4,10 +4,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Loader2, Workflow } from "lucide-react";
 
-import {
-  ActionsPanel,
-  type ActionRun,
-} from "@/features/github/components/ActionsPanel";
+import { ActionsPanel, type ActionRun } from "@/features/github/components/ActionsPanel";
 import { createCanvasCenterTab } from "@/features/canvas/lib/canvas-center-tabs";
 import {
   type CanvasWidgetShape,
@@ -41,8 +38,7 @@ function CanvasActionsWidgetBody({
   const githubRepo = statusQuery.data?.github_repo ?? null;
   const currentBranch = statusQuery.data?.current_branch ?? null;
   const openCenterTab = useOpenCanvasCenterTab(shapeId, source.context);
-  const isResolvingGithub =
-    Boolean(repoPath) && statusQuery.isLoading && !statusQuery.data;
+  const isResolvingGithub = Boolean(repoPath) && statusQuery.isLoading && !statusQuery.data;
 
   if (isResolvingGithub) {
     return (
@@ -63,7 +59,7 @@ function CanvasActionsWidgetBody({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden px-2 pb-2 pt-0">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden px-2 pt-0 pb-2">
       <ActionsPanel
         owner={githubOwner}
         repo={githubRepo}
@@ -76,9 +72,7 @@ function CanvasActionsWidgetBody({
               repo: githubRepo,
               runId: run.databaseId,
               run,
-              title:
-                run.workflowName ||
-                t("actionRunTitle", { number: run.databaseId }),
+              title: run.workflowName || t("actionRunTitle", { number: run.databaseId }),
               description: run.displayTitle,
             }),
           )

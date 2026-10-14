@@ -11,15 +11,19 @@ import {
 
 describe("parseMermaidSvgSize", () => {
   test("reads viewBox width and height", () => {
-    expect(parseMermaidSvgSize(
-      '<svg viewBox="0 0 847.22 2341.37" width="100%" xmlns="http://www.w3.org/2000/svg"></svg>',
-    )).toEqual({ width: 847.22, height: 2341.37 });
+    expect(
+      parseMermaidSvgSize(
+        '<svg viewBox="0 0 847.22 2341.37" width="100%" xmlns="http://www.w3.org/2000/svg"></svg>',
+      ),
+    ).toEqual({ width: 847.22, height: 2341.37 });
   });
 
   test("falls back to width and height attributes", () => {
-    expect(parseMermaidSvgSize(
-      '<svg width="640" height="480" xmlns="http://www.w3.org/2000/svg"></svg>',
-    )).toEqual({ width: 640, height: 480 });
+    expect(
+      parseMermaidSvgSize(
+        '<svg width="640" height="480" xmlns="http://www.w3.org/2000/svg"></svg>',
+      ),
+    ).toEqual({ width: 640, height: 480 });
   });
 });
 
@@ -39,13 +43,17 @@ describe("isPlausibleMermaidSvgSize", () => {
 describe("estimateMermaidPlaceholderHeight", () => {
   test("grows with source lines and stays capped", () => {
     expect(estimateMermaidPlaceholderHeight("graph TD\nA-->B")).toBeGreaterThanOrEqual(160);
-    expect(estimateMermaidPlaceholderHeight(Array.from({ length: 80 }, () => "A-->B").join("\n"))).toBe(640);
+    expect(
+      estimateMermaidPlaceholderHeight(Array.from({ length: 80 }, () => "A-->B").join("\n")),
+    ).toBe(640);
   });
 });
 
 describe("mermaidDiagramCacheKey", () => {
   test("keeps light and dark renders distinct", () => {
-    expect(mermaidDiagramCacheKey("graph TD", "dark")).not.toBe(mermaidDiagramCacheKey("graph TD", "light"));
+    expect(mermaidDiagramCacheKey("graph TD", "dark")).not.toBe(
+      mermaidDiagramCacheKey("graph TD", "light"),
+    );
   });
 });
 

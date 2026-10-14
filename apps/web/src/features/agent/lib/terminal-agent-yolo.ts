@@ -47,9 +47,7 @@ export function resolveAgentLaunchFlags(
 export function agentSupportsYoloMode(agentId: string): boolean {
   const agent = TERMINAL_AGENT_DEFINITIONS.find((item) => item.id === agentId);
   if (!agent) return false;
-  return (
-    agent.yoloParams !== undefined || agent.yoloInteractiveParams !== undefined
-  );
+  return agent.yoloParams !== undefined || agent.yoloInteractiveParams !== undefined;
 }
 
 export async function loadAgentYoloMode(): Promise<boolean> {

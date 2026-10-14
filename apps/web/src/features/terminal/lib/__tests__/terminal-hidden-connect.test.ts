@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  HIDDEN_PTY_CONNECT_GRID,
-  shouldConnectHiddenPty,
-} from "../terminal-hidden-connect";
+import { HIDDEN_PTY_CONNECT_GRID, shouldConnectHiddenPty } from "../terminal-hidden-connect";
 
 describe("shouldConnectHiddenPty", () => {
   test("connects a hidden headless pane without requiring surfaceActive", () => {

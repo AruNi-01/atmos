@@ -35,10 +35,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
     root.style.colorScheme = nextDark ? "dark" : "light";
     try {
       // Match apps/web next-themes `storageKey` so reloads keep the choice.
-      localStorage.setItem(
-        "atmos:v1:global:theme",
-        nextDark ? "dark" : "light",
-      );
+      localStorage.setItem("atmos:v1:global:theme", nextDark ? "dark" : "light");
     } catch {
       /* ignore */
     }

@@ -200,7 +200,9 @@ export function upsertCanvasCenterTab(
   tabs: CanvasCenterTab[],
   nextTab: CanvasCenterTab,
 ): { tabs: CanvasCenterTab[]; activeTabId: string } {
-  const sanitizedNextTab = omitUndefinedProperties(nextTab as unknown as Record<string, unknown>) as CanvasCenterTab;
+  const sanitizedNextTab = omitUndefinedProperties(
+    nextTab as unknown as Record<string, unknown>,
+  ) as CanvasCenterTab;
   const existingIndex = tabs.findIndex((tab) => tab.id === sanitizedNextTab.id);
   if (existingIndex < 0) {
     return { tabs: [...tabs, sanitizedNextTab], activeTabId: sanitizedNextTab.id };

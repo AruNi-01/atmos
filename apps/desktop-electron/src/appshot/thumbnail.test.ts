@@ -35,29 +35,23 @@ describe("appshot thumbnail / inline budget", () => {
     expect(await buildScreenshotPreviewBase64(Buffer.alloc(0))).toBeNull();
   });
 
-  it(
-    "downscales a large synthetic buffer via sips when available",
-    async () => {
-      if (process.platform !== "darwin") {
-        return;
-      }
-      // Oversized random-ish buffer that is not a real PNG — sips may fail.
-      // Prefer a real large-ish PNG by expanding the tiny one through sips if possible.
-      // When sips cannot decode, thumbnail returns null and we accept that.
-      const hugeFake = Buffer.alloc(2_000_000, 7);
-      expect(fitsInlinePngDataUrl(hugeFake.length)).toBe(false);
-      const preview = await buildScreenshotPreviewBase64(hugeFake);
-      // Invalid PNG: may be null. Valid path covered when capture uses real screenshots.
-      if (preview != null) {
-        expect(fitsInlinePngDataUrl(Buffer.from(preview, "base64").length)).toBe(
-          true,
-        );
-      }
+  it("downscales a large synthetic buffer via sips when available", async () => {
+    if (process.platform !== "darwin") {
+      return;
+    }
+    // Oversized random-ish buffer that is not a real PNG — sips may fail.
+    // Prefer a real large-ish PNG by expanding the tiny one through sips if possible.
+    // When sips cannot decode, thumbnail returns null and we accept that.
+    const hugeFake = Buffer.alloc(2_000_000, 7);
+    expect(fitsInlinePngDataUrl(hugeFake.length)).toBe(false);
+    const preview = await buildScreenshotPreviewBase64(hugeFake);
+    // Invalid PNG: may be null. Valid path covered when capture uses real screenshots.
+    if (preview != null) {
+      expect(fitsInlinePngDataUrl(Buffer.from(preview, "base64").length)).toBe(true);
+    }
 
-      // Real PNG path: thumbnail of tiny stays small.
-      const thumb = await thumbnailPngFromBytes(TINY_PNG);
-      expect(thumb == null || thumb.length > 0).toBe(true);
-    },
-    15_000,
-  );
+    // Real PNG path: thumbnail of tiny stays small.
+    const thumb = await thumbnailPngFromBytes(TINY_PNG);
+    expect(thumb == null || thumb.length > 0).toBe(true);
+  }, 15_000);
 });

@@ -19,13 +19,9 @@ describe("isMarkdownPatchCode", () => {
   });
 
   it("returns true for a hunk with --- / +++ file headers", () => {
-    const patch = [
-      "--- a/src/foo.ts",
-      "+++ b/src/foo.ts",
-      "@@ -1 +1 @@",
-      "-old",
-      "+new",
-    ].join("\n");
+    const patch = ["--- a/src/foo.ts", "+++ b/src/foo.ts", "@@ -1 +1 @@", "-old", "+new"].join(
+      "\n",
+    );
     expect(isMarkdownPatchCode(patch)).toBe(true);
   });
 

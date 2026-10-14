@@ -108,9 +108,7 @@ export function WorkspaceInfoHoverHost() {
         workspaceInfoHoverSession.dismiss();
       }}
     >
-      {trigger ? (
-        <PopoverAnchor virtualRef={virtualRef} />
-      ) : null}
+      {trigger ? <PopoverAnchor virtualRef={virtualRef} /> : null}
       {isOpen ? (
         <PopoverContent
           data-workspace-popover-surface="true"

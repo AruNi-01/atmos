@@ -26,7 +26,10 @@ import { AgentPromptComposer } from "./AgentPromptComposer";
 import { SubagentConversationOverlay } from "./SubagentConversationOverlay";
 import { SubagentOverlayProvider } from "./subagent-overlay-context";
 import { useAgentChatSession } from "../hooks/use-agent-chat-session";
-import type { AgentChatSurfaceVariant, UseAgentChatSessionOptions } from "../hooks/use-agent-chat-session-types";
+import type {
+  AgentChatSurfaceVariant,
+  UseAgentChatSessionOptions,
+} from "../hooks/use-agent-chat-session-types";
 import { AgentChatHeader } from "./AgentChatHeader";
 import { AgentAuthDialog } from "./AgentAuthDialog";
 import { AgentMessageTimelineNav } from "./AgentMessageTimelineNav";
@@ -40,7 +43,11 @@ import { AgentChatTranscriptList } from "./AgentChatTranscriptList";
 import { AgentChatComposerDock } from "./AgentChatComposerDock";
 import { AgentChatOwnSendRuntime } from "./AgentChatOwnSendRuntime";
 import { AgentChatOwnSendRefsProvider } from "./agent-chat-own-send-context";
-import { FindHighlightProvider, FindPanel, useFindPanel } from "@/features/editor/components/FindPanel";
+import {
+  FindHighlightProvider,
+  FindPanel,
+  useFindPanel,
+} from "@/features/editor/components/FindPanel";
 import { TRANSCRIPT_FIND_SCOPE, type MarkdownFindQuery } from "@/features/editor/lib/markdown-find";
 import { grokChromeAgentIds } from "@/features/agent/lib/grok-chrome";
 import { transcriptFindMessageIndexes } from "@/features/agent/lib/transcript-find";
@@ -59,14 +66,8 @@ import {
   transcriptBottomPadStyle,
 } from "../lib/agent-chat-transcript-window";
 import { AgentChatEdgeFades } from "./AgentChatEdgeFades";
-import {
-  composerDockMotion,
-  composerTranscriptChrome,
-} from "../lib/agent-chat-composer-dock";
-import {
-  OWN_SEND_DRAFT_KEY,
-  shouldResetOwnSend,
-} from "../lib/agent-chat-own-send";
+import { composerDockMotion, composerTranscriptChrome } from "../lib/agent-chat-composer-dock";
+import { OWN_SEND_DRAFT_KEY, shouldResetOwnSend } from "../lib/agent-chat-own-send";
 import {
   chatRailLeftPx,
   chatTimelineFloats,
@@ -98,18 +99,24 @@ interface AgentChatPanelProps {
   paintContextId?: string | null;
   surfaceVisible?: boolean;
   chatId?: string | null;
-  onChatStarted?: (id: string, meta?: {
-    title?: string | null;
-    cwd?: string;
-    providerId?: string | null;
-    hasMessages?: boolean;
-  }) => void;
-  onChatUpdated?: (id: string, meta: {
-    title?: string | null;
-    providerId?: string | null;
-    cwd?: string;
-    hasMessages?: boolean;
-  }) => void;
+  onChatStarted?: (
+    id: string,
+    meta?: {
+      title?: string | null;
+      cwd?: string;
+      providerId?: string | null;
+      hasMessages?: boolean;
+    },
+  ) => void;
+  onChatUpdated?: (
+    id: string,
+    meta: {
+      title?: string | null;
+      providerId?: string | null;
+      cwd?: string;
+      hasMessages?: boolean;
+    },
+  ) => void;
   onOpenChat?: (id: string) => void;
   onClose?: () => void;
   resumeTranscript?: boolean;
@@ -170,7 +177,8 @@ export function AgentChatPanel({
   onClose,
 }: AgentChatPanelProps = {}) {
   const t = useTranslations("Agent.components.chatPanel");
-  const canFullscreen = variant !== "standalone" && variant !== "center" && (allowFullscreen ?? true);
+  const canFullscreen =
+    variant !== "standalone" && variant !== "center" && (allowFullscreen ?? true);
   const canOpenStandaloneWindow = variant !== "standalone";
   const [fullscreenRequested, setFullscreenRequested] = useState(false);
   const [isStandaloneChatOpen, setIsStandaloneChatOpen] = useState(false);
@@ -221,9 +229,24 @@ export function AgentChatPanel({
     }
   }, [loadLayout, variant]);
 
-  const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number; width: number; height: number } | null>(null);
+  const dragState = useRef<{
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const dragAbortController = useRef<AbortController | null>(null);
-  const resizeState = useRef<{ startX: number; startY: number; origW: number; origH: number; origX: number; origY: number; edge: string } | null>(null);
+  const resizeState = useRef<{
+    startX: number;
+    startY: number;
+    origW: number;
+    origH: number;
+    origX: number;
+    origY: number;
+    edge: string;
+  } | null>(null);
   const resizeAbortController = useRef<AbortController | null>(null);
   // Visual frame while dragging/resizing. Writing this through React/Zustand
   // re-renders the whole chat on every pointermove.
@@ -275,8 +298,8 @@ export function AgentChatPanel({
   }, [shouldMeasurePanel]);
 
   const resolvePosition = useCallback(() => {
-    const w = typeof window !== 'undefined' ? window.innerWidth : 1920;
-    const h = typeof window !== 'undefined' ? window.innerHeight : 1080;
+    const w = typeof window !== "undefined" ? window.innerWidth : 1920;
+    const h = typeof window !== "undefined" ? window.innerHeight : 1080;
     return {
       x: layout.x < 0 ? w - layout.width - 24 : layout.x,
       y: layout.y < 0 ? h - layout.height - 24 : layout.y,
@@ -284,8 +307,8 @@ export function AgentChatPanel({
   }, [layout]);
 
   const clamp = useCallback((x: number, y: number, w: number, h: number) => {
-    const vw = typeof window !== 'undefined' ? window.innerWidth : 1920;
-    const vh = typeof window !== 'undefined' ? window.innerHeight : 1080;
+    const vw = typeof window !== "undefined" ? window.innerWidth : 1920;
+    const vh = typeof window !== "undefined" ? window.innerHeight : 1080;
     return {
       x: Math.max(0, Math.min(x, vw - w)),
       y: Math.max(0, Math.min(y, vh - h)),
@@ -304,114 +327,142 @@ export function AgentChatPanel({
     });
   }, []);
 
-  const commitModalFrame = useCallback((partial: Partial<ModalFrame>) => {
-    if (frameRafRef.current != null) {
-      window.cancelAnimationFrame(frameRafRef.current);
-      frameRafRef.current = null;
-    }
-    const pending = pendingFrameRef.current;
-    pendingFrameRef.current = null;
-    liveFrameRef.current = null;
-    if (pending) {
-      writeModalFrame(panelRef.current, pending);
-    }
-    updateLayout(partial);
-  }, [updateLayout]);
-
-  const handleDragStart = useCallback((e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('button, input, textarea, [role="button"], [data-radix-popper-content-wrapper]')) return;
-    e.preventDefault();
-    const pos = resolvePosition();
-    dragState.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      origX: pos.x,
-      origY: pos.y,
-      width: layout.width,
-      height: layout.height,
-    };
-
-    const handleMove = (ev: MouseEvent) => {
-      if (!dragState.current) return;
-      const dx = ev.clientX - dragState.current.startX;
-      const dy = ev.clientY - dragState.current.startY;
-      const clamped = clamp(
-        dragState.current.origX + dx,
-        dragState.current.origY + dy,
-        dragState.current.width,
-        dragState.current.height,
-      );
-      scheduleModalFrame({
-        x: clamped.x,
-        y: clamped.y,
-        width: dragState.current.width,
-        height: dragState.current.height,
-      });
-    };
-    const handleUp = () => {
-      const pending = pendingFrameRef.current;
-      dragState.current = null;
-      if (pending) {
-        commitModalFrame({ x: pending.x, y: pending.y });
-      } else {
-        liveFrameRef.current = null;
+  const commitModalFrame = useCallback(
+    (partial: Partial<ModalFrame>) => {
+      if (frameRafRef.current != null) {
+        window.cancelAnimationFrame(frameRafRef.current);
+        frameRafRef.current = null;
       }
-      dragAbortController.current?.abort();
-      dragAbortController.current = null;
-    };
-
-    dragAbortController.current = new AbortController();
-    const { signal } = dragAbortController.current;
-    document.addEventListener('mousemove', handleMove, { signal });
-    document.addEventListener('mouseup', handleUp, { signal });
-  }, [resolvePosition, clamp, layout.width, layout.height, scheduleModalFrame, commitModalFrame]);
-
-  const handleResizeStart = useCallback((edge: string) => (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const pos = resolvePosition();
-    resizeState.current = { startX: e.clientX, startY: e.clientY, origW: layout.width, origH: layout.height, origX: pos.x, origY: pos.y, edge };
-
-    const handleMove = (ev: MouseEvent) => {
-      if (!resizeState.current) return;
-      const s = resizeState.current;
-      const dx = ev.clientX - s.startX;
-      const dy = ev.clientY - s.startY;
-      let newW = s.origW;
-      let newH = s.origH;
-      let newX = s.origX;
-      let newY = s.origY;
-
-      if (s.edge.includes('e')) newW = Math.max(MODAL_MIN_WIDTH, s.origW + dx);
-      if (s.edge.includes('w')) { newW = Math.max(MODAL_MIN_WIDTH, s.origW - dx); newX = s.origX + s.origW - newW; }
-      if (s.edge.includes('s')) newH = Math.max(MODAL_MIN_HEIGHT, s.origH + dy);
-      if (s.edge.includes('n')) { newH = Math.max(MODAL_MIN_HEIGHT, s.origH - dy); newY = s.origY + s.origH - newH; }
-
-      const clamped = clamp(newX, newY, newW, newH);
-      scheduleModalFrame({ width: newW, height: newH, x: clamped.x, y: clamped.y });
-    };
-    const handleUp = () => {
       const pending = pendingFrameRef.current;
-      resizeState.current = null;
+      pendingFrameRef.current = null;
+      liveFrameRef.current = null;
       if (pending) {
-        commitModalFrame({
-          width: pending.width,
-          height: pending.height,
-          x: pending.x,
-          y: pending.y,
+        writeModalFrame(panelRef.current, pending);
+      }
+      updateLayout(partial);
+    },
+    [updateLayout],
+  );
+
+  const handleDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      if (
+        (e.target as HTMLElement).closest(
+          'button, input, textarea, [role="button"], [data-radix-popper-content-wrapper]',
+        )
+      )
+        return;
+      e.preventDefault();
+      const pos = resolvePosition();
+      dragState.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        origX: pos.x,
+        origY: pos.y,
+        width: layout.width,
+        height: layout.height,
+      };
+
+      const handleMove = (ev: MouseEvent) => {
+        if (!dragState.current) return;
+        const dx = ev.clientX - dragState.current.startX;
+        const dy = ev.clientY - dragState.current.startY;
+        const clamped = clamp(
+          dragState.current.origX + dx,
+          dragState.current.origY + dy,
+          dragState.current.width,
+          dragState.current.height,
+        );
+        scheduleModalFrame({
+          x: clamped.x,
+          y: clamped.y,
+          width: dragState.current.width,
+          height: dragState.current.height,
         });
-      } else {
-        liveFrameRef.current = null;
-      }
-      resizeAbortController.current?.abort();
-      resizeAbortController.current = null;
-    };
+      };
+      const handleUp = () => {
+        const pending = pendingFrameRef.current;
+        dragState.current = null;
+        if (pending) {
+          commitModalFrame({ x: pending.x, y: pending.y });
+        } else {
+          liveFrameRef.current = null;
+        }
+        dragAbortController.current?.abort();
+        dragAbortController.current = null;
+      };
 
-    resizeAbortController.current = new AbortController();
-    const { signal } = resizeAbortController.current;
-    document.addEventListener('mousemove', handleMove, { signal });
-    document.addEventListener('mouseup', handleUp, { signal });
-  }, [resolvePosition, clamp, layout.width, layout.height, scheduleModalFrame, commitModalFrame]);
+      dragAbortController.current = new AbortController();
+      const { signal } = dragAbortController.current;
+      document.addEventListener("mousemove", handleMove, { signal });
+      document.addEventListener("mouseup", handleUp, { signal });
+    },
+    [resolvePosition, clamp, layout.width, layout.height, scheduleModalFrame, commitModalFrame],
+  );
+
+  const handleResizeStart = useCallback(
+    (edge: string) => (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const pos = resolvePosition();
+      resizeState.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        origW: layout.width,
+        origH: layout.height,
+        origX: pos.x,
+        origY: pos.y,
+        edge,
+      };
+
+      const handleMove = (ev: MouseEvent) => {
+        if (!resizeState.current) return;
+        const s = resizeState.current;
+        const dx = ev.clientX - s.startX;
+        const dy = ev.clientY - s.startY;
+        let newW = s.origW;
+        let newH = s.origH;
+        let newX = s.origX;
+        let newY = s.origY;
+
+        if (s.edge.includes("e")) newW = Math.max(MODAL_MIN_WIDTH, s.origW + dx);
+        if (s.edge.includes("w")) {
+          newW = Math.max(MODAL_MIN_WIDTH, s.origW - dx);
+          newX = s.origX + s.origW - newW;
+        }
+        if (s.edge.includes("s")) newH = Math.max(MODAL_MIN_HEIGHT, s.origH + dy);
+        if (s.edge.includes("n")) {
+          newH = Math.max(MODAL_MIN_HEIGHT, s.origH - dy);
+          newY = s.origY + s.origH - newH;
+        }
+
+        const clamped = clamp(newX, newY, newW, newH);
+        scheduleModalFrame({ width: newW, height: newH, x: clamped.x, y: clamped.y });
+      };
+      const handleUp = () => {
+        const pending = pendingFrameRef.current;
+        resizeState.current = null;
+        if (pending) {
+          commitModalFrame({
+            width: pending.width,
+            height: pending.height,
+            x: pending.x,
+            y: pending.y,
+          });
+        } else {
+          liveFrameRef.current = null;
+        }
+        resizeAbortController.current?.abort();
+        resizeAbortController.current = null;
+      };
+
+      resizeAbortController.current = new AbortController();
+      const { signal } = resizeAbortController.current;
+      document.addEventListener("mousemove", handleMove, { signal });
+      document.addEventListener("mouseup", handleUp, { signal });
+    },
+    [resolvePosition, clamp, layout.width, layout.height, scheduleModalFrame, commitModalFrame],
+  );
 
   useEffect(() => {
     return () => {
@@ -434,8 +485,8 @@ export function AgentChatPanel({
         updateLayout(clamped);
       }
     };
-    window.addEventListener('resize', handleWindowResize);
-    return () => window.removeEventListener('resize', handleWindowResize);
+    window.addEventListener("resize", handleWindowResize);
+    return () => window.removeEventListener("resize", handleWindowResize);
   }, [layout, clamp, updateLayout]);
 
   // ---------------------------------------------------------------------------
@@ -554,9 +605,11 @@ export function AgentChatPanel({
     wholeWord: false,
     regexp: false,
   });
-  const { open: findOpen, setOpen: setFindOpen, focusNonce: findFocusNonce } = useFindPanel(
-    active && messages.length > 0,
-  );
+  const {
+    open: findOpen,
+    setOpen: setFindOpen,
+    focusNonce: findFocusNonce,
+  } = useFindPanel(active && messages.length > 0);
   const handleFindQueryChange = useCallback((query: MarkdownFindQuery) => {
     setFindQuery(query);
   }, []);
@@ -589,15 +642,13 @@ export function AgentChatPanel({
   }, [chatId, liveChatId]);
 
   const planFilePath = useMemo(
-    () => (pendingPermission && isPlanExitPermission(pendingPermission)
-      ? resolvePlanExitFilePath(pendingPermission, messages)
-      : null),
+    () =>
+      pendingPermission && isPlanExitPermission(pendingPermission)
+        ? resolvePlanExitFilePath(pendingPermission, messages)
+        : null,
     [messages, pendingPermission],
   );
-  const planDocumentIntent = useMemo(
-    () => planDocumentIntentFromMessages(messages),
-    [messages],
-  );
+  const planDocumentIntent = useMemo(() => planDocumentIntentFromMessages(messages), [messages]);
 
   const standaloneSurfaceKey = useMemo(
     () =>
@@ -638,12 +689,7 @@ export function AgentChatPanel({
       }
       setIsStandaloneChatOpen(isOpen);
     });
-  }, [
-    persistHandoffSnapshot,
-    restoreHandoffSnapshot,
-    standaloneSurfaceKey,
-    variant,
-  ]);
+  }, [persistHandoffSnapshot, restoreHandoffSnapshot, standaloneSurfaceKey, variant]);
 
   const handleToggleFullscreen = useCallback(() => {
     setFullscreenRequested((current) => !current);
@@ -756,14 +802,20 @@ export function AgentChatPanel({
   });
   const showTimelineNav = !isRestoringTranscript && userMessageIndices.length > 1;
   const timelineNavLockedRef = useRef(false);
-  const handleSelectTimelineMessage = useCallback((messageIndex: number) => {
-    timelineNavLockedRef.current = true;
-    handleSelectMessage(messageIndex);
-  }, [handleSelectMessage]);
-  const handleActiveTimelineMessage = useCallback((index: number) => {
-    if (timelineNavLockedRef.current) return;
-    setMessageNavIndex(index);
-  }, [setMessageNavIndex]);
+  const handleSelectTimelineMessage = useCallback(
+    (messageIndex: number) => {
+      timelineNavLockedRef.current = true;
+      handleSelectMessage(messageIndex);
+    },
+    [handleSelectMessage],
+  );
+  const handleActiveTimelineMessage = useCallback(
+    (index: number) => {
+      if (timelineNavLockedRef.current) return;
+      setMessageNavIndex(index);
+    },
+    [setMessageNavIndex],
+  );
   const releaseTimelineNavLock = useCallback(() => {
     timelineNavLockedRef.current = false;
   }, []);
@@ -782,9 +834,7 @@ export function AgentChatPanel({
       data-agent-chat-timeline-nav=""
       className={cn(
         "w-8",
-        timelineFloats
-          ? "pointer-events-none absolute inset-y-0 z-20"
-          : "relative h-full shrink-0",
+        timelineFloats ? "pointer-events-none absolute inset-y-0 z-20" : "relative h-full shrink-0",
       )}
       style={timelineFloats ? { left: timelineLeft } : undefined}
     >
@@ -847,7 +897,10 @@ export function AgentChatPanel({
     }
 
     const measure = () => {
-      const next = Math.max(0, Math.round(aboveComposerOverlaysNode.getBoundingClientRect().height));
+      const next = Math.max(
+        0,
+        Math.round(aboveComposerOverlaysNode.getBoundingClientRect().height),
+      );
       setAboveComposerOverlayPadPx((current) => (current === next ? current : next));
     };
 
@@ -859,8 +912,7 @@ export function AgentChatPanel({
   }, [aboveComposerOverlaysNode]);
 
   const overlayPadShrinking =
-    aboveComposerOverlayPadPx < aboveComposerOverlayPadPxRef.current
-    || overlayPadShrinkMotion;
+    aboveComposerOverlayPadPx < aboveComposerOverlayPadPxRef.current || overlayPadShrinkMotion;
 
   useLayoutEffect(() => {
     const prev = aboveComposerOverlayPadPxRef.current;
@@ -904,13 +956,17 @@ export function AgentChatPanel({
         data-agent-chat-standalone-paused="true"
         data-atmos-native-surface-overlay={shouldMarkAsNativeSurfaceOverlay ? "true" : undefined}
         className={cn(
-          "relative flex h-full min-h-0 min-w-0 w-full flex-1 items-center justify-center overflow-hidden border border-dashed border-border/60 bg-muted/10 px-6 text-center",
-          variant === "modal" && !isFullscreen && "fixed z-50 rounded-xl border-border bg-background shadow-lg",
+          "relative flex h-full min-h-0 w-full min-w-0 flex-1 items-center justify-center overflow-hidden border border-dashed border-border/60 bg-muted/10 px-6 text-center",
+          variant === "modal" &&
+            !isFullscreen &&
+            "fixed z-50 rounded-xl border-border bg-background shadow-lg",
           isFullscreen && "fixed inset-0 z-50 h-dvh w-full",
         )}
-        style={variant === "modal" && modalFrame && !isFullscreen
-          ? modalFrameStyle(modalFrame, layout.opacity)
-          : undefined}
+        style={
+          variant === "modal" && modalFrame && !isFullscreen
+            ? modalFrameStyle(modalFrame, layout.opacity)
+            : undefined
+        }
       >
         <div className="max-w-sm">
           <div className="text-sm font-medium text-foreground">
@@ -945,422 +1001,472 @@ export function AgentChatPanel({
 
   return (
     <SubagentOverlayProvider selectedId={selectedSubagentId} onSelect={setSelectedSubagentId}>
-    <div
-      ref={panelRef}
-      data-agent-chat-workspace={liveChatId || chatId || "draft"}
-      data-atmos-native-surface-overlay={shouldMarkAsNativeSurfaceOverlay ? "true" : undefined}
-      onPointerEnter={ackVisibleChatAttention}
-      onPointerDown={ackVisibleChatAttention}
-      className={cn(
-        "relative flex flex-col overflow-hidden bg-background",
-        showsWideHistoryLayout && "bg-muted/20",
-        variant === "modal" && !isFullscreen && "fixed z-50 rounded-xl border border-border shadow-lg",
-        (variant === "sidebar" || variant === "center") && !isFullscreen && "flex h-full min-h-0 min-w-0 w-full flex-1 flex-col",
-        variant === "standalone" && "h-dvh min-h-0 w-full",
-        isFullscreen && "fixed inset-0 z-50 h-dvh w-full"
-      )}
-      style={variant === "modal" && modalFrame && !isFullscreen
-        ? modalFrameStyle(modalFrame, layout.opacity)
-        : undefined}
-    >
-      {variant === "modal" && !isFullscreen && (
-        <>
-          <div className="absolute -top-1 left-2 right-2 h-2 cursor-n-resize z-10" onMouseDown={handleResizeStart("n")} />
-          <div className="absolute -bottom-1 left-2 right-2 h-2 cursor-s-resize z-10" onMouseDown={handleResizeStart("s")} />
-          <div className="absolute -left-1 top-2 bottom-2 w-2 cursor-w-resize z-10" onMouseDown={handleResizeStart("w")} />
-          <div className="absolute -right-1 top-2 bottom-2 w-2 cursor-e-resize z-10" onMouseDown={handleResizeStart("e")} />
-          <div className="absolute -top-1 -left-1 h-3 w-3 cursor-nw-resize z-20" onMouseDown={handleResizeStart("nw")} />
-          <div className="absolute -top-1 -right-1 h-3 w-3 cursor-ne-resize z-20" onMouseDown={handleResizeStart("ne")} />
-          <div className="absolute -bottom-1 -left-1 h-3 w-3 cursor-sw-resize z-20" onMouseDown={handleResizeStart("sw")} />
-          <div className="absolute -bottom-1 -right-1 h-3 w-3 cursor-se-resize z-20" onMouseDown={handleResizeStart("se")} />
-        </>
-      )}
-
-      {usesStandaloneTrafficChrome && !historySidebarCollapsed ? (
-        // Floating collapse over the open sidebar — not under the header's
-        // full-width drag region, so Electron hits work. (Collapsed expand is
-        // rendered inside AgentChatHeader via historySidebarControl.)
-        <div
-          className={cn(
-            "desktop-no-drag absolute top-3 z-50 flex h-7 items-center",
-            needsTrafficLightsPadding ? "left-[86px]" : "left-3",
-          )}
-        >
-          {trafficLightsHistorySidebarToggle}
-        </div>
-      ) : null}
-
-      {showsWideHistoryLayout ? (
-        <div
-          // Overlay the panel's left edge. maxWidth keeps it in the margin
-          // beside the centered 48rem column, so the column does not move.
-          ref={historySidebarFrameRef}
-          data-agent-chat-history-overlay=""
-          className="absolute inset-y-0 left-0 z-30 flex h-full overflow-visible bg-muted/20"
-          style={{
-            width: historySidebarCollapsed ? 0 : historySidebarWidth,
-            maxWidth: "calc((100% - min(100%, 48rem)) / 2)",
-          }}
-        >
-        <AgentChatHistorySidebarFrame
-          frameRef={historySidebarInnerRef}
-          collapsed={historySidebarCollapsed}
-          expandLabel={historySidebarExpandLabel}
-          showCollapsedExpandButton={false}
-          width={historySidebarWidth}
-          fitParent
-          isResizing={isHistorySidebarResizing}
-          onResizeStart={handleHistorySidebarResizeStart}
-          onCollapsedExpand={() => setHistorySidebarCollapsed(false)}
-        >
-          <AgentChatHistorySidebar
-            className="flex"
-            // Leave room for traffic lights and/or the floating collapse control
-            // so New Session is not covered.
-            reserveTrafficLightsInset={
-              usesStandaloneTrafficChrome && !historySidebarCollapsed
-            }
-            historySessions={historySessions}
-            historyHasMore={historyHasMore}
-            historyLoading={historyLoading}
-            historyCursor={historyCursor}
-            historyResumeUnsupportedReason={historyResumeUnsupportedReason}
-            historyUnsupportedReason={historyUnsupportedReason}
-            loadHistorySessions={loadHistorySessions}
-            handleSelectHistorySession={handleSelectHistorySession}
-            handleCreateNewSession={handleCreateNewSession}
-            onPreferredRegistryChange={persistPreferredRegistry}
-            installedAgents={installedAgents}
-            defaultRegistryId={defaultRegistryId}
-            activeRegistryId={registryId}
-            activeChatId={liveChatId || chatId}
-            activeAgentName={
-              activeAgent ? (agentInfo?.title ?? agentInfo?.name ?? activeAgent.name) : null
-            }
-            canCreateNewSession={canUseCurrentMode}
-            projects={session.projects}
-          />
-        </AgentChatHistorySidebarFrame>
-        </div>
-      ) : null}
-
       <div
-        className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden bg-background"
+        ref={panelRef}
+        data-agent-chat-workspace={liveChatId || chatId || "draft"}
+        data-atmos-native-surface-overlay={shouldMarkAsNativeSurfaceOverlay ? "true" : undefined}
+        onPointerEnter={ackVisibleChatAttention}
+        onPointerDown={ackVisibleChatAttention}
+        className={cn(
+          "relative flex flex-col overflow-hidden bg-background",
+          showsWideHistoryLayout && "bg-muted/20",
+          variant === "modal" &&
+            !isFullscreen &&
+            "fixed z-50 rounded-xl border border-border shadow-lg",
+          (variant === "sidebar" || variant === "center") &&
+            !isFullscreen &&
+            "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col",
+          variant === "standalone" && "h-dvh min-h-0 w-full",
+          isFullscreen && "fixed inset-0 z-50 h-dvh w-full",
+        )}
+        style={
+          variant === "modal" && modalFrame && !isFullscreen
+            ? modalFrameStyle(modalFrame, layout.opacity)
+            : undefined
+        }
       >
-        {variant !== "center" ? (
-          <AgentChatHeader
-            variant={variant}
-            constrainWidth={constrainChatWidth}
-            handleDragStart={variant === "modal" && !isFullscreen ? handleDragStart : undefined}
-            handleOpenStandaloneWindow={canOpenStandaloneWindow ? handleOpenStandaloneWindow : undefined}
-            handleReturnToEmbeddedWindow={variant === "standalone" ? handleCloseStandaloneChatWindow : undefined}
-            handleToggleFullscreen={canFullscreen ? handleToggleFullscreen : undefined}
-            isFullscreen={isFullscreen}
-            isConnecting={isConnecting}
-            capabilities={capabilities}
-            localPath={localPath}
-            sessionCwd={sessionCwd}
-            exportableMessages={exportableMessages}
-            handleExportChat={handleExportChat}
-            historyOpen={historyOpen}
-            setHistoryOpen={setHistoryOpen}
-            historySessions={historySessions}
-            historyHasMore={historyHasMore}
-            historyLoading={historyLoading}
-            historyCursor={historyCursor}
-            historyResumeUnsupportedReason={historyResumeUnsupportedReason}
-            historyUnsupportedReason={historyUnsupportedReason}
-            trafficLightsContentInset={insetHeaderForTrafficLights}
-            loadHistorySessions={loadHistorySessions}
-            handleSelectHistorySession={handleSelectHistorySession}
-            historyTriggerClassName={historyTriggerClassName}
-            historySidebarControl={historySidebarControl}
-            handleClose={handleClosePanel}
-            handleLogoutAgent={handleLogoutAgent}
-            handleCreateNewSession={handleCreateNewSession}
-            canCreateNewSession={canUseCurrentMode}
-            displaySessionTitle={displaySessionTitle}
-            isAutoGeneratingTitle={isAutoGeneratingTitle}
-            shouldScrambleAutoTitle={shouldScrambleAutoTitle}
-            setShouldScrambleAutoTitle={setShouldScrambleAutoTitle}
-            sessionTitleSource={sessionTitleSource}
-            chatId={liveChatId || chatId}
-            contextProjects={projects}
-            contextSelection={{
-              workspaceId: sessionWorkspaceId,
-              projectId: sessionProjectId,
-              cwd: sessionCwd,
-            }}
-          />
+        {variant === "modal" && !isFullscreen && (
+          <>
+            <div
+              className="absolute -top-1 right-2 left-2 z-10 h-2 cursor-n-resize"
+              onMouseDown={handleResizeStart("n")}
+            />
+            <div
+              className="absolute right-2 -bottom-1 left-2 z-10 h-2 cursor-s-resize"
+              onMouseDown={handleResizeStart("s")}
+            />
+            <div
+              className="absolute top-2 bottom-2 -left-1 z-10 w-2 cursor-w-resize"
+              onMouseDown={handleResizeStart("w")}
+            />
+            <div
+              className="absolute top-2 -right-1 bottom-2 z-10 w-2 cursor-e-resize"
+              onMouseDown={handleResizeStart("e")}
+            />
+            <div
+              className="absolute -top-1 -left-1 z-20 h-3 w-3 cursor-nw-resize"
+              onMouseDown={handleResizeStart("nw")}
+            />
+            <div
+              className="absolute -top-1 -right-1 z-20 h-3 w-3 cursor-ne-resize"
+              onMouseDown={handleResizeStart("ne")}
+            />
+            <div
+              className="absolute -bottom-1 -left-1 z-20 h-3 w-3 cursor-sw-resize"
+              onMouseDown={handleResizeStart("sw")}
+            />
+            <div
+              className="absolute -right-1 -bottom-1 z-20 h-3 w-3 cursor-se-resize"
+              onMouseDown={handleResizeStart("se")}
+            />
+          </>
+        )}
+
+        {usesStandaloneTrafficChrome && !historySidebarCollapsed ? (
+          // Floating collapse over the open sidebar — not under the header's
+          // full-width drag region, so Electron hits work. (Collapsed expand is
+          // rendered inside AgentChatHeader via historySidebarControl.)
+          <div
+            className={cn(
+              "desktop-no-drag absolute top-3 z-50 flex h-7 items-center",
+              needsTrafficLightsPadding ? "left-[86px]" : "left-3",
+            )}
+          >
+            {trafficLightsHistorySidebarToggle}
+          </div>
         ) : null}
 
-      <div
-        className="flex min-h-0 flex-1 flex-col overflow-hidden [container-type:size] [container-name:agent-chat]"
-        data-agent-chat-landing={isNewChatLanding ? "true" : undefined}
-        data-agent-chat-column=""
-      >
-      <AgentChatOwnSendRefsProvider>
-      <div className="relative flex min-h-0 w-full flex-1 pr-1">
-        {timelineNav}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <motion.div
-        ref={transcriptRef}
-        className="relative z-0 min-h-0 flex-1 overflow-hidden data-[agent-chat-own-send]:z-20"
-        initial={false}
-        animate={{ opacity: transcriptChrome.opacity, y: transcriptChrome.y }}
-        transition={{
-          duration: transcriptChrome.duration,
-          delay: transcriptChrome.delay,
-          ease: dockMotion.ease,
-        }}
-        style={isNewChatLanding && messages.length === 0 ? { pointerEvents: "none" } : undefined}
-      >
-        <FindHighlightProvider>
-        <AgentChatCwdProvider
-          cwd={sessionCwd || localPath}
-          projectOrWorkspacePath={localPath}
-        >
-          <Conversation
-          className="min-h-0 h-full overflow-hidden"
-          initial={isRestoringTranscript ? false : "smooth"}
-          resize={!surfaceVisible || isRestoringTranscript ? "instant" : "smooth"}
-        >
-          <PauseStickWhenHidden active={surfaceVisible} />
-          <ConversationContent
-            data-canvas-selectable-text="true"
-            className={cn("gap-3 px-3 py-4", wideContentClassName)}
-            scrollClassName={AGENT_CHAT_SCROLL_CLASS}
+        {showsWideHistoryLayout ? (
+          <div
+            // Overlay the panel's left edge. maxWidth keeps it in the margin
+            // beside the centered 48rem column, so the column does not move.
+            ref={historySidebarFrameRef}
+            data-agent-chat-history-overlay=""
+            className="absolute inset-y-0 left-0 z-30 flex h-full overflow-visible bg-muted/20"
+            style={{
+              width: historySidebarCollapsed ? 0 : historySidebarWidth,
+              maxWidth: "calc((100% - min(100%, 48rem)) / 2)",
+            }}
           >
-            {((loadingAgents && !isConnected && !isConnecting) || isConnecting || isResumingHistory) && (
-              <div className="desktop-loading-clean flex items-center justify-center py-6">
-                <span className="inline-flex items-center gap-2 rounded-lg border border-border/50 bg-background/80 px-3 py-1.5 text-sm text-muted-foreground shadow-sm">
-                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                  <span>
-                    {loadingAgents && !isConnecting && !isResumingHistory
-                      ? t("loading")
-                      : isResumingHistory
-                        ? t("restoringSession")
-                        : connectionPhaseLabel}
-                  </span>
-                </span>
-              </div>
-            )}
-            {canUseCurrentMode && isConnected && messages.length === 0 && !isConnecting && !isResumingHistory && !error && hasPersistenceHandle && (
-              <ConversationEmptyState
-                icon={<MessageSquare className="size-12" />}
-                title={t("empty.resumedTitle")}
-                description={t("empty.resumedDescription")}
-              />
-            )}
-            {messages.length > 0 ? (
-              <AgentChatTranscriptList
-                key={ownSendResetKey}
-                messages={messages}
-                registryId={registryId}
-                transcriptRef={transcriptRef}
-                userMessageIndices={userMessageIndices}
-                onActiveUserMessage={handleActiveTimelineMessage}
-                onUserScrollIntent={releaseTimelineNavLock}
-                scrollToIndexRef={scrollToIndexRef}
-                belowCountStore={messagesBelowCountStore}
-                subagentCardMode="live"
-                excludeSubagentIds={grokChromeIds}
-                keepMessageIndexes={keepMessageIndexes}
-                activityStatus={
-                  agentActivity.busy ? (
-                    <AgentActivityIndicator activity={agentActivity} elapsedMs={elapsedMs} />
-                  ) : null
+            <AgentChatHistorySidebarFrame
+              frameRef={historySidebarInnerRef}
+              collapsed={historySidebarCollapsed}
+              expandLabel={historySidebarExpandLabel}
+              showCollapsedExpandButton={false}
+              width={historySidebarWidth}
+              fitParent
+              isResizing={isHistorySidebarResizing}
+              onResizeStart={handleHistorySidebarResizeStart}
+              onCollapsedExpand={() => setHistorySidebarCollapsed(false)}
+            >
+              <AgentChatHistorySidebar
+                className="flex"
+                // Leave room for traffic lights and/or the floating collapse control
+                // so New Session is not covered.
+                reserveTrafficLightsInset={usesStandaloneTrafficChrome && !historySidebarCollapsed}
+                historySessions={historySessions}
+                historyHasMore={historyHasMore}
+                historyLoading={historyLoading}
+                historyCursor={historyCursor}
+                historyResumeUnsupportedReason={historyResumeUnsupportedReason}
+                historyUnsupportedReason={historyUnsupportedReason}
+                loadHistorySessions={loadHistorySessions}
+                handleSelectHistorySession={handleSelectHistorySession}
+                handleCreateNewSession={handleCreateNewSession}
+                onPreferredRegistryChange={persistPreferredRegistry}
+                installedAgents={installedAgents}
+                defaultRegistryId={defaultRegistryId}
+                activeRegistryId={registryId}
+                activeChatId={liveChatId || chatId}
+                activeAgentName={
+                  activeAgent ? (agentInfo?.title ?? agentInfo?.name ?? activeAgent.name) : null
                 }
+                canCreateNewSession={canUseCurrentMode}
+                projects={session.projects}
               />
-            ) : agentActivity.busy ? (
-              <div
-                data-agent-chat-activity-status=""
-                className="mx-auto w-[calc(100%-1rem)]"
-              >
-                <AgentActivityIndicator activity={agentActivity} elapsedMs={elapsedMs} />
-              </div>
-            ) : null}
-            <div
-              ref={bottomRef}
-              className="shrink-0 overflow-hidden"
-              style={transcriptBottomPadStyle(
-                transcriptBottomPad,
-                overlayPadShrinking,
-                reduceOverlayPadMotion,
-              )}
-              data-agent-chat-transcript-bottom-pad=""
-              aria-hidden="true"
-            />
-          </ConversationContent>
-          {messages.length > 0 ? (
-            <AgentChatScrollToBottomButton
-              host={aboveComposerOverlaysNode}
-              belowCountStore={messagesBelowCountStore}
+            </AgentChatHistorySidebarFrame>
+          </div>
+        ) : null}
+
+        <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-background">
+          {variant !== "center" ? (
+            <AgentChatHeader
+              variant={variant}
+              constrainWidth={constrainChatWidth}
+              handleDragStart={variant === "modal" && !isFullscreen ? handleDragStart : undefined}
+              handleOpenStandaloneWindow={
+                canOpenStandaloneWindow ? handleOpenStandaloneWindow : undefined
+              }
+              handleReturnToEmbeddedWindow={
+                variant === "standalone" ? handleCloseStandaloneChatWindow : undefined
+              }
+              handleToggleFullscreen={canFullscreen ? handleToggleFullscreen : undefined}
+              isFullscreen={isFullscreen}
+              isConnecting={isConnecting}
+              capabilities={capabilities}
+              localPath={localPath}
+              sessionCwd={sessionCwd}
+              exportableMessages={exportableMessages}
+              handleExportChat={handleExportChat}
+              historyOpen={historyOpen}
+              setHistoryOpen={setHistoryOpen}
+              historySessions={historySessions}
+              historyHasMore={historyHasMore}
+              historyLoading={historyLoading}
+              historyCursor={historyCursor}
+              historyResumeUnsupportedReason={historyResumeUnsupportedReason}
+              historyUnsupportedReason={historyUnsupportedReason}
+              trafficLightsContentInset={insetHeaderForTrafficLights}
+              loadHistorySessions={loadHistorySessions}
+              handleSelectHistorySession={handleSelectHistorySession}
+              historyTriggerClassName={historyTriggerClassName}
+              historySidebarControl={historySidebarControl}
+              handleClose={handleClosePanel}
+              handleLogoutAgent={handleLogoutAgent}
+              handleCreateNewSession={handleCreateNewSession}
+              canCreateNewSession={canUseCurrentMode}
+              displaySessionTitle={displaySessionTitle}
+              isAutoGeneratingTitle={isAutoGeneratingTitle}
+              shouldScrambleAutoTitle={shouldScrambleAutoTitle}
+              setShouldScrambleAutoTitle={setShouldScrambleAutoTitle}
+              sessionTitleSource={sessionTitleSource}
+              chatId={liveChatId || chatId}
+              contextProjects={projects}
+              contextSelection={{
+                workspaceId: sessionWorkspaceId,
+                projectId: sessionProjectId,
+                cwd: sessionCwd,
+              }}
             />
           ) : null}
-          <AgentChatOwnSendRuntime
-            messages={messages}
-            transcriptRef={transcriptRef}
-            reduceMotion={reduceOverlayPadMotion}
-            enabled={!isRestoringTranscript}
-            resetKey={ownSendResetKey}
-          />
-          </Conversation>
-        </AgentChatCwdProvider>
-        {messages.length > 0 ? (
-          <FindPanel
-            open={findOpen}
-            root={findRoot}
-            resetKey={liveChatId || chatId || "draft"}
-            focusNonce={findFocusNonce}
-            seedFromSelection
-            scopeSelector={TRANSCRIPT_FIND_SCOPE}
-            onQueryChange={handleFindQueryChange}
-            onClose={() => setFindOpen(false)}
-          />
-        ) : null}
-        {messages.length > 0 ? (
-          <AgentChatEdgeFades
-            rootRef={transcriptRef}
-            resetKey={liveChatId || chatId || "draft"}
-          />
-        ) : null}
-        </FindHighlightProvider>
-      </motion.div>
 
-      <div className="relative flex min-h-0 w-full shrink-0 flex-col">
-        <AgentChatComposerDock
-          landing={isNewChatLanding}
-          wideContentClassName={wideContentClassName}
-        >
-          <AgentPromptComposer
-            key={queueKey}
-            currentPlan={currentPlan}
-            isResumedSession={isResumedSession}
-            backgroundTools={backgroundTools}
-            subagentTasks={subagentTasks}
-            grokGoal={grokGoal}
-            grokWorkflow={grokWorkflow}
-            queuedPrompts={queuedPrompts}
-            onRemoveQueuedPrompt={removeQueuedAgentChatPrompt}
-            onUpdateQueuedPrompt={(id, prompt) => updateQueuedAgentChatPrompt(id, { prompt })}
-            onMoveQueuedPrompt={moveQueuedAgentChatPrompt}
-            onSubmit={handleSubmit}
-            agentLocked={agentLocked}
-            onProviderChange={setProviderId}
-            canUseCurrentMode={canUseCurrentMode}
-            isConnected={isConnected}
-            chatMode={chatMode}
-            instanceKey={instanceKey}
-            sessionWorkspaceId={sessionWorkspaceId}
-            sessionProjectId={sessionProjectId}
-            loadingAgents={loadingAgents}
-            isConnecting={isConnecting}
-            isResumingHistory={isResumingHistory}
-            catalogModelsLoading={catalogModelsLoading}
-            catalogModelsReloading={catalogModelsReloading}
-            onEmptyModelsOpen={refreshEmptyCatalog}
-            onLoadModels={reloadEmptyCatalog}
-            chatId={liveChatId}
-            runtimeStatus={runtimeStatus}
-            hasPersistenceHandle={hasPersistenceHandle}
-            installedAgents={installedAgents}
-            configOptions={configOptions}
-            modelsLocked={modelsLocked}
-            modesLocked={modesLocked}
-            registryId={registryId}
-            activeAgent={activeAgent}
-            setConfigOption={setConfigOption}
-            agentActivity={agentActivity}
-            sendCancel={sendCancel}
-            setWaitingForResponse={setWaitingForResponse}
-            setMessages={setMessages}
-            stoppedRef={stoppedRef}
-            projectPath={sessionCwd ?? localPath}
-            availableCommands={availableCommands}
-            workingDirectoryPicker={
-              variant === "standalone" || (variant === "modal" && !liveChatId)
-                ? {
-                    projects,
-                    selection: {
-                      workspaceId: sessionWorkspaceId,
-                      projectId: sessionProjectId,
-                      cwd: sessionCwd,
-                    },
-                    onSelect: handleSelectWorkingDirectory,
-                  }
-                : null
-            }
-            landing={isNewChatLanding}
-            sessionUsage={sessionUsage}
-            messages={messages}
-            subagentOverlay={
-              selectedSubagentId ? (
-                <SubagentConversationOverlay
-                  messages={messages}
-                  toolCallId={selectedSubagentId}
-                  cwd={sessionCwd ?? localPath}
-                  elapsedMs={elapsedMs}
-                  onClose={() => setSelectedSubagentId(null)}
-                />
-              ) : null
-            }
-            onAboveComposerOverlaysNodeChange={setAboveComposerOverlaysNode}
-            aboveInputOverlay={
-              pendingPermission || pendingSessionOp ? (
-                <div
-                  data-agent-chat-approval-overlay=""
-                  className="pointer-events-auto relative min-h-0 min-w-0 w-full overflow-hidden"
-                >
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 top-0 -z-10 bg-gradient-to-t from-background via-background/85 to-transparent" />
-                  {pendingPermission ? (
-                    <div className="min-h-0 min-w-0 w-full max-h-[70cqh]">
-                      <AgentPermissionCard
-                        permission={pendingPermission}
-                        markdown={pendingPermissionMarkdown}
-                        planIntent={
-                          isPlanExitPermission(pendingPermission)
-                            ? (planDocumentIntent
-                              ?? (!pendingPermissionMarkdown?.trim() && !planFilePath
-                                ? currentPlan
-                                : null))
+          <div
+            className="[container-type:size] flex min-h-0 flex-1 flex-col overflow-hidden [container-name:agent-chat]"
+            data-agent-chat-landing={isNewChatLanding ? "true" : undefined}
+            data-agent-chat-column=""
+          >
+            <AgentChatOwnSendRefsProvider>
+              <div className="relative flex min-h-0 w-full flex-1 pr-1">
+                {timelineNav}
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                  <motion.div
+                    ref={transcriptRef}
+                    className="relative z-0 min-h-0 flex-1 overflow-hidden data-[agent-chat-own-send]:z-20"
+                    initial={false}
+                    animate={{ opacity: transcriptChrome.opacity, y: transcriptChrome.y }}
+                    transition={{
+                      duration: transcriptChrome.duration,
+                      delay: transcriptChrome.delay,
+                      ease: dockMotion.ease,
+                    }}
+                    style={
+                      isNewChatLanding && messages.length === 0
+                        ? { pointerEvents: "none" }
+                        : undefined
+                    }
+                  >
+                    <FindHighlightProvider>
+                      <AgentChatCwdProvider
+                        cwd={sessionCwd || localPath}
+                        projectOrWorkspacePath={localPath}
+                      >
+                        <Conversation
+                          className="h-full min-h-0 overflow-hidden"
+                          initial={isRestoringTranscript ? false : "smooth"}
+                          resize={!surfaceVisible || isRestoringTranscript ? "instant" : "smooth"}
+                        >
+                          <PauseStickWhenHidden active={surfaceVisible} />
+                          <ConversationContent
+                            data-canvas-selectable-text="true"
+                            className={cn("gap-3 px-3 py-4", wideContentClassName)}
+                            scrollClassName={AGENT_CHAT_SCROLL_CLASS}
+                          >
+                            {((loadingAgents && !isConnected && !isConnecting) ||
+                              isConnecting ||
+                              isResumingHistory) && (
+                              <div className="desktop-loading-clean flex items-center justify-center py-6">
+                                <span className="inline-flex items-center gap-2 rounded-lg border border-border/50 bg-background/80 px-3 py-1.5 text-sm text-muted-foreground shadow-sm">
+                                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                                  <span>
+                                    {loadingAgents && !isConnecting && !isResumingHistory
+                                      ? t("loading")
+                                      : isResumingHistory
+                                        ? t("restoringSession")
+                                        : connectionPhaseLabel}
+                                  </span>
+                                </span>
+                              </div>
+                            )}
+                            {canUseCurrentMode &&
+                              isConnected &&
+                              messages.length === 0 &&
+                              !isConnecting &&
+                              !isResumingHistory &&
+                              !error &&
+                              hasPersistenceHandle && (
+                                <ConversationEmptyState
+                                  icon={<MessageSquare className="size-12" />}
+                                  title={t("empty.resumedTitle")}
+                                  description={t("empty.resumedDescription")}
+                                />
+                              )}
+                            {messages.length > 0 ? (
+                              <AgentChatTranscriptList
+                                key={ownSendResetKey}
+                                messages={messages}
+                                registryId={registryId}
+                                transcriptRef={transcriptRef}
+                                userMessageIndices={userMessageIndices}
+                                onActiveUserMessage={handleActiveTimelineMessage}
+                                onUserScrollIntent={releaseTimelineNavLock}
+                                scrollToIndexRef={scrollToIndexRef}
+                                belowCountStore={messagesBelowCountStore}
+                                subagentCardMode="live"
+                                excludeSubagentIds={grokChromeIds}
+                                keepMessageIndexes={keepMessageIndexes}
+                                activityStatus={
+                                  agentActivity.busy ? (
+                                    <AgentActivityIndicator
+                                      activity={agentActivity}
+                                      elapsedMs={elapsedMs}
+                                    />
+                                  ) : null
+                                }
+                              />
+                            ) : agentActivity.busy ? (
+                              <div
+                                data-agent-chat-activity-status=""
+                                className="mx-auto w-[calc(100%-1rem)]"
+                              >
+                                <AgentActivityIndicator
+                                  activity={agentActivity}
+                                  elapsedMs={elapsedMs}
+                                />
+                              </div>
+                            ) : null}
+                            <div
+                              ref={bottomRef}
+                              className="shrink-0 overflow-hidden"
+                              style={transcriptBottomPadStyle(
+                                transcriptBottomPad,
+                                overlayPadShrinking,
+                                reduceOverlayPadMotion,
+                              )}
+                              data-agent-chat-transcript-bottom-pad=""
+                              aria-hidden="true"
+                            />
+                          </ConversationContent>
+                          {messages.length > 0 ? (
+                            <AgentChatScrollToBottomButton
+                              host={aboveComposerOverlaysNode}
+                              belowCountStore={messagesBelowCountStore}
+                            />
+                          ) : null}
+                          <AgentChatOwnSendRuntime
+                            messages={messages}
+                            transcriptRef={transcriptRef}
+                            reduceMotion={reduceOverlayPadMotion}
+                            enabled={!isRestoringTranscript}
+                            resetKey={ownSendResetKey}
+                          />
+                        </Conversation>
+                      </AgentChatCwdProvider>
+                      {messages.length > 0 ? (
+                        <FindPanel
+                          open={findOpen}
+                          root={findRoot}
+                          resetKey={liveChatId || chatId || "draft"}
+                          focusNonce={findFocusNonce}
+                          seedFromSelection
+                          scopeSelector={TRANSCRIPT_FIND_SCOPE}
+                          onQueryChange={handleFindQueryChange}
+                          onClose={() => setFindOpen(false)}
+                        />
+                      ) : null}
+                      {messages.length > 0 ? (
+                        <AgentChatEdgeFades
+                          rootRef={transcriptRef}
+                          resetKey={liveChatId || chatId || "draft"}
+                        />
+                      ) : null}
+                    </FindHighlightProvider>
+                  </motion.div>
+
+                  <div className="relative flex min-h-0 w-full shrink-0 flex-col">
+                    <AgentChatComposerDock
+                      landing={isNewChatLanding}
+                      wideContentClassName={wideContentClassName}
+                    >
+                      <AgentPromptComposer
+                        key={queueKey}
+                        currentPlan={currentPlan}
+                        isResumedSession={isResumedSession}
+                        backgroundTools={backgroundTools}
+                        subagentTasks={subagentTasks}
+                        grokGoal={grokGoal}
+                        grokWorkflow={grokWorkflow}
+                        queuedPrompts={queuedPrompts}
+                        onRemoveQueuedPrompt={removeQueuedAgentChatPrompt}
+                        onUpdateQueuedPrompt={(id, prompt) =>
+                          updateQueuedAgentChatPrompt(id, { prompt })
+                        }
+                        onMoveQueuedPrompt={moveQueuedAgentChatPrompt}
+                        onSubmit={handleSubmit}
+                        agentLocked={agentLocked}
+                        onProviderChange={setProviderId}
+                        canUseCurrentMode={canUseCurrentMode}
+                        isConnected={isConnected}
+                        chatMode={chatMode}
+                        instanceKey={instanceKey}
+                        sessionWorkspaceId={sessionWorkspaceId}
+                        sessionProjectId={sessionProjectId}
+                        loadingAgents={loadingAgents}
+                        isConnecting={isConnecting}
+                        isResumingHistory={isResumingHistory}
+                        catalogModelsLoading={catalogModelsLoading}
+                        catalogModelsReloading={catalogModelsReloading}
+                        onEmptyModelsOpen={refreshEmptyCatalog}
+                        onLoadModels={reloadEmptyCatalog}
+                        chatId={liveChatId}
+                        runtimeStatus={runtimeStatus}
+                        hasPersistenceHandle={hasPersistenceHandle}
+                        installedAgents={installedAgents}
+                        configOptions={configOptions}
+                        modelsLocked={modelsLocked}
+                        modesLocked={modesLocked}
+                        registryId={registryId}
+                        activeAgent={activeAgent}
+                        setConfigOption={setConfigOption}
+                        agentActivity={agentActivity}
+                        sendCancel={sendCancel}
+                        setWaitingForResponse={setWaitingForResponse}
+                        setMessages={setMessages}
+                        stoppedRef={stoppedRef}
+                        projectPath={sessionCwd ?? localPath}
+                        availableCommands={availableCommands}
+                        workingDirectoryPicker={
+                          variant === "standalone" || (variant === "modal" && !liveChatId)
+                            ? {
+                                projects,
+                                selection: {
+                                  workspaceId: sessionWorkspaceId,
+                                  projectId: sessionProjectId,
+                                  cwd: sessionCwd,
+                                },
+                                onSelect: handleSelectWorkingDirectory,
+                              }
                             : null
                         }
-                        planFilePath={
-                          isPlanExitPermission(pendingPermission) ? planFilePath : null
+                        landing={isNewChatLanding}
+                        sessionUsage={sessionUsage}
+                        messages={messages}
+                        subagentOverlay={
+                          selectedSubagentId ? (
+                            <SubagentConversationOverlay
+                              messages={messages}
+                              toolCallId={selectedSubagentId}
+                              cwd={sessionCwd ?? localPath}
+                              elapsedMs={elapsedMs}
+                              onClose={() => setSelectedSubagentId(null)}
+                            />
+                          ) : null
                         }
-                        onRespond={handlePermission}
+                        onAboveComposerOverlaysNodeChange={setAboveComposerOverlaysNode}
+                        aboveInputOverlay={
+                          pendingPermission || pendingSessionOp ? (
+                            <div
+                              data-agent-chat-approval-overlay=""
+                              className="pointer-events-auto relative min-h-0 w-full min-w-0 overflow-hidden"
+                            >
+                              <div className="pointer-events-none absolute inset-x-0 top-0 bottom-0 -z-10 bg-gradient-to-t from-background via-background/85 to-transparent" />
+                              {pendingPermission ? (
+                                <div className="max-h-[70cqh] min-h-0 w-full min-w-0">
+                                  <AgentPermissionCard
+                                    permission={pendingPermission}
+                                    markdown={pendingPermissionMarkdown}
+                                    planIntent={
+                                      isPlanExitPermission(pendingPermission)
+                                        ? (planDocumentIntent ??
+                                          (!pendingPermissionMarkdown?.trim() && !planFilePath
+                                            ? currentPlan
+                                            : null))
+                                        : null
+                                    }
+                                    planFilePath={
+                                      isPlanExitPermission(pendingPermission) ? planFilePath : null
+                                    }
+                                    onRespond={handlePermission}
+                                  />
+                                </div>
+                              ) : pendingSessionOp ? (
+                                <div className="max-h-[50cqh] min-h-0 w-full min-w-0">
+                                  <AgentSessionOpCard
+                                    request={pendingSessionOp}
+                                    onRespond={handleSessionOp}
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null
+                        }
                       />
-                    </div>
-                  ) : pendingSessionOp ? (
-                    <div className="min-h-0 min-w-0 w-full max-h-[50cqh]">
-                      <AgentSessionOpCard
-                        request={pendingSessionOp}
-                        onRespond={handleSessionOp}
-                      />
-                    </div>
-                  ) : null}
+                    </AgentChatComposerDock>
+                  </div>
                 </div>
-              ) : null
-            }
+              </div>
+            </AgentChatOwnSendRefsProvider>
+          </div>
+          <AgentAuthDialog
+            authRequest={authRequest}
+            clearAuthRequest={clearAuthRequest}
+            selectedAuthMethodId={selectedAuthMethodId}
+            setSelectedAuthMethodId={setSelectedAuthMethodId}
+            startSession={startSession}
+            refreshSelectedAgentAfterAuth={refreshSelectedAgentAfterAuth}
+            isConnecting={isConnecting}
           />
-        </AgentChatComposerDock>
-      </div>
         </div>
       </div>
-      </AgentChatOwnSendRefsProvider>
-      </div>
-      <AgentAuthDialog
-        authRequest={authRequest}
-        clearAuthRequest={clearAuthRequest}
-        selectedAuthMethodId={selectedAuthMethodId}
-        setSelectedAuthMethodId={setSelectedAuthMethodId}
-        startSession={startSession}
-        refreshSelectedAgentAfterAuth={refreshSelectedAgentAfterAuth}
-        isConnecting={isConnecting}
-      />
-      </div>
-    </div>
     </SubagentOverlayProvider>
   );
 }

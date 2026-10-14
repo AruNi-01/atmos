@@ -1,14 +1,20 @@
 "use client";
 
-import React, { useMemo, useCallback } from 'react';
-import { useTranslations } from 'next-intl';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, ScrollArea } from '@workspace/ui';
-import { cn } from '@/shared/lib/utils';
-import type { GitCommit } from '@/features/github/hooks/use-github';
-import { fromUnixTime } from 'date-fns';
-import { CommitList, type CommitListItem } from './CommitList';
-import { useOpenGitCommitCenterTab } from '@/features/git/hooks/use-open-git-commit-center-tab';
+import React, { useMemo, useCallback } from "react";
+import { useTranslations } from "next-intl";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+  ScrollArea,
+} from "@workspace/ui";
+import { cn } from "@/shared/lib/utils";
+import type { GitCommit } from "@/features/github/hooks/use-github";
+import { fromUnixTime } from "date-fns";
+import { CommitList, type CommitListItem } from "./CommitList";
+import { useOpenGitCommitCenterTab } from "@/features/git/hooks/use-open-git-commit-center-tab";
 
 interface CommitsPanelProps {
   commits: GitCommit[];
@@ -45,29 +51,41 @@ export function CommitsPanel({
   owner,
   repo,
 }: CommitsPanelProps) {
-  const t = useTranslations('github.commitsPanel');
+  const t = useTranslations("github.commitsPanel");
   const { openCommitTab } = useOpenGitCommitCenterTab();
-  const items = useMemo(() => commits.map(c => toCommitListItem(c, owner, repo)), [commits, owner, repo]);
+  const items = useMemo(
+    () => commits.map((c) => toCommitListItem(c, owner, repo)),
+    [commits, owner, repo],
+  );
 
-  const handleCommitClick = useCallback((commit: CommitListItem) => {
-    if (!owner || !repo || commit.isPushed === false) return;
-    openCommitTab({
-      owner,
-      repo,
-      sha: commit.hash,
-      subject: commit.subject,
-      authorName: commit.authorName,
-    });
-  }, [openCommitTab, owner, repo]);
+  const handleCommitClick = useCallback(
+    (commit: CommitListItem) => {
+      if (!owner || !repo || commit.isPushed === false) return;
+      openCommitTab({
+        owner,
+        repo,
+        sha: commit.hash,
+        subject: commit.subject,
+        authorName: commit.authorName,
+      });
+    },
+    [openCommitTab, owner, repo],
+  );
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex flex-col h-full w-full">
+      <div className="flex h-full w-full flex-col">
         <ScrollArea scrollFade className="min-h-0 flex-1">
-          <CommitList commits={items} loading={loading} owner={owner} repo={repo} onCommitClick={handleCommitClick} />
+          <CommitList
+            commits={items}
+            loading={loading}
+            owner={owner}
+            repo={repo}
+            onCommitClick={handleCommitClick}
+          />
 
           {(page > 0 || hasMore) && (
-            <div className="flex items-center justify-between px-4 py-4 border-t border-sidebar-border/10">
+            <div className="flex items-center justify-between border-t border-sidebar-border/10 px-4 py-4">
               <div className="flex-1" />
               <div className="flex items-center gap-2">
                 <Tooltip>
@@ -76,20 +94,26 @@ export function CommitsPanel({
                       onClick={goToPrevPage}
                       disabled={page === 0 || loading}
                       className={cn(
-                        "p-1.5 rounded-md border border-sidebar-border/50 shadow-xs",
+                        "rounded-md border border-sidebar-border/50 p-1.5 shadow-xs",
                         page === 0 || loading
-                          ? "text-muted-foreground/30 cursor-not-allowed bg-transparent border-transparent shadow-none"
-                          : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground cursor-pointer bg-background"
+                          ? "cursor-not-allowed border-transparent bg-transparent text-muted-foreground/30 shadow-none"
+                          : "cursor-pointer bg-background text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
                       )}
                     >
                       <ChevronLeft className="size-4" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="text-[11px]">{t('previousPage')}</TooltipContent>
+                  <TooltipContent side="top" className="text-[11px]">
+                    {t("previousPage")}
+                  </TooltipContent>
                 </Tooltip>
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-sidebar-accent/50 rounded-sm border border-sidebar-border/30 select-none">
-                  <span className="text-[10px] text-muted-foreground/60 font-medium tracking-tight">{t('page')}</span>
-                  <span className="text-[11px] text-foreground font-bold font-mono">{page + 1}</span>
+                <div className="flex items-center gap-1.5 rounded-sm border border-sidebar-border/30 bg-sidebar-accent/50 px-3 py-1 select-none">
+                  <span className="text-[10px] font-medium tracking-tight text-muted-foreground/60">
+                    {t("page")}
+                  </span>
+                  <span className="font-mono text-[11px] font-bold text-foreground">
+                    {page + 1}
+                  </span>
                 </div>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -97,16 +121,18 @@ export function CommitsPanel({
                       onClick={goToNextPage}
                       disabled={!hasMore || loading}
                       className={cn(
-                        "p-1.5 rounded-md border border-sidebar-border/50 shadow-xs",
+                        "rounded-md border border-sidebar-border/50 p-1.5 shadow-xs",
                         !hasMore || loading
-                          ? "text-muted-foreground/30 cursor-not-allowed bg-transparent border-transparent shadow-none"
-                          : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground cursor-pointer bg-background"
+                          ? "cursor-not-allowed border-transparent bg-transparent text-muted-foreground/30 shadow-none"
+                          : "cursor-pointer bg-background text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
                       )}
                     >
                       <ChevronRight className="size-4" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="text-[11px]">{t('nextPage')}</TooltipContent>
+                  <TooltipContent side="top" className="text-[11px]">
+                    {t("nextPage")}
+                  </TooltipContent>
                 </Tooltip>
               </div>
               <div className="flex-1" />

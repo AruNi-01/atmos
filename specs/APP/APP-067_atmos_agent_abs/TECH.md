@@ -10,21 +10,21 @@ Addresses **M1–M19**. N1–N6 deferred. APP-024 terminal-agent run-config UI s
 
 ## Decisions locked here
 
-| Fork | Decision |
-|------|----------|
-| Client transport | Main `/ws` `WsContract` actions + `agent_chat_event` notifications. Delete dedicated `/ws/agent/{session_id}` as the chat model. |
-| History hydrate | WS `agent_chat_get` / `agent_chat_messages` snapshot, then subscribe from `after_sequence`. No REST list/get for v1. |
-| Persistence | **Files, not SQLite.** One directory per conversation under `~/.atmos/data/agent/chats/`. `meta.json` for identity/runtime; **append-only `transcript.jsonl`** for messages/turns/tools/permissions (Claude/Codex-style). `queue.json` for follow-ups. No conversation tables in `atmos.db`. |
-| Steer | Capability-gated same-turn inject. ACP v1 → `supports_steer = false`. ACP v2 concurrent `session/prompt` only if the agent accepts it while running. Never cancel+resend. |
-| Follow-up policy | Extend existing `AgentBehaviourSettings` with `followup_policy: "queue" \| "steer"`, default `"queue"`, global for the Atmos session. |
+| Fork              | Decision                                                                                                                                                                                                                                                                                                             |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Client transport  | Main `/ws` `WsContract` actions + `agent_chat_event` notifications. Delete dedicated `/ws/agent/{session_id}` as the chat model.                                                                                                                                                                                     |
+| History hydrate   | WS `agent_chat_get` / `agent_chat_messages` snapshot, then subscribe from `after_sequence`. No REST list/get for v1.                                                                                                                                                                                                 |
+| Persistence       | **Files, not SQLite.** One directory per conversation under `~/.atmos/data/agent/chats/`. `meta.json` for identity/runtime; **append-only `transcript.jsonl`** for messages/turns/tools/permissions (Claude/Codex-style). `queue.json` for follow-ups. No conversation tables in `atmos.db`.                         |
+| Steer             | Capability-gated same-turn inject. ACP v1 → `supports_steer = false`. ACP v2 concurrent `session/prompt` only if the agent accepts it while running. Never cancel+resend.                                                                                                                                            |
+| Follow-up policy  | Extend existing `AgentBehaviourSettings` with `followup_policy: "queue" \| "steer"`, default `"queue"`, global for the Atmos session.                                                                                                                                                                                |
 | Pre-spawn catalog | On first web `/ws` (enter app), start **one** in-process prefetch worker for every **user-enabled** agent. Same worker keeps polling; do **not** register an APP-051 `IntervalSpec` timer. Cache TTL **4 hours**. Strategies: CLI discovery, local config files, temporary ACP session (model/mode `configOptions`). |
-| IDs | Atmos `guid` UUIDs (same as other tables). Never `chat_id == acp_session_id`. |
-| Host model | One Atmos **Agent Chat** document. Wire: `agent_chat_*` + `agent_chat_event`. Id: `chat_id`. Disk: `~/.atmos/data/agent/chats/`. Provider trait: `AgentRuntime`. Clients fold **`AgentEvent[]`**. Turn / Message / Part are projections. |
-| Modal host | Remove `ModalAgentChatPanel` as a global host. Keep history sidebar + `/agent-chat` standalone. |
-| APP-018 leftover | `session/resume`, `session/close`, capability honesty stay **inside** the ACP adapter. |
-| Cursor list argv | Canonical: `cursor-agent --list-models` (already in `builtin_agents.json`). Resolve the executable the same way as other agents (`cmd` / PATH). Do not also ship a `cursor models` spec unless the installed binary’s `--help` requires it. |
-| Prefetch poll | Worker sleep **30 minutes**; cache TTL **4 hours**. |
-| Delta persist | Projector flushes assistant text to rows at most every **100ms**. |
+| IDs               | Atmos `guid` UUIDs (same as other tables). Never `chat_id == acp_session_id`.                                                                                                                                                                                                                                        |
+| Host model        | One Atmos **Agent Chat** document. Wire: `agent_chat_*` + `agent_chat_event`. Id: `chat_id`. Disk: `~/.atmos/data/agent/chats/`. Provider trait: `AgentRuntime`. Clients fold **`AgentEvent[]`**. Turn / Message / Part are projections.                                                                             |
+| Modal host        | Remove `ModalAgentChatPanel` as a global host. Keep history sidebar + `/agent-chat` standalone.                                                                                                                                                                                                                      |
+| APP-018 leftover  | `session/resume`, `session/close`, capability honesty stay **inside** the ACP adapter.                                                                                                                                                                                                                               |
+| Cursor list argv  | Canonical: `cursor-agent --list-models` (already in `builtin_agents.json`). Resolve the executable the same way as other agents (`cmd` / PATH). Do not also ship a `cursor models` spec unless the installed binary’s `--help` requires it.                                                                          |
+| Prefetch poll     | Worker sleep **30 minutes**; cache TTL **4 hours**.                                                                                                                                                                                                                                                                  |
+| Delta persist     | Projector flushes assistant text to rows at most every **100ms**.                                                                                                                                                                                                                                                    |
 
 ## Unified Agent host
 
@@ -262,12 +262,12 @@ Same PR as Rust: extract actions/events, add `contract/agent-chat.ts`, `dto/agen
 
 **Frontend reuse (do not rewrite the Chat skin):**
 
-| Keep | Adapt (thin mapper) | Replace |
-|------|---------------------|---------|
+| Keep                                                                                                                                                                                                                                                            | Adapt (thin mapper)                                                                                                                                                                                                   | Replace                                                                                                             |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `@workspace/ui` ai-elements: `Conversation` / `ConversationContent` (stick-to-bottom), `Message` / `MessageContent` / `MessageResponse` (**Streamdown** token animation), `Reasoning`, `Tool` / `Skill`, `Attachments`, `Confirmation`, prompt-input primitives | `AgentChatMessageView`, `AssistantMessageView`, `ToolOrSkillBlock`, `PlanBlockView`, `TerminalBlock`, `SubAgentBlockView` — render `AgentMessage.parts` (`AgentPart`); tool skin may adapt a `tool_call` part locally | `ThreadEntry` / `LiveTurn` / `turnsToThreadEntries`; ACP `/ws/agent` handlers; `thread/reducer.ts` on the live path |
-| History sidebar chrome + cwd grouping UI (`AgentChatHistorySidebar*`) | List rows bind `chat_id` + Atmos title/cwd; drop `acp_session_id` as identity | `use-acp-session-list` / ACP `session/list` |
-| `AgentPromptComposer`, `MessageQueueDock`, copy/usage/activity chrome | Enter routes via global `followup_policy`; dock reads conversation queue WS | Local dialog-store queue as SOT; idle-only dispatch in the panel |
-| `AgentChatPanel` layout (header + list + transcript + composer) | Add center-stage `agent-chat` tab host; keep standalone page | `ModalAgentChatPanel` as global host; `variant: modal` as the product default |
+| History sidebar chrome + cwd grouping UI (`AgentChatHistorySidebar*`)                                                                                                                                                                                           | List rows bind `chat_id` + Atmos title/cwd; drop `acp_session_id` as identity                                                                                                                                         | `use-acp-session-list` / ACP `session/list`                                                                         |
+| `AgentPromptComposer`, `MessageQueueDock`, copy/usage/activity chrome                                                                                                                                                                                           | Enter routes via global `followup_policy`; dock reads conversation queue WS                                                                                                                                           | Local dialog-store queue as SOT; idle-only dispatch in the panel                                                    |
+| `AgentChatPanel` layout (header + list + transcript + composer)                                                                                                                                                                                                 | Add center-stage `agent-chat` tab host; keep standalone page                                                                                                                                                          | `ModalAgentChatPanel` as global host; `variant: modal` as the product default                                       |
 
 Streaming: keep Streamdown. Deltas arrive as `agent_chat_event` `assistant_message_delta` on main `/ws`. Snapshot `messages` and live `foldMessagesFromEvent` share `@atmos/api-types` `AgentEvent` → `AgentMessage` / `AgentPart`. Fold normalizes think tools into `thinking` parts, todo/switch-mode tools into `plan` parts, and remaining tools onto closed `AgentToolKind`. `AgentPartView` / `ToolView` render parts; host chrome (plan/permission/queue) stays outside the transcript. Do not keep a second socket, `LiveTurn`, `ThreadEntry`, or `ToolCallBlock` on the live path.
 
@@ -414,23 +414,23 @@ Previous “ACP only on explicit refresh” is **revoked**: the enter-app worker
 
 Documented CLI / config (examples in the product prompt were not exhaustive; this is the v1 table after checking vendor docs). Impl may adjust argv if `--help` on the installed binary disagrees.
 
-| Agent | Live CLI (preferred) | Local config fallback | Thinking / extra |
-|-------|----------------------|-----------------------|------------------|
-| `cursor` | `cursor-agent --list-models` | — | `EncodedInModel` |
-| `grok-build` | `grok models` | — | `--reasoning-effort` manual |
-| `opencode` | `opencode models` (`--pure` if plugins must stay off) | `opencode.json` / `~/.config/opencode/opencode.json` `model` | — |
-| `kimi` | `kimi provider list --json` | Kimi `config.toml` `[models.*]` / `[providers.*]` | `--thinking` flag; JSON `capabilities` / `support_efforts` |
-| `pi` | `pi --list-models` | — | `--thinking` enum |
-| `kiro` | `kiro-cli chat --list-models --format json` | — | — |
-| `commandcode` | `cmd --list-models` | — | — |
-| `kilocode` | `kilo models` | — | — |
-| `antigravity` | `agy models` | — | — |
-| `codex` | `codex debug models` (JSON catalog; `--bundled` if offline) | `~/.codex/config.toml` `model`, `model_reasoning_effort` | reasoning from catalog `supportedReasoningEfforts` |
-| `claude` | no headless `--list-models` (only `/model` / `--model`) | `~/.claude/settings.json` `model`; `claude config get model` | `--effort` enum from builtin spec |
-| `gemini` | official Gemini CLI: `--model` aliases, no `--list-models` | Gemini settings / aliases `auto\|pro\|flash\|flash-lite` | — |
-| `aider` | `aider --list-models` when present | `.aider.conf.yml` / `~/.aider.conf.yml` | — |
-| ACP registry / custom | temp ACP session `configOptions` | agent `default_config` map | thought_level / mode options from ACP |
-| `amp` `droid` `devin` `hermes` `openclaw` | none documented | builtin `reasoningSupport` / `modelSupport` only; picker may be manual or hidden | as spec |
+| Agent                                     | Live CLI (preferred)                                        | Local config fallback                                                            | Thinking / extra                                           |
+| ----------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `cursor`                                  | `cursor-agent --list-models`                                | —                                                                                | `EncodedInModel`                                           |
+| `grok-build`                              | `grok models`                                               | —                                                                                | `--reasoning-effort` manual                                |
+| `opencode`                                | `opencode models` (`--pure` if plugins must stay off)       | `opencode.json` / `~/.config/opencode/opencode.json` `model`                     | —                                                          |
+| `kimi`                                    | `kimi provider list --json`                                 | Kimi `config.toml` `[models.*]` / `[providers.*]`                                | `--thinking` flag; JSON `capabilities` / `support_efforts` |
+| `pi`                                      | `pi --list-models`                                          | —                                                                                | `--thinking` enum                                          |
+| `kiro`                                    | `kiro-cli chat --list-models --format json`                 | —                                                                                | —                                                          |
+| `commandcode`                             | `cmd --list-models`                                         | —                                                                                | —                                                          |
+| `kilocode`                                | `kilo models`                                               | —                                                                                | —                                                          |
+| `antigravity`                             | `agy models`                                                | —                                                                                | —                                                          |
+| `codex`                                   | `codex debug models` (JSON catalog; `--bundled` if offline) | `~/.codex/config.toml` `model`, `model_reasoning_effort`                         | reasoning from catalog `supportedReasoningEfforts`         |
+| `claude`                                  | no headless `--list-models` (only `/model` / `--model`)     | `~/.claude/settings.json` `model`; `claude config get model`                     | `--effort` enum from builtin spec                          |
+| `gemini`                                  | official Gemini CLI: `--model` aliases, no `--list-models`  | Gemini settings / aliases `auto\|pro\|flash\|flash-lite`                         | —                                                          |
+| `aider`                                   | `aider --list-models` when present                          | `.aider.conf.yml` / `~/.aider.conf.yml`                                          | —                                                          |
+| ACP registry / custom                     | temp ACP session `configOptions`                            | agent `default_config` map                                                       | thought_level / mode options from ACP                      |
+| `amp` `droid` `devin` `hermes` `openclaw` | none documented                                             | builtin `reasoningSupport` / `modelSupport` only; picker may be manual or hidden | as spec                                                    |
 
 `opencode --pure models` stays a valid **variant** on the OpenCode spec if a non-pure `opencode models` pulls plugins; prefer documented `opencode models` first.
 
@@ -439,6 +439,7 @@ Documented CLI / config (examples in the product prompt were not exhaustive; thi
 `agent_chat_create` / first `agent_chat_send` copy `selected_model` + `selected_thinking` (+ mode if any) onto `agent_runtime_session` and into `AgentSessionConfig`. Process starts on that model.
 
 <!-- updated 2026-08-29: live configure applies model/mode/thinking -->
+
 `agent_chat_configure` always writes `selected_model` / `selected_thinking` / `selected_mode` on conversation meta. If a runtime is alive it also calls `AgentRuntimeControl::set_config` (ACP `session/set_config_option`, or legacy `session/set_mode`). Changing `provider_id` while a runtime is alive is rejected. Model, thinking, and mode are not blocked.
 
 ## Transport
@@ -447,25 +448,25 @@ All names are serde snake_case `WsAction` / `WsEvent` variants in `apps/api/src/
 
 ### Actions
 
-| Action | Input (core) | Output |
-|--------|----------------|--------|
-| `agent_chat_create` | `workspace_id?`, `project_id?`, `cwd?`, `provider_id`, `model?`, `thinking?`, `title?` | Conversation summary (no spawn) |
-| `agent_chat_list` | `workspace_id?`, `project_id?`, `cwd?`, `cursor?`, `limit?` | page of summaries |
-| `agent_chat_get` | `chat_id` | conversation + latest turns/messages enough to paint |
-| `agent_chat_messages` | `chat_id`, `limit?` | last N folded turns |
-| `agent_chat_rename` | `chat_id`, `title` | summary |
-| `agent_chat_delete` | `chat_id` | `{ ok }` (soft-delete; close runtime if any) |
-| `agent_chat_subscribe` | `chat_id`, `after_sequence?` | `{ last_event_seq }` |
-| `agent_chat_unsubscribe` | `chat_id` | `{ ok }` |
-| `agent_chat_send` | `chat_id`, `text`, `attachment_paths?` | `{ turn_id }` — idle: new turn; spawns provider if detached |
-| `agent_chat_steer` | `chat_id`, `expected_turn_id`, `text` | `{ turn_id }` or error |
-| `agent_chat_queue_add` | `chat_id`, `text`, `attachment_paths?` | queue item |
-| `agent_chat_queue_update` | `item_id`, `text?`, `status?` | item |
-| `agent_chat_queue_reorder` | `chat_id`, `item_ids` | items |
-| `agent_chat_queue_delete` | `item_id` | `{ ok }` |
-| `agent_chat_cancel` | `chat_id` | `{ ok }` interrupt current turn |
-| `agent_chat_permission_respond` | `chat_id`, `request_id`, `option_id` / allow+remember | `{ ok }` |
-| `agent_options_get` | `agent_id`, `refresh?` | `AgentOptionsSnapshot` (cache-first) |
+| Action                          | Input (core)                                                                           | Output                                                      |
+| ------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `agent_chat_create`             | `workspace_id?`, `project_id?`, `cwd?`, `provider_id`, `model?`, `thinking?`, `title?` | Conversation summary (no spawn)                             |
+| `agent_chat_list`               | `workspace_id?`, `project_id?`, `cwd?`, `cursor?`, `limit?`                            | page of summaries                                           |
+| `agent_chat_get`                | `chat_id`                                                                              | conversation + latest turns/messages enough to paint        |
+| `agent_chat_messages`           | `chat_id`, `limit?`                                                                    | last N folded turns                                         |
+| `agent_chat_rename`             | `chat_id`, `title`                                                                     | summary                                                     |
+| `agent_chat_delete`             | `chat_id`                                                                              | `{ ok }` (soft-delete; close runtime if any)                |
+| `agent_chat_subscribe`          | `chat_id`, `after_sequence?`                                                           | `{ last_event_seq }`                                        |
+| `agent_chat_unsubscribe`        | `chat_id`                                                                              | `{ ok }`                                                    |
+| `agent_chat_send`               | `chat_id`, `text`, `attachment_paths?`                                                 | `{ turn_id }` — idle: new turn; spawns provider if detached |
+| `agent_chat_steer`              | `chat_id`, `expected_turn_id`, `text`                                                  | `{ turn_id }` or error                                      |
+| `agent_chat_queue_add`          | `chat_id`, `text`, `attachment_paths?`                                                 | queue item                                                  |
+| `agent_chat_queue_update`       | `item_id`, `text?`, `status?`                                                          | item                                                        |
+| `agent_chat_queue_reorder`      | `chat_id`, `item_ids`                                                                  | items                                                       |
+| `agent_chat_queue_delete`       | `item_id`                                                                              | `{ ok }`                                                    |
+| `agent_chat_cancel`             | `chat_id`                                                                              | `{ ok }` interrupt current turn                             |
+| `agent_chat_permission_respond` | `chat_id`, `request_id`, `option_id` / allow+remember                                  | `{ ok }`                                                    |
+| `agent_options_get`             | `agent_id`, `refresh?`                                                                 | `AgentOptionsSnapshot` (cache-first)                        |
 
 Busy Enter: client reads `followup_policy` and calls `agent_chat_queue_add` or `agent_chat_steer`. One-shot uses the other action. If `supports_steer` is false, hide Steer and force Queue.
 

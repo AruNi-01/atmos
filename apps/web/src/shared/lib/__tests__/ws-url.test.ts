@@ -64,9 +64,7 @@ describe("hosted loopback WebSocket URLs", () => {
         sessionId: "terminal-1",
         workspaceId: "workspace-1",
       }),
-    ).toBe(
-      "ws://127.0.0.1:30303/ws/terminal/terminal-1?workspace_id=workspace-1",
-    );
+    ).toBe("ws://127.0.0.1:30303/ws/terminal/terminal-1?workspace_id=workspace-1");
   });
 
   it("keeps hosted terminal sessions on loopback even when a WS env override exists", () => {
@@ -77,8 +75,6 @@ describe("hosted loopback WebSocket URLs", () => {
         sessionId: "terminal-1",
         workspaceId: "workspace-1",
       }),
-    ).toBe(
-      "ws://127.0.0.1:30303/ws/terminal/terminal-1?workspace_id=workspace-1",
-    );
+    ).toBe("ws://127.0.0.1:30303/ws/terminal/terminal-1?workspace_id=workspace-1");
   });
 });

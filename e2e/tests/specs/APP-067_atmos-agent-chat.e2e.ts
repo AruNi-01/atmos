@@ -56,9 +56,7 @@ test.describe("APP-067 Atmos Agent Chat", () => {
     await expect(stage.locator("[data-agent-chat-workspace]").first()).toBeVisible();
   });
 
-  test("S16 standalone /agent-chat?chatId= shares the chat", async ({
-    page,
-  }) => {
+  test("S16 standalone /agent-chat?chatId= shares the chat", async ({ page }) => {
     test.setTimeout(90_000);
     await connectLocalComputer(page);
     await page.goto("/agent-chat");
@@ -110,9 +108,9 @@ test.describe("APP-067 Atmos Agent Chat", () => {
 
     const page2 = await page.context().newPage();
     await page2.goto(`/agent-chat?chatId=${chatId}`);
-    await expect(
-      page2.locator(`[data-agent-chat-workspace="${chatId}"]`),
-    ).toBeVisible({ timeout: 20_000 });
+    await expect(page2.locator(`[data-agent-chat-workspace="${chatId}"]`)).toBeVisible({
+      timeout: 20_000,
+    });
     await expect(page2.locator("[data-agent-chat-message]").getByText(marker)).toBeVisible({
       timeout: 20_000,
     });

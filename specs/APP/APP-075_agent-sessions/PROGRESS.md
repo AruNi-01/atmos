@@ -35,22 +35,22 @@
 
 ## Decisions Since TECH
 
-| ID | Decision | Why | Source update |
-|----|----------|-----|---------------|
-| D1 | Add `rusqlite` (bundled) on `crates/agent` in Wave 0 | OpenCode cheap list needs sqlite; Cargo.toml is a hot file | pending TECH note if used |
-| D2 | Watcher/`notify` deferred unless Wave 6 needs it | not in workspace; mtime+size skip + scan gate satisfy M10 | pending |
-| D3 | Implement resume WS (S5) before UI (S4) | `wsRequest` needs `host_session_resume_*` in the contract for typecheck | this file |
+| ID  | Decision                                             | Why                                                                     | Source update             |
+| --- | ---------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------- |
+| D1  | Add `rusqlite` (bundled) on `crates/agent` in Wave 0 | OpenCode cheap list needs sqlite; Cargo.toml is a hot file              | pending TECH note if used |
+| D2  | Watcher/`notify` deferred unless Wave 6 needs it     | not in workspace; mtime+size skip + scan gate satisfy M10               | pending                   |
+| D3  | Implement resume WS (S5) before UI (S4)              | `wsRequest` needs `host_session_resume_*` in the contract for typecheck | this file                 |
 
 ## Verification Status
 
-| Area | Command / Method | Last result | Notes |
-|------|------------------|-------------|-------|
-| Rust tests | `cargo test -p agent --lib session_source` | pass 40 | |
-| Rust tests | `cargo test -p core-service --lib host_session` | pass 11 | |
-| Rust tests | `cargo test -p agent --lib` | pass 736 | |
-| Web tests | bun agent-sessions host + filters + launchpad | pass 21 | |
-| Live homes | ATMOS_LIVE_HOST_SESSIONS=1 | pass 1683 listed | all 6 v1 hosts |
-| WS | host_session_list to :30303 | fail handshake | stale API pid |
+| Area       | Command / Method                                | Last result      | Notes          |
+| ---------- | ----------------------------------------------- | ---------------- | -------------- |
+| Rust tests | `cargo test -p agent --lib session_source`      | pass 40          |                |
+| Rust tests | `cargo test -p core-service --lib host_session` | pass 11          |                |
+| Rust tests | `cargo test -p agent --lib`                     | pass 736         |                |
+| Web tests  | bun agent-sessions host + filters + launchpad   | pass 21          |                |
+| Live homes | ATMOS_LIVE_HOST_SESSIONS=1                      | pass 1683 listed | all 6 v1 hosts |
+| WS         | host_session_list to :30303                     | fail handshake   | stale API pid  |
 
 ## Known Blockers
 
@@ -78,17 +78,17 @@ See Decisions Since TECH.
 
 > Orchestration board for `atmos-long-task-impl`. Not a requirements source.
 
-| ID | Wave | Owns | Forbids | Depends | Status | Impl | Review | Verify |
-|----|------|------|---------|---------|--------|------|--------|--------|
-| S0 | 0 | `crates/agent/src/session_source/**`, `crates/agent/src/lib.rs`, `crates/agent/Cargo.toml`, `crates/core-service/src/service/agent_chat/types.rs`, `packages/api-types/src/ws/dto/agent-chat.ts` | adapters' full parsers (stubs only); WS; UI; HostSessionService | — | done | ok | pass | `cargo test -p agent session_source` |
-| S1a | 1 | `crates/agent/src/session_source/adapters/claude.rs`, `crates/agent/src/session_source/adapters/codex.rs`, `crates/agent/src/session_source/testdata/claude/**`, `crates/agent/src/session_source/testdata/codex/**` | roster/mod.rs, Cargo.toml, other adapters | S0 | done | ok | pass | `cargo test -p agent session_source` |
-| S1b | 1 | `crates/agent/src/session_source/adapters/opencode.rs`, `crates/agent/src/session_source/adapters/pi.rs`, `crates/agent/src/session_source/testdata/opencode/**`, `crates/agent/src/session_source/testdata/pi/**` | roster/mod.rs, Cargo.toml, other adapters | S0 | done | ok | pass | `cargo test -p agent session_source` |
-| S1c | 1 | `crates/agent/src/session_source/adapters/grok.rs`, `crates/agent/src/session_source/adapters/cursor.rs`, `crates/agent/src/session_source/testdata/grok/**`, `crates/agent/src/session_source/testdata/cursor/**` | roster/mod.rs, Cargo.toml, other adapters | S0 | done | ok | pass | `cargo test -p agent session_source` |
-| S2 | 2 | `crates/core-service/src/service/host_session/**`, `crates/core-service/src/service/mod.rs`, `crates/core-service/src/lib.rs`, `crates/core-service/src/service/agent_chat/store.rs` (fold extract only) | WS, UI, resume | S0, S1a-c | done | ok | pass | `cargo test -p core-service host_session` |
-| S3 | 3 | `apps/api/src/api/ws/message.rs`, `apps/api/src/api/ws/message/host_session.rs`, `apps/api/src/api/ws/router/mod.rs`, `apps/api/src/api/ws/router/host_session.rs`, `packages/api-types/src/ws/**` | UI, resume impl | S2 | done | ok | pass | extract-actions/events + check |
-| S4 | 4 | `apps/web/src/features/agent-sessions/**`, left sidebar/launchpad/center/i18n | Rust crates | S3, S5 | done | ok | pass | bun agent-sessions tests |
-| S5 | 5 | host-session resume_chat/resume_tui + WS | UI | S3 | done | ok | pass | `cargo test -p core-service host_session` |
-| S6 | 6 | watcher | — | S5 | done | skipped | — | cheap list each request; no notify crate |
+| ID  | Wave | Owns                                                                                                                                                                                                                 | Forbids                                                         | Depends   | Status | Impl    | Review | Verify                                    |
+| --- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | --------- | ------ | ------- | ------ | ----------------------------------------- |
+| S0  | 0    | `crates/agent/src/session_source/**`, `crates/agent/src/lib.rs`, `crates/agent/Cargo.toml`, `crates/core-service/src/service/agent_chat/types.rs`, `packages/api-types/src/ws/dto/agent-chat.ts`                     | adapters' full parsers (stubs only); WS; UI; HostSessionService | —         | done   | ok      | pass   | `cargo test -p agent session_source`      |
+| S1a | 1    | `crates/agent/src/session_source/adapters/claude.rs`, `crates/agent/src/session_source/adapters/codex.rs`, `crates/agent/src/session_source/testdata/claude/**`, `crates/agent/src/session_source/testdata/codex/**` | roster/mod.rs, Cargo.toml, other adapters                       | S0        | done   | ok      | pass   | `cargo test -p agent session_source`      |
+| S1b | 1    | `crates/agent/src/session_source/adapters/opencode.rs`, `crates/agent/src/session_source/adapters/pi.rs`, `crates/agent/src/session_source/testdata/opencode/**`, `crates/agent/src/session_source/testdata/pi/**`   | roster/mod.rs, Cargo.toml, other adapters                       | S0        | done   | ok      | pass   | `cargo test -p agent session_source`      |
+| S1c | 1    | `crates/agent/src/session_source/adapters/grok.rs`, `crates/agent/src/session_source/adapters/cursor.rs`, `crates/agent/src/session_source/testdata/grok/**`, `crates/agent/src/session_source/testdata/cursor/**`   | roster/mod.rs, Cargo.toml, other adapters                       | S0        | done   | ok      | pass   | `cargo test -p agent session_source`      |
+| S2  | 2    | `crates/core-service/src/service/host_session/**`, `crates/core-service/src/service/mod.rs`, `crates/core-service/src/lib.rs`, `crates/core-service/src/service/agent_chat/store.rs` (fold extract only)             | WS, UI, resume                                                  | S0, S1a-c | done   | ok      | pass   | `cargo test -p core-service host_session` |
+| S3  | 3    | `apps/api/src/api/ws/message.rs`, `apps/api/src/api/ws/message/host_session.rs`, `apps/api/src/api/ws/router/mod.rs`, `apps/api/src/api/ws/router/host_session.rs`, `packages/api-types/src/ws/**`                   | UI, resume impl                                                 | S2        | done   | ok      | pass   | extract-actions/events + check            |
+| S4  | 4    | `apps/web/src/features/agent-sessions/**`, left sidebar/launchpad/center/i18n                                                                                                                                        | Rust crates                                                     | S3, S5    | done   | ok      | pass   | bun agent-sessions tests                  |
+| S5  | 5    | host-session resume_chat/resume_tui + WS                                                                                                                                                                             | UI                                                              | S3        | done   | ok      | pass   | `cargo test -p core-service host_session` |
+| S6  | 6    | watcher                                                                                                                                                                                                              | —                                                               | S5        | done   | skipped | —      | cheap list each request; no notify crate  |
 
 ## Slice Cards
 

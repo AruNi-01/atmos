@@ -58,45 +58,61 @@ export function useGithubIssueListQuery(params: GithubIssueListParams & { enable
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
   const { enabled = true, ...restParams } = params;
-  return useQuery(githubIssueListQueryOptions(scope, connectionState, restParams, {
-    enabled: enabled && Boolean(params.owner && params.repo),
-  }));
+  return useQuery(
+    githubIssueListQueryOptions(scope, connectionState, restParams, {
+      enabled: enabled && Boolean(params.owner && params.repo),
+    }),
+  );
 }
 
 export function useGithubIssuePageQuery(params: GithubIssuePageParams & { enabled?: boolean }) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
   const { enabled = true, ...restParams } = params;
-  return useQuery(githubIssuePageQueryOptions(scope, connectionState, restParams, {
-    enabled: enabled && Boolean(params.owner && params.repo),
-  }));
+  return useQuery(
+    githubIssuePageQueryOptions(scope, connectionState, restParams, {
+      enabled: enabled && Boolean(params.owner && params.repo),
+    }),
+  );
 }
 
-export function useGithubIssueDetailQuery(params: GithubIssueIdentityParams & { enabled?: boolean }) {
+export function useGithubIssueDetailQuery(
+  params: GithubIssueIdentityParams & { enabled?: boolean },
+) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
   const { enabled = true, ...restParams } = params;
-  return useQuery(githubIssueDetailQueryOptions(scope, connectionState, restParams, {
-    enabled: enabled && Boolean(params.owner && params.repo && params.issueNumber),
-  }));
+  return useQuery(
+    githubIssueDetailQueryOptions(scope, connectionState, restParams, {
+      enabled: enabled && Boolean(params.owner && params.repo && params.issueNumber),
+    }),
+  );
 }
 
-export function useGithubIssueTimelineInfiniteQuery(params: GithubIssueIdentityParams & { enabled?: boolean }) {
+export function useGithubIssueTimelineInfiniteQuery(
+  params: GithubIssueIdentityParams & { enabled?: boolean },
+) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
   const { enabled = true, ...restParams } = params;
-  return useInfiniteQuery(githubIssueTimelineInfiniteQueryOptions(scope, connectionState, restParams, {
-    enabled: enabled && Boolean(params.owner && params.repo && params.issueNumber),
-  }));
+  return useInfiniteQuery(
+    githubIssueTimelineInfiniteQueryOptions(scope, connectionState, restParams, {
+      enabled: enabled && Boolean(params.owner && params.repo && params.issueNumber),
+    }),
+  );
 }
 
-export function useGithubIssueLinkedPrsQuery(params: GithubIssueIdentityParams & { enabled?: boolean }) {
+export function useGithubIssueLinkedPrsQuery(
+  params: GithubIssueIdentityParams & { enabled?: boolean },
+) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
   const { enabled = true, ...restParams } = params;
-  return useQuery(githubIssueLinkedPrsQueryOptions(scope, connectionState, restParams, {
-    enabled: enabled && Boolean(params.owner && params.repo && params.issueNumber),
-  }));
+  return useQuery(
+    githubIssueLinkedPrsQueryOptions(scope, connectionState, restParams, {
+      enabled: enabled && Boolean(params.owner && params.repo && params.issueNumber),
+    }),
+  );
 }
 
 export function useBranchPrListQuery(params: BranchPrListParams & { enabled?: boolean }) {
@@ -126,9 +142,11 @@ export function useBranchPrPageQuery(params: BranchPrPageParams & { enabled?: bo
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
   const { enabled = true, ...restParams } = params;
-  return useQuery(branchPrPageQueryOptions(scope, connectionState, restParams, {
-    enabled: enabled && Boolean(params.owner && params.repo && params.branch),
-  }));
+  return useQuery(
+    branchPrPageQueryOptions(scope, connectionState, restParams, {
+      enabled: enabled && Boolean(params.owner && params.repo && params.branch),
+    }),
+  );
 }
 
 export function useGithubPrDetailQuery(params: GithubPrIdentityParams & { enabled?: boolean }) {
@@ -157,9 +175,7 @@ export function useGithubPrDetailSidebarQuery(
   );
 }
 
-export function useGithubRepoLabelsQuery(
-  params: GithubRepoLabelsParams & { enabled?: boolean },
-) {
+export function useGithubRepoLabelsQuery(params: GithubRepoLabelsParams & { enabled?: boolean }) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
   const { enabled = true, ...restParams } = params;
@@ -229,18 +245,9 @@ export function useGithubPrTimelineInfiniteQuery(
     if (query.hasNextPage && !query.isFetchingNextPage && !query.isLoading) {
       void query.fetchNextPage();
     }
-  }, [
-    enabled,
-    query.fetchNextPage,
-    query.hasNextPage,
-    query.isFetchingNextPage,
-    query.isLoading,
-  ]);
+  }, [enabled, query.fetchNextPage, query.hasNextPage, query.isFetchingNextPage, query.isLoading]);
 
-  const items = useMemo(
-    () => query.data?.pages.flatMap((page) => page.items) ?? [],
-    [query.data],
-  );
+  const items = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
 
   return {
     ...query,
@@ -291,11 +298,23 @@ export function useInvalidateGithubPrs() {
 
     if (params?.owner && params?.repo) {
       void queryClient.invalidateQueries({
-        queryKey: [...queryKeys.computer.root(scope), "github", "repoPrs", params.owner, params.repo],
+        queryKey: [
+          ...queryKeys.computer.root(scope),
+          "github",
+          "repoPrs",
+          params.owner,
+          params.repo,
+        ],
         refetchType: "active",
       });
       void queryClient.invalidateQueries({
-        queryKey: [...queryKeys.computer.root(scope), "github", "branchPrs", params.owner, params.repo],
+        queryKey: [
+          ...queryKeys.computer.root(scope),
+          "github",
+          "branchPrs",
+          params.owner,
+          params.repo,
+        ],
         refetchType: "active",
       });
       return;
@@ -328,7 +347,9 @@ export function useGithubActionsListQuery(params: GithubActionsListParams & { en
   );
 }
 
-export function useGithubActionsDetailQuery(params: GithubActionsDetailParams & { enabled?: boolean }) {
+export function useGithubActionsDetailQuery(
+  params: GithubActionsDetailParams & { enabled?: boolean },
+) {
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
   const { enabled = true, ...restParams } = params;
@@ -418,7 +439,7 @@ export function useInvalidateGithubActions() {
       // Actually invalidating specific is enough.
       return;
     }
-    
+
     // Fallback: invalidate everything github actions related
     void queryClient.invalidateQueries({
       queryKey: [...queryKeys.computer.root(scope), "github", "actionsList"],
@@ -434,4 +455,3 @@ export function useInvalidateGithubActions() {
     });
   };
 }
-

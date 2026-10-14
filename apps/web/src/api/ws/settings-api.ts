@@ -2,10 +2,7 @@
 
 import { wsRequest, wsRequestForComputerScope } from "@/api/ws/request";
 import { settingsBootstrapCache } from "@/api/ws/settings-bootstrap-cache";
-import {
-  getComputerQueryScope,
-  type ComputerQueryScope,
-} from "@/api/query/query-scope";
+import { getComputerQueryScope, type ComputerQueryScope } from "@/api/query/query-scope";
 import type {
   TerminalAgentRunConfigInput,
   TerminalAgentSavedRunConfig,
@@ -217,15 +214,11 @@ export const functionSettingsApi = {
     // Capture scope before enqueue so a Computer switch mid-queue rejects the write.
     const scope = expectedScope ?? getComputerQueryScope();
     return enqueueFunctionSettingsWrite(async () => {
-      const result = await wsRequestForComputerScope(
-        scope,
-        "function_settings_update",
-        {
-          function_name: functionName,
-          key,
-          value,
-        },
-      );
+      const result = await wsRequestForComputerScope(scope, "function_settings_update", {
+        function_name: functionName,
+        key,
+        value,
+      });
       if (result.ok) {
         settingsBootstrapCache.patchFunctionSetting(functionName, key, value, scope);
       }

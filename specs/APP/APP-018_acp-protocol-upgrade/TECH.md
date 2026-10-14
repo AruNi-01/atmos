@@ -416,9 +416,15 @@ WebSocket server message additions:
 type AgentServerMessage =
   | { type: "agent_info_update"; agent_info: AgentImplementationInfo }
   | { type: "capabilities_update"; capabilities: AgentCapabilities }
-  | { type: "session_info_update"; acp_session_id: string; title?: string | null; cwd?: string | null; updated_at?: string | null }
-  | { type: "session_closed"; reason?: string | null }
-  // Existing stream/tool/permission/error/turn_end/load_completed/config/plan/usage messages remain.
+  | {
+      type: "session_info_update";
+      acp_session_id: string;
+      title?: string | null;
+      cwd?: string | null;
+      updated_at?: string | null;
+    }
+  | { type: "session_closed"; reason?: string | null };
+// Existing stream/tool/permission/error/turn_end/load_completed/config/plan/usage messages remain.
 ```
 
 `load_completed` should be renamed or supplemented in implementation if it no longer represents `session/load`. The new neutral event should be `session_ready`, carrying both `runtime_session_id` and `acp_session_id`.

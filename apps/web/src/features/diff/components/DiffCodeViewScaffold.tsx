@@ -73,7 +73,7 @@ export function DiffCodeViewScaffold({
             <PanelLeft className="size-3.5" />
           </button>
         ) : null}
-        <div className="flex-1 min-w-0">{toolbar}</div>
+        <div className="min-w-0 flex-1">{toolbar}</div>
       </div>
 
       <div className={cn("flex min-h-0 flex-1", CENTER_EXPLORER_BODY_INSET_CLASS)}>
@@ -84,11 +84,7 @@ export function DiffCodeViewScaffold({
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: treeWidth, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
-              transition={
-                isResizing
-                  ? { duration: 0 }
-                  : { duration: 0.2, ease: "easeInOut" }
-              }
+              transition={isResizing ? { duration: 0 } : { duration: 0.2, ease: "easeInOut" }}
               className="shrink-0 overflow-hidden"
             >
               {loading ? (
@@ -97,14 +93,14 @@ export function DiffCodeViewScaffold({
                   style={{ width: treeWidth }}
                 >
                   {loadingTreeLabel ? (
-                    <div className="px-1 pb-1 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground/70">
+                    <div className="px-1 pb-1 text-[10px] font-medium tracking-[0.12em] text-muted-foreground/70 uppercase">
                       {loadingTreeLabel}
                     </div>
                   ) : null}
                   {[...Array(16)].map((_, index) => (
                     <Skeleton
                       key={index}
-                      className="h-4 rounded shrink-0"
+                      className="h-4 shrink-0 rounded"
                       style={{
                         width: `${40 + (index % 5) * 10}%`,
                         marginLeft: index % 3 !== 0 ? "12px" : "0",
@@ -134,7 +130,7 @@ export function DiffCodeViewScaffold({
 
         {fileTreeOpen ? (
           <div
-            className="relative w-3 -mx-1.5 shrink-0 cursor-col-resize self-stretch overflow-visible bg-transparent touch-none"
+            className="relative -mx-1.5 w-3 shrink-0 cursor-col-resize touch-none self-stretch overflow-visible bg-transparent"
             onMouseDown={(event) => {
               event.preventDefault();
               const start = { x: event.clientX, y: event.clientY };

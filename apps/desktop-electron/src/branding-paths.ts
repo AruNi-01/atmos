@@ -14,10 +14,7 @@ export const APP_PRODUCT_NAME = "Atmos";
 /** Reverse-DNS id for the production desktop shell (primary). */
 export const APP_ID = "com.atmos.desktop";
 
-export function resolveIconFile(
-  fileName: string,
-  roots: readonly string[],
-): string | null {
+export function resolveIconFile(fileName: string, roots: readonly string[]): string | null {
   for (const root of roots) {
     const p = join(root, fileName);
     if (existsSync(p)) return p;
@@ -30,9 +27,7 @@ export function resolveIconFile(
  * Prefer the 256px brand plate so Electron does not fall back to a stale
  * cached app identity icon from an older Atmos install.
  */
-export function resolveDefaultNotificationIcon(
-  roots: readonly string[],
-): string | null {
+export function resolveDefaultNotificationIcon(roots: readonly string[]): string | null {
   return (
     resolveIconFile("128x128@2x.png", roots) ??
     resolveIconFile("notification-icon.png", roots) ??
@@ -58,9 +53,7 @@ export function resolveAppIcons(
   const icoPath = resolveIconFile("icon.ico", roots);
   const icnsPath = resolveIconFile("icon.icns", roots);
   const hiResPng =
-    resolveIconFile("128x128@2x.png", roots) ??
-    resolveIconFile("128x128.png", roots) ??
-    pngPath;
+    resolveIconFile("128x128@2x.png", roots) ?? resolveIconFile("128x128.png", roots) ?? pngPath;
 
   let windowIconPath: string | null = null;
   if (platform === "win32") {
@@ -75,10 +68,7 @@ export function resolveAppIcons(
   // often loads only a low-res representation, which then appears as a tiny
   // glyph centered in the macOS Dock tile. Bundle CFBundleIconFile can still
   // use .icns for Finder / Get Info.
-  const dockIconPath =
-    platform === "darwin"
-      ? pngPath ?? hiResPng ?? icnsPath
-      : windowIconPath;
+  const dockIconPath = platform === "darwin" ? (pngPath ?? hiResPng ?? icnsPath) : windowIconPath;
 
   return {
     windowIconPath,

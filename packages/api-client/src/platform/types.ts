@@ -4,9 +4,7 @@ export type WebSocketLike = {
   close(code?: number, reason?: string): void;
   onopen: ((ev?: unknown) => void) | null;
   onmessage: ((ev: { data: unknown }) => void) | null;
-  onclose:
-    | ((ev: { code: number; reason: string; wasClean: boolean }) => void)
-    | null;
+  onclose: ((ev: { code: number; reason: string; wasClean: boolean }) => void) | null;
   onerror: ((ev?: unknown) => void) | null;
 };
 
@@ -19,11 +17,7 @@ export type WsSessionPlatform = {
   createWebSocket(url: string): WebSocketLike;
   timers?: PlatformTimers;
   now?: () => number;
-  log?: (
-    level: "debug" | "warn" | "error",
-    msg: string,
-    meta?: Record<string, unknown>,
-  ) => void;
+  log?: (level: "debug" | "warn" | "error", msg: string, meta?: Record<string, unknown>) => void;
 };
 
 export const WEBSOCKET_OPEN = 1;

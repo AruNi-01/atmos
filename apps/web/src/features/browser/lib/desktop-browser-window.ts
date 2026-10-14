@@ -33,9 +33,7 @@ function browserWindowT(key: string): string {
   return cachedBrowserWindowTranslator(key as never);
 }
 
-export async function openBrowserWindow(
-  options: OpenBrowserWindowOptions = {},
-): Promise<void> {
+export async function openBrowserWindow(options: OpenBrowserWindowOptions = {}): Promise<void> {
   if (!isDesktopRuntime()) return;
 
   try {

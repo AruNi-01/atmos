@@ -56,7 +56,10 @@ export function isAllowedMobileReturnTo(returnTo: string): boolean {
     // URL parser: host may be "hub-auth" with path "/callback", or host empty with path "//hub-auth/callback"
     const host = u.hostname.toLowerCase();
     const path = u.pathname.replace(/^\/+/, "").toLowerCase();
-    if (host === "hub-auth" && (path === "callback" || path === "" || path.startsWith("callback"))) {
+    if (
+      host === "hub-auth" &&
+      (path === "callback" || path === "" || path.startsWith("callback"))
+    ) {
       return true;
     }
     if (!host && (path === "hub-auth/callback" || path.startsWith("hub-auth/callback/"))) {
@@ -113,12 +116,7 @@ export async function consumeDesktopAuthCode(
   const rows = await db
     .select()
     .from(verification)
-    .where(
-      and(
-        eq(verification.identifier, identifier),
-        gt(verification.expiresAt, now),
-      ),
-    )
+    .where(and(eq(verification.identifier, identifier), gt(verification.expiresAt, now)))
     .limit(1);
   const row = rows[0];
   if (!row) return null;

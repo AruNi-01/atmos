@@ -1,10 +1,15 @@
-import { angularSourceLocator } from './angular-locator';
-import { reactSourceLocator } from './react-locator';
-import { svelteSourceLocator } from './svelte-locator';
-import { vueSourceLocator } from './vue-locator';
-import type { SourceLocationResult, SourceLocatorAdapter } from './types';
+import { angularSourceLocator } from "./angular-locator";
+import { reactSourceLocator } from "./react-locator";
+import { svelteSourceLocator } from "./svelte-locator";
+import { vueSourceLocator } from "./vue-locator";
+import type { SourceLocationResult, SourceLocatorAdapter } from "./types";
 
-const adapters: SourceLocatorAdapter[] = [vueSourceLocator, angularSourceLocator, svelteSourceLocator, reactSourceLocator];
+const adapters: SourceLocatorAdapter[] = [
+  vueSourceLocator,
+  angularSourceLocator,
+  svelteSourceLocator,
+  reactSourceLocator,
+];
 
 export function getRegisteredSourceLocators(): SourceLocatorAdapter[] {
   return adapters.slice();

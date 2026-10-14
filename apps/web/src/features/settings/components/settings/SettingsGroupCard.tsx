@@ -1,15 +1,10 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  cn,
-} from '@workspace/ui';
-import { ChevronDown, FlaskConical } from 'lucide-react';
+import * as React from "react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger, cn } from "@workspace/ui";
+import { ChevronDown, FlaskConical } from "lucide-react";
 
-export const SETTINGS_SECTION_DOM_ID_PREFIX = 'settings-section-';
+export const SETTINGS_SECTION_DOM_ID_PREFIX = "settings-section-";
 
 export function settingsSectionDomId(anchor: string): string {
   return `${SETTINGS_SECTION_DOM_ID_PREFIX}${anchor}`;
@@ -30,15 +25,10 @@ export function SettingsSection({
   children: React.ReactNode;
 }) {
   return (
-    <section
-      id={id ? settingsSectionDomId(id) : undefined}
-      className="scroll-mt-8 space-y-3"
-    >
+    <section id={id ? settingsSectionDomId(id) : undefined} className="scroll-mt-8 space-y-3">
       {title || action ? (
         <div className="flex items-center justify-between gap-4 px-0.5">
-          {title ? (
-            <h3 className="min-w-0 text-sm font-medium text-foreground">{title}</h3>
-          ) : null}
+          {title ? <h3 className="min-w-0 text-sm font-medium text-foreground">{title}</h3> : null}
           {action ? <div className="ml-auto shrink-0">{action}</div> : null}
         </div>
       ) : null}
@@ -56,7 +46,7 @@ export function SettingsGroup({
   className?: string;
 }) {
   return (
-    <div className={cn('overflow-hidden rounded-2xl bg-muted/40', className)}>
+    <div className={cn("overflow-hidden rounded-2xl bg-muted/40", className)}>
       <div className="px-3">{children}</div>
     </div>
   );
@@ -72,9 +62,7 @@ export function SettingsExperimentalNotice({ children }: { children: React.React
     <SettingsGroup className="bg-amber-500/10">
       <div className="flex items-start gap-2 px-2 py-3">
         <FlaskConical className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-        <p className="min-w-0 text-xs leading-5 text-muted-foreground">
-          {children}
-        </p>
+        <p className="min-w-0 text-xs leading-5 text-muted-foreground">{children}</p>
       </div>
     </SettingsGroup>
   );
@@ -98,18 +86,14 @@ export function SettingsGroupRow({
     <div className="border-b border-border/60 px-2 py-3 last:border-b-0">
       <div
         className={cn(
-          'grid gap-6',
-          wide
-            ? 'grid-cols-[minmax(0,1fr)_auto]'
-            : 'grid-cols-[minmax(0,1fr)_100px]',
+          "grid gap-6",
+          wide ? "grid-cols-[minmax(0,1fr)_auto]" : "grid-cols-[minmax(0,1fr)_100px]",
         )}
       >
         <div className="min-w-0">
           <div className="text-sm font-medium text-foreground">{title}</div>
           {description ? (
-            <div className="mt-1 text-xs leading-5 text-muted-foreground">
-              {description}
-            </div>
+            <div className="mt-1 text-xs leading-5 text-muted-foreground">{description}</div>
           ) : null}
           {footer}
         </div>
@@ -121,11 +105,11 @@ export function SettingsGroupRow({
 
 /** Title of a collapsible settings heading: quiet at rest, foreground on hover. */
 export const settingsCollapsibleTitleClassName =
-  'text-sm font-medium text-muted-foreground group-hover:text-foreground';
+  "text-sm font-medium text-muted-foreground group-hover:text-foreground";
 
 /** Chevron next to a collapsible settings heading. */
 export const settingsCollapsibleChevronTriggerClassName =
-  'cursor-pointer text-muted-foreground hover:text-foreground';
+  "cursor-pointer text-muted-foreground hover:text-foreground";
 
 /** Group with a heading outside the muted card; optional collapse. */
 export function SettingsGroupCard({
@@ -146,18 +130,13 @@ export function SettingsGroupCard({
   headerEnd?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const collapsible = typeof open === 'boolean' && typeof onOpenChange === 'function';
+  const collapsible = typeof open === "boolean" && typeof onOpenChange === "function";
 
-  const titleBlock = (
-    <p className="min-w-0 flex-1 text-sm font-medium text-foreground">{title}</p>
-  );
+  const titleBlock = <p className="min-w-0 flex-1 text-sm font-medium text-foreground">{title}</p>;
 
   if (!collapsible) {
     return (
-      <section
-        id={id ? settingsSectionDomId(id) : undefined}
-        className="scroll-mt-8 space-y-3"
-      >
+      <section id={id ? settingsSectionDomId(id) : undefined} className="scroll-mt-8 space-y-3">
         <div className="flex items-center justify-between gap-4 px-0.5">
           {titleBlock}
           {headerEnd ? <div className="shrink-0 self-center">{headerEnd}</div> : null}
@@ -168,27 +147,21 @@ export function SettingsGroupCard({
   }
 
   return (
-    <Collapsible
-      open={open}
-      onOpenChange={onOpenChange}
-      className="scroll-mt-8 space-y-3"
-    >
+    <Collapsible open={open} onOpenChange={onOpenChange} className="scroll-mt-8 space-y-3">
       <section id={id ? settingsSectionDomId(id) : undefined} className="space-y-3">
         <div className="flex items-center gap-2 px-0.5">
           <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 text-left">
             <ChevronDown
               className={cn(
                 settingsCollapsibleChevronTriggerClassName,
-                'size-4 shrink-0 transition-transform duration-150 group-hover:text-foreground',
-                !open && '-rotate-90',
+                "size-4 shrink-0 transition-transform duration-150 group-hover:text-foreground",
+                !open && "-rotate-90",
               )}
             />
             <p
               className={cn(
-                'min-w-0 flex-1',
-                open
-                  ? 'text-sm font-medium text-foreground'
-                  : settingsCollapsibleTitleClassName,
+                "min-w-0 flex-1",
+                open ? "text-sm font-medium text-foreground" : settingsCollapsibleTitleClassName,
               )}
             >
               {title}

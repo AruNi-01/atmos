@@ -146,7 +146,7 @@ function SetupChipAutoEnter({
             )}
           </>
         ) : (
-          <span className="whitespace-nowrap text-[12px] font-medium tabular-nums">
+          <span className="text-[12px] font-medium whitespace-nowrap tabular-nums">
             {t("autoEnterCountdown", { seconds: remainingSeconds })}
           </span>
         )}

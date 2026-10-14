@@ -81,13 +81,9 @@ describe("center-pane-saved-layout", () => {
       columnFractions: [0.5, 0.5],
       rowFractions: [1],
       order: ["pane-main", "pane-2"],
-      panes: [
-        { id: "pane-main", surfaces: ["overview"], activeSurface: "overview" },
-      ],
+      panes: [{ id: "pane-main", surfaces: ["overview"], activeSurface: "overview" }],
     };
-    expect(normalizeSavedCenterLayouts([ok, { id: 1 }, null, "x"])).toEqual([
-      ok,
-    ]);
+    expect(normalizeSavedCenterLayouts([ok, { id: 1 }, null, "x"])).toEqual([ok]);
     expect(normalizeSavedCenterLayouts(null)).toEqual([]);
   });
 
@@ -106,7 +102,14 @@ describe("center-pane-saved-layout", () => {
     expect(filesPane).toBeDefined();
     const secondary = live.panes.find((p) => p.id !== DEFAULT_PANE_ID);
     expect(secondary && isEmptyPane(secondary)).toBe(true);
-    expect(live.panes.some((p) => p.id === DEFAULT_PANE_ID || p.tabIds.includes("overview") || p.tabIds.includes(FIXED_TERMINAL_TAB_VALUE))).toBe(true);
+    expect(
+      live.panes.some(
+        (p) =>
+          p.id === DEFAULT_PANE_ID ||
+          p.tabIds.includes("overview") ||
+          p.tabIds.includes(FIXED_TERMINAL_TAB_VALUE),
+      ),
+    ).toBe(true);
   });
 
   it("snapshots an open Chat tab as the agent-chat surface", () => {
@@ -131,18 +134,16 @@ describe("center-pane-saved-layout", () => {
   });
 
   it("asks for confirmation when the current stage is not overview-only", () => {
-    expect(
-      shouldConfirmReplaceCenterLayout({ paneCount: 1, openTabIds: ["overview"] }),
-    ).toBe(false);
+    expect(shouldConfirmReplaceCenterLayout({ paneCount: 1, openTabIds: ["overview"] })).toBe(
+      false,
+    );
     expect(
       shouldConfirmReplaceCenterLayout({
         paneCount: 1,
         openTabIds: ["overview", "files"],
       }),
     ).toBe(true);
-    expect(
-      shouldConfirmReplaceCenterLayout({ paneCount: 2, openTabIds: ["overview"] }),
-    ).toBe(true);
+    expect(shouldConfirmReplaceCenterLayout({ paneCount: 2, openTabIds: ["overview"] })).toBe(true);
   });
 
   it("opens a saved layout in a new space instead of replacing the current one", () => {

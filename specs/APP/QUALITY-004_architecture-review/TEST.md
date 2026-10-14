@@ -8,20 +8,20 @@ This spec is an audit + roadmap; the "implementation" is the remediation phases 
 
 Each High/Medium finding is reproducible from a clean checkout:
 
-| Finding | Command | Expected signal (as of 2026-07-02) |
-|---|---|---|
-| F-01 layering bypass | `rg -c 'use (infra\|core_engine\|agent\|llm\|quota_usage\|token_usage\|local_model_runtime)' apps/api/src` | 23 direct lower-layer import statements |
-| F-02 contract drift | `awk '/pub enum WsAction/,/^}/' apps/api/src/api/ws/message.rs \| rg -c '^\s+[A-Z][A-Za-z0-9]*,?$'` vs the web union in `use-websocket.ts` | 201 Rust variants; web union missing `terminal_workspace_candidates` |
-| F-03 web monolith | `find apps/web/src \( -name '*.ts' -o -name '*.tsx' \) -exec wc -l {} + \| awk '$1>800 && $2!="total"' \| wc -l` | 37 files > 800 lines |
-| F-04 CI gaps | `rg -l 'bun test' .github/workflows/` ; `rg -l 'apps/mobile' .github/workflows/` | both empty |
-| F-05 god-crate | `find crates/core-service -name '*.rs' \| xargs wc -l \| tail -1` | 23,336 LOC |
-| F-06 entity leak | `rg -n 'infra::db::entities' apps/api/src` | hits in project handlers + ws workspace DTOs |
-| F-08 dead deps | `rg -c 'quota_usage\|local_model_runtime' crates/core-service/src` | 0 |
-| F-09 relay dup | compare `RelayEnvelope` in `apps/api/src/relay/ingest.rs` and `packages/relay/src/server-hub.ts` | same shape, two definitions |
-| F-11 dead machinery | `rg -l '"catalog:' apps packages --glob 'package.json'` ; `rg -l '@atmos/config' apps/*/tsconfig.json` | both empty |
-| F-14 doc dup | `diff AGENTS.md CLAUDE.md` | no output (identical) |
-| F-20 ui barrel | `rg -n 'export \* from "(lucide-react\|@dnd-kit\|react-resizable-panels)' packages/ui/src/index.ts` ; `rg -c '"sideEffects"' packages/ui/package.json` | barrel `export *`s 6 third-party entries; 0 `sideEffects` field |
-| F-20 heavy deps | `rg -rn 'PixelBlast\|MorphSurface' apps packages --glob '*.ts*'` ; `rg '"lucide-react":' apps/*/package.json packages/ui/package.json` | 0 consumers of the `three` components; lucide split `^1.8.0` vs `^0.562/0.563` |
+| Finding              | Command                                                                                                                                                | Expected signal (as of 2026-07-02)                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| F-01 layering bypass | `rg -c 'use (infra\|core_engine\|agent\|llm\|quota_usage\|token_usage\|local_model_runtime)' apps/api/src`                                             | 23 direct lower-layer import statements                                        |
+| F-02 contract drift  | `awk '/pub enum WsAction/,/^}/' apps/api/src/api/ws/message.rs \| rg -c '^\s+[A-Z][A-Za-z0-9]*,?$'` vs the web union in `use-websocket.ts`             | 201 Rust variants; web union missing `terminal_workspace_candidates`           |
+| F-03 web monolith    | `find apps/web/src \( -name '*.ts' -o -name '*.tsx' \) -exec wc -l {} + \| awk '$1>800 && $2!="total"' \| wc -l`                                       | 37 files > 800 lines                                                           |
+| F-04 CI gaps         | `rg -l 'bun test' .github/workflows/` ; `rg -l 'apps/mobile' .github/workflows/`                                                                       | both empty                                                                     |
+| F-05 god-crate       | `find crates/core-service -name '*.rs' \| xargs wc -l \| tail -1`                                                                                      | 23,336 LOC                                                                     |
+| F-06 entity leak     | `rg -n 'infra::db::entities' apps/api/src`                                                                                                             | hits in project handlers + ws workspace DTOs                                   |
+| F-08 dead deps       | `rg -c 'quota_usage\|local_model_runtime' crates/core-service/src`                                                                                     | 0                                                                              |
+| F-09 relay dup       | compare `RelayEnvelope` in `apps/api/src/relay/ingest.rs` and `packages/relay/src/server-hub.ts`                                                       | same shape, two definitions                                                    |
+| F-11 dead machinery  | `rg -l '"catalog:' apps packages --glob 'package.json'` ; `rg -l '@atmos/config' apps/*/tsconfig.json`                                                 | both empty                                                                     |
+| F-14 doc dup         | `diff AGENTS.md CLAUDE.md`                                                                                                                             | no output (identical)                                                          |
+| F-20 ui barrel       | `rg -n 'export \* from "(lucide-react\|@dnd-kit\|react-resizable-panels)' packages/ui/src/index.ts` ; `rg -c '"sideEffects"' packages/ui/package.json` | barrel `export *`s 6 third-party entries; 0 `sideEffects` field                |
+| F-20 heavy deps      | `rg -rn 'PixelBlast\|MorphSurface' apps packages --glob '*.ts*'` ; `rg '"lucide-react":' apps/*/package.json packages/ui/package.json`                 | 0 consumers of the `three` components; lucide split `^1.8.0` vs `^0.562/0.563` |
 
 ## Regression gates per remediation phase
 

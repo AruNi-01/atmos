@@ -1,11 +1,6 @@
 import React from "react";
 import { useTranslations } from "next-intl";
-import {
-  agentApi,
-  type CustomAgent,
-  type NativeChatAgent,
-  type RegistryAgent,
-} from "@/api/ws-api";
+import { agentApi, type CustomAgent, type NativeChatAgent, type RegistryAgent } from "@/api/ws-api";
 import {
   hasTerminalAgentInstallGuide,
   nativeChatInstallGuideId,
@@ -34,11 +29,15 @@ export function useAgentManager(query: string) {
   const refreshing =
     (registryQuery.isFetching || customQuery.isFetching || nativeQuery.isFetching) && !loading;
 
-  const [installingRegistryIds, setInstallingRegistryIds] = React.useState<Set<string>>(() => new Set());
+  const [installingRegistryIds, setInstallingRegistryIds] = React.useState<Set<string>>(
+    () => new Set(),
+  );
   const [removingRegistryId, setRemovingRegistryId] = React.useState<string | null>(null);
   const [removingCustomName, setRemovingCustomName] = React.useState<string | null>(null);
   const [preloadingCustomName, setPreloadingCustomName] = React.useState<string | null>(null);
-  const [pendingCustomEnabledName, setPendingCustomEnabledName] = React.useState<string | null>(null);
+  const [pendingCustomEnabledName, setPendingCustomEnabledName] = React.useState<string | null>(
+    null,
+  );
   const [pendingNativeEnabledId, setPendingNativeEnabledId] = React.useState<string | null>(null);
   const [pendingAcpEnabledId, setPendingAcpEnabledId] = React.useState<string | null>(null);
   const [cliInstall, setCliInstall] = React.useState<{ id: string; name: string } | null>(null);
@@ -73,13 +72,16 @@ export function useAgentManager(query: string) {
   }, []);
 
   /** Invalidate registry queries after a mutation. Used by AgentManagerView for custom-agent save. */
-  const loadData = React.useCallback(async (forceRefresh?: boolean) => {
-    if (forceRefresh) {
-      await forceRefreshAgentRegistry();
-      return;
-    }
-    invalidateRegistry();
-  }, [invalidateRegistry]);
+  const loadData = React.useCallback(
+    async (forceRefresh?: boolean) => {
+      if (forceRefresh) {
+        await forceRefreshAgentRegistry();
+        return;
+      }
+      invalidateRegistry();
+    },
+    [invalidateRegistry],
+  );
 
   const normalizedQuery = React.useMemo(() => query.trim().toLowerCase(), [query]);
 
@@ -105,8 +107,7 @@ export function useAgentManager(query: string) {
     return customAgents.filter((agent) => {
       const commandLine = [agent.command, ...agent.args].join(" ").toLowerCase();
       return (
-        agent.name.toLowerCase().includes(normalizedQuery) ||
-        commandLine.includes(normalizedQuery)
+        agent.name.toLowerCase().includes(normalizedQuery) || commandLine.includes(normalizedQuery)
       );
     });
   }, [customAgents, normalizedQuery]);

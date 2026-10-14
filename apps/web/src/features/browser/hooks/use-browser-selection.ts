@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { useTranslations } from "next-intl";
 import { toastManager } from "@workspace/ui";
-import { formatPreviewSelectionForAI, type SelectionInfo } from "@/shared/lib/format-selection-for-ai";
+import {
+  formatPreviewSelectionForAI,
+  type SelectionInfo,
+} from "@/shared/lib/format-selection-for-ai";
 import { wrapAiContextClipboard } from "@/shared/lib/ai-context-protocol";
 import type { PreviewHelperPayload } from "../lib/browser-helper/types";
 import type { BrowserBridgeController, BrowserTransportMode } from "../lib/browser-bridge/types";
@@ -51,12 +54,7 @@ function rectsEqual(
   );
 }
 
-
-
-type PreviewSelectionTranslator = (
-  key: string,
-  values?: Record<string, string | number>,
-) => string;
+type PreviewSelectionTranslator = (key: string, values?: Record<string, string | number>) => string;
 
 function formatPreviewAnnotationsForAI(
   annotations: PreviewSelectionAnnotation[],
@@ -67,8 +65,10 @@ function formatPreviewAnnotationsForAI(
   }
 
   const sections = annotations.map((annotation, index) => {
-    const formatted = formatPreviewSelectionForAI(annotation.info, annotation.note)
-      .replace(/^## /m, "### ");
+    const formatted = formatPreviewSelectionForAI(annotation.info, annotation.note).replace(
+      /^## /m,
+      "### ",
+    );
     return `## ${t("aiContext.annotationTitle", { index: index + 1 })}\n\n${formatted}`;
   });
 
@@ -78,7 +78,9 @@ function formatPreviewAnnotationsForAI(
     t("aiContext.description", { count: annotations.length }),
     "",
     sections.join("\n\n---\n\n"),
-  ].join("\n").trimEnd();
+  ]
+    .join("\n")
+    .trimEnd();
 }
 
 export function useBrowserSelection({
@@ -92,7 +94,9 @@ export function useBrowserSelection({
   const [selectionPopoverExpanded, setSelectionPopoverExpanded] = useState(false);
   const [selectionPopoverPosition, setSelectionPopoverPosition] = useState({ x: 0, y: 0 });
   const [selectionInfo, setSelectionInfo] = useState<SelectionInfo | null>(null);
-  const [selectionAnnotations, setSelectionAnnotations] = useState<PreviewSelectionAnnotation[]>([]);
+  const [selectionAnnotations, setSelectionAnnotations] = useState<PreviewSelectionAnnotation[]>(
+    [],
+  );
   const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
   const selectionPopoverRef = useRef<HTMLDivElement | null>(null);
   const selectionInfoRef = useRef<SelectionInfo | null>(null);
@@ -119,20 +123,23 @@ export function useBrowserSelection({
   const lastGuestClickOffsetRef = useRef<{ x: number; y: number } | null>(null);
   const lastGuestViewportRef = useRef<{ width: number; height: number } | null>(null);
 
-  const dismissSelectionPopover = useCallback((resetPreviewSelection: boolean = true) => {
-    setSelectionPopoverVisible(false);
-    setSelectionPopoverExpanded(false);
-    setSelectionInfo(null);
-    setEditingAnnotationId(null);
-    lastGuestClickOffsetRef.current = null;
-    lastGuestViewportRef.current = null;
-    if (resetPreviewSelection) {
-      void Promise.resolve(transportControllerRef.current?.clearSelection(false));
-      if (isElementPickerEnabledRef.current) {
-        void Promise.resolve(transportControllerRef.current?.enterPickMode());
+  const dismissSelectionPopover = useCallback(
+    (resetPreviewSelection: boolean = true) => {
+      setSelectionPopoverVisible(false);
+      setSelectionPopoverExpanded(false);
+      setSelectionInfo(null);
+      setEditingAnnotationId(null);
+      lastGuestClickOffsetRef.current = null;
+      lastGuestViewportRef.current = null;
+      if (resetPreviewSelection) {
+        void Promise.resolve(transportControllerRef.current?.clearSelection(false));
+        if (isElementPickerEnabledRef.current) {
+          void Promise.resolve(transportControllerRef.current?.enterPickMode());
+        }
       }
-    }
-  }, [isElementPickerEnabledRef, transportControllerRef]);
+    },
+    [isElementPickerEnabledRef, transportControllerRef],
+  );
 
   const resolveFrameEl = useCallback((): HTMLElement | null => {
     if (transportControllerRef.current?.mode === "desktop" || desktopViewportRef.current) {
@@ -146,80 +153,76 @@ export function useBrowserSelection({
    * Map guest click/element coords → host **viewport** anchor for Radix Popover.
    * Anchor must be viewport-space because the preview popover portals to body.
    */
-  const getPopoverPositionFromRect = useCallback((
-    rect: { x: number; y: number; width: number; height: number },
-    opts?: {
-      cursor?: { x: number; y: number };
-      viewport?: { width: number; height: number };
+  const getPopoverPositionFromRect = useCallback(
+    (
+      rect: { x: number; y: number; width: number; height: number },
+      opts?: {
+        cursor?: { x: number; y: number };
+        viewport?: { width: number; height: number };
+      },
+    ) => {
+      const frameEl = resolveFrameEl();
+      // Prefer click point; fall back to element center (near where the user aimed).
+      const guestAnchorX = opts?.cursor ? opts.cursor.x : rect.x + rect.width / 2;
+      const guestAnchorY = opts?.cursor ? opts.cursor.y : rect.y + rect.height / 2;
+
+      return mapGuestPointToViewport({ x: guestAnchorX, y: guestAnchorY }, frameEl, opts?.viewport);
     },
-  ) => {
-    const frameEl = resolveFrameEl();
-    // Prefer click point; fall back to element center (near where the user aimed).
-    const guestAnchorX = opts?.cursor
-      ? opts.cursor.x
-      : rect.x + rect.width / 2;
-    const guestAnchorY = opts?.cursor
-      ? opts.cursor.y
-      : rect.y + rect.height / 2;
+    [resolveFrameEl],
+  );
 
-    return mapGuestPointToViewport(
-      { x: guestAnchorX, y: guestAnchorY },
-      frameEl,
-      opts?.viewport,
-    );
-  }, [resolveFrameEl]);
+  const applyRectMap = useCallback(
+    (rectBySelector: Map<string, { x: number; y: number; width: number; height: number }>) => {
+      if (rectBySelector.size === 0) return;
 
-  const applyRectMap = useCallback((
-    rectBySelector: Map<string, { x: number; y: number; width: number; height: number }>,
-  ) => {
-    if (rectBySelector.size === 0) return;
-
-    setSelectionAnnotations((previous) => {
-      if (previous.length === 0) return previous;
-      let didChange = false;
-      const nextAnnotations = previous.map((annotation) => {
-        const selector = annotation.info.selector;
-        if (!selector) return annotation;
-        const nextRect = rectBySelector.get(selector);
-        if (!nextRect) return annotation;
-        if (rectsEqual(annotation.info.previewRect, nextRect)) return annotation;
-        didChange = true;
-        return {
-          ...annotation,
-          info: {
-            ...annotation.info,
-            previewRect: { ...nextRect },
-          },
-        };
+      setSelectionAnnotations((previous) => {
+        if (previous.length === 0) return previous;
+        let didChange = false;
+        const nextAnnotations = previous.map((annotation) => {
+          const selector = annotation.info.selector;
+          if (!selector) return annotation;
+          const nextRect = rectBySelector.get(selector);
+          if (!nextRect) return annotation;
+          if (rectsEqual(annotation.info.previewRect, nextRect)) return annotation;
+          didChange = true;
+          return {
+            ...annotation,
+            info: {
+              ...annotation.info,
+              previewRect: { ...nextRect },
+            },
+          };
+        });
+        if (!didChange) return previous;
+        selectionAnnotationsRef.current = nextAnnotations;
+        return nextAnnotations;
       });
-      if (!didChange) return previous;
-      selectionAnnotationsRef.current = nextAnnotations;
-      return nextAnnotations;
-    });
 
-    const info = selectionInfoRef.current;
-    if (info?.selector) {
-      const nextRect = rectBySelector.get(info.selector);
-      if (nextRect && !rectsEqual(info.previewRect, nextRect)) {
-        const nextInfo = {
-          ...info,
-          previewRect: { ...nextRect },
-        };
-        selectionInfoRef.current = nextInfo;
-        setSelectionInfo(nextInfo);
-        const offset = lastGuestClickOffsetRef.current;
-        const cursor = offset
-          ? { x: nextRect.x + offset.x, y: nextRect.y + offset.y }
-          : undefined;
-        setSelectionPopoverPosition(
-          getPopoverPositionFromRect(nextRect, {
-            cursor,
-            viewport: lastGuestViewportRef.current ?? undefined,
-          }),
-        );
+      const info = selectionInfoRef.current;
+      if (info?.selector) {
+        const nextRect = rectBySelector.get(info.selector);
+        if (nextRect && !rectsEqual(info.previewRect, nextRect)) {
+          const nextInfo = {
+            ...info,
+            previewRect: { ...nextRect },
+          };
+          selectionInfoRef.current = nextInfo;
+          setSelectionInfo(nextInfo);
+          const offset = lastGuestClickOffsetRef.current;
+          const cursor = offset
+            ? { x: nextRect.x + offset.x, y: nextRect.y + offset.y }
+            : undefined;
+          setSelectionPopoverPosition(
+            getPopoverPositionFromRect(nextRect, {
+              cursor,
+              viewport: lastGuestViewportRef.current ?? undefined,
+            }),
+          );
+        }
       }
-    }
-  }, [getPopoverPositionFromRect]);
+    },
+    [getPopoverPositionFromRect],
+  );
 
   const syncSelectionAnnotationRects = useCallback(() => {
     const iframe = iframeRef.current;
@@ -240,7 +243,10 @@ export function useBrowserSelection({
     }
     if (selectors.size === 0) return;
 
-    const rectBySelector = new Map<string, { x: number; y: number; width: number; height: number }>();
+    const rectBySelector = new Map<
+      string,
+      { x: number; y: number; width: number; height: number }
+    >();
     for (const selector of selectors) {
       try {
         const element = frameDocument.querySelector(selector);
@@ -275,7 +281,10 @@ export function useBrowserSelection({
 
     try {
       const results = await controller.queryElementRects([...selectors]);
-      const rectBySelector = new Map<string, { x: number; y: number; width: number; height: number }>();
+      const rectBySelector = new Map<
+        string,
+        { x: number; y: number; width: number; height: number }
+      >();
       for (const row of results) {
         if (row.selector && row.rect) {
           rectBySelector.set(row.selector, row.rect);
@@ -352,126 +361,133 @@ export function useBrowserSelection({
     transportControllerRef,
   ]);
 
-  const handleSelectedPayload = useCallback((mode: BrowserTransportMode, payload: PreviewHelperPayload) => {
-    const nextSelectionInfo: SelectionInfo = {
-      filePath: payload.pageUrl,
-      startLine: 0,
-      endLine: 0,
-      selectedText: payload.elementContext.selectedText,
-      language: "html",
-      sourceType: "element",
-      pageUrl: payload.pageUrl,
-      selector: payload.elementContext.selector,
-      tagName: payload.elementContext.tagName,
-      attributesSummary: payload.elementContext.attributesSummary,
-      textPreview: payload.elementContext.textPreview,
-      htmlPreview: payload.elementContext.htmlPreview,
-      framework: payload.sourceLocation?.framework,
-      componentName: payload.sourceLocation?.componentName,
-      componentFilePath: payload.sourceLocation?.filePath,
-      componentLine: payload.sourceLocation?.line,
-      componentColumn: payload.sourceLocation?.column,
-      componentChain: payload.sourceLocation?.componentChain,
-      sourceConfidence: payload.sourceLocation?.confidence,
-      sourceDebugSignals: payload.sourceLocation?.debug,
-      transportMode: mode,
-      previewRect: { ...payload.rect },
-    };
-
-    setEditingAnnotationId(null);
-    selectionInfoRef.current = nextSelectionInfo;
-    setSelectionInfo(nextSelectionInfo);
-    const clickX = payload.cursor
-      ? payload.cursor.x
-      : payload.rect.x + payload.rect.width / 2;
-    const clickY = payload.cursor
-      ? payload.cursor.y
-      : payload.rect.y + payload.rect.height / 2;
-    lastGuestClickOffsetRef.current = {
-      x: clickX - payload.rect.x,
-      y: clickY - payload.rect.y,
-    };
-    if (payload.viewport) {
-      lastGuestViewportRef.current = {
-        width: payload.viewport.width,
-        height: payload.viewport.height,
+  const handleSelectedPayload = useCallback(
+    (mode: BrowserTransportMode, payload: PreviewHelperPayload) => {
+      const nextSelectionInfo: SelectionInfo = {
+        filePath: payload.pageUrl,
+        startLine: 0,
+        endLine: 0,
+        selectedText: payload.elementContext.selectedText,
+        language: "html",
+        sourceType: "element",
+        pageUrl: payload.pageUrl,
+        selector: payload.elementContext.selector,
+        tagName: payload.elementContext.tagName,
+        attributesSummary: payload.elementContext.attributesSummary,
+        textPreview: payload.elementContext.textPreview,
+        htmlPreview: payload.elementContext.htmlPreview,
+        framework: payload.sourceLocation?.framework,
+        componentName: payload.sourceLocation?.componentName,
+        componentFilePath: payload.sourceLocation?.filePath,
+        componentLine: payload.sourceLocation?.line,
+        componentColumn: payload.sourceLocation?.column,
+        componentChain: payload.sourceLocation?.componentChain,
+        sourceConfidence: payload.sourceLocation?.confidence,
+        sourceDebugSignals: payload.sourceLocation?.debug,
+        transportMode: mode,
+        previewRect: { ...payload.rect },
       };
-    }
-    // Host SelectionPopover is the product path for both web (iframe) and desktop
-    // (<webview> with showSelectionToolbar: false). Never hide on select.
-    setSelectionPopoverPosition(
-      getPopoverPositionFromRect(payload.rect, {
-        cursor: { x: clickX, y: clickY },
-        viewport: lastGuestViewportRef.current ?? payload.viewport,
-      }),
-    );
-    setSelectionPopoverVisible(true);
-    setSelectionPopoverExpanded(false);
-  }, [getPopoverPositionFromRect]);
 
-  const handleDesktopToolbarCopy = useCallback(async (userNote?: string) => {
-    const info = selectionInfoRef.current;
-    // Runtime already copies during the button click (user gesture). Host tries a
-    // richer i18n format as a best-effort upgrade, then always dismisses so UI
-    // never sticks open when the async bridge clipboard path is blocked.
-    if (info && info.transportMode === 'desktop') {
-      try {
-        await navigator.clipboard.writeText(
-          wrapAiContextClipboard(
-            "preview-element",
-            formatPreviewSelectionForAI(info, userNote),
-          ),
-        );
-      } catch {
-        // Ignore — preview runtime should already have written the clipboard.
+      setEditingAnnotationId(null);
+      selectionInfoRef.current = nextSelectionInfo;
+      setSelectionInfo(nextSelectionInfo);
+      const clickX = payload.cursor ? payload.cursor.x : payload.rect.x + payload.rect.width / 2;
+      const clickY = payload.cursor ? payload.cursor.y : payload.rect.y + payload.rect.height / 2;
+      lastGuestClickOffsetRef.current = {
+        x: clickX - payload.rect.x,
+        y: clickY - payload.rect.y,
+      };
+      if (payload.viewport) {
+        lastGuestViewportRef.current = {
+          width: payload.viewport.width,
+          height: payload.viewport.height,
+        };
       }
-    }
-    dismissSelectionPopover();
-  }, [dismissSelectionPopover]);
+      // Host SelectionPopover is the product path for both web (iframe) and desktop
+      // (<webview> with showSelectionToolbar: false). Never hide on select.
+      setSelectionPopoverPosition(
+        getPopoverPositionFromRect(payload.rect, {
+          cursor: { x: clickX, y: clickY },
+          viewport: lastGuestViewportRef.current ?? payload.viewport,
+        }),
+      );
+      setSelectionPopoverVisible(true);
+      setSelectionPopoverExpanded(false);
+    },
+    [getPopoverPositionFromRect],
+  );
 
-  const handleAddSelectionAnnotation = useCallback((userNote?: string, explicitInfo?: SelectionInfo, annotationId?: string) => {
-    const info = explicitInfo ?? selectionInfoRef.current;
-    if (!info) return;
+  const handleDesktopToolbarCopy = useCallback(
+    async (userNote?: string) => {
+      const info = selectionInfoRef.current;
+      // Runtime already copies during the button click (user gesture). Host tries a
+      // richer i18n format as a best-effort upgrade, then always dismisses so UI
+      // never sticks open when the async bridge clipboard path is blocked.
+      if (info && info.transportMode === "desktop") {
+        try {
+          await navigator.clipboard.writeText(
+            wrapAiContextClipboard("preview-element", formatPreviewSelectionForAI(info, userNote)),
+          );
+        } catch {
+          // Ignore — preview runtime should already have written the clipboard.
+        }
+      }
+      dismissSelectionPopover();
+    },
+    [dismissSelectionPopover],
+  );
 
-    const note = userNote?.trim() || undefined;
-    setSelectionAnnotations((previous) => {
-      const nextAnnotations = [
-        ...previous,
-        {
-          id: annotationId || createPreviewAnnotationId(),
-          info: cloneSelectionInfo(info),
-          note,
-        },
-      ];
-      selectionAnnotationsRef.current = nextAnnotations;
-      return nextAnnotations;
-    });
+  const handleAddSelectionAnnotation = useCallback(
+    (userNote?: string, explicitInfo?: SelectionInfo, annotationId?: string) => {
+      const info = explicitInfo ?? selectionInfoRef.current;
+      if (!info) return;
 
-    dismissSelectionPopover();
-  }, [dismissSelectionPopover]);
+      const note = userNote?.trim() || undefined;
+      setSelectionAnnotations((previous) => {
+        const nextAnnotations = [
+          ...previous,
+          {
+            id: annotationId || createPreviewAnnotationId(),
+            info: cloneSelectionInfo(info),
+            note,
+          },
+        ];
+        selectionAnnotationsRef.current = nextAnnotations;
+        return nextAnnotations;
+      });
 
-  const handleUpdateSelectionAnnotation = useCallback((annotationId?: string, userNote?: string) => {
-    if (!annotationId) return;
-    const note = userNote?.trim() || undefined;
-    setSelectionAnnotations((previous) =>
-      previous.map((annotation) =>
-        annotation.id === annotationId
-          ? {
-              ...annotation,
-              note,
-            }
+      dismissSelectionPopover();
+    },
+    [dismissSelectionPopover],
+  );
+
+  const handleUpdateSelectionAnnotation = useCallback(
+    (annotationId?: string, userNote?: string) => {
+      if (!annotationId) return;
+      const note = userNote?.trim() || undefined;
+      setSelectionAnnotations((previous) =>
+        previous.map((annotation) =>
+          annotation.id === annotationId
+            ? {
+                ...annotation,
+                note,
+              }
             : annotation,
-      ),
-    );
-    setSelectionPopoverVisible(false);
-    setSelectionPopoverExpanded(false);
-    setSelectionInfo(null);
-    setEditingAnnotationId(null);
-  }, []);
+        ),
+      );
+      setSelectionPopoverVisible(false);
+      setSelectionPopoverExpanded(false);
+      setSelectionInfo(null);
+      setEditingAnnotationId(null);
+    },
+    [],
+  );
 
   const handleDeleteSelectionAnnotation = useCallback((annotationId?: string) => {
     if (!annotationId) return;
-    setSelectionAnnotations((previous) => previous.filter((annotation) => annotation.id !== annotationId));
+    setSelectionAnnotations((previous) =>
+      previous.filter((annotation) => annotation.id !== annotationId),
+    );
     if (editingAnnotationIdRef.current === annotationId) {
       setSelectionPopoverVisible(false);
       setSelectionPopoverExpanded(false);
@@ -480,14 +496,17 @@ export function useBrowserSelection({
     }
   }, []);
 
-  const handleEditSelectionAnnotation = useCallback((annotation: PreviewSelectionAnnotation) => {
-    const rect = annotation.info.previewRect ?? { x: 0, y: 0, width: 0, height: 0 };
-    setEditingAnnotationId(annotation.id);
-    setSelectionInfo(annotation.info);
-    setSelectionPopoverPosition(getPopoverPositionFromRect(rect));
-    setSelectionPopoverVisible(true);
-    setSelectionPopoverExpanded(false);
-  }, [getPopoverPositionFromRect]);
+  const handleEditSelectionAnnotation = useCallback(
+    (annotation: PreviewSelectionAnnotation) => {
+      const rect = annotation.info.previewRect ?? { x: 0, y: 0, width: 0, height: 0 };
+      setEditingAnnotationId(annotation.id);
+      setSelectionInfo(annotation.info);
+      setSelectionPopoverPosition(getPopoverPositionFromRect(rect));
+      setSelectionPopoverVisible(true);
+      setSelectionPopoverExpanded(false);
+    },
+    [getPopoverPositionFromRect],
+  );
 
   const handleCopySelectionAnnotations = useCallback(async () => {
     const annotations = selectionAnnotationsRef.current;
@@ -496,10 +515,7 @@ export function useBrowserSelection({
 
     try {
       await navigator.clipboard.writeText(
-        wrapAiContextClipboard(
-          "preview-element",
-          formatPreviewAnnotationsForAI(annotations, t),
-        ),
+        wrapAiContextClipboard("preview-element", formatPreviewAnnotationsForAI(annotations, t)),
       );
       selectionAnnotationsRef.current = [];
       setSelectionAnnotations([]);
@@ -509,7 +525,7 @@ export function useBrowserSelection({
       toastManager.add({
         title: t("toast.copyFailedTitle"),
         description: t("toast.annotationsCopyFailedDescription"),
-        type: 'error',
+        type: "error",
       });
     }
   }, [dismissSelectionPopover, t, transportControllerRef]);

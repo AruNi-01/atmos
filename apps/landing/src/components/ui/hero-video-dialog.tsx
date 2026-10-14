@@ -1,12 +1,12 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { createPortal } from "react-dom"
-import { Play, XIcon } from "lucide-react"
-import { AnimatePresence, motion } from "motion/react"
-import Image from "next/image"
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { Play, XIcon } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import Image from "next/image";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 type AnimationStyle =
   | "from-bottom"
@@ -16,14 +16,14 @@ type AnimationStyle =
   | "from-right"
   | "fade"
   | "top-in-bottom-out"
-  | "left-in-right-out"
+  | "left-in-right-out";
 
 interface HeroVideoProps {
-  animationStyle?: AnimationStyle
-  videoSrc: string
-  thumbnailSrc: string
-  thumbnailAlt?: string
-  className?: string
+  animationStyle?: AnimationStyle;
+  videoSrc: string;
+  thumbnailSrc: string;
+  thumbnailAlt?: string;
+  className?: string;
 }
 
 const animationVariants = {
@@ -67,7 +67,7 @@ const animationVariants = {
     animate: { x: 0, opacity: 1 },
     exit: { x: "100%", opacity: 0 },
   },
-}
+};
 
 export function HeroVideoDialog({
   animationStyle = "from-center",
@@ -76,24 +76,27 @@ export function HeroVideoDialog({
   thumbnailAlt = "Video thumbnail",
   className,
 }: HeroVideoProps) {
-  const [isVideoOpen, setIsVideoOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
-  const selectedAnimation = animationVariants[animationStyle]
+  const [isVideoOpen, setIsVideoOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const selectedAnimation = animationVariants[animationStyle];
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   // Check if video is a local MP4 file (ends with .mp4 or has no protocol and contains .mp4)
-  const isMp4 = videoSrc.endsWith(".mp4") || videoSrc.includes(".mp4? ") || videoSrc.split('?')[0].endsWith(".mp4")
+  const isMp4 =
+    videoSrc.endsWith(".mp4") ||
+    videoSrc.includes(".mp4? ") ||
+    videoSrc.split("?")[0].endsWith(".mp4");
 
   return (
     <div className={cn("relative", className)}>
       <button
         type="button"
         aria-label="Play video"
-        className="group relative cursor-pointer border-0 bg-transparent p-0 w-full"
+        className="group relative w-full cursor-pointer border-0 bg-transparent p-0"
         onClick={() => setIsVideoOpen(true)}
       >
         <Image
@@ -105,9 +108,7 @@ export function HeroVideoDialog({
         />
         <div className="absolute inset-0 flex scale-[0.9] items-center justify-center rounded-2xl transition-all duration-200 ease-out group-hover:scale-100">
           <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 backdrop-blur-md sm:size-20 md:size-28">
-            <div
-              className="relative flex size-12 scale-100 items-center justify-center rounded-full bg-linear-to-b from-primary/30 to-primary shadow-md transition-all duration-200 ease-out group-hover:scale-[1.2] sm:size-14 md:size-20"
-            >
+            <div className="relative flex size-12 scale-100 items-center justify-center rounded-full bg-linear-to-b from-primary/30 to-primary shadow-md transition-all duration-200 ease-out group-hover:scale-[1.2] sm:size-14 md:size-20">
               <Play
                 className="size-5 scale-100 fill-white text-white transition-transform duration-200 ease-out group-hover:scale-105 sm:size-6 md:size-8"
                 style={{
@@ -119,60 +120,62 @@ export function HeroVideoDialog({
           </div>
         </div>
       </button>
-      {mounted && typeof document !== 'undefined' && createPortal(
-        <AnimatePresence>
-          {isVideoOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
-                  setIsVideoOpen(false)
-                }
-              }}
-              onClick={() => setIsVideoOpen(false)}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md"
-            >
+      {mounted &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {isVideoOpen && (
               <motion.div
-                {...selectedAnimation}
-                transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                className="relative mx-3 aspect-video w-full max-w-[min(94vw,1400px)] sm:mx-4 md:mx-0 md:max-w-[90vw] lg:max-w-[85vw] xl:max-w-[1400px]"
-                onClick={(e) => e.stopPropagation()} // Prevent closing dialog when clicking inside video content
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
+                    setIsVideoOpen(false);
+                  }
+                }}
+                onClick={() => setIsVideoOpen(false)}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md"
               >
-                <motion.button 
-                  onClick={() => setIsVideoOpen(false)}
-                  className="absolute -top-12 right-0 cursor-pointer rounded-full bg-neutral-900/50 p-2 text-xl text-white ring-1 backdrop-blur-md sm:-top-16 dark:bg-neutral-100/50 dark:text-black"
+                <motion.div
+                  {...selectedAnimation}
+                  transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                  className="relative mx-3 aspect-video w-full max-w-[min(94vw,1400px)] sm:mx-4 md:mx-0 md:max-w-[90vw] lg:max-w-[85vw] xl:max-w-[1400px]"
+                  onClick={(e) => e.stopPropagation()} // Prevent closing dialog when clicking inside video content
                 >
-                  <XIcon className="size-5" />
-                </motion.button>
-                <div className="relative isolate z-1 size-full overflow-hidden rounded-2xl border-2 border-white bg-black">
-                  {isMp4 ? (
-                    <video
-                      src={videoSrc}
-                      className="mt-0 size-full rounded-2xl"
-                      controls
-                      autoPlay
-                      playsInline
-                    />
-                  ) : (
-                    <iframe
-                      src={videoSrc}
-                      title="Hero Video player"
-                      className="mt-0 size-full rounded-2xl"
-                      allowFullScreen
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    ></iframe>
-                  )}
-                </div>
+                  <motion.button
+                    onClick={() => setIsVideoOpen(false)}
+                    className="absolute -top-12 right-0 cursor-pointer rounded-full bg-neutral-900/50 p-2 text-xl text-white ring-1 backdrop-blur-md sm:-top-16 dark:bg-neutral-100/50 dark:text-black"
+                  >
+                    <XIcon className="size-5" />
+                  </motion.button>
+                  <div className="relative isolate z-1 size-full overflow-hidden rounded-2xl border-2 border-white bg-black">
+                    {isMp4 ? (
+                      <video
+                        src={videoSrc}
+                        className="mt-0 size-full rounded-2xl"
+                        controls
+                        autoPlay
+                        playsInline
+                      />
+                    ) : (
+                      <iframe
+                        src={videoSrc}
+                        title="Hero Video player"
+                        className="mt-0 size-full rounded-2xl"
+                        allowFullScreen
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      ></iframe>
+                    )}
+                  </div>
+                </motion.div>
               </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
+            )}
+          </AnimatePresence>,
+          document.body,
+        )}
     </div>
-  )
+  );
 }

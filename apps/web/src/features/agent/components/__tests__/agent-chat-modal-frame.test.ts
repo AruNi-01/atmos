@@ -2,16 +2,15 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const panel = readFileSync(
-  join(import.meta.dir, "../AgentChatPanel.tsx"),
-  "utf8",
-);
+const panel = readFileSync(join(import.meta.dir, "../AgentChatPanel.tsx"), "utf8");
 
 describe("agent chat modal frame", () => {
   it("drags and resizes through the DOM, then commits layout once", () => {
     const dragStart = panel.indexOf("const handleDragStart");
     const resizeStart = panel.indexOf("const handleResizeStart");
-    const resizeCleanup = panel.indexOf("useEffect(() => {\n    return () => {\n      if (frameRafRef.current != null)");
+    const resizeCleanup = panel.indexOf(
+      "useEffect(() => {\n    return () => {\n      if (frameRafRef.current != null)",
+    );
     const drag = panel.slice(dragStart, resizeStart);
     const resize = panel.slice(resizeStart, resizeCleanup);
 
@@ -24,7 +23,7 @@ describe("agent chat modal frame", () => {
     expect(resize).not.toContain("updateLayout(");
 
     expect(panel).toContain("translate3d");
-    expect(panel).toContain("willChange: \"transform\"");
+    expect(panel).toContain('willChange: "transform"');
   });
 
   it("overlays the permission card above the composer without shrinking the transcript", () => {
@@ -49,7 +48,7 @@ describe("agent chat modal frame", () => {
     expect(panel).toContain("keepMessageIndexes");
     expect(panel).toContain("transcriptFindMessageIndexes");
     expect(panel).not.toContain('(pendingPermission || pendingSessionOp) && "gap-2"');
-    expect(panel).not.toContain('max-h-[80cqh] shrink');
+    expect(panel).not.toContain("max-h-[80cqh] shrink");
     expect(panel).not.toContain("max-h-[80cqh] px-3");
     expect(panel).not.toContain("max-h-[50cqh] px-3");
     expect(panel).toContain("min-h-0 min-w-0 w-full max-h-[70cqh]");
@@ -82,10 +81,7 @@ describe("agent chat modal frame", () => {
     const contentEndAt = panel.indexOf("</ConversationContent>");
     const permissionAt = panel.indexOf("<AgentPermissionCard");
     const composerAt = panel.indexOf("<AgentPromptComposer");
-    const list = readFileSync(
-      join(import.meta.dir, "../AgentChatTranscriptList.tsx"),
-      "utf8",
-    );
+    const list = readFileSync(join(import.meta.dir, "../AgentChatTranscriptList.tsx"), "utf8");
 
     expect(contentAt).toBeGreaterThan(-1);
     expect(contentEndAt).toBeGreaterThan(contentAt);
@@ -95,7 +91,7 @@ describe("agent chat modal frame", () => {
     const scrollRegion = panel.slice(contentAt, contentEndAt);
     expect(scrollRegion).toContain("<AgentActivityIndicator");
     expect(scrollRegion).toContain("activityStatus=");
-    expect(scrollRegion).toContain('ref={bottomRef}');
+    expect(scrollRegion).toContain("ref={bottomRef}");
     expect(scrollRegion).toContain('data-agent-chat-activity-status=""');
     expect(scrollRegion).toContain('data-agent-chat-transcript-bottom-pad=""');
     expect(panel).not.toContain("virtualized absolute rows cannot paint over this");
@@ -124,14 +120,8 @@ describe("agent chat modal frame", () => {
   });
 
   it("APP-069 S9/S10 does not intercept /fork or /rewind in the composer or chat api", () => {
-    const composer = readFileSync(
-      join(import.meta.dir, "../AgentPromptComposer.tsx"),
-      "utf8",
-    );
-    const api = readFileSync(
-      join(import.meta.dir, "../../../../api/ws/agent-chat-api.ts"),
-      "utf8",
-    );
+    const composer = readFileSync(join(import.meta.dir, "../AgentPromptComposer.tsx"), "utf8");
+    const api = readFileSync(join(import.meta.dir, "../../../../api/ws/agent-chat-api.ts"), "utf8");
     expect(composer).not.toMatch(/\/fork|\/rewind/);
     expect(api).toContain('wsRequest("agent_chat_session_op_respond"');
     expect(api).not.toContain("wsRequest<");
@@ -152,9 +142,9 @@ describe("agent chat modal frame", () => {
     expect(session).toContain("toastCatalogSnapshot");
     expect(session).toContain("refreshSelectedAgentAfterAuth");
     expect(session).toContain("catalogAuthMethodKind");
-    expect(session).toContain("{ status: \"authenticated\", refresh: passMethodId }");
-    expect(session).toContain("kind === \"token\" && nativeHost");
-    expect(session).toContain("passMethodId && kind === \"token\" ? apiKey");
+    expect(session).toContain('{ status: "authenticated", refresh: passMethodId }');
+    expect(session).toContain('kind === "token" && nativeHost');
+    expect(session).toContain('passMethodId && kind === "token" ? apiKey');
     expect(session).toContain("toastCatalogError");
     expect(session).not.toContain("threadBannerError");
     expect(session).toContain("agent_options_updated");
@@ -182,15 +172,14 @@ describe("agent chat modal frame", () => {
   });
 
   it("keeps one composer instance and glides it from center to the dock", () => {
-    const dock = readFileSync(
-      join(import.meta.dir, "../AgentChatComposerDock.tsx"),
-      "utf8",
-    );
+    const dock = readFileSync(join(import.meta.dir, "../AgentChatComposerDock.tsx"), "utf8");
     expect(panel).toContain("isAgentNewChatLanding");
     expect(panel).toContain("hasPersistenceHandle");
     expect(panel).toContain("resumeTranscript");
     expect(panel).toContain("flex min-h-0 flex-1 flex-col overflow-hidden");
-    expect(panel).toContain("relative z-0 min-h-0 flex-1 overflow-hidden data-[agent-chat-own-send]:z-20");
+    expect(panel).toContain(
+      "relative z-0 min-h-0 flex-1 overflow-hidden data-[agent-chat-own-send]:z-20",
+    );
     expect(panel).toContain("flex min-h-0 w-full flex-1 pr-1");
     expect(panel).toContain("AgentChatComposerDock");
     expect(panel).toContain("landing={isNewChatLanding}");
@@ -198,10 +187,7 @@ describe("agent chat modal frame", () => {
     expect(panel).toContain("ownSendResetKey");
     expect(panel).toContain("shouldResetOwnSend");
     expect(panel).not.toContain("ownSendRunwayPx");
-    const ownSend = readFileSync(
-      join(import.meta.dir, "../AgentChatOwnSendRuntime.tsx"),
-      "utf8",
-    );
+    const ownSend = readFileSync(join(import.meta.dir, "../AgentChatOwnSendRuntime.tsx"), "utf8");
     expect(ownSend).toContain("ownSendInvertPx");
     expect(ownSend).toContain("findSendOrigin");
     expect(ownSend).not.toContain("stopScroll");
@@ -224,16 +210,10 @@ describe("agent chat modal frame", () => {
     expect(panel).toContain('variant === "standalone" || variant === "modal"');
     expect(panel).toContain("historyTriggerClassName={historyTriggerClassName}");
 
-    const header = readFileSync(
-      join(import.meta.dir, "../AgentChatHeader.tsx"),
-      "utf8",
-    );
+    const header = readFileSync(join(import.meta.dir, "../AgentChatHeader.tsx"), "utf8");
     expect(header).toContain("AgentChatHistoryPopover");
 
-    const popover = readFileSync(
-      join(import.meta.dir, "../AgentChatHistoryPopover.tsx"),
-      "utf8",
-    );
+    const popover = readFileSync(join(import.meta.dir, "../AgentChatHistoryPopover.tsx"), "utf8");
     expect(popover).toContain("filterAgentChatHistoryRows");
     expect(popover).toContain('aria-label={t("historyPopover.searchAria")}');
     expect(popover).toContain("searchPlaceholder");
@@ -245,10 +225,7 @@ describe("agent chat modal frame", () => {
       "utf8",
     );
     expect(session).toContain("agentChatHistoryListRequest");
-    const thread = readFileSync(
-      join(import.meta.dir, "../../lib/agent-chat-thread.ts"),
-      "utf8",
-    );
+    const thread = readFileSync(join(import.meta.dir, "../../lib/agent-chat-thread.ts"), "utf8");
     expect(thread).toContain('origin: "quick"');
     expect(thread).toContain("all: true");
     expect(thread).toContain('input.variant === "standalone"');
@@ -260,14 +237,11 @@ describe("agent chat modal frame", () => {
     expect(panel).toContain("belowCountStore={messagesBelowCountStore}");
     expect(panel).toContain("messages.length > 0 ? (");
     expect(panel).not.toContain("<ConversationScrollButton");
-    const nav = readFileSync(
-      join(import.meta.dir, "../AgentMessageTimelineNav.tsx"),
-      "utf8",
-    );
+    const nav = readFileSync(join(import.meta.dir, "../AgentMessageTimelineNav.tsx"), "utf8");
     expect(nav).toContain("inset-y-0 left-0");
     expect(nav).toContain("flex w-8 min-h-0");
-    expect(nav).toContain("previewContainerClassName=\"inset-y-0 left-full right-auto ml-3");
-    expect(nav).toContain('data-agent-chat-timeline-step={direction}');
+    expect(nav).toContain('previewContainerClassName="inset-y-0 left-full right-auto ml-3');
+    expect(nav).toContain("data-agent-chat-timeline-step={direction}");
     expect(nav).toContain("stepUserMessageIndex");
     expect(nav).toContain("timelineRailItemSize");
     expect(nav).toContain("max-h-[90%]");

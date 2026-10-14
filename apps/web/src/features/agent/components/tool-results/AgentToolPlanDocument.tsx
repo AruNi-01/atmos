@@ -38,10 +38,7 @@ export function AgentToolPlanDocument({
   const params = part.params?.type === "plan_document" ? part.params : null;
   const plan = params?.plan?.trim() ?? "";
   const todos = useMemo(() => todosFromPart(part), [part]);
-  const title =
-    params?.name?.trim()
-    || part.title?.trim()
-    || t("planDocument");
+  const title = params?.name?.trim() || part.title?.trim() || t("planDocument");
   const overview = params?.overview?.trim() || null;
   const hasBody = plan.length > 0;
   const hasTodos = todos.length > 0;
@@ -84,9 +81,7 @@ export function AgentToolPlanDocument({
         ) : null
       }
     >
-      {overview ? (
-        <p className="px-3 pt-2 text-[12px] text-muted-foreground">{overview}</p>
-      ) : null}
+      {overview ? <p className="px-3 pt-2 text-[12px] text-muted-foreground">{overview}</p> : null}
       {activePane === "body" && hasBody ? (
         <div className={PLAN_MARKDOWN_CLASS} data-agent-plan-document="">
           <MarkdownRenderer>{plan}</MarkdownRenderer>

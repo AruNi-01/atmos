@@ -28,13 +28,13 @@ flowchart TD
     COORD --> ADAPTER --> STORE
 ```
 
-| Layer | Location | Responsibility |
-|-------|----------|----------------|
-| UI | `apps/web/src/features/run-preview` | `···` menu, Import dialog, confirm popovers, inline result, reload |
-| Capability | `apps/desktop/src-tauri/capabilities` + `permissions` | dedicated capability limited to trusted first-party webviews |
-| Coordinator | `apps/desktop/src-tauri/src/browser_cookies/` | command handlers, serialized ops, caller-label validation, DTO/error mapping |
-| Extraction | **new** `crates/browser-cookies` | profile discovery, WAL-safe SQLite snapshot, Keychain key, decrypt, normalize |
-| Store adapter | `apps/desktop/src-tauri` (macOS native) | dedicated WebKit store: inject + read-back verify, clear, surface rebuild |
+| Layer         | Location                                              | Responsibility                                                                |
+| ------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------- |
+| UI            | `apps/web/src/features/run-preview`                   | `···` menu, Import dialog, confirm popovers, inline result, reload            |
+| Capability    | `apps/desktop/src-tauri/capabilities` + `permissions` | dedicated capability limited to trusted first-party webviews                  |
+| Coordinator   | `apps/desktop/src-tauri/src/browser_cookies/`         | command handlers, serialized ops, caller-label validation, DTO/error mapping  |
+| Extraction    | **new** `crates/browser-cookies`                      | profile discovery, WAL-safe SQLite snapshot, Keychain key, decrypt, normalize |
+| Store adapter | `apps/desktop/src-tauri` (macOS native)               | dedicated WebKit store: inject + read-back verify, clear, surface rebuild     |
 
 Layering: crates never import apps. `crates/browser-cookies` is a leaf capability consumed by
 `apps/desktop`; **`quota-usage` is refactored to depend on it too** (see §7). Native store work stays
@@ -76,7 +76,6 @@ hard MVP constraint.
 
 All three paths — the webview builders, injection, and clearing — obtain the store through one
 `PreviewCookieStore` adapter so they can never diverge on which store is used.
-
 
 ## 3. Security boundary — dedicated capability (fixes Blocker #2)
 
@@ -182,12 +181,12 @@ Fidelity rules:
 
 ### 4.2 Discovery (macOS)
 
-| Browser | Cookies DB (prefer first) | Keychain service |
-|---------|---------------------------|------------------|
-| Chrome | `<Profile>/Network/Cookies` → fallback `<Profile>/Cookies` | `Chrome Safe Storage` |
-| Edge | `<Profile>/Network/Cookies` → `<Profile>/Cookies` | `Microsoft Edge Safe Storage` |
-| Brave | `<Profile>/Network/Cookies` → `<Profile>/Cookies` | `Brave Safe Storage` |
-| Firefox | `<profile>/cookies.sqlite` | n/a (unencrypted) |
+| Browser | Cookies DB (prefer first)                                  | Keychain service              |
+| ------- | ---------------------------------------------------------- | ----------------------------- |
+| Chrome  | `<Profile>/Network/Cookies` → fallback `<Profile>/Cookies` | `Chrome Safe Storage`         |
+| Edge    | `<Profile>/Network/Cookies` → `<Profile>/Cookies`          | `Microsoft Edge Safe Storage` |
+| Brave   | `<Profile>/Network/Cookies` → `<Profile>/Cookies`          | `Brave Safe Storage`          |
+| Firefox | `<profile>/cookies.sqlite`                                 | n/a (unencrypted)             |
 
 Modern Chromium prefers `Network/Cookies`; check it **before** the legacy `<Profile>/Cookies`
 (fixes part of #4). Chromium profiles + display names come from `Local State`
@@ -221,7 +220,6 @@ host-hash prefix. macOS has no ABE (`v20` is Windows-only). Per-row failures inc
 `skipped_*` and continue. Prefer reading the Keychain key via the Security framework rather than a
 `security` subprocess where practical (validated by the Keychain spike, §11).
 
-
 ## 5. Injection, clearing & reload — `PreviewCookieStore` adapter
 
 All native store work goes through one adapter that owns `PREVIEW_DATA_STORE_ID`.
@@ -251,9 +249,9 @@ pick cookies up on their next request/reload (see §5.3).
 
 Both operate on the **dedicated** store only, never the app's default store.
 
-| Command | WebKit data types |
-|---------|-------------------|
-| `clear_browser_cache` | disk cache, memory cache, fetch cache **only** |
+| Command                   | WebKit data types                                                            |
+| ------------------------- | ---------------------------------------------------------------------------- |
+| `clear_browser_cache`     | disk cache, memory cache, fetch cache **only**                               |
 | `clear_browser_site_data` | caches **+** localStorage, IndexedDB, service workers, WebSQL, **+** cookies |
 
 `removeDataOfTypes:modifiedSince:` with `distantPast`, awaited. `clear_browser_site_data` is the
@@ -278,12 +276,12 @@ commands with a single **async mutex** (serialize import/import and import/clear
 validates the caller webview label, and maps `ExtractError` → stable typed error codes. It never
 returns `Err(String)` and never exposes filesystem paths or cookie values to the frontend.
 
-| Command | Args | Returns |
-|---------|------|---------|
-| `list_importable_browsers` | – | `Vec<BrowserProfileDto>` (handle, browser, display_name, running) |
-| `import_browser_cookies` | `{ profile_handle }` (opaque) | `ImportReport` |
-| `clear_browser_cache` | – | `{ ok }` |
-| `clear_browser_site_data` | – | `{ ok }` |
+| Command                    | Args                          | Returns                                                           |
+| -------------------------- | ----------------------------- | ----------------------------------------------------------------- |
+| `list_importable_browsers` | –                             | `Vec<BrowserProfileDto>` (handle, browser, display_name, running) |
+| `import_browser_cookies`   | `{ profile_handle }` (opaque) | `ImportReport`                                                    |
+| `clear_browser_cache`      | –                             | `{ ok }`                                                          |
+| `clear_browser_site_data`  | –                             | `{ ok }`                                                          |
 
 ```rust
 struct BrowserProfileDto { profile_handle: String, browser: String, display_name: String, running: bool }
@@ -453,13 +451,13 @@ ordinary implementation-time checks, not open feasibility risks.
 
 ## 13. Risks (engineering)
 
-| Risk | Mitigation |
-|------|-----------|
+| Risk                                                       | Mitigation                                                                                               |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | Wry `data_store_identifier` on macOS <14 (ignore vs error) | Confirm wry 0.54 degradation path; gate to 14+ → `UnsupportedPlatform`; never fall back to default store |
-| `objc2-web-kit` cookie/data-store API unfamiliar | Spike inject + read-back + clear behind the adapter |
-| Main-thread + async completion in Rust | Marshal to main thread; bounded join on completions |
-| Cookie format drift / partitioned / Apple-Passwords v10 | Typed per-row accounting; safe-skip; report `skipped_*` |
-| Locked DB vs WAL confusion | Process guard + read-only rusqlite; no `immutable=1`; `BUSY`≠running alone |
-| Keychain denial | `KeychainDenied` → actionable copy; no partial silent state |
-| Op races (import/clear) | Single async mutex in the coordinator |
-| Sensitive commands reachable from preview content | Dedicated capability (webviews-scoped, no remote.urls) + Rust caller check |
+| `objc2-web-kit` cookie/data-store API unfamiliar           | Spike inject + read-back + clear behind the adapter                                                      |
+| Main-thread + async completion in Rust                     | Marshal to main thread; bounded join on completions                                                      |
+| Cookie format drift / partitioned / Apple-Passwords v10    | Typed per-row accounting; safe-skip; report `skipped_*`                                                  |
+| Locked DB vs WAL confusion                                 | Process guard + read-only rusqlite; no `immutable=1`; `BUSY`≠running alone                               |
+| Keychain denial                                            | `KeychainDenied` → actionable copy; no partial silent state                                              |
+| Op races (import/clear)                                    | Single async mutex in the coordinator                                                                    |
+| Sensitive commands reachable from preview content          | Dedicated capability (webviews-scoped, no remote.urls) + Rust caller check                               |

@@ -3,9 +3,7 @@ import { automationMdLivePath } from "../automation-md-live-path";
 
 describe("automationMdLivePath", () => {
   test("uses untitled paths for instructions", () => {
-    expect(automationMdLivePath("instructions")).toBe(
-      "untitled:automation-instructions.md",
-    );
+    expect(automationMdLivePath("instructions")).toBe("untitled:automation-instructions.md");
     expect(automationMdLivePath("instructions", { guid: "abc" })).toBe(
       "untitled:automation-abc-instructions.md",
     );

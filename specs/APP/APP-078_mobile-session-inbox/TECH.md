@@ -35,15 +35,15 @@ Two stores. They are not the same lifetime.
 
 **Inbox catalog (add).** One SQLite row per pane or chat, updated in place. Not one row per hook event, and not a copy of every shell that never ran an agent.
 
-| Column | Role |
-|--------|------|
-| `session_id` | Primary key. Pane id `{context}:{tmux_window}`, or `chat:{id}` |
-| `context_id` | Workspace or project guid |
-| `surface` | `terminal` or `chat` |
-| `tool` | Last tool, nullable |
-| `project_path` | Nullable |
-| `updated_at` | RFC3339 of the last inbox-bucket change |
-| `archived_at` | Null until the user archives the session |
+| Column         | Role                                                           |
+| -------------- | -------------------------------------------------------------- |
+| `session_id`   | Primary key. Pane id `{context}:{tmux_window}`, or `chat:{id}` |
+| `context_id`   | Workspace or project guid                                      |
+| `surface`      | `terminal` or `chat`                                           |
+| `tool`         | Last tool, nullable                                            |
+| `project_path` | Nullable                                                       |
+| `updated_at`   | RFC3339 of the last inbox-bucket change                        |
+| `archived_at`  | Null until the user archives the session                       |
 
 Write that row only when the inbox bucket changes (`permission`, `attention`, `running`, `done`), including the first time a pane is seen and Done → Running. The hook path does not wait on SQLite: enqueue the upsert and return. A repeat of the same bucket (Running staying Running across tool calls and text) does not write. Memory already has the newer timestamp, and the inbox uses that while the process is up.
 
@@ -144,15 +144,15 @@ Session list replaces workspace rows in `LeftSidebar` when the view is `session`
 
 `apps/web/src/app-shell/sidebar/session-grouping.ts` buckets session rows:
 
-| Group By | Session key |
-|----------|-------------|
-| project | session project id |
-| group | workspace membership, else project membership (same as workspace view) |
-| status | workspace workflow status |
-| agent | this session’s bucket, not the workspace rollup |
-| time | session `updated_at`, same day buckets as workspaces |
-| label | workspace labels; a session can sit in more than one label group |
-| priority | workspace priority |
+| Group By | Session key                                                            |
+| -------- | ---------------------------------------------------------------------- |
+| project  | session project id                                                     |
+| group    | workspace membership, else project membership (same as workspace view) |
+| status   | workspace workflow status                                              |
+| agent    | this session’s bucket, not the workspace rollup                        |
+| time     | session `updated_at`, same day buckets as workspaces                   |
+| label    | workspace labels; a session can sit in more than one label group       |
+| priority | workspace priority                                                     |
 
 Row component mirrors the phone row: status icon, title, relative time, then project · workspace · branch · PR. Chat title comes from the existing Agent Chat index (`title`, else provider). Terminal title comes from the candidate label. Copy lives in `apps/web/messages/en.json` and `zh.json` under the sidebar namespace (`view.sectionLabel`, `view.workspace`, `view.session`).
 
@@ -181,9 +181,9 @@ Phone row (derived, not a server type):
 
 ```ts
 type SessionInboxRow = {
-  id: string;                 // candidate id
+  id: string; // candidate id
   bucket: "permission" | "attention" | "running" | "done";
-  title: string;              // candidate.label, else tmux window name
+  title: string; // candidate.label, else tmux window name
   updatedAt: string | null;
   projectName: string | null;
   workspaceName: string | null;

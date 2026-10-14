@@ -5,9 +5,9 @@
  * - inst:{instanceId}:* — per Atmos Server UI state (editor tabs, agent defaults, …)
  */
 
-import type { ConnectionInstanceId } from '@/features/connection/lib/connection-instance';
+import type { ConnectionInstanceId } from "@/features/connection/lib/connection-instance";
 
-const VERSION = 'v1';
+const VERSION = "v1";
 const PREFIX_GLOBAL = `atmos:${VERSION}:global:`;
 const PREFIX_INST = `atmos:${VERSION}:inst:`;
 
@@ -24,11 +24,11 @@ export function instKey(instanceId: ConnectionInstanceId, slice: string): string
  * any `localStorage` access when storage is denied (not only on setItem).
  */
 function canUseStorage(): boolean {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return false;
   }
   try {
-    return typeof window.localStorage !== 'undefined';
+    return typeof window.localStorage !== "undefined";
   } catch {
     return false;
   }
@@ -86,7 +86,7 @@ export function hasStorageKey(key: string): boolean {
   }
 }
 
-export const ACTIVE_INSTANCE_GLOBAL_KEY = globalKey('activeInstance');
+export const ACTIVE_INSTANCE_GLOBAL_KEY = globalKey("activeInstance");
 
 export function readActiveInstanceIdRaw(): string | null {
   try {

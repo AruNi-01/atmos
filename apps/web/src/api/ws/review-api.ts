@@ -68,7 +68,8 @@ export const reviewWsApi = {
       data.target.kind === "workspace"
         ? { workspace_guid: data.target.workspaceId }
         : { project_guid: data.target.projectId };
-    return wsRequest("review_session_create",
+    return wsRequest(
+      "review_session_create",
       {
         ...targetPayload,
         title: data.title ?? null,
@@ -109,9 +110,7 @@ export const reviewWsApi = {
     });
   },
 
-  getFileContent: async (
-    fileSnapshotGuid: string,
-  ): Promise<ReviewFileContentDto> => {
+  getFileContent: async (fileSnapshotGuid: string): Promise<ReviewFileContentDto> => {
     return wsRequest("review_file_content_get", {
       file_snapshot_guid: fileSnapshotGuid,
     });
@@ -120,11 +119,9 @@ export const reviewWsApi = {
   getFileContents: async (
     fileSnapshotGuids: string[],
   ): Promise<ReviewFileContentGetBatchResponse> => {
-    return wsRequest("review_file_content_get_batch",
-      {
-        file_snapshot_guids: fileSnapshotGuids,
-      },
-    );
+    return wsRequest("review_file_content_get_batch", {
+      file_snapshot_guids: fileSnapshotGuids,
+    });
   },
 
   setFileReviewed: async (data: {
@@ -171,10 +168,7 @@ export const reviewWsApi = {
     });
   },
 
-  updateCommentStatus: async (
-    commentGuid: string,
-    status: string,
-  ): Promise<{ ok: boolean }> => {
+  updateCommentStatus: async (commentGuid: string, status: string): Promise<{ ok: boolean }> => {
     return wsRequest("review_comment_update_status", {
       comment_guid: commentGuid,
       status,
@@ -225,15 +219,19 @@ export const reviewWsApi = {
     selectedCommentGuids?: string[];
     createdBy?: string | null;
   }): Promise<ReviewAgentRunCreatedDto> => {
-    return wsRequest("review_agent_run_create", {
-      session_guid: data.sessionGuid,
-      base_revision_guid: data.baseRevisionGuid,
-      run_kind: data.runKind,
-      execution_mode: data.executionMode,
-      skill_id: data.skillId ?? null,
-      selected_comment_guids: data.selectedCommentGuids ?? [],
-      created_by: data.createdBy ?? null,
-    }, 60_000);
+    return wsRequest(
+      "review_agent_run_create",
+      {
+        session_guid: data.sessionGuid,
+        base_revision_guid: data.baseRevisionGuid,
+        run_kind: data.runKind,
+        execution_mode: data.executionMode,
+        skill_id: data.skillId ?? null,
+        selected_comment_guids: data.selectedCommentGuids ?? [],
+        created_by: data.createdBy ?? null,
+      },
+      60_000,
+    );
   },
 
   getRunArtifact: async (data: {
@@ -250,10 +248,14 @@ export const reviewWsApi = {
     runGuid: string;
     title?: string | null;
   }): Promise<ReviewAgentRunFinalizedDto> => {
-    return wsRequest("review_agent_run_finalize", {
-      run_guid: data.runGuid,
-      title: data.title ?? null,
-    }, 60_000);
+    return wsRequest(
+      "review_agent_run_finalize",
+      {
+        run_guid: data.runGuid,
+        title: data.title ?? null,
+      },
+      60_000,
+    );
   },
 
   setAgentRunStatus: async (data: {
@@ -263,12 +265,16 @@ export const reviewWsApi = {
     title?: string | null;
     summary?: string | null;
   }): Promise<ReviewAgentRunStatusDto> => {
-    return wsRequest("review_agent_run_set_status", {
-      run_guid: data.runGuid,
-      status: data.status,
-      message: data.message ?? null,
-      title: data.title ?? null,
-      summary: data.summary ?? null,
-    }, 60_000);
+    return wsRequest(
+      "review_agent_run_set_status",
+      {
+        run_guid: data.runGuid,
+        status: data.status,
+        message: data.message ?? null,
+        title: data.title ?? null,
+        summary: data.summary ?? null,
+      },
+      60_000,
+    );
   },
 };

@@ -1,54 +1,50 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CodeView, useWorkerPool, type CodeViewHandle } from '@pierre/diffs/react';
-import type {
-  CodeViewItem,
-  DiffLineAnnotation,
-  SelectedLineRange,
-} from '@pierre/diffs';
-import { parseDiffFromFile } from '@pierre/diffs';
-import { useTranslations } from 'next-intl';
-import { useTheme } from 'next-themes';
-import type { ReviewCommentDto, ReviewFileDto, ReviewMessageDto } from '@/api/ws-api';
-import { reviewWsApi } from '@/api/ws-api';
-import { useReviewCtx } from '@/features/diff/components/review/ReviewContextProvider';
-import { useEditorStore, type FileNavigationTarget } from '@/features/editor/store/use-editor-store';
-import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
-import { useContextParams } from '@/shared/hooks/use-context-params';
-import { useDiffWorkerPoolReady } from '@/features/diff/components/DiffWorkerPoolProvider';
-import { DiffCodeViewScaffold } from '@/features/diff/components/DiffCodeViewScaffold';
-import { DiffCodeViewSettingsMenu } from '@/features/diff/components/DiffCodeViewSettingsMenu';
-import { sortByDiffTreePath } from '@/features/diff/lib/diff-file-order';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CodeView, useWorkerPool, type CodeViewHandle } from "@pierre/diffs/react";
+import type { CodeViewItem, DiffLineAnnotation, SelectedLineRange } from "@pierre/diffs";
+import { parseDiffFromFile } from "@pierre/diffs";
+import { useTranslations } from "next-intl";
+import { useTheme } from "next-themes";
+import type { ReviewCommentDto, ReviewFileDto, ReviewMessageDto } from "@/api/ws-api";
+import { reviewWsApi } from "@/api/ws-api";
+import { useReviewCtx } from "@/features/diff/components/review/ReviewContextProvider";
+import {
+  useEditorStore,
+  type FileNavigationTarget,
+} from "@/features/editor/store/use-editor-store";
+import { useDiffSettingsStore } from "@/features/settings/store/diff-settings-store";
+import { useContextParams } from "@/shared/hooks/use-context-params";
+import { useDiffWorkerPoolReady } from "@/features/diff/components/DiffWorkerPoolProvider";
+import { DiffCodeViewScaffold } from "@/features/diff/components/DiffCodeViewScaffold";
+import { DiffCodeViewSettingsMenu } from "@/features/diff/components/DiffCodeViewSettingsMenu";
+import { sortByDiffTreePath } from "@/features/diff/lib/diff-file-order";
 import {
   buildDiffSelectionInfo,
   diffSideCacheKey,
   getNextItemVersion,
   updateViewerDiffItem,
-} from '@/features/diff/lib/diff-code-view-shared';
-import { primePierreFileDiff } from '@/features/diff/lib/pierre-diff-hunks-guard';
+} from "@/features/diff/lib/diff-code-view-shared";
+import { primePierreFileDiff } from "@/features/diff/lib/pierre-diff-hunks-guard";
 import {
   ATMOS_DIFF_THEME,
   buildSharedDiffViewOptions,
   CODE_VIEW_HOST_CLASS,
   getAtmosDiffThemeType,
-} from '@/features/diff/lib/diff-view-constants';
-import { useScrollFadeRef } from '@/features/diff/lib/use-scroll-fade-element';
+} from "@/features/diff/lib/diff-view-constants";
+import { useScrollFadeRef } from "@/features/diff/lib/use-scroll-fade-element";
 import {
   createDiffHeaderPrefixRenderer,
   findDiffItemIdForViewport,
   scrollCodeViewToItem,
-} from '@/features/diff/lib/code-view-ui';
+} from "@/features/diff/lib/code-view-ui";
 import {
   InlineCommentComposer,
   InlineReviewCommentAnnotation,
   type InlineCommentDraft,
   type ReviewAnnotationMeta,
-} from '@/features/diff/lib/review-code-view-inline-annotations';
-import {
-  Loader2,
-  toastManager,
-} from '@workspace/ui';
+} from "@/features/diff/lib/review-code-view-inline-annotations";
+import { Loader2, toastManager } from "@workspace/ui";
 
 const CODE_VIEW_BATCH_SIZE = 25;
 
@@ -67,9 +63,9 @@ export function ReviewCodeView({
   contextId,
   navigationTarget: navigationTargetProp,
 }: ReviewCodeViewProps) {
-  const t = useTranslations('diff.codeView');
-  const reviewT = useTranslations('diff.reviewAnnotations');
-  const loadReviewDiffFallbackRef = useRef(t('errors.loadReviewDiffFallback'));
+  const t = useTranslations("diff.codeView");
+  const reviewT = useTranslations("diff.reviewAnnotations");
+  const loadReviewDiffFallbackRef = useRef(t("errors.loadReviewDiffFallback"));
   const { resolvedTheme } = useTheme();
   const { effectiveContextId } = useContextParams();
   const activeContextId = contextId ?? effectiveContextId;
@@ -82,7 +78,7 @@ export function ReviewCodeView({
     activeContextId ? s.diffGroupActiveFiles[activeContextId]?.[groupPath] : undefined,
   );
   const storeNavigationTarget = useEditorStore((s) =>
-    activeContextId ? s.navigationTargets[activeContextId]?.[groupPath] ?? null : null,
+    activeContextId ? (s.navigationTargets[activeContextId]?.[groupPath] ?? null) : null,
   );
   const navigationTarget =
     navigationTargetProp === undefined ? storeNavigationTarget : navigationTargetProp;
@@ -108,23 +104,23 @@ export function ReviewCodeView({
     setWordWrap,
     setDiffIndicators,
   } = useDiffSettingsStore();
-  const [collapseMode, setCollapseMode] = useState<'expanded' | 'collapsed'>(
-    'expanded',
-  );
-  const [inlineCommentDraft, setInlineCommentDraft] =
-    useState<InlineCommentDraft | null>(null);
-  const [inlineCommentBody, setInlineCommentBody] = useState('');
+  const [collapseMode, setCollapseMode] = useState<"expanded" | "collapsed">("expanded");
+  const [inlineCommentDraft, setInlineCommentDraft] = useState<InlineCommentDraft | null>(null);
+  const [inlineCommentBody, setInlineCommentBody] = useState("");
   const [isSubmittingInlineComment, setIsSubmittingInlineComment] = useState(false);
   const [replyDraftCommentGuid, setReplyDraftCommentGuid] = useState<string | null>(null);
-  const [replyBody, setReplyBody] = useState('');
+  const [replyBody, setReplyBody] = useState("");
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
   const [deletingMessageGuid, setDeletingMessageGuid] = useState<string | null>(null);
-  const [collapsedInlineCommentGuids, setCollapsedInlineCommentGuids] =
-    useState<Set<string>>(() => new Set());
-  const [highlightedInlineCommentGuid, setHighlightedInlineCommentGuid] =
-    useState<string | null>(null);
-  const [highlightedInlineMessageGuid, setHighlightedInlineMessageGuid] =
-    useState<string | null>(null);
+  const [collapsedInlineCommentGuids, setCollapsedInlineCommentGuids] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [highlightedInlineCommentGuid, setHighlightedInlineCommentGuid] = useState<string | null>(
+    null,
+  );
+  const [highlightedInlineMessageGuid, setHighlightedInlineMessageGuid] = useState<string | null>(
+    null,
+  );
 
   const codeViewRef = useRef<CodeViewHandle<ReviewAnnotationMeta>>(null);
   const setCodeViewHost = useScrollFadeRef<HTMLDivElement>();
@@ -132,9 +128,9 @@ export function ReviewCodeView({
   const pendingAppendRef = useRef<CodeViewItem<ReviewAnnotationMeta>[]>([]);
   const scrollActiveIdRef = useRef<string | null>(null);
   const pathByFileNameRef = useRef<Map<string, string>>(new Map());
-  const loadedContentsRef = useRef<
-    Map<string, { oldContent: string; newContent: string }>
-  >(new Map());
+  const loadedContentsRef = useRef<Map<string, { oldContent: string; newContent: string }>>(
+    new Map(),
+  );
   const collapseModeRef = useRef(collapseMode);
   const fileSnapshotByPathRef = useRef<Map<string, ReviewFileDto>>(new Map());
   const lastHandledNavRef = useRef<string | null>(null);
@@ -146,7 +142,7 @@ export function ReviewCodeView({
   }, [loadDiffSettings]);
 
   useEffect(() => {
-    loadReviewDiffFallbackRef.current = t('errors.loadReviewDiffFallback');
+    loadReviewDiffFallbackRef.current = t("errors.loadReviewDiffFallback");
   }, [t]);
 
   useEffect(() => {
@@ -158,9 +154,7 @@ export function ReviewCodeView({
   // files array). Only produce a new reference when the diff-relevant identity
   // of the files actually changes, so the diff-load effect below does not remount
   // the CodeView and reset the scroll position.
-  const orderedFilesCacheRef = useRef<{ signature: string; files: ReviewFileDto[] } | null>(
-    null,
-  );
+  const orderedFilesCacheRef = useRef<{ signature: string; files: ReviewFileDto[] } | null>(null);
   const orderedFiles = useMemo(() => {
     const next = sortByDiffTreePath(
       (reviewCtx.currentRevision?.files ?? []).map((file) => ({
@@ -173,7 +167,7 @@ export function ReviewCodeView({
         (file) =>
           `${file.snapshot.guid}:${file.snapshot.git_status}:${file.additions}:${file.deletions}`,
       )
-      .join('|');
+      .join("|");
     const cached = orderedFilesCacheRef.current;
     if (cached && cached.signature === signature) {
       return cached.files;
@@ -205,15 +199,15 @@ export function ReviewCodeView({
 
   const revisionLabel = useMemo(() => {
     if (!reviewCtx.currentSession || !reviewCtx.currentRevision) {
-      return t('reviewRevisionDefaultTitle');
+      return t("reviewRevisionDefaultTitle");
     }
     const sorted = [...reviewCtx.currentSession.revisions].sort((a, b) =>
       a.created_at.localeCompare(b.created_at),
     );
     const index = sorted.findIndex((r) => r.guid === reviewCtx.currentRevision?.guid);
     return index >= 0
-      ? t('reviewRevisionTitle', { version: index + 1 })
-      : t('reviewRevisionDefaultTitle');
+      ? t("reviewRevisionTitle", { version: index + 1 })
+      : t("reviewRevisionDefaultTitle");
   }, [reviewCtx.currentRevision, reviewCtx.currentSession, t]);
 
   const renderHeaderPrefix = createDiffHeaderPrefixRenderer({
@@ -284,11 +278,7 @@ export function ReviewCodeView({
       try {
         let hasPublishedInitial = false;
 
-        for (
-          let offset = 0;
-          offset < orderedFiles.length;
-          offset += CODE_VIEW_BATCH_SIZE
-        ) {
+        for (let offset = 0; offset < orderedFiles.length; offset += CODE_VIEW_BATCH_SIZE) {
           if (cancelled) return;
 
           const batch = orderedFiles.slice(offset, offset + CODE_VIEW_BATCH_SIZE);
@@ -314,18 +304,14 @@ export function ReviewCodeView({
           }
 
           const resultBySnapshotGuid = new Map(
-            batchResponse.results.map((result) => [
-              result.file_snapshot_guid,
-              result,
-            ]),
+            batchResponse.results.map((result) => [result.file_snapshot_guid, result]),
           );
           const results = batch.map((file) => {
             try {
               const result = resultBySnapshotGuid.get(file.snapshot.guid);
               if (!result?.content) {
                 throw new Error(
-                  result?.error ??
-                    `Missing review content result for ${file.snapshot.file_path}`,
+                  result?.error ?? `Missing review content result for ${file.snapshot.file_path}`,
                 );
               }
               const diff = result.content;
@@ -358,9 +344,9 @@ export function ReviewCodeView({
               primePierreFileDiff(workerPool, fileDiff);
               return {
                 id: file.snapshot.file_path,
-                type: 'diff' as const,
+                type: "diff" as const,
                 fileDiff,
-                collapsed: collapseModeRef.current === 'collapsed',
+                collapsed: collapseModeRef.current === "collapsed",
               } as CodeViewItem<ReviewAnnotationMeta>;
             } catch (loadError) {
               console.error(
@@ -394,10 +380,7 @@ export function ReviewCodeView({
             setIsLoading(false);
             await yieldToBrowser();
           } else {
-            itemIdsRef.current = [
-              ...itemIdsRef.current,
-              ...codeItems.map((item) => item.id),
-            ];
+            itemIdsRef.current = [...itemIdsRef.current, ...codeItems.map((item) => item.id)];
             const viewer = codeViewRef.current;
             if (viewer) {
               viewer.addItems(codeItems);
@@ -419,9 +402,7 @@ export function ReviewCodeView({
       } catch (loadError) {
         if (!cancelled) {
           setError(
-            loadError instanceof Error
-              ? loadError.message
-              : loadReviewDiffFallbackRef.current,
+            loadError instanceof Error ? loadError.message : loadReviewDiffFallbackRef.current,
           );
           setInitialItems([]);
           setIsLoading(false);
@@ -478,10 +459,10 @@ export function ReviewCodeView({
         const commentAnnotations: DiffLineAnnotation<ReviewAnnotationMeta>[] = (
           commentsByPath.get(itemId) ?? []
         ).map((comment) => ({
-          side: comment.anchor_side === 'old' ? 'deletions' : 'additions',
+          side: comment.anchor_side === "old" ? "deletions" : "additions",
           lineNumber: comment.anchor_start_line,
           metadata: {
-            kind: 'comment',
+            kind: "comment",
             comment,
           },
         }));
@@ -490,12 +471,9 @@ export function ReviewCodeView({
           inlineCommentDraft?.itemId === itemId
             ? [
                 {
-                  side:
-                    inlineCommentDraft.diffSide === 'old'
-                      ? 'deletions'
-                      : 'additions',
+                  side: inlineCommentDraft.diffSide === "old" ? "deletions" : "additions",
                   lineNumber: inlineCommentDraft.startLine,
-                  metadata: { kind: 'composer' as const },
+                  metadata: { kind: "composer" as const },
                 } satisfies DiffLineAnnotation<ReviewAnnotationMeta>,
               ]
             : [];
@@ -520,7 +498,7 @@ export function ReviewCodeView({
       const item = viewer?.getItem(itemId);
       const contents = loadedContentsRef.current.get(itemId);
       const file = fileSnapshotByPathRef.current.get(itemId);
-      if (item?.type !== 'diff' || !contents || !file) return;
+      if (item?.type !== "diff" || !contents || !file) return;
 
       const selectionInfo = buildDiffSelectionInfo({
         filePath: itemId,
@@ -530,19 +508,17 @@ export function ReviewCodeView({
       });
       if (!selectionInfo) return;
 
-      setInlineCommentBody('');
+      setInlineCommentBody("");
       setInlineCommentDraft({
         itemId,
         filePath: itemId,
         fileSnapshotGuid: file.snapshot.guid,
-        diffSide: selectionInfo.diffSide === 'old' ? 'old' : 'new',
+        diffSide: selectionInfo.diffSide === "old" ? "old" : "new",
         startLine: selectionInfo.startLine,
         endLine: selectionInfo.endLine,
         selectedText: selectionInfo.selectedText,
-        beforeContext: selectionInfo.beforeText
-          ? selectionInfo.beforeText.split('\n')
-          : [],
-        afterContext: selectionInfo.afterText ? selectionInfo.afterText.split('\n') : [],
+        beforeContext: selectionInfo.beforeText ? selectionInfo.beforeText.split("\n") : [],
+        afterContext: selectionInfo.afterText ? selectionInfo.afterText.split("\n") : [],
       });
     },
     [reviewCtx.canEdit],
@@ -556,9 +532,9 @@ export function ReviewCodeView({
     const body = inlineCommentBody.trim();
     if (!body) {
       toastManager.add({
-        title: reviewT('errors.emptyCommentTitle'),
-        description: reviewT('errors.emptyCommentDescription'),
-        type: 'error',
+        title: reviewT("errors.emptyCommentTitle"),
+        description: reviewT("errors.emptyCommentDescription"),
+        type: "error",
       });
       return;
     }
@@ -575,9 +551,7 @@ export function ReviewCodeView({
           start_line: inlineCommentDraft.startLine,
           end_line: inlineCommentDraft.endLine,
           line_range_kind:
-            inlineCommentDraft.startLine === inlineCommentDraft.endLine
-              ? 'single'
-              : 'range',
+            inlineCommentDraft.startLine === inlineCommentDraft.endLine ? "single" : "range",
           selected_text: inlineCommentDraft.selectedText,
           before_context: inlineCommentDraft.beforeContext,
           after_context: inlineCommentDraft.afterContext,
@@ -586,18 +560,18 @@ export function ReviewCodeView({
         body,
       });
 
-      setInlineCommentBody('');
+      setInlineCommentBody("");
       setInlineCommentDraft(null);
 
       await createPromise;
     } catch (submitError) {
       toastManager.add({
-        title: reviewT('errors.createCommentTitle'),
+        title: reviewT("errors.createCommentTitle"),
         description:
           submitError instanceof Error
             ? submitError.message
-            : reviewT('errors.unknownCommentError'),
-        type: 'error',
+            : reviewT("errors.unknownCommentError"),
+        type: "error",
       });
     } finally {
       setIsSubmittingInlineComment(false);
@@ -616,9 +590,9 @@ export function ReviewCodeView({
       const body = replyBody.trim();
       if (!body) {
         toastManager.add({
-          title: reviewT('errors.emptyReplyTitle'),
-          description: reviewT('errors.emptyReplyDescription'),
-          type: 'error',
+          title: reviewT("errors.emptyReplyTitle"),
+          description: reviewT("errors.emptyReplyDescription"),
+          type: "error",
         });
         return;
       }
@@ -626,7 +600,7 @@ export function ReviewCodeView({
       setIsSubmittingReply(true);
       try {
         await reviewCtx.handleReplyToComment(comment, body);
-        setReplyBody('');
+        setReplyBody("");
         setReplyDraftCommentGuid(null);
       } catch {
         // Shared review hook already reports failures.
@@ -665,7 +639,7 @@ export function ReviewCodeView({
 
   const renderAnnotation = useCallback(
     (annotation: DiffLineAnnotation<ReviewAnnotationMeta>) => {
-      if (annotation.metadata?.kind === 'composer') {
+      if (annotation.metadata?.kind === "composer") {
         if (!inlineCommentDraft) return null;
         return (
           <InlineCommentComposer
@@ -677,7 +651,7 @@ export function ReviewCodeView({
             onSubmit={() => void handleInlineCommentSubmit()}
             onCancel={() => {
               setInlineCommentDraft(null);
-              setInlineCommentBody('');
+              setInlineCommentBody("");
             }}
           />
         );
@@ -686,8 +660,7 @@ export function ReviewCodeView({
       const comment = annotation.metadata?.comment;
       if (!comment) return null;
       const expanded =
-        !collapsedInlineCommentGuids.has(comment.guid) ||
-        replyDraftCommentGuid === comment.guid;
+        !collapsedInlineCommentGuids.has(comment.guid) || replyDraftCommentGuid === comment.guid;
 
       return (
         <InlineReviewCommentAnnotation
@@ -705,15 +678,13 @@ export function ReviewCodeView({
           onDeleteMessage={(message) => void handleDeleteMessage(comment, message)}
           onUpdateCommentStatus={reviewCtx.handleUpdateCommentStatus}
           onReplyToggle={(commentGuid) =>
-            setReplyDraftCommentGuid((current) =>
-              current === commentGuid ? null : commentGuid,
-            )
+            setReplyDraftCommentGuid((current) => (current === commentGuid ? null : commentGuid))
           }
           onReplyBodyChange={setReplyBody}
           onReplySubmit={() => void handleCommentReplySubmit(comment)}
           onReplyCancel={() => {
             setReplyDraftCommentGuid(null);
-            setReplyBody('');
+            setReplyBody("");
           }}
         />
       );
@@ -754,19 +725,17 @@ export function ReviewCodeView({
         range: SelectedLineRange | null,
         context: { item: CodeViewItem<ReviewAnnotationMeta> },
       ) {
-        if (!range || context.item.type !== 'diff') return;
+        if (!range || context.item.type !== "diff") return;
         openInlineCommentDraft(context.item.id, range);
       },
       onGutterUtilityClick(
         range: SelectedLineRange,
         context: { item: CodeViewItem<ReviewAnnotationMeta> },
       ) {
-        if (context.item.type !== 'diff') return;
+        if (context.item.type !== "diff") return;
         openInlineCommentDraft(context.item.id, range);
       },
-      gutterUtilityAriaLabel: reviewCtx.canEdit
-        ? t('actions.addReviewComment')
-        : undefined,
+      gutterUtilityAriaLabel: reviewCtx.canEdit ? t("actions.addReviewComment") : undefined,
     }),
     [
       diffIndicators,
@@ -781,23 +750,20 @@ export function ReviewCodeView({
     ],
   );
 
-  const handleViewerRef = useCallback(
-    (handle: CodeViewHandle<ReviewAnnotationMeta> | null) => {
-      codeViewRef.current = handle;
-      setViewerMounted(handle != null);
-    },
-    [],
-  );
+  const handleViewerRef = useCallback((handle: CodeViewHandle<ReviewAnnotationMeta> | null) => {
+    codeViewRef.current = handle;
+    setViewerMounted(handle != null);
+  }, []);
 
   const handleToggleCollapseMode = useCallback(() => {
     const viewer = codeViewRef.current;
     if (!viewer) return;
-    const next = collapseMode === 'expanded' ? 'collapsed' : 'expanded';
+    const next = collapseMode === "expanded" ? "collapsed" : "expanded";
     setCollapseMode(next);
 
     for (const itemId of itemIdsRef.current) {
       updateViewerDiffItem(viewer, itemId, (item) => {
-        item.collapsed = next === 'collapsed';
+        item.collapsed = next === "collapsed";
         return true;
       });
     }
@@ -819,19 +785,14 @@ export function ReviewCodeView({
   const navigationScrollKey = navigationTarget?.diffFilePath
     ? [
         navigationTarget.diffFilePath,
-        navigationTarget.line ?? '',
-        navigationTarget.reviewCommentGuid ?? '',
-        navigationTarget.reviewMessageGuid ?? '',
-      ].join(':')
+        navigationTarget.line ?? "",
+        navigationTarget.reviewCommentGuid ?? "",
+        navigationTarget.reviewMessageGuid ?? "",
+      ].join(":")
     : null;
 
   useEffect(() => {
-    if (
-      !navigationTarget?.diffFilePath ||
-      isLoading ||
-      !navigationScrollKey ||
-      !viewerMounted
-    ) {
+    if (!navigationTarget?.diffFilePath || isLoading || !navigationScrollKey || !viewerMounted) {
       return;
     }
     const targetPath = navigationTarget.diffFilePath;
@@ -863,7 +824,7 @@ export function ReviewCodeView({
       lastHandledNavRef.current = navigationScrollKey;
       scrollCodeViewToItem(codeViewRef.current, targetPath, {
         line: navigationTarget.line,
-        behavior: 'smooth',
+        behavior: "smooth",
       });
       if (navigationTargetProp === undefined && activeContextId) {
         clearNavigationTarget(groupPath, activeContextId);
@@ -887,7 +848,7 @@ export function ReviewCodeView({
       if (activeContextId) {
         setDiffGroupActiveFile(groupPath, path, activeContextId);
       }
-      scrollCodeViewToItem(codeViewRef.current, path, { behavior: 'smooth' });
+      scrollCodeViewToItem(codeViewRef.current, path, { behavior: "smooth" });
     },
     [activeContextId, groupPath, setDiffGroupActiveFile],
   );
@@ -895,15 +856,13 @@ export function ReviewCodeView({
   const toolbar = (
     <div className="flex items-center gap-2">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <span className="truncate text-sm font-medium text-foreground">
-          {revisionLabel}
-        </span>
+        <span className="truncate text-sm font-medium text-foreground">{revisionLabel}</span>
         <span className="shrink-0 text-xs text-muted-foreground">
-          {t('fileCount', { count: treeItems.length })}
+          {t("fileCount", { count: treeItems.length })}
         </span>
       </div>
       {(totalStats.additions > 0 || totalStats.deletions > 0) && (
-        <div className="flex shrink-0 items-center gap-2 text-[11px] font-mono font-medium">
+        <div className="flex shrink-0 items-center gap-2 font-mono text-[11px] font-medium">
           <span className="text-emerald-500">+{totalStats.additions}</span>
           <span className="text-red-500">-{totalStats.deletions}</span>
         </div>
@@ -928,7 +887,7 @@ export function ReviewCodeView({
   if (!reviewCtx.currentSession || !reviewCtx.currentRevision) {
     return (
       <div className="flex h-full items-center justify-center bg-background text-sm text-muted-foreground">
-        {t('noReviewRevisionSelected')}
+        {t("noReviewRevisionSelected")}
       </div>
     );
   }
@@ -939,7 +898,7 @@ export function ReviewCodeView({
         <DiffCodeViewScaffold
           items={treeItems}
           selectedPath={selectedPath}
-          ariaLabel={t('reviewFilesAria')}
+          ariaLabel={t("reviewFilesAria")}
           loading
           loadingTreeLabel={revisionLabel}
           defaultTreeVisible={false}
@@ -965,7 +924,7 @@ export function ReviewCodeView({
     return (
       <div className="flex h-full items-center justify-center bg-background">
         <div className="text-center">
-          <p className="mb-2 text-red-500">{t('errors.loadReviewDiffTitle')}</p>
+          <p className="mb-2 text-red-500">{t("errors.loadReviewDiffTitle")}</p>
           <p className="text-sm text-muted-foreground">{error}</p>
         </div>
       </div>
@@ -975,7 +934,7 @@ export function ReviewCodeView({
   if (initialItems.length === 0) {
     return (
       <div className="flex h-full items-center justify-center bg-background text-sm text-muted-foreground">
-        {t('noFilesInRevision')}
+        {t("noFilesInRevision")}
       </div>
     );
   }
@@ -985,7 +944,7 @@ export function ReviewCodeView({
       <DiffCodeViewScaffold
         items={treeItems}
         selectedPath={selectedPath}
-        ariaLabel={t('reviewFilesAria')}
+        ariaLabel={t("reviewFilesAria")}
         toolbar={toolbar}
         defaultTreeVisible={false}
         onSelectFile={handleSelectFile}

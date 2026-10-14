@@ -117,10 +117,7 @@ export function GitHistoryRow({
             className="absolute rounded-full border bg-background"
             style={{
               left: nodeX - HISTORY_NODE_RADIUS - HISTORY_HEAD_RING_PADDING,
-              top:
-                HISTORY_ROW_HEIGHT / 2 -
-                HISTORY_NODE_RADIUS -
-                HISTORY_HEAD_RING_PADDING,
+              top: HISTORY_ROW_HEIGHT / 2 - HISTORY_NODE_RADIUS - HISTORY_HEAD_RING_PADDING,
               width: (HISTORY_NODE_RADIUS + HISTORY_HEAD_RING_PADDING) * 2,
               height: (HISTORY_NODE_RADIUS + HISTORY_HEAD_RING_PADDING) * 2,
               borderColor: color,
@@ -141,7 +138,7 @@ export function GitHistoryRow({
 
       <div className="flex min-w-0 items-center overflow-hidden px-1.5">
         {visibleRefs.length > 0 ? (
-          <span className="mr-1.5 flex min-w-0 max-w-[70%] items-center gap-1 overflow-hidden">
+          <span className="mr-1.5 flex max-w-[70%] min-w-0 items-center gap-1 overflow-hidden">
             {visibleRefs.map((reference) => (
               <HistoryRefBadge
                 key={`${reference.kind}:${reference.label}`}
@@ -151,9 +148,7 @@ export function GitHistoryRow({
               />
             ))}
             {hiddenRefCount > 0 ? (
-              <span className="shrink-0 text-[10px] text-muted-foreground">
-                +{hiddenRefCount}
-              </span>
+              <span className="shrink-0 text-[10px] text-muted-foreground">+{hiddenRefCount}</span>
             ) : null}
           </span>
         ) : null}
@@ -180,11 +175,7 @@ export function GitHistoryRow({
           {copied ? (
             <span className="text-info">{t("copied")}</span>
           ) : (
-            <HighlightedText
-              text={commit.short_hash}
-              query={query}
-              caseSensitive={caseSensitive}
-            />
+            <HighlightedText text={commit.short_hash} query={query} caseSensitive={caseSensitive} />
           )}
         </span>
         <button
@@ -192,8 +183,8 @@ export function GitHistoryRow({
           aria-label={t("copyHash")}
           title={t("copyHash")}
           className={cn(
-            "inline-flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover/hash:opacity-100",
-            copied && "opacity-100 text-info",
+            "inline-flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 group-hover/hash:opacity-100 hover:bg-accent hover:text-foreground",
+            copied && "text-info opacity-100",
           )}
           onClick={(event) => {
             event.preventDefault();
@@ -221,12 +212,7 @@ function HistoryRefBadge({
   query: string;
   caseSensitive: boolean;
 }) {
-  const Icon =
-    reference.kind === "branch"
-      ? GitBranch
-      : reference.kind === "tag"
-        ? Tag
-        : Cloud;
+  const Icon = reference.kind === "branch" ? GitBranch : reference.kind === "tag" ? Tag : Cloud;
   const tone =
     reference.kind === "branch"
       ? "text-info bg-info/10"
@@ -261,17 +247,13 @@ function HistoryRefBadge({
       <TooltipTrigger asChild>
         <span
           className={cn(
-            "inline-flex min-w-0 max-w-56 items-center gap-0.5 rounded-sm px-1 py-0.5 text-[10px]",
+            "inline-flex max-w-56 min-w-0 items-center gap-0.5 rounded-sm px-1 py-0.5 text-[10px]",
             tone,
           )}
         >
           <Icon className="size-2.5 shrink-0" />
           <span ref={labelRef} className="truncate">
-            <HighlightedText
-              text={reference.label}
-              query={query}
-              caseSensitive={caseSensitive}
-            />
+            <HighlightedText text={reference.label} query={query} caseSensitive={caseSensitive} />
           </span>
         </span>
       </TooltipTrigger>

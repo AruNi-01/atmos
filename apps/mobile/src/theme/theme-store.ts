@@ -44,7 +44,7 @@ export function useMobileTheme() {
       isDark: colorScheme === "dark",
       preference,
       setPreference,
-      statusBarStyle: colorScheme === "dark" ? "light" as const : "dark" as const,
+      statusBarStyle: colorScheme === "dark" ? ("light" as const) : ("dark" as const),
       systemColorScheme,
     }),
     [colorScheme, colors, preference, setPreference, systemColorScheme],

@@ -18,7 +18,11 @@ import {
   type WebResultLink,
 } from "@/features/agent/lib/tool-results/parse-tool-result";
 import { AgentCommandLine } from "../AgentCommandLine";
-import { useAgentChatCwd, useAgentChatPathRoots, useDisplayToolPath } from "../agent-chat-cwd-context";
+import {
+  useAgentChatCwd,
+  useAgentChatPathRoots,
+  useDisplayToolPath,
+} from "../agent-chat-cwd-context";
 import {
   useAgentChatPathIsDir,
   useAgentChatResolvedPathKind,
@@ -38,9 +42,7 @@ export function AgentToolInputRows({ rows }: { rows: ToolInputRow[] }) {
   if (rows.length === 0) return null;
   return (
     <div className="px-3 py-2">
-      <p className="mb-1.5 text-[11px] font-medium text-muted-foreground">
-        {t("parameters")}
-      </p>
+      <p className="mb-1.5 text-[11px] font-medium text-muted-foreground">{t("parameters")}</p>
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
         {rows.map((row) => {
           const shown = displayPath(row.value);
@@ -87,17 +89,11 @@ export function AgentToolWebSearchBody({
   );
 }
 
-export function AgentToolWebFetchBody({
-  markdown,
-  text,
-}: {
-  markdown?: string;
-  text?: string;
-}) {
+export function AgentToolWebFetchBody({ markdown, text }: { markdown?: string; text?: string }) {
   if (markdown) {
     return (
       <div className="max-h-96 overflow-auto px-3 py-2">
-        <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 [&_pre]:max-w-full [&_.not-prose]:my-2">
+        <MarkdownRenderer className="prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 max-w-none text-[13px] leading-relaxed [&_.not-prose]:my-2 [&_pre]:max-w-full">
           {markdown}
         </MarkdownRenderer>
       </div>
@@ -123,19 +119,16 @@ function AgentToolClickablePath({
   const roots = useAgentChatPathRoots();
   const openable = resolveAgentChatOpenableFile(path, cwd, roots);
   const resolvedKind = useAgentChatResolvedPathKind(isDir === true ? undefined : openable?.path);
-  const clickable = Boolean(openable) && (
-    isDir === true || resolvedKind === "file" || resolvedKind === "directory"
-  );
+  const clickable =
+    Boolean(openable) &&
+    (isDir === true || resolvedKind === "file" || resolvedKind === "directory");
   if (!clickable) {
     return <div className={cn("min-w-0", className)}>{children}</div>;
   }
   return (
     <button
       type="button"
-      className={cn(
-        "min-w-0 cursor-pointer rounded-md text-left hover:bg-muted/60",
-        className,
-      )}
+      className={cn("min-w-0 cursor-pointer rounded-md text-left hover:bg-muted/60", className)}
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -225,7 +218,7 @@ export function AgentToolSearchBody({
                       <span className="w-10 shrink-0 text-right tabular-nums">{hit.line}</span>
                     ) : null}
                     {hit.text ? (
-                      <span className="min-w-0 whitespace-pre-wrap break-words" title={hit.text}>
+                      <span className="min-w-0 break-words whitespace-pre-wrap" title={hit.text}>
                         {hit.text}
                       </span>
                     ) : null}
@@ -297,7 +290,7 @@ export function AgentToolFilesBody({ paths }: { paths: string[] }) {
 export function AgentToolMarkdownBody({ markdown }: { markdown: string }) {
   return (
     <div className="max-h-96 overflow-auto px-3 py-2">
-      <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 [&_pre]:max-w-full [&_.not-prose]:my-2">
+      <MarkdownRenderer className="prose prose-sm dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 max-w-none text-[13px] leading-relaxed [&_.not-prose]:my-2 [&_pre]:max-w-full">
         {markdown}
       </MarkdownRenderer>
     </div>
@@ -313,7 +306,7 @@ export function AgentToolTextBody({ text }: { text: string }) {
     return <AgentToolCodePreview code={text} language="plaintext" className="bg-transparent" />;
   }
   return (
-    <p className="px-3 py-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
+    <p className="px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
       {text}
     </p>
   );
@@ -334,16 +327,18 @@ export function AgentToolTodosBody({ todos }: { todos: TodoItem[] }) {
     <ul className="space-y-1 px-3 py-2">
       {todos.map((todo, index) => {
         const status = todo.status.toLowerCase();
-        const Icon = status === "completed"
-          ? CheckCircle2
-          : status === "in_progress" || status === "in-progress"
-            ? CircleDashed
-            : Circle;
-        const label = status === "completed"
-          ? t("todo.completed")
-          : status === "in_progress" || status === "in-progress"
-            ? t("todo.inProgress")
-            : t("todo.pending");
+        const Icon =
+          status === "completed"
+            ? CheckCircle2
+            : status === "in_progress" || status === "in-progress"
+              ? CircleDashed
+              : Circle;
+        const label =
+          status === "completed"
+            ? t("todo.completed")
+            : status === "in_progress" || status === "in-progress"
+              ? t("todo.inProgress")
+              : t("todo.pending");
         return (
           <li key={`${todo.content}-${index}`} className="flex items-start gap-2 text-sm">
             <Icon
@@ -352,7 +347,11 @@ export function AgentToolTodosBody({ todos }: { todos: TodoItem[] }) {
               }`}
               aria-label={label}
             />
-            <span className={status === "completed" ? "text-muted-foreground line-through" : "text-foreground"}>
+            <span
+              className={
+                status === "completed" ? "text-muted-foreground line-through" : "text-foreground"
+              }
+            >
               {todo.content}
             </span>
           </li>

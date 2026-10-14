@@ -109,7 +109,10 @@ export function AutomationAgentLabel({
       {agentId ? (
         <AgentIcon registryId={agentId} name={label} size={iconSize} />
       ) : (
-        <Bot className="shrink-0 text-muted-foreground" style={{ width: iconSize, height: iconSize }} />
+        <Bot
+          className="shrink-0 text-muted-foreground"
+          style={{ width: iconSize, height: iconSize }}
+        />
       )}
       <span className="truncate">{displayName}</span>
     </span>

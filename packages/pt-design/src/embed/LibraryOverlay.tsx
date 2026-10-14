@@ -99,19 +99,23 @@ export function LibraryOverlay({
             fontSize: 13,
             fontWeight: 500,
             background: theme === "dark" ? "var(--primary, #fafafa)" : "var(--primary, #18181b)",
-            color: theme === "dark" ? "var(--primary-foreground, #09090b)" : "var(--primary-foreground, #fafafa)",
+            color:
+              theme === "dark"
+                ? "var(--primary-foreground, #09090b)"
+                : "var(--primary-foreground, #fafafa)",
           }}
         >
           Save
         </button>
       </form>
 
-      <div style={{ fontSize: 12, color: chrome.mutedFg }}>
-        Saves to ~/.atmos/data/pt-design
-      </div>
+      <div style={{ fontSize: 12, color: chrome.mutedFg }}>Saves to ~/.atmos/data/pt-design</div>
 
       {error ? (
-        <div data-testid="pt-design-library-error" style={{ fontSize: 12, color: "var(--destructive, #ef4444)" }}>
+        <div
+          data-testid="pt-design-library-error"
+          style={{ fontSize: 12, color: "var(--destructive, #ef4444)" }}
+        >
           {error}
         </div>
       ) : null}

@@ -4,10 +4,7 @@ import { useTranslations } from "next-intl";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 
 function isTerminalHotkeyTarget(target: EventTarget | null) {
-  const candidates = [
-    target instanceof Node ? target : null,
-    document.activeElement,
-  ];
+  const candidates = [target instanceof Node ? target : null, document.activeElement];
   return candidates.some((node) => {
     const element = node instanceof Element ? node : node?.parentElement;
     return Boolean(element?.closest(".terminal-grid-container"));
@@ -63,12 +60,17 @@ export function useHeaderHotkeys({
     description: t("toggleLeftSidebar"),
   });
 
-  useHotkeys("mod+r", handleRefreshCurrentRoute, {
-    enableOnContentEditable: true,
-    enableOnFormTags: true,
-    preventDefault: true,
-    description: t("refreshPage"),
-  }, [handleRefreshCurrentRoute]);
+  useHotkeys(
+    "mod+r",
+    handleRefreshCurrentRoute,
+    {
+      enableOnContentEditable: true,
+      enableOnFormTags: true,
+      preventDefault: true,
+      description: t("refreshPage"),
+    },
+    [handleRefreshCurrentRoute],
+  );
 
   useHotkeys("mod+u", () => setIsQuotaPopoverOpen((prev) => !prev), {
     enableOnContentEditable: true,
@@ -90,5 +92,4 @@ export function useHeaderHotkeys({
       description: t("toggleNeedAttention"),
     },
   );
-
 }

@@ -125,21 +125,21 @@ What levels we rely on and roughly why. Two or three sentences.
 
 Cross-reference PRD requirements to scenarios so nothing is missed.
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1       | S1, S2       |
-| M2       | S3           |
+| PRD item | Scenario IDs  |
+| -------- | ------------- |
+| M1       | S1, S2        |
+| M2       | S3            |
 | N1       | S4 (deferred) |
 
 ## Execution map
 
 This table is the hand-off from plan to implementation/testing. Keep `Status` as `planned` until `atmos-specs-test-run` updates Coverage Status after implementation.
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | E2E | Playwright | `just test-e2e -- tests/specs/APP-005_github-pr-flow.e2e.ts` | local app with authenticated `gh` and one workspace branch | PR row visible; WS update observed; `gh pr list` returns the PR | planned |
-| S2 | Integration | `cargo test` or `bun test` | `TBD by test-run` | local-only branch fixture | empty-state row visible; no WS error | planned |
-| S3 | Service-level | `cargo test --package api` | `TBD by test-run` | fake `gh auth status` failure | recoverable error DTO/log entry | planned |
+| Scenario | Level         | Expected tool              | Target command / method                                      | Fixture / data                                             | Signals                                                         | Status  |
+| -------- | ------------- | -------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------- | --------------------------------------------------------------- | ------- |
+| S1       | E2E           | Playwright                 | `just test-e2e -- tests/specs/APP-005_github-pr-flow.e2e.ts` | local app with authenticated `gh` and one workspace branch | PR row visible; WS update observed; `gh pr list` returns the PR | planned |
+| S2       | Integration   | `cargo test` or `bun test` | `TBD by test-run`                                            | local-only branch fixture                                  | empty-state row visible; no WS error                            | planned |
+| S3       | Service-level | `cargo test --package api` | `TBD by test-run`                                            | fake `gh auth status` failure                              | recoverable error DTO/log entry                                 | planned |
 
 ## Scenarios
 

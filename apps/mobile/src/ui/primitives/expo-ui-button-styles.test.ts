@@ -31,9 +31,7 @@ describe("expoUi button styles (pure Expo UI)", () => {
   });
 
   it("disabled only dims seedColor", () => {
-    expect(expoUiPrimaryStyle(lightColors, true).seedColor).toBe(
-      lightColors.tertiaryLabel,
-    );
+    expect(expoUiPrimaryStyle(lightColors, true).seedColor).toBe(lightColors.tertiaryLabel);
     expect(expoUiSecondaryStyle(lightColors, true).variant).toBe("outlined");
   });
 });

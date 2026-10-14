@@ -14,7 +14,9 @@ describe("S15 protocol bundle IO", () => {
   test("writeBundle writes document.ptx and canvas.json; readBundle round-trips", () => {
     const dir = tmpDir();
     const ptx = serializePtx(
-      parsePtx(`<page id="p"><button id="run" label="Run" x="1" y="2" width="3" height="4"/></page>`),
+      parsePtx(
+        `<page id="p"><button id="run" label="Run" x="1" y="2" width="3" height="4"/></page>`,
+      ),
     );
     const canvas = { appState: { zoom: 1 }, files: {} };
     writeBundle(dir, { ptx, canvas });

@@ -1,11 +1,5 @@
 import type { ReactNode } from "react";
-import {
-  Host,
-  List,
-  ListItem,
-  Picker,
-  Switch,
-} from "@expo/ui";
+import { Host, List, ListItem, Picker, Switch } from "@expo/ui";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export { NativeIcon, selectNativeIcon } from "./native-icon";

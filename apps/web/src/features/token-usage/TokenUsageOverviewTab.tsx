@@ -32,10 +32,7 @@ import {
 import { useTranslations } from "next-intl";
 
 import type { TokenUsageOverviewResponse } from "@/api/ws/token-usage-api";
-import {
-  TokenUsageAgentIcon,
-  TokenUsageModelIcon,
-} from "@/features/token-usage/TokenUsageIcons";
+import { TokenUsageAgentIcon, TokenUsageModelIcon } from "@/features/token-usage/TokenUsageIcons";
 import { TokenUsageStatChip } from "@/features/token-usage/TokenUsageStatChip";
 import {
   agentChartColor,
@@ -66,13 +63,7 @@ const MIX_COLORS_DARK = [
   "#94A3B8", // reasoning — slate
 ] as const;
 
-const MIX_COLORS_LIGHT = [
-  "#0284C7",
-  "#16A34A",
-  "#C026D3",
-  "#D97706",
-  "#64748B",
-] as const;
+const MIX_COLORS_LIGHT = ["#0284C7", "#16A34A", "#C026D3", "#D97706", "#64748B"] as const;
 
 function mixSliceLabel(id: TokenMixSlice["id"], t: Translate): string {
   switch (id) {
@@ -149,9 +140,7 @@ export function TokenUsageOverviewTab({
   heatmapMonthLabels: Array<{ label: string; weekIndex: number }>;
   heatmapWeekdayLabels: Array<{ label: string; row: number }>;
   heatmapTooltip: DitherTooltipState | null;
-  setHeatmapTooltip: React.Dispatch<
-    React.SetStateAction<DitherTooltipState | null>
-  >;
+  setHeatmapTooltip: React.Dispatch<React.SetStateAction<DitherTooltipState | null>>;
   growthValues: number[];
   timelineLabels: string[];
   stackedBars: Array<{ label: string; segments: number[] }>;
@@ -171,14 +160,10 @@ export function TokenUsageOverviewTab({
   const totalTokens = overview?.summary.total_tokens ?? 0;
   const totalCost = overview?.summary.total_cost_usd ?? 0;
   const heroValue = metric === "cost" ? totalCost : totalTokens;
-  const heroLabel =
-    metric === "cost" ? t("stats.totalCost.label") : t("stats.totalTokens.label");
-  const metricValueLabel =
-    metric === "cost" ? t("charts.curve.cost") : t("charts.curve.tokens");
+  const heroLabel = metric === "cost" ? t("stats.totalCost.label") : t("stats.totalTokens.label");
+  const metricValueLabel = metric === "cost" ? t("charts.curve.cost") : t("charts.curve.tokens");
   const shareEmptyLabel =
-    dimension === "model"
-      ? t("heatmap.modelShareEmpty")
-      : t("heatmap.agentShareEmpty");
+    dimension === "model" ? t("heatmap.modelShareEmpty") : t("heatmap.agentShareEmpty");
   const messagesNote =
     dimension === "model"
       ? t("stats.messages.modelsNote", {
@@ -215,7 +200,7 @@ export function TokenUsageOverviewTab({
                 {rangeLabel}
               </div>
             </div>
-            <div className="mt-1 text-4xl font-semibold leading-none tracking-tight tabular-nums sm:text-5xl">
+            <div className="mt-1 text-4xl leading-none font-semibold tracking-tight tabular-nums sm:text-5xl">
               {loading ? (
                 "—"
               ) : (
@@ -235,11 +220,7 @@ export function TokenUsageOverviewTab({
               <div className={cn("text-xs", muted)}>{t("heatmap.loadingDescription")}</div>
             ) : null}
             {breakdownBars.map((row, rankIndex) => {
-              const color = agentChartColor(
-                row.id,
-                ditherTheme,
-                segmentColorAssignment,
-              );
+              const color = agentChartColor(row.id, ditherTheme, segmentColorAssignment);
               // Rank-stable key so agent↔model (and metric) retargets morph
               // the same funnel instance instead of remounting from 0.
               return (
@@ -250,11 +231,7 @@ export function TokenUsageOverviewTab({
                         <IconSwap>
                           <IconSwapItem key={`${dimension}-${row.id}`}>
                             {dimension === "agent" ? (
-                              <TokenUsageAgentIcon
-                                clientId={row.id}
-                                name={row.label}
-                                size={16}
-                              />
+                              <TokenUsageAgentIcon clientId={row.id} name={row.label} size={16} />
                             ) : (
                               <TokenUsageModelIcon
                                 modelId={row.id}
@@ -272,9 +249,7 @@ export function TokenUsageOverviewTab({
                     </span>
                     <span className="flex shrink-0 items-center gap-2 tabular-nums">
                       <span className={cn("text-xs", muted)}>
-                        <SlidingMetric
-                          {...percentSlidingParts(row.sharePercent, locale, 1)}
-                        />
+                        <SlidingMetric {...percentSlidingParts(row.sharePercent, locale, 1)} />
                       </span>
                       <SlidingMetric
                         {...(metric === "cost"
@@ -317,10 +292,7 @@ export function TokenUsageOverviewTab({
                   "—"
                 ) : (
                   <SlidingMetric
-                    {...compactSlidingParts(
-                      overview?.summary.total_messages ?? 0,
-                      locale,
-                    )}
+                    {...compactSlidingParts(overview?.summary.total_messages ?? 0, locale)}
                   />
                 )
               }
@@ -335,11 +307,7 @@ export function TokenUsageOverviewTab({
                   "—"
                 ) : (
                   <SlidingMetric
-                    {...detailedSlidingParts(
-                      overview?.summary.active_days ?? 0,
-                      locale,
-                      0,
-                    )}
+                    {...detailedSlidingParts(overview?.summary.active_days ?? 0, locale, 0)}
                   />
                 )
               }
@@ -373,10 +341,7 @@ export function TokenUsageOverviewTab({
                   "—"
                 ) : (
                   <SlidingMetric
-                    {...compactSlidingParts(
-                      overview?.summary.total_tokens ?? 0,
-                      locale,
-                    )}
+                    {...compactSlidingParts(overview?.summary.total_tokens ?? 0, locale)}
                   />
                 )
               }
@@ -386,7 +351,12 @@ export function TokenUsageOverviewTab({
           </div>
 
           {/* All-time token mix — horizontal dither share bar + legend */}
-          <div className={cn("flex shrink-0 flex-col justify-center rounded-xl border px-3 py-4", panel)}>
+          <div
+            className={cn(
+              "flex shrink-0 flex-col justify-center rounded-xl border px-3 py-4",
+              panel,
+            )}
+          >
             <div className={cn("mb-2 text-[11px]", muted)}>{t("charts.mix.title")}</div>
             {hasMix && !loading ? (
               <>
@@ -402,9 +372,7 @@ export function TokenUsageOverviewTab({
                       })}%`
                     }
                     formatSliding={(v) => compactSlidingParts(v, locale)}
-                    formatShareSliding={(s) =>
-                      percentSlidingParts(s * 100, locale, 1)
-                    }
+                    formatShareSliding={(s) => percentSlidingParts(s * 100, locale, 1)}
                     valueLabel={t("charts.mix.amount")}
                     shareLabel={t("charts.mix.share")}
                   />
@@ -424,18 +392,14 @@ export function TokenUsageOverviewTab({
                           <span className={cn("truncate text-[11px]", muted)}>{seg.label}</span>
                         </div>
                         <div className="mt-0.5 flex items-baseline gap-1.5 pl-3">
-                          <span className="text-sm font-semibold tabular-nums tracking-tight">
-                            <SlidingMetric
-                              {...compactSlidingParts(seg.value, locale)}
-                            />
+                          <span className="text-sm font-semibold tracking-tight tabular-nums">
+                            <SlidingMetric {...compactSlidingParts(seg.value, locale)} />
                           </span>
                           <span className={cn("text-[11px] tabular-nums", muted)}>
                             {sharePercent < 0.1 && seg.value > 0 ? (
                               "<0.1%"
                             ) : (
-                              <SlidingMetric
-                                {...percentSlidingParts(sharePercent, locale, 1)}
-                              />
+                              <SlidingMetric {...percentSlidingParts(sharePercent, locale, 1)} />
                             )}
                           </span>
                         </div>
@@ -502,9 +466,7 @@ export function TokenUsageOverviewTab({
                 // Empty / out-of-year cells: keep last tip open and only chase the
                 // pointer so gaps don't unmount SlidingMetric mid-scrub.
                 if (!cell || cell.count === null || !cell.detail) {
-                  setHeatmapTooltip((prev) =>
-                    prev ? { ...prev, clientX, clientY } : null,
-                  );
+                  setHeatmapTooltip((prev) => (prev ? { ...prev, clientX, clientY } : null));
                   return;
                 }
                 const detail = cell.detail;
@@ -537,23 +499,13 @@ export function TokenUsageOverviewTab({
                 const nextLines = [
                   ...primaryLines,
                   countLine(t("heatmap.popover.messages"), detail.message_count),
-                  countLine(
-                    t("heatmap.popover.input"),
-                    detail.breakdown.input_tokens,
-                  ),
-                  countLine(
-                    t("heatmap.popover.output"),
-                    detail.breakdown.output_tokens,
-                  ),
+                  countLine(t("heatmap.popover.input"), detail.breakdown.input_tokens),
+                  countLine(t("heatmap.popover.output"), detail.breakdown.output_tokens),
                   countLine(
                     t("heatmap.popover.cache"),
-                    detail.breakdown.cache_read_tokens +
-                      detail.breakdown.cache_write_tokens,
+                    detail.breakdown.cache_read_tokens + detail.breakdown.cache_write_tokens,
                   ),
-                  countLine(
-                    t("heatmap.popover.reasoning"),
-                    detail.breakdown.reasoning_tokens,
-                  ),
+                  countLine(t("heatmap.popover.reasoning"), detail.breakdown.reasoning_tokens),
                 ];
                 const title = formatHeatmapDate(cell.date, locale);
                 setHeatmapTooltip((prev) => {
@@ -565,8 +517,7 @@ export function TokenUsageOverviewTab({
                     prev.lines.length === nextLines.length &&
                     prev.lines.every(
                       (line, i) =>
-                        line.value === nextLines[i]?.value &&
-                        line.label === nextLines[i]?.label,
+                        line.value === nextLines[i]?.value && line.label === nextLines[i]?.label,
                     )
                   ) {
                     if (prev.clientX === clientX && prev.clientY === clientY) {
@@ -600,14 +551,8 @@ export function TokenUsageOverviewTab({
             }}
             className="min-w-0"
           >
-            <TabsSubtleItem
-              index={0}
-              label={t("resolution.options.month")}
-            />
-            <TabsSubtleItem
-              index={1}
-              label={t("resolution.options.day")}
-            />
+            <TabsSubtleItem index={0} label={t("resolution.options.month")} />
+            <TabsSubtleItem index={1} label={t("resolution.options.day")} />
           </TabsSubtle>
         </div>
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
@@ -669,7 +614,7 @@ export function TokenUsageOverviewTab({
                   return (
                     <span
                       key={segmentId}
-                      className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-[11px] font-medium"
+                      className="inline-flex max-w-full min-w-0 items-center gap-1.5 text-[11px] font-medium"
                       style={{ color }}
                       title={label}
                     >
@@ -698,4 +643,3 @@ export function TokenUsageOverviewTab({
     </div>
   );
 }
-

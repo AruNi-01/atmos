@@ -16,11 +16,7 @@ export function shouldRefreshLeaderboardCache(
   nowMs: number,
   minIntervalMs = LEADERBOARD_WRITE_REFRESH_MIN_MS,
 ): boolean {
-  if (
-    updatedAtMs == null ||
-    !Number.isFinite(updatedAtMs) ||
-    updatedAtMs <= 0
-  ) {
+  if (updatedAtMs == null || !Number.isFinite(updatedAtMs) || updatedAtMs <= 0) {
     return true;
   }
   return nowMs - updatedAtMs >= minIntervalMs;
@@ -75,10 +71,7 @@ export function extractShareTotals(
     const computers = parsed.summary?.computer_count;
     return {
       tokens: typeof tokens === "number" && Number.isFinite(tokens) ? tokens : null,
-      cost:
-        includeCost && typeof cost === "number" && Number.isFinite(cost)
-          ? cost
-          : null,
+      cost: includeCost && typeof cost === "number" && Number.isFinite(cost) ? cost : null,
       ...(typeof computers === "number" && Number.isFinite(computers) && computers > 1
         ? { computer_count: Math.min(99, Math.floor(computers)) }
         : {}),
@@ -275,10 +268,7 @@ export async function getUsageLeaderboards(
   };
 }
 
-function pickViewer(
-  board: LeaderboardBoard,
-  handle: string | null,
-): LeaderboardEntry | null {
+function pickViewer(board: LeaderboardBoard, handle: string | null): LeaderboardEntry | null {
   if (!handle) return null;
   const inTop = board.entries.find((row) => row.handle === handle);
   if (inTop) return inTop;

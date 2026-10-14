@@ -2,10 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import {
-  createDefaultLayout,
-  splitPane,
-} from "@/app-shell/center-pane/center-pane-layout";
+import { createDefaultLayout, splitPane } from "@/app-shell/center-pane/center-pane-layout";
 import {
   fromCenterLayoutWire,
   mergeCenterSpaceThumbnails,
@@ -41,7 +38,19 @@ describe("center layout document", () => {
           ],
         },
       },
-      savedLayouts: [{ id: "layout-1", name: "Split", createdAt: 1, updatedAt: 1, panes: [], order: [], columnCount: 1, columnFractions: [1], rowFractions: [1] }],
+      savedLayouts: [
+        {
+          id: "layout-1",
+          name: "Split",
+          createdAt: 1,
+          updatedAt: 1,
+          panes: [],
+          order: [],
+          columnCount: 1,
+          columnFractions: [1],
+          rowFractions: [1],
+        },
+      ],
       overviewTabs: { "ws-1": true },
     });
     const wire = toCenterLayoutWire(local);
@@ -91,9 +100,7 @@ describe("center layout document", () => {
         },
       },
     );
-    expect(merged["ws-1"]?.spaces[0]?.thumbnailDataUrl).toBe(
-      "data:image/jpeg;base64,keep",
-    );
+    expect(merged["ws-1"]?.spaces[0]?.thumbnailDataUrl).toBe("data:image/jpeg;base64,keep");
   });
 
   it("strips thumbnails before a disk snapshot", () => {
@@ -146,10 +153,7 @@ describe("center layout document", () => {
     const dir = join(import.meta.dir, "..");
     const stage = readFileSync(join(dir, "CenterStage.tsx"), "utf8");
     const persist = readFileSync(join(dir, "center-layout/center-layout-persist.ts"), "utf8");
-    const layoutStore = readFileSync(
-      join(dir, "center-pane/center-pane-layout-store.ts"),
-      "utf8",
-    );
+    const layoutStore = readFileSync(join(dir, "center-pane/center-pane-layout-store.ts"), "utf8");
     expect(stage).toContain("syncCenterLayoutFromDisk");
     expect(stage).toContain("layoutDiskSynced");
     expect(stage).toContain("readCenterStageLastTab");

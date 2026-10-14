@@ -82,15 +82,11 @@ const GROUP_SET = new Set<string>(ACTIVITY_INDICATOR_GROUPS);
 const UNICODE_SET = new Set<string>(UNICODE_SPINNER_IDS);
 const ORB_SET = new Set<string>(ORB_VARIANT_IDS);
 
-export function isActivityIndicatorGroup(
-  value: unknown,
-): value is ActivityIndicatorGroup {
+export function isActivityIndicatorGroup(value: unknown): value is ActivityIndicatorGroup {
   return typeof value === "string" && GROUP_SET.has(value);
 }
 
-export function isActivityIndicatorStyle(
-  value: unknown,
-): value is ActivityIndicatorStyle {
+export function isActivityIndicatorStyle(value: unknown): value is ActivityIndicatorStyle {
   return typeof value === "string" && STYLE_SET.has(value);
 }
 
@@ -106,8 +102,7 @@ export function isOrbIndicatorId(value: unknown): value is OrbVariant {
 export function stylesForGroups(
   groups?: readonly ActivityIndicatorGroup[] | null,
 ): ActivityIndicatorStyle[] {
-  const resolved =
-    groups && groups.length > 0 ? groups : ACTIVITY_INDICATOR_GROUPS;
+  const resolved = groups && groups.length > 0 ? groups : ACTIVITY_INDICATOR_GROUPS;
   const styles: ActivityIndicatorStyle[] = [];
   for (const group of resolved) {
     if (!isActivityIndicatorGroup(group)) continue;

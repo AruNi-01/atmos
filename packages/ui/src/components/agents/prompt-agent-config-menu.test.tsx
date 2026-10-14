@@ -89,33 +89,33 @@ describe("PromptAgentConfigMenu headless tabs", () => {
     const reason = "Claude is not available headless";
     const markup = renderToStaticMarkup(
       <TooltipProvider>
-      <PromptAgentConfigMenu
-        menuInline
-        controlRadius="rounded-lg"
-        agents={[
-          { value: "codex", label: "Codex" },
-          { value: "claude", label: "Claude", disabled: true, disabledReason: reason },
-        ]}
-        agent="codex"
-        models={[]}
-        onModelChange={() => undefined}
-        favoriteModels={[
-          {
-            value: "opus",
-            label: "Opus",
-            agent: "claude",
-            disabled: true,
-            disabledReason: reason,
-          },
-        ]}
-        favoritesOpen
-        thinkingLevels={[]}
-        contextLevels={[]}
-        fastAvailable={false}
-        labels={labels}
-        onExtraArgsChange={() => undefined}
-        extraArgsLabel="Extra args"
-      />
+        <PromptAgentConfigMenu
+          menuInline
+          controlRadius="rounded-lg"
+          agents={[
+            { value: "codex", label: "Codex" },
+            { value: "claude", label: "Claude", disabled: true, disabledReason: reason },
+          ]}
+          agent="codex"
+          models={[]}
+          onModelChange={() => undefined}
+          favoriteModels={[
+            {
+              value: "opus",
+              label: "Opus",
+              agent: "claude",
+              disabled: true,
+              disabledReason: reason,
+            },
+          ]}
+          favoritesOpen
+          thinkingLevels={[]}
+          contextLevels={[]}
+          fastAvailable={false}
+          labels={labels}
+          onExtraArgsChange={() => undefined}
+          extraArgsLabel="Extra args"
+        />
       </TooltipProvider>,
     );
     expect(markup).toContain(`title="${reason}"`);

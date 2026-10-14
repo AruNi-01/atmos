@@ -1,4 +1,4 @@
-import * as React from 'react';
+import * as React from "react";
 
 import {
   Menu as MenuPrimitive,
@@ -37,9 +37,9 @@ import {
   type MenuShortcutProps as MenuShortcutPrimitiveProps,
   type MenuSubmenuProps as MenuSubmenuPrimitiveProps,
   type MenuSubmenuTriggerProps as MenuSubmenuTriggerPrimitiveProps,
-} from '../../primitives/base/menu';
-import { cn } from '../../../../lib/utils';
-import { CheckIcon, ChevronRightIcon, CircleIcon } from 'lucide-react';
+} from "../../primitives/base/menu";
+import { cn } from "../../../../lib/utils";
+import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react";
 
 type MenuProps = MenuPrimitiveProps;
 
@@ -72,21 +72,17 @@ function MenuPanel({
 }: MenuPanelProps) {
   return (
     <MenuPortal>
-      <MenuPositionerPrimitive
-        className="z-50"
-        sideOffset={sideOffset}
-        {...props}
-      >
+      <MenuPositionerPrimitive className="z-50" sideOffset={sideOffset} {...props}>
         <MenuPopupPrimitive
           finalFocus={finalFocus}
           transition={transition}
           id={id}
           className={cn(
-            'bg-popover text-popover-foreground max-h-(--available-height) min-w-[8rem] origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-xl border p-1 shadow-md outline-none',
+            "max-h-(--available-height) min-w-[8rem] origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-xl border bg-popover p-1 text-popover-foreground shadow-md outline-none",
             className,
           )}
         >
-          <MenuHighlightPrimitive className="absolute inset-0 bg-accent z-0 rounded-sm">
+          <MenuHighlightPrimitive className="absolute inset-0 z-0 rounded-sm bg-accent">
             {children}
           </MenuHighlightPrimitive>
         </MenuPopupPrimitive>
@@ -109,10 +105,7 @@ function MenuGroupLabel({ className, inset, ...props }: MenuGroupLabelProps) {
   return (
     <MenuGroupLabelPrimitive
       data-inset={inset}
-      className={cn(
-        'px-2 py-1.5 text-sm font-medium data-[inset]:pl-8',
-        className,
-      )}
+      className={cn("px-2 py-1.5 text-sm font-medium data-[inset]:pl-8", className)}
       {...props}
     />
   );
@@ -120,23 +113,13 @@ function MenuGroupLabel({ className, inset, ...props }: MenuGroupLabelProps) {
 
 type MenuItemProps = MenuItemPrimitiveProps & {
   inset?: boolean;
-  variant?: 'default' | 'destructive';
+  variant?: "default" | "destructive";
 };
 
-function MenuItem({
-  className,
-  inset,
-  variant = 'default',
-  disabled,
-  ...props
-}: MenuItemProps) {
+function MenuItem({ className, inset, variant = "default", disabled, ...props }: MenuItemProps) {
   return (
     <MenuHighlightItemPrimitive
-      activeClassName={
-        variant === 'destructive'
-          ? 'bg-destructive/10 dark:bg-destructive/20'
-          : ''
-      }
+      activeClassName={variant === "destructive" ? "bg-destructive/10 dark:bg-destructive/20" : ""}
       disabled={disabled}
     >
       <MenuItemPrimitive
@@ -144,7 +127,7 @@ function MenuItem({
         data-inset={inset}
         data-variant={variant}
         className={cn(
-          "focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:!text-destructive [&_svg:not([class*='text-'])]:text-muted-foreground relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+          "relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none focus:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-[inset]:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:text-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground data-[variant=destructive]:*:[svg]:!text-destructive",
           className,
         )}
         {...props}
@@ -167,7 +150,7 @@ function MenuCheckboxItem({
       <MenuCheckboxItemPrimitive
         disabled={disabled}
         className={cn(
-          "focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+          "relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none focus:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
           className,
         )}
         checked={checked}
@@ -195,18 +178,13 @@ function MenuRadioGroup(props: MenuRadioGroupProps) {
 
 type MenuRadioItemProps = MenuRadioItemPrimitiveProps;
 
-function MenuRadioItem({
-  className,
-  children,
-  disabled,
-  ...props
-}: MenuRadioItemProps) {
+function MenuRadioItem({ className, children, disabled, ...props }: MenuRadioItemProps) {
   return (
     <MenuHighlightItemPrimitive disabled={disabled}>
       <MenuRadioItemPrimitive
         disabled={disabled}
         className={cn(
-          "focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+          "relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none focus:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
           className,
         )}
         {...props}
@@ -226,10 +204,7 @@ type MenuSeparatorProps = MenuSeparatorPrimitiveProps;
 
 function MenuSeparator({ className, ...props }: MenuSeparatorProps) {
   return (
-    <MenuSeparatorPrimitive
-      className={cn('bg-border -mx-1 my-1 h-px', className)}
-      {...props}
-    />
+    <MenuSeparatorPrimitive className={cn("-mx-1 my-1 h-px bg-border", className)} {...props} />
   );
 }
 
@@ -238,10 +213,7 @@ type MenuShortcutProps = MenuShortcutPrimitiveProps;
 function MenuShortcut({ className, ...props }: MenuShortcutProps) {
   return (
     <MenuShortcutPrimitive
-      className={cn(
-        'text-muted-foreground ml-auto text-xs tracking-widest',
-        className,
-      )}
+      className={cn("ml-auto text-xs tracking-widest text-muted-foreground", className)}
       {...props}
     />
   );
@@ -277,8 +249,8 @@ function MenuSubmenuTrigger({
         disabled={disabled}
         data-inset={inset}
         className={cn(
-          'focus:text-accent-foreground data-[state=open]:text-accent-foreground flex cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[inset]:pl-8',
-          'aria-[expanded=true]:[&_[data-slot=chevron]]:rotate-90 [&_[data-slot=chevron]]:transition-transform [&_[data-slot=chevron]]:duration-300 [&_[data-slot=chevron]]:ease-in-out',
+          "flex cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none focus:text-accent-foreground data-[inset]:pl-8 data-[state=open]:text-accent-foreground",
+          "[&_[data-slot=chevron]]:transition-transform [&_[data-slot=chevron]]:duration-300 [&_[data-slot=chevron]]:ease-in-out aria-[expanded=true]:[&_[data-slot=chevron]]:rotate-90",
           className,
         )}
         {...props}
@@ -290,8 +262,7 @@ function MenuSubmenuTrigger({
   );
 }
 
-type MenuSubmenuPanelProps = MenuPopupPrimitiveProps &
-  MenuPositionerPrimitiveProps;
+type MenuSubmenuPanelProps = MenuPopupPrimitiveProps & MenuPositionerPrimitiveProps;
 
 function MenuSubmenuPanel({
   className,
@@ -304,17 +275,13 @@ function MenuSubmenuPanel({
 }: MenuSubmenuPanelProps) {
   return (
     <MenuPortal>
-      <MenuPositionerPrimitive
-        className="z-50"
-        sideOffset={sideOffset}
-        {...props}
-      >
+      <MenuPositionerPrimitive className="z-50" sideOffset={sideOffset} {...props}>
         <MenuPopupPrimitive
           finalFocus={finalFocus}
           transition={transition}
           id={id}
           className={cn(
-            'bg-popover text-popover-foreground max-h-(--available-height) min-w-[8rem] origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-xl border p-1 shadow-md',
+            "max-h-(--available-height) min-w-[8rem] origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-xl border bg-popover p-1 text-popover-foreground shadow-md",
             className,
           )}
         >

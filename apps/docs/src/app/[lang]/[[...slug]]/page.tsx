@@ -1,16 +1,14 @@
-import { getPageImage, source } from '@/lib/source';
-import { docsHomePath } from '@/lib/docs-paths';
-import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/layouts/docs/page';
-import { notFound, redirect } from 'next/navigation';
-import { getMDXComponents } from '@/mdx-components';
-import type { Metadata } from 'next';
-import { createRelativeLink } from 'fumadocs-ui/mdx';
-import { LLMCopyButton, ViewOptions } from '@/components/ai/page-actions';
-import { Overlay } from '@/components/overlay';
+import { getPageImage, source } from "@/lib/source";
+import { docsHomePath } from "@/lib/docs-paths";
+import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/layouts/docs/page";
+import { notFound, redirect } from "next/navigation";
+import { getMDXComponents } from "@/mdx-components";
+import type { Metadata } from "next";
+import { createRelativeLink } from "fumadocs-ui/mdx";
+import { LLMCopyButton, ViewOptions } from "@/components/ai/page-actions";
+import { Overlay } from "@/components/overlay";
 
-export default async function Page(props: {
-  params: Promise<{ lang: string; slug?: string[] }>;
-}) {
+export default async function Page(props: { params: Promise<{ lang: string; slug?: string[] }> }) {
   const { lang, slug } = await props.params;
 
   if (!slug || slug.length === 0) {
@@ -23,9 +21,9 @@ export default async function Page(props: {
   const loaded = await page.data.load();
   const MDX = loaded.body;
   const gitConfig = {
-    user: process.env.NEXT_PUBLIC_GIT_USER ?? 'AruNi-01',
-    repo: process.env.NEXT_PUBLIC_GIT_REPO ?? 'atmos',
-    branch: process.env.NEXT_PUBLIC_GIT_BRANCH ?? 'main',
+    user: process.env.NEXT_PUBLIC_GIT_USER ?? "AruNi-01",
+    repo: process.env.NEXT_PUBLIC_GIT_REPO ?? "atmos",
+    branch: process.env.NEXT_PUBLIC_GIT_BRANCH ?? "main",
   };
 
   return (
@@ -33,15 +31,15 @@ export default async function Page(props: {
       toc={loaded.toc}
       full={page.data.full}
       tableOfContent={{
-        style: 'clerk',
+        style: "clerk",
       }}
       tableOfContentPopover={{
-        style: 'clerk',
+        style: "clerk",
       }}
     >
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription className="mb-0">{page.data.description}</DocsDescription>
-      <div className="flex flex-row gap-2 items-center border-b pb-6">
+      <div className="flex flex-row items-center gap-2 border-b pb-6">
         <LLMCopyButton markdownUrl={`${page.url}.mdx`} />
         <ViewOptions
           markdownUrl={`${page.url}.mdx`}
@@ -72,7 +70,7 @@ export async function generateMetadata(props: {
   const { lang, slug } = await props.params;
 
   if (!slug || slug.length === 0) {
-    const introduction = source.getPage(['introduction'], lang);
+    const introduction = source.getPage(["introduction"], lang);
     if (!introduction) notFound();
     return {
       title: introduction.data.title,

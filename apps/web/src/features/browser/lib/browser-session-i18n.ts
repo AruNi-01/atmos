@@ -13,10 +13,7 @@ let cachedBrowserLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedBrowserTranslator: any = null;
 
-function formatBrowserFallbackMessage(
-  template: string,
-  values?: BrowserTranslationValues,
-): string {
+function formatBrowserFallbackMessage(template: string, values?: BrowserTranslationValues): string {
   if (!values) return template;
 
   return template.replace(/\{(\w+)\}/g, (_match, key: string) => {
@@ -26,11 +23,7 @@ function formatBrowserFallbackMessage(
 }
 
 /** Translate a browser.* key with fallback string (preview-era helper renamed). */
-export function browserT(
-  key: string,
-  fallback: string,
-  values?: BrowserTranslationValues,
-): string {
+export function browserT(key: string, fallback: string, values?: BrowserTranslationValues): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedBrowserTranslator || cachedBrowserLocale !== locale) {
     cachedBrowserLocale = locale;

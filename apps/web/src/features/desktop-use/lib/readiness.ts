@@ -62,10 +62,7 @@ function readStorage(): CacheRecord | null {
     const raw = window.localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CacheRecord;
-    if (
-      typeof parsed?.checkedAt !== "number" ||
-      typeof parsed?.ready !== "boolean"
-    ) {
+    if (typeof parsed?.checkedAt !== "number" || typeof parsed?.ready !== "boolean") {
       return null;
     }
     return parsed;
@@ -90,26 +87,18 @@ function isFresh(record: CacheRecord, at = now()): boolean {
   return age <= (record.ready ? READY_TTL_MS : NOT_READY_TTL_MS);
 }
 
-function derive(
-  doctor: DoctorPayload,
-  checkedAt: number,
-  fromCache: boolean,
-): DesktopUseReadiness {
+function derive(doctor: DoctorPayload, checkedAt: number, fromCache: boolean): DesktopUseReadiness {
   const notes = Array.isArray(doctor.notes) ? doctor.notes : [];
-  const cliInstalled =
-    doctor.cli_installed !== false && !notes.includes("cli_not_installed");
+  const cliInstalled = doctor.cli_installed !== false && !notes.includes("cli_not_installed");
   const cliMeetsRequirement =
     cliInstalled &&
     doctor.cli_meets_requirement !== false &&
     !notes.includes("cli_update_required");
   const engineInstalled = Boolean(doctor.engine_installed);
   const engineReady = Boolean(doctor.engine_ready);
-  const accessibility =
-    typeof doctor.accessibility === "boolean" ? doctor.accessibility : null;
+  const accessibility = typeof doctor.accessibility === "boolean" ? doctor.accessibility : null;
   const screenRecording =
-    typeof doctor.screen_recording === "boolean"
-      ? doctor.screen_recording
-      : null;
+    typeof doctor.screen_recording === "boolean" ? doctor.screen_recording : null;
 
   let reason: DesktopUseReadinessReason | null = null;
   if (!cliInstalled) {

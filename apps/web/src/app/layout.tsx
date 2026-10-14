@@ -51,7 +51,8 @@ const THEME_INIT_SCRIPT = `
 
 export const metadata: Metadata = {
   title: "ATMOS",
-  description: "An open-source platform designed for developers to organize their agentic life and build in a unified workspace",
+  description:
+    "An open-source platform designed for developers to organize their agentic life and build in a unified workspace",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -63,14 +64,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           they only run after hydration. That paints :root light first, then
           flips to dark and strobes the native window chrome.
         */}
-        <script
-          id="theme-init"
-          dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
-        />
+        <script id="theme-init" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body
-        className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
-      >
+      <body className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}>
         <NuqsAdapter>
           <ThemeProvider
             attribute="class"

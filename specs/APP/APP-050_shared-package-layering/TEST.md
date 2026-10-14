@@ -8,35 +8,35 @@ Governance spec: static doc review + optional/required cheap import gate. No Pla
 
 ## Coverage map
 
-| PRD | Scenarios |
-|-----|-----------|
-| M1, M9 | T-DOC-01 |
-| M2, M5, M6 | T-DOC-02, T-DOC-04, T-DOC-05 |
-| M3 | T-DEP-01 |
-| M4, M8 | T-DOC-03, T-DOC-06, T-DOC-07 |
-| M7 | T-DOC-08 |
-| M10, sequencing | T-SEQ-01 |
-| M11 | T-CI-01 |
-| Decision tree | T-DOC-09, T-DOC-10 |
+| PRD             | Scenarios                    |
+| --------------- | ---------------------------- |
+| M1, M9          | T-DOC-01                     |
+| M2, M5, M6      | T-DOC-02, T-DOC-04, T-DOC-05 |
+| M3              | T-DEP-01                     |
+| M4, M8          | T-DOC-03, T-DOC-06, T-DOC-07 |
+| M7              | T-DOC-08                     |
+| M10, sequencing | T-SEQ-01                     |
+| M11             | T-CI-01                      |
+| Decision tree   | T-DOC-09, T-DOC-10           |
 
 ## Execution map
 
-| ID | Method | Signals | Status |
-|----|--------|---------|--------|
-| T-DOC-01 | Review packages/AGENTS role table | all M1 packages + channel column | pending |
-| T-DOC-02 | Decision tree walk | multi-client DTO → api-types | pending |
-| T-DOC-03 | Root Agents rows | wire / client / shared linked | pending |
-| T-DOC-04 | shared AGENTS | terminal exception + NEVER main ws | pending |
-| T-DOC-05 | relay AGENTS | deployable not SDK | pending |
-| T-DOC-06 | packages/AGENTS | “API clients live in apps” **gone or rewritten** | pending |
-| T-DOC-07 | package.json names | @atmos/i18n, @atmos/config correct | pending |
-| T-DOC-08 | checklist present | multi-client PR bullets | pending |
-| T-DOC-09 | tree | single-client DTO → app | pending |
-| T-DOC-10 | tree | desktop IPC → electron | pending |
-| T-DEP-01 | matrix vs PRD M3 | edges match TECH §2 | pending |
-| T-SEQ-01 | review | global order matches 048/049 gates | pending |
-| T-CI-01 | script/test | illegal shared import fails | pending |
-| T-SYNC-01 | after 048/049 packages | package AGENTS link 050 | pending |
+| ID        | Method                            | Signals                                          | Status  |
+| --------- | --------------------------------- | ------------------------------------------------ | ------- |
+| T-DOC-01  | Review packages/AGENTS role table | all M1 packages + channel column                 | pending |
+| T-DOC-02  | Decision tree walk                | multi-client DTO → api-types                     | pending |
+| T-DOC-03  | Root Agents rows                  | wire / client / shared linked                    | pending |
+| T-DOC-04  | shared AGENTS                     | terminal exception + NEVER main ws               | pending |
+| T-DOC-05  | relay AGENTS                      | deployable not SDK                               | pending |
+| T-DOC-06  | packages/AGENTS                   | “API clients live in apps” **gone or rewritten** | pending |
+| T-DOC-07  | package.json names                | @atmos/i18n, @atmos/config correct               | pending |
+| T-DOC-08  | checklist present                 | multi-client PR bullets                          | pending |
+| T-DOC-09  | tree                              | single-client DTO → app                          | pending |
+| T-DOC-10  | tree                              | desktop IPC → electron                           | pending |
+| T-DEP-01  | matrix vs PRD M3                  | edges match TECH §2                              | pending |
+| T-SEQ-01  | review                            | global order matches 048/049 gates               | pending |
+| T-CI-01   | script/test                       | illegal shared import fails                      | pending |
+| T-SYNC-01 | after 048/049 packages            | package AGENTS link 050                          | pending |
 
 ## Scenarios
 
@@ -104,4 +104,4 @@ Governance spec: static doc review + optional/required cheap import gate. No Pla
 
 ## Coverage Status
 
-_Not run — pre-implementation (docs not yet applied to packages/*)._
+_Not run — pre-implementation (docs not yet applied to packages/\*)._

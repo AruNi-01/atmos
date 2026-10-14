@@ -38,15 +38,15 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   webServer: shouldStartWebServer
-      ? {
-          command: webServerCommand(),
-          cwd: webAppDir,
-          url: webHealthURL,
-          reuseExistingServer: shouldReuseWebServer && !isCI,
-          timeout: 900_000,
-          stdout: "pipe",
-          stderr: "pipe",
-        }
+    ? {
+        command: webServerCommand(),
+        cwd: webAppDir,
+        url: webHealthURL,
+        reuseExistingServer: shouldReuseWebServer && !isCI,
+        timeout: 900_000,
+        stdout: "pipe",
+        stderr: "pipe",
+      }
     : undefined,
   projects: [
     {

@@ -7,7 +7,10 @@ import {
 } from "./custom-agent-registry";
 import { provisionAcpForTerminalAgents } from "./provision-acp-for-terminal-agents";
 
-export { acpOnboardingTerminalIds, nativeChatHostsForTerminalSelection } from "./custom-agent-registry";
+export {
+  acpOnboardingTerminalIds,
+  nativeChatHostsForTerminalSelection,
+} from "./custom-agent-registry";
 
 export type EnableChatForOnboardingResult = {
   enabledNativeHosts: NativeChatHostId[];
@@ -44,21 +47,15 @@ export async function enableChatForOnboardingAgents(options: {
     options.onProgress?.({ step, current, total });
   };
 
-  const wantedNativeHosts = nativeChatHostsForTerminalSelection(
-    options.selectedTerminalIds,
-  );
+  const wantedNativeHosts = nativeChatHostsForTerminalSelection(options.selectedTerminalIds);
   const listedNatives = await agentApi.listNativeChatAgents().catch(() => ({
     agents: [] as Array<{ id: string; cli_present: boolean }>,
   }));
   const nativeHostsWithCli = wantedNativeHosts.filter((id) =>
     listedNatives.agents.some((agent) => agent.id === id && agent.cli_present),
   );
-  const remainingAcpIds = acpOnboardingTerminalIds(
-    options.selectedTerminalIds,
-    nativeHostsWithCli,
-  );
-  const total =
-    1 + (remainingAcpIds.length > 0 ? 1 : 0) + (includeDeepSeek ? 1 : 0);
+  const remainingAcpIds = acpOnboardingTerminalIds(options.selectedTerminalIds, nativeHostsWithCli);
+  const total = 1 + (remainingAcpIds.length > 0 ? 1 : 0) + (includeDeepSeek ? 1 : 0);
 
   report("native", total);
   const nativeResults = await Promise.allSettled(
@@ -69,10 +66,7 @@ export async function enableChatForOnboardingAgents(options: {
   );
   const enabledNativeHosts = nativeHostsWithCli.filter((id) => !nativeFailed.includes(id));
 
-  const acpIds = acpOnboardingTerminalIds(
-    options.selectedTerminalIds,
-    enabledNativeHosts,
-  );
+  const acpIds = acpOnboardingTerminalIds(options.selectedTerminalIds, enabledNativeHosts);
   let acpFailed: string[] = [];
   if (acpIds.length > 0) {
     report("acp", total);

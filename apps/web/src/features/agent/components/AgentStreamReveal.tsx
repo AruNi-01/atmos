@@ -58,26 +58,28 @@ export function AgentStreamReveal({
   return (
     <div
       className={cn("min-w-0", animating && "grid overflow-hidden", className)}
-      style={animating ? {
-        gridTemplateRows: open ? "1fr" : "0fr",
-        opacity: open ? 1 : 0,
-        filter: open ? "blur(0px)" : TREE_REVEAL_BLUR,
-        transform: open ? "translateY(0)" : TREE_REVEAL_LIFT,
-        ["--agent-reveal-fade" as string]: open ? "0px" : `${TREE_REVEAL_FADE_PX}px`,
-        maskImage: MASK,
-        WebkitMaskImage: MASK,
-        transition: [
-          `grid-template-rows ${TREE_LINE_MS}ms ${TREE_EASE}`,
-          `opacity ${TREE_LINE_MS}ms ${TREE_EASE}`,
-          `filter ${TREE_LINE_MS}ms ${TREE_EASE}`,
-          `transform ${TREE_LINE_MS}ms ${TREE_EASE}`,
-          `--agent-reveal-fade ${TREE_LINE_MS}ms ${TREE_EASE}`,
-        ].join(", "),
-      } : undefined}
+      style={
+        animating
+          ? {
+              gridTemplateRows: open ? "1fr" : "0fr",
+              opacity: open ? 1 : 0,
+              filter: open ? "blur(0px)" : TREE_REVEAL_BLUR,
+              transform: open ? "translateY(0)" : TREE_REVEAL_LIFT,
+              ["--agent-reveal-fade" as string]: open ? "0px" : `${TREE_REVEAL_FADE_PX}px`,
+              maskImage: MASK,
+              WebkitMaskImage: MASK,
+              transition: [
+                `grid-template-rows ${TREE_LINE_MS}ms ${TREE_EASE}`,
+                `opacity ${TREE_LINE_MS}ms ${TREE_EASE}`,
+                `filter ${TREE_LINE_MS}ms ${TREE_EASE}`,
+                `transform ${TREE_LINE_MS}ms ${TREE_EASE}`,
+                `--agent-reveal-fade ${TREE_LINE_MS}ms ${TREE_EASE}`,
+              ].join(", "),
+            }
+          : undefined
+      }
     >
-      <div className={cn("min-w-0", animating && "min-h-0 overflow-hidden")}>
-        {children}
-      </div>
+      <div className={cn("min-w-0", animating && "min-h-0 overflow-hidden")}>{children}</div>
     </div>
   );
 }

@@ -36,11 +36,7 @@ describe("appshot protocol", () => {
   });
 
   it("does not parse Appshot URLs that are not the first line", () => {
-    expect(
-      parseAppshotProtocol(
-        "Please inspect this:\natmos://appshots/1760000000000",
-      ),
-    ).toBeNull();
+    expect(parseAppshotProtocol("Please inspect this:\natmos://appshots/1760000000000")).toBeNull();
   });
 
   it("formats Appshot timestamps as MM-dd HH:mm", () => {

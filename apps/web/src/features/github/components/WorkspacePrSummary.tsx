@@ -2,13 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-  cn,
-} from "@workspace/ui";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from "@workspace/ui";
 import { ChecksStatusRing } from "@/features/github/components/ChecksStatusRing";
 import { WorkspacePrLifecycleIcon } from "@/features/github/components/WorkspacePrStatusIcon";
 import {
@@ -112,13 +106,9 @@ export function WorkspacePrSummary({
                 checksTone={presentation.checksTone}
                 className="size-3.5"
               />
-              <span className="shrink-0 font-semibold text-foreground">
-                #{presentation.number}
-              </span>
+              <span className="shrink-0 font-semibold text-foreground">#{presentation.number}</span>
               {!compact ? (
-                <span className="min-w-0 truncate text-muted-foreground">
-                  {presentation.title}
-                </span>
+                <span className="min-w-0 truncate text-muted-foreground">{presentation.title}</span>
               ) : null}
               <span
                 className={cn(
@@ -150,7 +140,7 @@ export function WorkspacePrSummary({
               }}
               className={cn(
                 "inline-flex shrink-0 items-center justify-center rounded-md p-0.5",
-                "hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                "hover:bg-muted/70 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none",
                 !hasChecks && "opacity-70",
               )}
               aria-label={checksTooltip}

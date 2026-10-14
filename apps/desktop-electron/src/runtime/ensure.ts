@@ -4,13 +4,7 @@
  */
 
 import { execFileSync, spawn } from "node:child_process";
-import {
-  appendFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -124,11 +118,10 @@ export function listPidsListeningOnPort(port: number): number[] {
   try {
     if (process.platform === "win32") {
       // netstat -ano | findstr :port — keep simple for mac/linux first
-      const out = execFileSync(
-        "cmd",
-        ["/c", `netstat -ano | findstr :${port}`],
-        { encoding: "utf8", timeout: 3000 },
-      );
+      const out = execFileSync("cmd", ["/c", `netstat -ano | findstr :${port}`], {
+        encoding: "utf8",
+        timeout: 3000,
+      });
       const pids = new Set<number>();
       for (const line of out.split(/\r?\n/)) {
         if (!/LISTENING/i.test(line)) continue;
@@ -139,11 +132,10 @@ export function listPidsListeningOnPort(port: number): number[] {
       }
       return [...pids];
     }
-    const out = execFileSync(
-      "lsof",
-      ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"],
-      { encoding: "utf8", timeout: 3000 },
-    );
+    const out = execFileSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"], {
+      encoding: "utf8",
+      timeout: 3000,
+    });
     return parseLsofPids(out);
   } catch {
     return [];
@@ -230,10 +222,7 @@ export async function reclaimPortWithoutDesktopUi(
   return { killed: pids, waitedMs: Date.now() - started };
 }
 
-export async function isHealthy(
-  host = DEFAULT_HOST,
-  port = DEFAULT_PORT,
-): Promise<boolean> {
+export async function isHealthy(host = DEFAULT_HOST, port = DEFAULT_PORT): Promise<boolean> {
   const url = `http://${host}:${port}/healthz`;
   try {
     const controller = new AbortController();
@@ -312,10 +301,7 @@ export async function probeDesktopUi(
   }
 }
 
-export async function isUiServed(
-  host = DEFAULT_HOST,
-  port = DEFAULT_PORT,
-): Promise<boolean> {
+export async function isUiServed(host = DEFAULT_HOST, port = DEFAULT_PORT): Promise<boolean> {
   return (await probeDesktopUi(host, port)).ok;
 }
 
@@ -421,8 +407,6 @@ export function stopOwnedAtmosServer(): {
   return { stopped: false, pid: null, reason: "shared_runtime" };
 }
 
-
-
 /** Test helper */
 export function setOwnedServerPidForTest(pid: number | null): void {
   ownedServerPid = pid;
@@ -438,10 +422,7 @@ export async function ensureAtmosServer(
 ): Promise<EnsureResult> {
   const host = options.host ?? DEFAULT_HOST;
   const port =
-    options.port ??
-    (process.env.ATMOS_PORT
-      ? parseInt(process.env.ATMOS_PORT, 10)
-      : DEFAULT_PORT);
+    options.port ?? (process.env.ATMOS_PORT ? parseInt(process.env.ATMOS_PORT, 10) : DEFAULT_PORT);
   const runtimeDir = options.runtimeDir ?? defaultRuntimeDir();
   const apiBin = apiBinaryPath(runtimeDir);
   const web = webDir(runtimeDir);
@@ -470,9 +451,7 @@ export async function ensureAtmosServer(
       ownedServerPid = null;
       const existingPid = listPidsListeningOnPort(port)[0] ?? null;
       writeManifest(host, port, existingPid);
-      ensureLog(
-        `reusing existing Atmos Server at http://${host}:${port} (UI OK)`,
-      );
+      ensureLog(`reusing existing Atmos Server at http://${host}:${port} (UI OK)`);
       return { host, port, runtimeDir, webDir: web, started: false, pid: null };
     }
     // e.g. leftover `just dev-api` / target/debug/api — healthz without static.
@@ -482,25 +461,13 @@ export async function ensureAtmosServer(
 
   const logPath = runtimeLogPath();
   mkdirSync(dirname(logPath), { recursive: true });
-  appendFileSync(
-    logPath,
-    `\n--- desktop-electron ensure ${new Date().toISOString()} ---\n`,
-  );
+  appendFileSync(logPath, `\n--- desktop-electron ensure ${new Date().toISOString()} ---\n`);
 
   // Shared production data dir (not a shell-forked desktop-electron sandbox).
   const dataDir = resolveAtmosDataDir();
   mkdirSync(dataDir, { recursive: true });
 
-  const pid = await spawnViaShell(
-    apiBin,
-    host,
-    port,
-    web,
-    skills,
-    dataDir,
-    logPath,
-    runtimeDir,
-  );
+  const pid = await spawnViaShell(apiBin, host, port, web, skills, dataDir, logPath, runtimeDir);
 
   const attempts = options.healthAttempts ?? 80;
   for (let i = 0; i < attempts; i++) {
@@ -637,11 +604,7 @@ function spawnViaShell(
     child.on("error", reject);
     child.on("close", (code) => {
       if (code !== 0 && code !== null) {
-        reject(
-          new Error(
-            stderr.trim() || `Atmos Server launcher shell exited ${code}`,
-          ),
-        );
+        reject(new Error(stderr.trim() || `Atmos Server launcher shell exited ${code}`));
         return;
       }
       const pid = parseInt(stdout.trim(), 10);

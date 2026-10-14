@@ -1,14 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import {
-  formatMdLiveSerializedMarkdown,
-  stringifyMdLiveDetails,
-} from "./markdown-stringify";
+import { formatMdLiveSerializedMarkdown, stringifyMdLiveDetails } from "./markdown-stringify";
 
 describe("formatMdLiveSerializedMarkdown", () => {
   test("drops standalone empty-paragraph br sentinels", () => {
-    expect(
-      formatMdLiveSerializedMarkdown("# Agent Hooks 设计\n\n<br />\n\n## 目标\n"),
-    ).toBe("# Agent Hooks 设计\n\n## 目标\n");
+    expect(formatMdLiveSerializedMarkdown("# Agent Hooks 设计\n\n<br />\n\n## 目标\n")).toBe(
+      "# Agent Hooks 设计\n\n## 目标\n",
+    );
   });
 
   test("turns empty table cells into empty cells instead of br", () => {

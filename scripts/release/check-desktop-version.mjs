@@ -26,7 +26,7 @@ function extractCargoVersion(content) {
 
   const versionMatch = packageSectionMatch[1].match(/^\s*version\s*=\s*"([^"]+)"\s*$/m);
   if (!versionMatch) {
-    throw new Error('Could not find package version in Cargo.toml');
+    throw new Error("Could not find package version in Cargo.toml");
   }
 
   return versionMatch[1];
@@ -112,7 +112,10 @@ function main() {
   const cargoVersion = extractCargoVersion(readText(files.cargo));
   const tauriText = readText(files.tauri);
   const tauriVersion = extractJsonVersion(tauriText, "tauri.conf.json");
-  const packageVersion = extractJsonVersion(readText(files.packageJson), "apps/desktop/package.json");
+  const packageVersion = extractJsonVersion(
+    readText(files.packageJson),
+    "apps/desktop/package.json",
+  );
   const releaseTag = getReleaseTagFromArgs(process.argv.slice(2));
 
   console.log("Desktop version check");

@@ -28,6 +28,7 @@ This guide covers how to set up your environment and start developing for ATMOS.
 ```bash
 just dev-web
 ```
+
 Runs the Next.js development server.
 
 ### API Development (`apps/api`)
@@ -35,6 +36,7 @@ Runs the Next.js development server.
 ```bash
 just dev-api
 ```
+
 Runs the Rust API server.
 
 ### Desktop Development (`apps/desktop`)
@@ -53,6 +55,7 @@ If `cargo check -p atmos-desktop` fails with missing `binaries/runtime/current`,
 ## Testing
 
 Run all tests:
+
 ```bash
 just test
 ```

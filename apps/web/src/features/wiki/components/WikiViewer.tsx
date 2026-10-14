@@ -2,21 +2,10 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  Button,
-  Panel,
-  PanelGroup,
-  PanelResizeHandle,
-  cn,
-} from "@workspace/ui";
+import { Button, Panel, PanelGroup, PanelResizeHandle, cn } from "@workspace/ui";
 import type { ImperativePanelHandle } from "@workspace/ui";
 import { useAppStorage } from "@atmos/shared";
-import {
-  AlertTriangle,
-  LoaderCircle,
-  PanelLeft,
-  RotateCw,
-} from "lucide-react";
+import { AlertTriangle, LoaderCircle, PanelLeft, RotateCw } from "lucide-react";
 import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
 import { ResizeFollowMark } from "@/app-shell/ResizeFollowMark";
 import { useWikiContext } from "@/features/wiki/store/use-wiki-store";
@@ -110,7 +99,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
       const slug = file.replace(/\.md$/, "");
       onWikiPageChange(slug);
     },
-    [effectivePath, loadPage, onWikiPageChange]
+    [effectivePath, loadPage, onWikiPageChange],
   );
 
   // After catalog loads, check if wiki is outdated (commit changed)
@@ -145,8 +134,8 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
   // Loading state
   if (catalogLoading) {
     return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
-        <LoaderCircle className="size-4 animate-spin mr-2" />
+      <div className="flex h-full items-center justify-center text-muted-foreground">
+        <LoaderCircle className="mr-2 size-4 animate-spin" />
         {t("loadingCatalog")}
       </div>
     );
@@ -155,15 +144,11 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
   // Error state
   if (catalogError || (!catalogLoading && !catalog)) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
         <AlertTriangle className="size-5 text-destructive" />
         <p className="text-sm">{catalogError || t("loadError")}</p>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => loadCatalog(effectivePath)}
-        >
-          <RotateCw className="size-3.5 mr-1.5" />
+        <Button variant="outline" size="sm" onClick={() => loadCatalog(effectivePath)}>
+          <RotateCw className="mr-1.5 size-3.5" />
           {t("retry")}
         </Button>
       </div>
@@ -173,7 +158,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
   if (!catalog) return null;
 
   return (
-    <div className="flex h-full overflow-hidden relative">
+    <div className="relative flex h-full overflow-hidden">
       <PanelGroup
         direction="horizontal"
         className="flex-1 overflow-hidden"
@@ -193,7 +178,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
           className={cn(
             "h-full",
             !isDragging && "transition-[flex-grow,flex-shrink,basis] duration-300 ease-in-out",
-            isSidebarCollapsed && "min-w-0!"
+            isSidebarCollapsed && "min-w-0!",
           )}
         >
           <WikiSidebar
@@ -210,7 +195,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
         <PanelResizeHandle
           onDragging={setIsDragging}
           className={cn(
-            "relative flex w-3 -mx-1.5 items-center justify-center overflow-visible bg-transparent group touch-none",
+            "group relative -mx-1.5 flex w-3 touch-none items-center justify-center overflow-visible bg-transparent",
           )}
         >
           <ResizeFollowMark axis="vertical" dragging={isDragging} onFold={foldSidebar} />
@@ -224,10 +209,10 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
             }}
             title={isSidebarCollapsed ? t("expandSidebar") : t("collapseSidebar")}
             className={cn(
-              "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-[opacity,transform] duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100",
+              "absolute z-50 flex size-5 items-center justify-center rounded-full border border-border bg-muted opacity-0 shadow-lg transition-[opacity,transform] duration-200 group-hover:opacity-100 hover:scale-110 hover:bg-muted/80",
               "left-1/2 -translate-x-1/2",
               panelFoldCursorClass("left", isSidebarCollapsed),
-              isSidebarCollapsed && "hover:opacity-100! hover:bg-accent!"
+              isSidebarCollapsed && "hover:bg-accent! hover:opacity-100!",
             )}
           >
             <PanelLeft className="size-3 text-muted-foreground" />

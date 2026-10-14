@@ -2,7 +2,10 @@
 
 import React from "react";
 
-import { AttachmentBar, type ComposerAttachment } from "@/features/welcome/components/AttachmentBar";
+import {
+  AttachmentBar,
+  type ComposerAttachment,
+} from "@/features/welcome/components/AttachmentBar";
 import {
   PromptComposer,
   type AtTriggerContext,
@@ -55,7 +58,9 @@ export function WelcomeComposerCard({
 }: {
   attachments: ComposerAttachment[];
   composerRef: React.RefObject<ComposerHandle | null>;
-  createWorkspaceLabel?: React.ComponentProps<typeof WelcomeComposerControls>["createWorkspaceLabel"];
+  createWorkspaceLabel?: React.ComponentProps<
+    typeof WelcomeComposerControls
+  >["createWorkspaceLabel"];
   disabledSubmit: boolean;
   isInitialProjectsLoading: boolean;
   isSubmitting: boolean;
@@ -140,7 +145,7 @@ export function WelcomeComposerCard({
         </div>
         {footer}
       </div>
-      <WelcomeComposerSparkles className="absolute left-1/2 top-full z-0 -translate-x-1/2 -translate-y-px" />
+      <WelcomeComposerSparkles className="absolute top-full left-1/2 z-0 -translate-x-1/2 -translate-y-px" />
     </div>
   );
 }

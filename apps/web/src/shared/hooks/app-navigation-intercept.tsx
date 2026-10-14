@@ -39,9 +39,7 @@ export function runRegisteredAppNavigationGuard(target: AppNavigationTarget): bo
   return registeredGuard?.(target) === true;
 }
 
-export function useRegisteredAppNavigationGuard(
-  guard: AppNavigationInterceptor | null,
-) {
+export function useRegisteredAppNavigationGuard(guard: AppNavigationInterceptor | null) {
   useEffect(() => {
     registeredGuard = guard;
     return () => {

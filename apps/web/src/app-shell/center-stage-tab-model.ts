@@ -70,11 +70,7 @@ export function isFileLikeCenterTabKind(kind: CenterTabKind): boolean {
 }
 
 export function isGithubCenterTabKind(kind: CenterTabKind): boolean {
-  return (
-    kind === "github-pr" ||
-    kind === "github-issue" ||
-    kind === "github-action"
-  );
+  return kind === "github-pr" || kind === "github-issue" || kind === "github-action";
 }
 
 /**
@@ -212,9 +208,7 @@ export function resolveCenterStripShortcutTabIds(input: {
       ? input.membershipIds.filter((id) => paneTabIds.includes(id))
       : [...input.membershipIds];
   const savedOrder =
-    paneTabIds != null && paneTabIds.length > 0
-      ? paneTabIds
-      : input.savedStripOrder;
+    paneTabIds != null && paneTabIds.length > 0 ? paneTabIds : input.savedStripOrder;
   return orderIdsBySavedOrder(membership, savedOrder);
 }
 
@@ -241,9 +235,7 @@ export function appendCenterTabToStripOrder(
  * Block non-primary pointer from activating a tab (right-click must not switch).
  * Call from onPointerDown on CenterStageTab.
  */
-export function preventNonPrimaryTabActivate(
-  event: PointerEvent | MouseEvent,
-): void {
+export function preventNonPrimaryTabActivate(event: PointerEvent | MouseEvent): void {
   if ("button" in event && event.button !== 0) {
     event.preventDefault();
     event.stopPropagation();

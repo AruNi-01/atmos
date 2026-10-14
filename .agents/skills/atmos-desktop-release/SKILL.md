@@ -18,11 +18,11 @@ Atmos-specific **production desktop** release workflow (Electron ship path).
 
 ## What this skill owns
 
-1. validate repository state  
-2. bump `apps/desktop-electron/package.json`  
-3. create/push `desktop-electron-<version>`  
-4. generate release notes under `releasenotes/`  
-5. let `.github/workflows/release-desktop-electron.yml` package and publish  
+1. validate repository state
+2. bump `apps/desktop-electron/package.json`
+3. create/push `desktop-electron-<version>`
+4. generate release notes under `releasenotes/`
+5. let `.github/workflows/release-desktop-electron.yml` package and publish
 
 **Does not** run the deprecated Tauri workflow (`release-desktop.yml` / Homebrew-only Tauri path).
 
@@ -48,14 +48,14 @@ just release-desktop-dry-run <version>
 
 ## Repository model (production)
 
-| Item | Value |
-|------|--------|
-| Tag | `desktop-electron-<version>` |
-| Version file | `apps/desktop-electron/package.json` |
-| App id | `com.atmos.desktop` |
-| Product name | `Atmos` |
-| Workflow | `.github/workflows/release-desktop-electron.yml` |
-| Notes | `releasenotes/Atmos Desktop <version>.md` (preferred) |
+| Item         | Value                                                 |
+| ------------ | ----------------------------------------------------- |
+| Tag          | `desktop-electron-<version>`                          |
+| Version file | `apps/desktop-electron/package.json`                  |
+| App id       | `com.atmos.desktop`                                   |
+| Product name | `Atmos`                                               |
+| Workflow     | `.github/workflows/release-desktop-electron.yml`      |
+| Notes        | `releasenotes/Atmos Desktop <version>.md` (preferred) |
 
 ## Release notes writing
 
@@ -118,12 +118,12 @@ Full command recipes: [references/failure-recovery.md](references/failure-recove
 
 ### Decision tree
 
-| Situation | Prefer | Avoid |
-|-----------|--------|--------|
-| Transient CI (timeout, runner, network); **no code change** | `gh run rerun <run-id> --failed` | New version |
-| True bug; fix lands on `main`; version is **beta/rc dogfood** and **nobody relies on the broken build** | **Same-version retag** (delete release + move tag to fixed commit) | Auto-bump to beta.N+1 |
-| True bug; fix needs a new cut but **users/updater already use this version**, or release is **stable / announced** | New version (`beta.N+1` / next calendar / patch) | Force-moving a published stable tag |
-| Want to validate packaging **before** tagging | `workflow_dispatch` with `create_release=false` on a branch/SHA | Premature tag + failed public release |
+| Situation                                                                                                          | Prefer                                                             | Avoid                                 |
+| ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------- |
+| Transient CI (timeout, runner, network); **no code change**                                                        | `gh run rerun <run-id> --failed`                                   | New version                           |
+| True bug; fix lands on `main`; version is **beta/rc dogfood** and **nobody relies on the broken build**            | **Same-version retag** (delete release + move tag to fixed commit) | Auto-bump to beta.N+1                 |
+| True bug; fix needs a new cut but **users/updater already use this version**, or release is **stable / announced** | New version (`beta.N+1` / next calendar / patch)                   | Force-moving a published stable tag   |
+| Want to validate packaging **before** tagging                                                                      | `workflow_dispatch` with `create_release=false` on a branch/SHA    | Premature tag + failed public release |
 
 ### Rules of thumb
 
@@ -161,11 +161,11 @@ Before cutting a tag when the last change risked packaging:
 
 ## Never
 
-- never cut a new **Tauri** desktop release for production ship  
-- never use `desktop-<version>` Tauri tags for the production Electron package  
-- never invent a generic “upload assets by hand” flow when this automation exists  
-- never bump beta/rc solely because a CI job failed when same-version retag is safe  
-- never force-move a **stable** tag or overwrite a release users already installed  
+- never cut a new **Tauri** desktop release for production ship
+- never use `desktop-<version>` Tauri tags for the production Electron package
+- never invent a generic “upload assets by hand” flow when this automation exists
+- never bump beta/rc solely because a CI job failed when same-version retag is safe
+- never force-move a **stable** tag or overwrite a release users already installed
 
 ## Summary
 

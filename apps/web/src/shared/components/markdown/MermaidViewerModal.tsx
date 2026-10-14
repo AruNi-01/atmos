@@ -74,17 +74,20 @@ export function MermaidViewerModal({
     setIsEditingZoom(false);
   }, [zoomInput, zoom, applyZoom]);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    setIsDragging(true);
-    dragStartRef.current = {
-      x: e.clientX,
-      y: e.clientY,
-      translateX: translate.x,
-      translateY: translate.y,
-    };
-  }, [translate]);
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      setIsDragging(true);
+      dragStartRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+        translateX: translate.x,
+        translateY: translate.y,
+      };
+    },
+    [translate],
+  );
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
@@ -96,7 +99,7 @@ export function MermaidViewerModal({
         y: dragStartRef.current.translateY + dy,
       });
     },
-    [isDragging]
+    [isDragging],
   );
 
   const handleMouseUp = useCallback(() => {
@@ -121,15 +124,15 @@ export function MermaidViewerModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[95vw] sm:max-w-[95vw] max-h-[95vh] w-[min(1600px,95vw)] h-[min(900px,92vh)] p-0 overflow-hidden flex flex-col"
+        className="flex h-[min(900px,92vh)] max-h-[95vh] w-[min(1600px,95vw)] max-w-[95vw] flex-col overflow-hidden p-0 sm:max-w-[95vw]"
       >
         <DialogTitle className="sr-only">{t("title")}</DialogTitle>
         {/* Toolbar */}
-        <div className="flex items-center justify-end gap-1 px-3 py-2 shrink-0">
+        <div className="flex shrink-0 items-center justify-end gap-1 px-3 py-2">
           <button
             onClick={handleZoomOut}
             disabled={zoom <= MIN_ZOOM}
-            className="size-8 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
             title={t("zoomOut")}
           >
             <Minus className="size-4" />
@@ -150,10 +153,10 @@ export function MermaidViewerModal({
                     setIsEditingZoom(false);
                   }
                 }}
-                className="w-10 text-xs text-center tabular-nums bg-transparent border border-border rounded px-1 py-0.5 text-foreground outline-none focus:border-ring"
+                className="w-10 rounded border border-border bg-transparent px-1 py-0.5 text-center text-xs text-foreground tabular-nums outline-none focus:border-ring"
                 autoFocus
               />
-              <span className="text-xs text-muted-foreground ml-0.5">%</span>
+              <span className="ml-0.5 text-xs text-muted-foreground">%</span>
             </div>
           ) : (
             <button
@@ -161,7 +164,7 @@ export function MermaidViewerModal({
                 setIsEditingZoom(true);
                 setZoomInput(String(Math.round(zoom * 100)));
               }}
-              className="text-xs text-muted-foreground hover:text-foreground min-w-[3ch] text-center tabular-nums cursor-pointer"
+              className="min-w-[3ch] cursor-pointer text-center text-xs text-muted-foreground tabular-nums hover:text-foreground"
               title={t("editZoom")}
             >
               {Math.round(zoom * 100)}%
@@ -170,14 +173,14 @@ export function MermaidViewerModal({
           <button
             onClick={handleZoomIn}
             disabled={zoom >= MAX_ZOOM}
-            className="size-8 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
             title={t("zoomIn")}
           >
             <Plus className="size-4" />
           </button>
           <button
             onClick={() => onOpenChange(false)}
-            className="size-8 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground cursor-pointer"
+            className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
             title={t("close")}
           >
             <X className="size-4" />
@@ -187,8 +190,8 @@ export function MermaidViewerModal({
         {/* Canvas area - drag to pan */}
         <div
           className={cn(
-            "flex-1 overflow-hidden relative",
-            isDragging ? "cursor-grabbing" : "cursor-grab"
+            "relative flex-1 overflow-hidden",
+            isDragging ? "cursor-grabbing" : "cursor-grab",
           )}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}

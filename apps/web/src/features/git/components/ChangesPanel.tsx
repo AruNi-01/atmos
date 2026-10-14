@@ -28,10 +28,7 @@ import { activateCenterChromeTab } from "@/app-shell/center-stage-activate";
 import type { GitChangedFile } from "@/api/ws-api";
 import { useSidebarUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import { ChangeSection } from "@/app-shell/sidebar/ChangeSection";
-import {
-  ChangesToolbar,
-  type ChangesDiffScope,
-} from "@/app-shell/sidebar/ChangesToolbar";
+import { ChangesToolbar, type ChangesDiffScope } from "@/app-shell/sidebar/ChangesToolbar";
 import { CommitActionsContainer } from "@/app-shell/sidebar/CommitActionsContainer";
 import type { Project, Workspace } from "@/shared/types/domain";
 
@@ -135,8 +132,8 @@ export function ChangesPanel({
 
   const currentBranch = statusQuery.data?.current_branch ?? null;
   const changesScopeKey = `${currentProjectPath ?? ""}:${currentBranch ?? ""}`;
-  const [changesScopeState, setChangesScopeState] = useState<ChangesScopeState>(
-    () => defaultChangesScopeState(changesScopeKey),
+  const [changesScopeState, setChangesScopeState] = useState<ChangesScopeState>(() =>
+    defaultChangesScopeState(changesScopeKey),
   );
   const activeChangesScopeState =
     changesScopeState.key === changesScopeKey
@@ -159,9 +156,7 @@ export function ChangesPanel({
   const setChangesScopeMenuOpen = useCallback(
     (open: boolean) => {
       setChangesScopeState((current) => ({
-        ...(current.key === changesScopeKey
-          ? current
-          : defaultChangesScopeState(changesScopeKey)),
+        ...(current.key === changesScopeKey ? current : defaultChangesScopeState(changesScopeKey)),
         menuOpen: open,
       }));
     },
@@ -210,9 +205,7 @@ export function ChangesPanel({
   ]);
   const isEmptyStateLoading =
     isLoading ||
-    (changesScope !== "branch" &&
-      changesScope !== "commit" &&
-      branchRecommendationQuery.isLoading);
+    (changesScope !== "branch" && changesScope !== "commit" && branchRecommendationQuery.isLoading);
 
   const handleSelectChangesScope = useCallback(
     (scope: Exclude<ChangesDiffScope, "commit">) => {
@@ -279,12 +272,7 @@ export function ChangesPanel({
       handleSelectChangesScope(pendingScopeRequest.scope);
     }
     consumeScopeRequest(pendingScopeRequest.token);
-  }, [
-    consumeScopeRequest,
-    handleSelectChangesScope,
-    handleSelectCommitScope,
-    pendingScopeRequest,
-  ]);
+  }, [consumeScopeRequest, handleSelectChangesScope, handleSelectCommitScope, pendingScopeRequest]);
 
   const stageAllChangesFn = useCallback(async () => {
     await stageFiles(collectStageAllPaths(unstagedFiles, untrackedFiles));
@@ -336,161 +324,152 @@ export function ChangesPanel({
       </div>
 
       <div className="min-h-0 flex-1">
-        <ScrollArea
-          scrollFade
-          className="h-full"
-          viewportClassName="p-2"
-        >
-        <div
-          className={cn(
-            !hasDisplayedChanges &&
-              !isEmptyStateLoading &&
-              "flex min-h-full items-center justify-center",
-          )}
-        >
-          {!hasDisplayedChanges && !isEmptyStateLoading ? (
-            <div
-              className={cn(
-                "flex min-h-40 w-full flex-col justify-center gap-2",
-                changeScopeRecommendations.length > 0
-                  ? "px-1"
-                  : "items-center text-muted-foreground/50",
-              )}
-            >
+        <ScrollArea scrollFade className="h-full" viewportClassName="p-2">
+          <div
+            className={cn(
+              !hasDisplayedChanges &&
+                !isEmptyStateLoading &&
+                "flex min-h-full items-center justify-center",
+            )}
+          >
+            {!hasDisplayedChanges && !isEmptyStateLoading ? (
               <div
                 className={cn(
-                  "flex gap-2",
+                  "flex min-h-40 w-full flex-col justify-center gap-2",
                   changeScopeRecommendations.length > 0
-                    ? "items-center px-2 text-muted-foreground/60"
-                    : "flex-col items-center",
+                    ? "px-1"
+                    : "items-center text-muted-foreground/50",
                 )}
               >
-                {changeScopeRecommendations.length === 0 ? (
-                  <Check className="mb-2 size-8 opacity-20" />
+                <div
+                  className={cn(
+                    "flex gap-2",
+                    changeScopeRecommendations.length > 0
+                      ? "items-center px-2 text-muted-foreground/60"
+                      : "flex-col items-center",
+                  )}
+                >
+                  {changeScopeRecommendations.length === 0 ? (
+                    <Check className="mb-2 size-8 opacity-20" />
+                  ) : null}
+                  <span className="text-xs">
+                    {changesScope === "commit" && selectedCommitLabel
+                      ? t("changes.noCommitChanges", {
+                          commit: selectedCommitLabel,
+                        })
+                      : emptyCompareLabel
+                        ? t("changes.noChangesAgainst", {
+                            compareRef: emptyCompareLabel,
+                          })
+                        : t("changes.noChangesDetected")}
+                  </span>
+                </div>
+
+                {changeScopeRecommendations.length > 0 ? (
+                  <div className="flex flex-col gap-0.5">
+                    {changeScopeRecommendations.map((recommendation) => {
+                      const label =
+                        recommendation.scope === "branch"
+                          ? t("changes.branchChanges")
+                          : recommendation.scope === "staged"
+                            ? t("changes.stagedChanges")
+                            : t("changes.unstagedChanges");
+                      const ScopeIcon = recommendation.scope === "branch" ? GitBranch : FileDiff;
+
+                      return (
+                        <button
+                          key={recommendation.scope}
+                          type="button"
+                          onClick={() => handleSelectChangesScope(recommendation.scope)}
+                          className="group flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left hover:bg-sidebar-accent/50 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+                        >
+                          <ScopeIcon className="size-3.5 shrink-0 text-muted-foreground/70 group-hover:text-foreground" />
+                          <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground group-hover:text-foreground">
+                            {label}
+                          </span>
+                          <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] font-medium tabular-nums">
+                            {recommendation.additions > 0 ? (
+                              <span className="text-emerald-500">+{recommendation.additions}</span>
+                            ) : null}
+                            {recommendation.deletions > 0 ? (
+                              <span className="text-red-500">-{recommendation.deletions}</span>
+                            ) : null}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 ) : null}
-                <span className="text-xs">
-                  {changesScope === "commit" && selectedCommitLabel
-                    ? t("changes.noCommitChanges", {
+
+                {changesScope === "branch" && !compareRef && gitStatus?.default_branch ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 self-center px-2 text-[11px]"
+                    onClick={() => {
+                      void compareAgainstDefaultBranch();
+                    }}
+                  >
+                    {t("changes.compareWithDefaultBranch", {
+                      branch: gitStatus.default_branch,
+                    })}
+                  </Button>
+                ) : null}
+              </div>
+            ) : changesScope === "branch" || changesScope === "commit" ? (
+              <ChangeSection
+                kind={changesScope === "commit" ? "commit" : "branch"}
+                title={
+                  changesScope === "commit" && selectedCommitLabel
+                    ? t("changes.commitChanges", {
                         commit: selectedCommitLabel,
                       })
-                    : emptyCompareLabel
-                      ? t("changes.noChangesAgainst", {
-                          compareRef: emptyCompareLabel,
-                        })
-                      : t("changes.noChangesDetected")}
-                </span>
-              </div>
-
-              {changeScopeRecommendations.length > 0 ? (
-                <div className="flex flex-col gap-0.5">
-                  {changeScopeRecommendations.map((recommendation) => {
-                    const label =
-                      recommendation.scope === "branch"
-                        ? t("changes.branchChanges")
-                        : recommendation.scope === "staged"
-                          ? t("changes.stagedChanges")
-                          : t("changes.unstagedChanges");
-                    const ScopeIcon =
-                      recommendation.scope === "branch" ? GitBranch : FileDiff;
-
-                    return (
-                      <button
-                        key={recommendation.scope}
-                        type="button"
-                        onClick={() => handleSelectChangesScope(recommendation.scope)}
-                        className="group flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left hover:bg-sidebar-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      >
-                        <ScopeIcon className="size-3.5 shrink-0 text-muted-foreground/70 group-hover:text-foreground" />
-                        <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground group-hover:text-foreground">
-                          {label}
-                        </span>
-                        <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] font-medium tabular-nums">
-                          {recommendation.additions > 0 ? (
-                            <span className="text-emerald-500">
-                              +{recommendation.additions}
-                            </span>
-                          ) : null}
-                          {recommendation.deletions > 0 ? (
-                            <span className="text-red-500">
-                              -{recommendation.deletions}
-                            </span>
-                          ) : null}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-
-              {changesScope === "branch" && !compareRef && gitStatus?.default_branch ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 self-center px-2 text-[11px]"
-                  onClick={() => {
-                    void compareAgainstDefaultBranch();
-                  }}
-                >
-                  {t("changes.compareWithDefaultBranch", {
-                    branch: gitStatus.default_branch,
-                  })}
-                </Button>
-              ) : null}
-            </div>
-          ) : changesScope === "branch" || changesScope === "commit" ? (
-            <ChangeSection
-              kind={changesScope === "commit" ? "commit" : "branch"}
-              title={
-                changesScope === "commit" && selectedCommitLabel
-                  ? t("changes.commitChanges", {
-                      commit: selectedCommitLabel,
-                    })
-                  : t("changes.branchChanges")
-              }
-              files={displayedComparedFiles}
-              workspaceId={workspaceId}
-              contextId={contextId}
-              viewMode={changesFileViewMode}
-              hideHeader
-            />
-          ) : changesScope === "staged" ? (
-            <ChangeSection
-              kind="staged"
-              title={t("changes.stagedChanges")}
-              files={displayedStagedFiles}
-              workspaceId={workspaceId}
-              contextId={contextId}
-              viewMode={changesFileViewMode}
-              hideHeader
-              onUnstage={unstageFiles}
-            />
-          ) : (
-            <>
-              <ChangeSection
-                kind="unstaged"
-                title={t("changes.unstagedChanges")}
-                files={displayedUnstagedFiles}
+                    : t("changes.branchChanges")
+                }
+                files={displayedComparedFiles}
                 workspaceId={workspaceId}
                 contextId={contextId}
                 viewMode={changesFileViewMode}
                 hideHeader
-                onStage={stageFiles}
-                onDiscard={discardUnstagedChanges}
               />
+            ) : changesScope === "staged" ? (
               <ChangeSection
-                kind="untracked"
-                title={t("changes.untrackedChanges")}
-                files={displayedUntrackedFiles}
+                kind="staged"
+                title={t("changes.stagedChanges")}
+                files={displayedStagedFiles}
                 workspaceId={workspaceId}
                 contextId={contextId}
                 viewMode={changesFileViewMode}
                 hideHeader
-                onStage={stageFiles}
-                onDiscard={discardUntrackedFiles}
+                onUnstage={unstageFiles}
               />
-            </>
-          )}
-        </div>
+            ) : (
+              <>
+                <ChangeSection
+                  kind="unstaged"
+                  title={t("changes.unstagedChanges")}
+                  files={displayedUnstagedFiles}
+                  workspaceId={workspaceId}
+                  contextId={contextId}
+                  viewMode={changesFileViewMode}
+                  hideHeader
+                  onStage={stageFiles}
+                  onDiscard={discardUnstagedChanges}
+                />
+                <ChangeSection
+                  kind="untracked"
+                  title={t("changes.untrackedChanges")}
+                  files={displayedUntrackedFiles}
+                  workspaceId={workspaceId}
+                  contextId={contextId}
+                  viewMode={changesFileViewMode}
+                  hideHeader
+                  onStage={stageFiles}
+                  onDiscard={discardUntrackedFiles}
+                />
+              </>
+            )}
+          </div>
         </ScrollArea>
       </div>
 

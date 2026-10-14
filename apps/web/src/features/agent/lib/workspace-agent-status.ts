@@ -15,11 +15,7 @@ export type WorkspaceAgentStatusView =
  * Sidebar / kanban grouping buckets for live Agent activity.
  * Distinct from workflow `By Status` (`backlog` / `todo` / …).
  */
-export type WorkspaceAgentGroupKey =
-  | "permission"
-  | "attention"
-  | "running"
-  | "done";
+export type WorkspaceAgentGroupKey = "permission" | "attention" | "running" | "done";
 
 export const WORKSPACE_AGENT_GROUP_ORDER: WorkspaceAgentGroupKey[] = [
   "permission",
@@ -28,9 +24,7 @@ export const WORKSPACE_AGENT_GROUP_ORDER: WorkspaceAgentGroupKey[] = [
   "done",
 ];
 
-const WORKSPACE_AGENT_GROUP_KEYS = new Set<WorkspaceAgentGroupKey>(
-  WORKSPACE_AGENT_GROUP_ORDER,
-);
+const WORKSPACE_AGENT_GROUP_KEYS = new Set<WorkspaceAgentGroupKey>(WORKSPACE_AGENT_GROUP_ORDER);
 
 /**
  * Accepts the live key, a snapshot value, or the pre-Done wire alias `idle`.
@@ -38,7 +32,10 @@ const WORKSPACE_AGENT_GROUP_KEYS = new Set<WorkspaceAgentGroupKey>(
  */
 export function parseWorkspaceAgentGroupKey(value: unknown): WorkspaceAgentGroupKey {
   if (value === "idle") return "done";
-  if (typeof value === "string" && WORKSPACE_AGENT_GROUP_KEYS.has(value as WorkspaceAgentGroupKey)) {
+  if (
+    typeof value === "string" &&
+    WORKSPACE_AGENT_GROUP_KEYS.has(value as WorkspaceAgentGroupKey)
+  ) {
     return value as WorkspaceAgentGroupKey;
   }
   return "done";
@@ -63,10 +60,7 @@ export function resolveWorkspaceAgentGroupKey(input: {
 }): WorkspaceAgentGroupKey {
   const { agentState, attentionReason, groupingHoldActive } = input;
 
-  if (
-    agentState === "permission_request" ||
-    attentionReason === "permission_request"
-  ) {
+  if (agentState === "permission_request" || attentionReason === "permission_request") {
     return "permission";
   }
 

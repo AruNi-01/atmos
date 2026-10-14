@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-  compactSlidingParts,
-  currencySlidingParts,
-  percentSlidingParts,
-} from "./sliding-metric";
+import { compactSlidingParts, currencySlidingParts, percentSlidingParts } from "./sliding-metric";
 
 describe("compactSlidingParts", () => {
   test("uses K/M for en with one decimal", () => {

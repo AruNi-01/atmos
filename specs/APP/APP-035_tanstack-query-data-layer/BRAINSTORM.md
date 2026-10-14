@@ -40,19 +40,19 @@ These are plausible findings from the current implementation patterns, not measu
 
 ## Scope candidates
 
-| Data shape | Candidate treatment | Reason to explore |
-|------------|---------------------|-------------------|
-| REST snapshot reads | Query | Conventional server state with loading, cache, retry, and refetch needs |
-| WebSocket request/response reads | Query with connection-aware enablement and keys | Same server-state semantics despite a non-HTTP transport |
-| Create/update/delete actions | Mutation plus targeted cache update/invalidation | Standardizes pending/error state and post-write freshness |
-| WebSocket notifications | Keep subscriptions; bridge events into cache updates/invalidation | Push signals complement the cache rather than becoming queries |
-| Cursor/infinite lists | Infinite query where pagination semantics fit | Replaces per-hook page caches and load-more race handling |
-| Settings/bootstrap single-flight caches | Query candidate, subject to startup ordering | Existing bespoke caches overlap with query deduplication |
-| Terminal PTY and process output | Exclude | Bidirectional or continuous stream, not a snapshot |
-| Agent chat/session socket | Exclude | Long-lived conversational transport and lifecycle |
-| Terminal DOM/runtime cache | Exclude | Preserves mounted client resources; APP-034 deliberately uses Zustand |
-| Editor/navigation/layout state | Exclude | Client-owned state, not server state |
-| Live document editing | Query only for load/save boundary, if useful | Interactive document state needs a local editing model |
+| Data shape                              | Candidate treatment                                               | Reason to explore                                                       |
+| --------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| REST snapshot reads                     | Query                                                             | Conventional server state with loading, cache, retry, and refetch needs |
+| WebSocket request/response reads        | Query with connection-aware enablement and keys                   | Same server-state semantics despite a non-HTTP transport                |
+| Create/update/delete actions            | Mutation plus targeted cache update/invalidation                  | Standardizes pending/error state and post-write freshness               |
+| WebSocket notifications                 | Keep subscriptions; bridge events into cache updates/invalidation | Push signals complement the cache rather than becoming queries          |
+| Cursor/infinite lists                   | Infinite query where pagination semantics fit                     | Replaces per-hook page caches and load-more race handling               |
+| Settings/bootstrap single-flight caches | Query candidate, subject to startup ordering                      | Existing bespoke caches overlap with query deduplication                |
+| Terminal PTY and process output         | Exclude                                                           | Bidirectional or continuous stream, not a snapshot                      |
+| Agent chat/session socket               | Exclude                                                           | Long-lived conversational transport and lifecycle                       |
+| Terminal DOM/runtime cache              | Exclude                                                           | Preserves mounted client resources; APP-034 deliberately uses Zustand   |
+| Editor/navigation/layout state          | Exclude                                                           | Client-owned state, not server state                                    |
+| Live document editing                   | Query only for load/save boundary, if useful                      | Interactive document state needs a local editing model                  |
 
 ## Options
 

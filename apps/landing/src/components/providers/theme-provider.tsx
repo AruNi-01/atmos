@@ -81,7 +81,7 @@ export function ThemeProvider({
       setResolvedTheme(nextResolvedTheme);
       applyTheme(attribute, nextResolvedTheme);
     },
-    [attribute, disableTransitionOnChange, enableSystem, storageKey]
+    [attribute, disableTransitionOnChange, enableSystem, storageKey],
   );
 
   const value = React.useMemo(
@@ -90,7 +90,7 @@ export function ThemeProvider({
       resolvedTheme,
       setTheme,
     }),
-    [theme, resolvedTheme, setTheme]
+    [theme, resolvedTheme, setTheme],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
@@ -141,9 +141,7 @@ function applyTheme(attribute: "class", theme: ResolvedTheme) {
 
 function disableTransitionsTemporarily() {
   const style = document.createElement("style");
-  style.appendChild(
-    document.createTextNode("*{transition:none!important}")
-  );
+  style.appendChild(document.createTextNode("*{transition:none!important}"));
   document.head.appendChild(style);
 
   void window.getComputedStyle(document.body);

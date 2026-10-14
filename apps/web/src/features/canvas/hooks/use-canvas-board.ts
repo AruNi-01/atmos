@@ -284,14 +284,8 @@ export function useCanvasBoard() {
                   ...prev,
                   title: payload.title,
                   // Explicit null must clear the script (do not use ??).
-                  script:
-                    nextDocument.script !== undefined
-                      ? nextDocument.script
-                      : prev.script,
-                  session:
-                    nextDocument.session !== undefined
-                      ? nextDocument.session
-                      : prev.session,
+                  script: nextDocument.script !== undefined ? nextDocument.script : prev.script,
+                  session: nextDocument.session !== undefined ? nextDocument.session : prev.session,
                   // Keep last known snapshot in memory for rename/remount safety.
                   tldrawDocument:
                     nextDocument.tldrawDocument !== undefined

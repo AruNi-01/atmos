@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useTranslations } from 'next-intl';
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import {
   Badge,
   Button,
@@ -14,7 +14,7 @@ import {
   ParticleField,
   TabsSubtle,
   TabsSubtleItem,
-} from '@workspace/ui';
+} from "@workspace/ui";
 import {
   CheckCircle2,
   AlertCircle,
@@ -32,48 +32,41 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
-import { AtmosWordmark } from '@/shared/components/ui/AtmosWordmark';
-import { FileBrowser } from '@/features/files/components/FileBrowser';
-import { useProjectStore } from '@/features/project/store/use-project-store';
-import {
-  codeAgentCustomApi,
-  functionSettingsApi,
-  wsProjectApi,
-} from '@/api/ws-api';
-import {
-  systemApi,
-  type TerminalAgentCliStatusItem,
-} from '@/api/rest-api';
-import { useSearchParams, usePathname } from 'next/navigation';
-import { useAppRouter } from '@/shared/hooks/use-app-router';
-import { InstallToolPopover } from '@/features/welcome/components/InstallToolPopover';
-import { InstallAgentPopover } from '@/features/welcome/components/InstallAgentPopover';
+import { AtmosWordmark } from "@/shared/components/ui/AtmosWordmark";
+import { FileBrowser } from "@/features/files/components/FileBrowser";
+import { useProjectStore } from "@/features/project/store/use-project-store";
+import { codeAgentCustomApi, functionSettingsApi, wsProjectApi } from "@/api/ws-api";
+import { systemApi, type TerminalAgentCliStatusItem } from "@/api/rest-api";
+import { useSearchParams, usePathname } from "next/navigation";
+import { useAppRouter } from "@/shared/hooks/use-app-router";
+import { InstallToolPopover } from "@/features/welcome/components/InstallToolPopover";
+import { InstallAgentPopover } from "@/features/welcome/components/InstallAgentPopover";
 import {
   OnboardingStepActions,
   type OnboardingStepId,
-} from '@/features/welcome/components/OnboardingStepActions';
-import { hasTerminalAgentInstallGuide } from '@/features/welcome/lib/terminal-agent-install-guides';
-import { useDialogStore } from '@/app-shell/state/use-dialog-store';
-import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
-import { pickLocalDirectory } from '@/shared/lib/desktop-directory-picker';
-import { AgentIcon } from '@/features/agent/components/AgentIcon';
-import { AGENT_OPTIONS } from '@/features/wiki/components/AgentSelect';
+} from "@/features/welcome/components/OnboardingStepActions";
+import { hasTerminalAgentInstallGuide } from "@/features/welcome/lib/terminal-agent-install-guides";
+import { useDialogStore } from "@/app-shell/state/use-dialog-store";
+import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
+import { pickLocalDirectory } from "@/shared/lib/desktop-directory-picker";
+import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { AGENT_OPTIONS } from "@/features/wiki/components/AgentSelect";
 import {
   buildBuiltInEntries,
   isBuiltInAgentId,
-} from '@/features/settings/components/settings/settings-modal-utils';
-import { applyQuotaProviderVisibility } from '@/features/quota-usage/lib/apply-quota-providers-for-agents';
+} from "@/features/settings/components/settings/settings-modal-utils";
+import { applyQuotaProviderVisibility } from "@/features/quota-usage/lib/apply-quota-providers-for-agents";
 import {
   QUOTA_USAGE_ONBOARDING_PROVIDERS,
   usageProviderIdsForAgents,
-} from '@/features/quota-usage/lib/agent-quota-provider-map';
-import { ProviderGlyph } from '@/app-shell/quota-popover-components';
+} from "@/features/quota-usage/lib/agent-quota-provider-map";
+import { ProviderGlyph } from "@/app-shell/quota-popover-components";
 import {
   DEFAULT_AGENT_YOLO_MODE,
   setAgentYoloMode,
-} from '@/features/agent/lib/terminal-agent-yolo';
-import { DEEPSEEK_HARNESS_ID } from '@/features/agent/lib/custom-agent-registry';
-import { startOnboardingChatSetup } from '@/features/welcome/lib/start-onboarding-chat-setup';
+} from "@/features/agent/lib/terminal-agent-yolo";
+import { DEEPSEEK_HARNESS_ID } from "@/features/agent/lib/custom-agent-registry";
+import { startOnboardingChatSetup } from "@/features/welcome/lib/start-onboarding-chat-setup";
 
 interface OnboardingPageProps {
   onComplete: () => void;
@@ -81,7 +74,7 @@ interface OnboardingPageProps {
 
 type Step = OnboardingStepId;
 
-const PROJECT_FORM_ID = 'onboarding-project-form';
+const PROJECT_FORM_ID = "onboarding-project-form";
 
 const STEP_ICONS: Record<Step, LucideIcon> = {
   intro: PlaneLanding,
@@ -91,22 +84,16 @@ const STEP_ICONS: Record<Step, LucideIcon> = {
   project: FolderGit2,
 };
 
-const ONBOARDING_STEPS: readonly Step[] = [
-  'intro',
-  'check',
-  'agents',
-  'quota',
-  'project',
-];
+const ONBOARDING_STEPS: readonly Step[] = ["intro", "check", "agents", "quota", "project"];
 
 const PREFERRED_DEFAULT_AGENT_IDS = [
-  'claude',
-  'codex',
-  'cursor',
-  'gemini',
-  'grok-build',
-  'opencode',
-  'antigravity',
+  "claude",
+  "codex",
+  "cursor",
+  "gemini",
+  "grok-build",
+  "opencode",
+  "antigravity",
 ] as const;
 
 function pickDefaultAgentId(candidateIds: string[]): string | null {
@@ -117,30 +104,38 @@ function pickDefaultAgentId(candidateIds: string[]): string | null {
 }
 
 export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
-  const t = useTranslations('onboarding');
-  const addProject = useProjectStore(s => s.addProject);
-  const setSelectedProjectId = useDialogStore(s => s.setSelectedProjectId);
-  const setPendingSidebarProjectId = useDialogStore(s => s.setPendingSidebarProjectId);
+  const t = useTranslations("onboarding");
+  const addProject = useProjectStore((s) => s.addProject);
+  const setSelectedProjectId = useDialogStore((s) => s.setSelectedProjectId);
+  const setPendingSidebarProjectId = useDialogStore((s) => s.setPendingSidebarProjectId);
 
   const router = useAppRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
-  const rawStep = searchParams.get('step');
+  const rawStep = searchParams.get("step");
   const currentStep: Step = ONBOARDING_STEPS.includes(rawStep as Step)
     ? (rawStep as Step)
-    : 'intro';
+    : "intro";
 
   const setCurrentStep = (step: Step) => {
     const params = new URLSearchParams(window.location.search);
-    params.set('step', step);
+    params.set("step", step);
     router.push(`${pathname}?${params.toString()}`);
   };
 
   // Step 2: Env check states
-  const [tmuxData, setTmuxData] = useState<{ installed: boolean; version: string | null } | null>(null);
-  const [gitData, setGitData] = useState<{ installed: boolean; version: string | null } | null>(null);
-  const [ghData, setGhData] = useState<{ installed: boolean; version: string | null; username: string | null } | null>(null);
+  const [tmuxData, setTmuxData] = useState<{ installed: boolean; version: string | null } | null>(
+    null,
+  );
+  const [gitData, setGitData] = useState<{ installed: boolean; version: string | null } | null>(
+    null,
+  );
+  const [ghData, setGhData] = useState<{
+    installed: boolean;
+    version: string | null;
+    username: string | null;
+  } | null>(null);
   const [envChecking, setEnvChecking] = useState(false);
   const [envCheckError, setEnvCheckError] = useState<string | null>(null);
 
@@ -182,18 +177,18 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       setGitData({ installed: git.installed, version: git.version });
       setGhData({ installed: gh.installed, version: gh.version, username: gh.username ?? null });
     } catch (err) {
-      console.error('Failed to run environment checks:', err);
+      console.error("Failed to run environment checks:", err);
       setTmuxData(null);
       setGitData(null);
       setGhData(null);
-      setEnvCheckError(t('check.checkFailed'));
+      setEnvCheckError(t("check.checkFailed"));
     } finally {
       setEnvChecking(false);
     }
   };
 
   useEffect(() => {
-    if (currentStep === 'check') {
+    if (currentStep === "check") {
       void runEnvChecks();
     }
     // Intentionally only re-run when the step changes.
@@ -216,28 +211,31 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     agentsSelectionInitializedRef.current = true;
   }, []);
 
-  const runAgentChecks = useCallback(async (options?: { resetSelection?: boolean }) => {
-    const resetSelection = options?.resetSelection ?? false;
-    setAgentsChecking(true);
-    setAgentsCheckError(null);
-    try {
-      const result = await systemApi.getTerminalAgentsStatus();
-      const agents = Array.isArray(result.agents) ? result.agents : [];
-      setAgentStatuses(agents);
-      if (resetSelection || !agentsSelectionInitializedRef.current) {
-        applyAgentDetectionDefaults(agents);
+  const runAgentChecks = useCallback(
+    async (options?: { resetSelection?: boolean }) => {
+      const resetSelection = options?.resetSelection ?? false;
+      setAgentsChecking(true);
+      setAgentsCheckError(null);
+      try {
+        const result = await systemApi.getTerminalAgentsStatus();
+        const agents = Array.isArray(result.agents) ? result.agents : [];
+        setAgentStatuses(agents);
+        if (resetSelection || !agentsSelectionInitializedRef.current) {
+          applyAgentDetectionDefaults(agents);
+        }
+      } catch (err) {
+        console.error("Failed to detect terminal agents:", err);
+        setAgentStatuses([]);
+        setAgentsCheckError(t("agents.checkFailed"));
+      } finally {
+        setAgentsChecking(false);
       }
-    } catch (err) {
-      console.error('Failed to detect terminal agents:', err);
-      setAgentStatuses([]);
-      setAgentsCheckError(t('agents.checkFailed'));
-    } finally {
-      setAgentsChecking(false);
-    }
-  }, [applyAgentDetectionDefaults, t]);
+    },
+    [applyAgentDetectionDefaults, t],
+  );
 
   useEffect(() => {
-    if (currentStep === 'agents') {
+    if (currentStep === "agents") {
       void runAgentChecks({ resetSelection: !agentsSelectionInitializedRef.current });
     }
     // Intentionally only re-run when the step changes.
@@ -285,7 +283,9 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       .filter((agent) => agent.installed && selectedAgentIds.has(agent.agent_id))
       .map((agent) => agent.agent_id);
     const selected = Array.from(selectedAgentIds);
-    setDefaultAgentId(pickDefaultAgentId(installedSelected.length > 0 ? installedSelected : selected));
+    setDefaultAgentId(
+      pickDefaultAgentId(installedSelected.length > 0 ? installedSelected : selected),
+    );
   }, [agentStatuses, defaultAgentId, selectedAgentIds]);
 
   const persistAgentPreferences = useCallback(async () => {
@@ -315,27 +315,24 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       if (existing?.cmd && existing.cmd !== agent.cmd) {
         draft.cmd = existing.cmd;
       }
-      if (existing?.flags !== undefined && existing.flags !== (agent.params || '')) {
+      if (existing?.flags !== undefined && existing.flags !== (agent.params || "")) {
         draft.flags = existing.flags;
       }
       if (
         existing?.interactiveFlags !== undefined &&
-        existing.interactiveFlags !== (agent.interactiveParams || '')
+        existing.interactiveFlags !== (agent.interactiveParams || "")
       ) {
         draft.interactiveFlags = existing.interactiveFlags;
       }
       overrides[agent.id] = draft;
     }
 
-    await codeAgentCustomApi.update([
-      ...customOnly,
-      ...buildBuiltInEntries(overrides),
-    ]);
+    await codeAgentCustomApi.update([...customOnly, ...buildBuiltInEntries(overrides)]);
 
     if (defaultAgentId && selectedAgentIds.has(defaultAgentId)) {
       await functionSettingsApi.update(
-        'agent_cli',
-        'center_fix_terminal_default_agent',
+        "agent_cli",
+        "center_fix_terminal_default_agent",
         defaultAgentId,
       );
     }
@@ -362,10 +359,10 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
         });
       }
       // Next: Quota Usage opt-in (Keychain / cookie probe only happens there).
-      setCurrentStep('quota');
+      setCurrentStep("quota");
     } catch (err) {
-      console.error('Failed to save agent preferences:', err);
-      setAgentsSaveError(t('agents.saveFailed'));
+      console.error("Failed to save agent preferences:", err);
+      setAgentsSaveError(t("agents.saveFailed"));
     } finally {
       setAgentsSaving(false);
     }
@@ -373,7 +370,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
 
   // Seed Quota Usage selection from agents the user enabled on the previous step.
   useEffect(() => {
-    if (currentStep !== 'quota') return;
+    if (currentStep !== "quota") return;
     if (quotaSelectionTouchedRef.current) return;
     const seedIds = new Set(selectedAgentIds);
     if (deepseekSelected) seedIds.add(DEEPSEEK_HARNESS_ID);
@@ -404,10 +401,10 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       // Enabling providers may trigger a live refresh (and macOS Keychain prompt
       // for cookie-backed providers). That is intentional for this step only.
       await persistQuotaPreferences();
-      setCurrentStep('project');
+      setCurrentStep("project");
     } catch (err) {
-      console.error('Failed to save quota usage preferences:', err);
-      setQuotaSaveError(t('quota.saveFailed'));
+      console.error("Failed to save quota usage preferences:", err);
+      setQuotaSaveError(t("quota.saveFailed"));
     } finally {
       setQuotaSaving(false);
     }
@@ -419,19 +416,19 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     try {
       // Leave every provider off so the main app never cold-starts cookie/Keychain probes.
       await applyQuotaProviderVisibility([]);
-      setCurrentStep('project');
+      setCurrentStep("project");
     } catch (err) {
-      console.error('Failed to clear quota usage preferences on skip:', err);
+      console.error("Failed to clear quota usage preferences on skip:", err);
       // Still advance — user can configure later in Settings.
-      setCurrentStep('project');
+      setCurrentStep("project");
     } finally {
       setQuotaSaving(false);
     }
   }, []);
 
   // Step 4: Project import states
-  const [path, setPath] = useState('');
-  const [name, setName] = useState('');
+  const [path, setPath] = useState("");
+  const [name, setName] = useState("");
   const [isValidating, setIsValidating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -442,7 +439,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const connectionMode = useAtmosComputerStore((s) => s.connectionMode);
   // OS picker first when talking to the local machine. Atmos FileBrowser is
   // the fallback (and the only option for relay / remote computers).
-  const preferOsPicker = connectionMode === 'local';
+  const preferOsPicker = connectionMode === "local";
 
   // Validate path when it changes
   useEffect(() => {
@@ -466,18 +463,18 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
         if (seq !== pathValidationSeq.current) return;
         if (result.is_valid) {
           if (result.suggested_name) {
-            setName((current) => current || result.suggested_name || '');
+            setName((current) => current || result.suggested_name || "");
           }
           setIsGitRepo(result.is_git_repo);
           if (!result.is_git_repo) {
-            setValidationError(t('project.validation.notGitRepo'));
+            setValidationError(t("project.validation.notGitRepo"));
           }
         } else {
-          setValidationError(result.error || t('project.validation.invalid'));
+          setValidationError(result.error || t("project.validation.invalid"));
         }
       } catch (err) {
         if (seq !== pathValidationSeq.current) return;
-        setValidationError(err instanceof Error ? err.message : t('project.validation.invalid'));
+        setValidationError(err instanceof Error ? err.message : t("project.validation.invalid"));
       } finally {
         if (seq === pathValidationSeq.current) {
           setIsValidating(false);
@@ -507,7 +504,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const handleFileBrowserSelect = (
     selectedPath: string,
     _isRepo: boolean,
-    suggestedName: string | null
+    suggestedName: string | null,
   ) => {
     applySelectedProjectPath(selectedPath, suggestedName);
     setShowFileBrowser(false);
@@ -519,13 +516,13 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       try {
         const selected = await pickLocalDirectory({
           defaultPath: path || undefined,
-          title: t('project.fields.browse'),
+          title: t("project.fields.browse"),
         });
-        if (selected.status === 'picked') {
+        if (selected.status === "picked") {
           applySelectedProjectPath(selected.path);
           return;
         }
-        if (selected.status === 'cancelled') {
+        if (selected.status === "cancelled") {
           return;
         }
       } finally {
@@ -537,7 +534,14 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
 
   const handleProjectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !path || isValidating || isGitRepo === null || (validationError && isGitRepo === null)) return;
+    if (
+      !name ||
+      !path ||
+      isValidating ||
+      isGitRepo === null ||
+      (validationError && isGitRepo === null)
+    )
+      return;
     setIsSubmitting(true);
     try {
       const newProjectId = await addProject({
@@ -551,7 +555,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       // Import finishes onboarding — go straight to the home shell.
       onComplete();
     } catch (err) {
-      setValidationError(err instanceof Error ? err.message : 'Failed to import project');
+      setValidationError(err instanceof Error ? err.message : "Failed to import project");
     } finally {
       setIsSubmitting(false);
     }
@@ -567,11 +571,11 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     !(validationError && isGitRepo === null);
 
   const stepsList: { id: Step; label: string }[] = [
-    { id: 'intro', label: t('steps.intro') },
-    { id: 'check', label: t('steps.check') },
-    { id: 'agents', label: t('steps.agents') },
-    { id: 'quota', label: t('steps.quota') },
-    { id: 'project', label: t('steps.project') },
+    { id: "intro", label: t("steps.intro") },
+    { id: "check", label: t("steps.check") },
+    { id: "agents", label: t("steps.agents") },
+    { id: "quota", label: t("steps.quota") },
+    { id: "project", label: t("steps.project") },
   ];
   const selectedStepIndex = Math.max(
     0,
@@ -585,652 +589,679 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const suggestedQuotaProviderIds = usageProviderIdsForAgents(quotaSeedIds);
   const suggestedFromAgentsCount = suggestedQuotaProviderIds.size;
 
-  const imageSrc = '/figures/welcome.png';
+  const imageSrc = "/figures/welcome.png";
 
   return (
-    <div className="relative flex h-screen w-screen bg-background text-foreground select-none overflow-hidden">
+    <div className="relative flex h-screen w-screen overflow-hidden bg-background text-foreground select-none">
       {/* Background decoration — same token as shell so gutters never look like a second surface */}
       <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_top_right,rgba(120,119,198,0.04),transparent_50%)]" />
 
       {/* Full-viewport split: form | art (shared bg-background, no inset color slab) */}
       <div className="relative z-10 flex h-full w-full flex-col md:flex-row">
-          {/* Left: page never scrolls; middle content may. Actions follow content (sticky max bottom). */}
-          <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-background border-r border-border/10 px-8 pt-12 pb-6 md:w-[58%] md:px-10 md:pt-16 md:pb-8 md:pr-8">
-            <div className="mx-auto flex h-full min-h-0 w-full max-w-xl flex-col animate-in fade-in slide-in-from-left-4 duration-300 md:ml-auto md:mr-2">
-              {/* Top block sits a bit lower; stays fixed while middle scrolls */}
-              <div className="shrink-0 space-y-8 pb-2">
-                <div className="flex justify-start pt-2 md:pt-4">
-                  <AtmosWordmark
-                    layout="compact"
-                    letterClassName="text-8xl md:text-[7rem] font-semibold tracking-tight"
-                    sloganClassName="hidden"
-                  />
-                </div>
-
-                {/* Fluid Functionalism TabsSubtle · Active Label — free step navigation */}
-                <div className="w-full border-b border-border/40 pb-4">
-                  <TabsSubtle
-                    idPrefix="onboarding"
-                    activeLabel
-                    selectedIndex={selectedStepIndex}
-                    onSelect={(index) => {
-                      const step = stepsList[index];
-                      if (step) setCurrentStep(step.id);
-                    }}
-                  >
-                    {stepsList.map((step, index) => (
-                      <TabsSubtleItem
-                        key={step.id}
-                        index={index}
-                        label={step.label}
-                        icon={STEP_ICONS[step.id]}
-                      />
-                    ))}
-                  </TabsSubtle>
-                </div>
+        {/* Left: page never scrolls; middle content may. Actions follow content (sticky max bottom). */}
+        <div className="flex h-full min-h-0 w-full flex-col overflow-hidden border-r border-border/10 bg-background px-8 pt-12 pb-6 md:w-[58%] md:px-10 md:pt-16 md:pr-8 md:pb-8">
+          <div className="mx-auto flex h-full min-h-0 w-full max-w-xl animate-in flex-col duration-300 fade-in slide-in-from-left-4 md:mr-2 md:ml-auto">
+            {/* Top block sits a bit lower; stays fixed while middle scrolls */}
+            <div className="shrink-0 space-y-8 pb-2">
+              <div className="flex justify-start pt-2 md:pt-4">
+                <AtmosWordmark
+                  layout="compact"
+                  letterClassName="text-8xl md:text-[7rem] font-semibold tracking-tight"
+                  sloganClassName="hidden"
+                />
               </div>
 
-              {/* Scroll region: content + actions. Short pages keep actions under content;
+              {/* Fluid Functionalism TabsSubtle · Active Label — free step navigation */}
+              <div className="w-full border-b border-border/40 pb-4">
+                <TabsSubtle
+                  idPrefix="onboarding"
+                  activeLabel
+                  selectedIndex={selectedStepIndex}
+                  onSelect={(index) => {
+                    const step = stepsList[index];
+                    if (step) setCurrentStep(step.id);
+                  }}
+                >
+                  {stepsList.map((step, index) => (
+                    <TabsSubtleItem
+                      key={step.id}
+                      index={index}
+                      label={step.label}
+                      icon={STEP_ICONS[step.id]}
+                    />
+                  ))}
+                </TabsSubtle>
+              </div>
+            </div>
+
+            {/* Scroll region: content + actions. Short pages keep actions under content;
                   long pages pin actions to the scrollport bottom (max bottom limit). */}
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-                  <div className="py-6">
-              {/* STEP 1: INTRO */}
-              {currentStep === 'intro' && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-8">
-                  <div className="space-y-3">
-                    <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-                      {t('intro.title')}
-                    </h1>
-                    <p className="text-muted-foreground text-xs leading-relaxed max-w-md">
-                      {t('intro.subtitle')}
-                    </p>
-                  </div>
-
-                  {/* Feature Columns */}
-                  <div className="grid gap-6 py-2">
-                    <div className="flex gap-4 items-start">
-                      <div className="flex size-10 items-center justify-center rounded-lg bg-foreground/5 border border-foreground/10 text-foreground shrink-0 mt-1">
-                        <Sparkles className="size-5" />
-                      </div>
-                      <div className="space-y-1">
-                        <h3 className="text-sm font-semibold text-foreground">{t('intro.features.agent')}</h3>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          {t('intro.features.agentDesc')}
-                        </p>
-                      </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+              <div className="py-6">
+                {/* STEP 1: INTRO */}
+                {currentStep === "intro" && (
+                  <div className="animate-in space-y-8 duration-300 fade-in slide-in-from-bottom-4">
+                    <div className="space-y-3">
+                      <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+                        {t("intro.title")}
+                      </h1>
+                      <p className="max-w-md text-xs leading-relaxed text-muted-foreground">
+                        {t("intro.subtitle")}
+                      </p>
                     </div>
 
-                    <div className="flex gap-4 items-start">
-                      <div className="flex size-10 items-center justify-center rounded-lg bg-foreground/5 border border-foreground/10 text-foreground shrink-0 mt-1">
-                        <TerminalIcon className="size-5" />
+                    {/* Feature Columns */}
+                    <div className="grid gap-6 py-2">
+                      <div className="flex items-start gap-4">
+                        <div className="mt-1 flex size-10 shrink-0 items-center justify-center rounded-lg border border-foreground/10 bg-foreground/5 text-foreground">
+                          <Sparkles className="size-5" />
+                        </div>
+                        <div className="space-y-1">
+                          <h3 className="text-sm font-semibold text-foreground">
+                            {t("intro.features.agent")}
+                          </h3>
+                          <p className="text-xs leading-relaxed text-muted-foreground">
+                            {t("intro.features.agentDesc")}
+                          </p>
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <h3 className="text-sm font-semibold text-foreground">{t('intro.features.tmux')}</h3>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          {t('intro.features.tmuxDesc')}
-                        </p>
+
+                      <div className="flex items-start gap-4">
+                        <div className="mt-1 flex size-10 shrink-0 items-center justify-center rounded-lg border border-foreground/10 bg-foreground/5 text-foreground">
+                          <TerminalIcon className="size-5" />
+                        </div>
+                        <div className="space-y-1">
+                          <h3 className="text-sm font-semibold text-foreground">
+                            {t("intro.features.tmux")}
+                          </h3>
+                          <p className="text-xs leading-relaxed text-muted-foreground">
+                            {t("intro.features.tmuxDesc")}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-4">
+                        <div className="mt-1 flex size-10 shrink-0 items-center justify-center rounded-lg border border-foreground/10 bg-foreground/5 text-foreground">
+                          <GitBranch className="size-5" />
+                        </div>
+                        <div className="space-y-1">
+                          <h3 className="text-sm font-semibold text-foreground">
+                            {t("intro.features.canvas")}
+                          </h3>
+                          <p className="text-xs leading-relaxed text-muted-foreground">
+                            {t("intro.features.canvasDesc")}
+                          </p>
+                        </div>
                       </div>
                     </div>
+                  </div>
+                )}
 
-                    <div className="flex gap-4 items-start">
-                      <div className="flex size-10 items-center justify-center rounded-lg bg-foreground/5 border border-foreground/10 text-foreground shrink-0 mt-1">
-                        <GitBranch className="size-5" />
-                      </div>
-                      <div className="space-y-1">
-                        <h3 className="text-sm font-semibold text-foreground">{t('intro.features.canvas')}</h3>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          {t('intro.features.canvasDesc')}
-                        </p>
-                      </div>
+                {/* STEP 2: DEPENDENCY CHECK */}
+                {currentStep === "check" && (
+                  <div className="animate-in space-y-8 duration-300 fade-in slide-in-from-bottom-4">
+                    <div className="space-y-3">
+                      <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+                        {t("check.title")}
+                      </h2>
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        {t("check.subtitle")}
+                      </p>
                     </div>
-                  </div>
-                </div>
-              )}
 
-              {/* STEP 2: DEPENDENCY CHECK */}
-              {currentStep === 'check' && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-8">
-                  <div className="space-y-3">
-                    <h2 className="text-3xl font-semibold tracking-tight text-foreground">
-                      {t('check.title')}
-                    </h2>
-                    <p className="text-muted-foreground text-xs leading-relaxed">
-                      {t('check.subtitle')}
-                    </p>
-                  </div>
+                    <div className="space-y-4">
+                      <Card className="overflow-hidden border-border/40 bg-muted/10">
+                        <CardContent className="flex items-center justify-between gap-4 p-4">
+                          <div className="flex items-center gap-3">
+                            <TerminalIcon className="size-5 text-muted-foreground" />
+                            <div>
+                              <h4 className="text-xs font-semibold text-foreground">tmux</h4>
+                              <p className="text-[10px] text-muted-foreground">
+                                {t("check.tmuxDesc")}
+                              </p>
+                            </div>
+                          </div>
+                          {envChecking ? (
+                            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                          ) : isTmuxInstalled ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-500">
+                              <CheckCircle2 className="size-3.5" />
+                              {t("check.statusInstalled")}{" "}
+                              {tmuxData?.version && `(${tmuxData.version})`}
+                            </span>
+                          ) : (
+                            <InstallToolPopover
+                              toolId="tmux"
+                              toolName="tmux"
+                              onInstalled={handleRecheck}
+                            />
+                          )}
+                        </CardContent>
+                      </Card>
 
-                  <div className="space-y-4">
-                    <Card className="bg-muted/10 border-border/40 overflow-hidden">
-                      <CardContent className="p-4 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <TerminalIcon className="size-5 text-muted-foreground" />
-                          <div>
-                            <h4 className="text-xs font-semibold text-foreground">tmux</h4>
-                            <p className="text-[10px] text-muted-foreground">{t('check.tmuxDesc')}</p>
+                      <Card className="overflow-hidden border-border/40 bg-muted/10">
+                        <CardContent className="flex items-center justify-between gap-4 p-4">
+                          <div className="flex items-center gap-3">
+                            <GitBranch className="size-5 text-muted-foreground" />
+                            <div>
+                              <h4 className="text-xs font-semibold text-foreground">Git</h4>
+                              <p className="text-[10px] text-muted-foreground">
+                                {t("check.gitDesc")}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                        {envChecking ? (
-                          <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                        ) : isTmuxInstalled ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-500">
-                            <CheckCircle2 className="size-3.5" />
-                            {t('check.statusInstalled')} {tmuxData?.version && `(${tmuxData.version})`}
-                          </span>
-                        ) : (
-                          <InstallToolPopover toolId="tmux" toolName="tmux" onInstalled={handleRecheck} />
-                        )}
-                      </CardContent>
-                    </Card>
- 
-                    <Card className="bg-muted/10 border-border/40 overflow-hidden">
-                      <CardContent className="p-4 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <GitBranch className="size-5 text-muted-foreground" />
-                          <div>
-                            <h4 className="text-xs font-semibold text-foreground">Git</h4>
-                            <p className="text-[10px] text-muted-foreground">{t('check.gitDesc')}</p>
-                          </div>
-                        </div>
-                        {envChecking ? (
-                          <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                        ) : isGitInstalled ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-500">
-                            <CheckCircle2 className="size-3.5" />
-                            {t('check.statusInstalled')} {gitData?.version && `(${gitData.version})`}
-                          </span>
-                        ) : (
-                          <InstallToolPopover toolId="git" toolName="Git" onInstalled={handleRecheck} />
-                        )}
-                      </CardContent>
-                    </Card>
- 
-                    <Card className="bg-muted/10 border-border/40 overflow-hidden">
-                      <CardContent className="p-4 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <Github className="size-5 text-muted-foreground" />
-                          <div>
-                            <h4 className="text-xs font-semibold text-foreground">GitHub CLI (gh)</h4>
-                            <p className="text-[10px] text-muted-foreground">{t('check.ghDesc')}</p>
-                          </div>
-                        </div>
-                        {envChecking ? (
-                          <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                        ) : isGhInstalled ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-500">
-                            <CheckCircle2 className="size-3.5" />
-                            {t('check.statusInstalled')} {ghData?.username && `(@${ghData.username})`}
-                          </span>
-                        ) : (
-                          <InstallToolPopover toolId="gh" toolName="GitHub CLI (gh)" onInstalled={handleRecheck} />
-                        )}
-                      </CardContent>
-                    </Card>
-                  </div>
-                  {envCheckError && (
-                    <p className="text-xs text-amber-500 flex items-center gap-1.5">
-                      <AlertCircle className="size-3.5" />
-                      {envCheckError}
-                    </p>
-                  )}
-                </div>
-              )}
+                          {envChecking ? (
+                            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                          ) : isGitInstalled ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-500">
+                              <CheckCircle2 className="size-3.5" />
+                              {t("check.statusInstalled")}{" "}
+                              {gitData?.version && `(${gitData.version})`}
+                            </span>
+                          ) : (
+                            <InstallToolPopover
+                              toolId="git"
+                              toolName="Git"
+                              onInstalled={handleRecheck}
+                            />
+                          )}
+                        </CardContent>
+                      </Card>
 
-              {/* STEP 3: BUILT-IN AGENTS */}
-              {currentStep === 'agents' && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-6">
-                  <div className="space-y-3">
-                    <h2 className="text-3xl font-semibold tracking-tight text-foreground">
-                      {t('agents.title')}
-                    </h2>
-                    <p className="text-muted-foreground text-xs leading-relaxed">
-                      {t('agents.subtitle')}
-                    </p>
-                    {!agentsChecking && !agentsCheckError && agentStatuses.length > 0 && (
-                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-                        <p className="text-[11px] text-muted-foreground">
-                          {t('agents.summary', {
-                            installed: installedAgentCount,
-                            selected: selectedAgentCount,
-                            total: agentStatuses.length,
-                          })}
-                        </p>
-                        <label className="inline-flex cursor-pointer items-center gap-2 text-[11px] text-foreground">
-                          <Checkbox
-                            checked={yoloMode}
-                            onCheckedChange={(checked) => setYoloMode(checked === true)}
-                            aria-label={t('agents.yoloAria')}
-                          />
-                          <span className="font-medium">{t('agents.yoloLabel')}</span>
-                        </label>
-                      </div>
+                      <Card className="overflow-hidden border-border/40 bg-muted/10">
+                        <CardContent className="flex items-center justify-between gap-4 p-4">
+                          <div className="flex items-center gap-3">
+                            <Github className="size-5 text-muted-foreground" />
+                            <div>
+                              <h4 className="text-xs font-semibold text-foreground">
+                                GitHub CLI (gh)
+                              </h4>
+                              <p className="text-[10px] text-muted-foreground">
+                                {t("check.ghDesc")}
+                              </p>
+                            </div>
+                          </div>
+                          {envChecking ? (
+                            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                          ) : isGhInstalled ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-500">
+                              <CheckCircle2 className="size-3.5" />
+                              {t("check.statusInstalled")}{" "}
+                              {ghData?.username && `(@${ghData.username})`}
+                            </span>
+                          ) : (
+                            <InstallToolPopover
+                              toolId="gh"
+                              toolName="GitHub CLI (gh)"
+                              onInstalled={handleRecheck}
+                            />
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
+                    {envCheckError && (
+                      <p className="flex items-center gap-1.5 text-xs text-amber-500">
+                        <AlertCircle className="size-3.5" />
+                        {envCheckError}
+                      </p>
                     )}
                   </div>
+                )}
 
-                  <div className="space-y-2 pr-1">
-                    {agentsChecking && agentStatuses.length === 0 ? (
-                      <div className="flex items-center gap-2 rounded-xl border border-border/40 bg-muted/10 px-4 py-6 text-xs text-muted-foreground">
-                        <Loader2 className="size-4 animate-spin" />
-                        {t('agents.detecting')}
-                      </div>
-                    ) : (
-                      <>
-                      {agentStatuses.map((agent) => {
-                        const selected = selectedAgentIds.has(agent.agent_id);
-                        const isDefault = defaultAgentId === agent.agent_id;
-                        const canSetDefault = selected && !isDefault && agent.installed;
-                        const showInstall =
-                          !agent.installed && hasTerminalAgentInstallGuide(agent.agent_id);
-                        return (
+                {/* STEP 3: BUILT-IN AGENTS */}
+                {currentStep === "agents" && (
+                  <div className="animate-in space-y-6 duration-300 fade-in slide-in-from-bottom-4">
+                    <div className="space-y-3">
+                      <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+                        {t("agents.title")}
+                      </h2>
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        {t("agents.subtitle")}
+                      </p>
+                      {!agentsChecking && !agentsCheckError && agentStatuses.length > 0 && (
+                        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                          <p className="text-[11px] text-muted-foreground">
+                            {t("agents.summary", {
+                              installed: installedAgentCount,
+                              selected: selectedAgentCount,
+                              total: agentStatuses.length,
+                            })}
+                          </p>
+                          <label className="inline-flex cursor-pointer items-center gap-2 text-[11px] text-foreground">
+                            <Checkbox
+                              checked={yoloMode}
+                              onCheckedChange={(checked) => setYoloMode(checked === true)}
+                              aria-label={t("agents.yoloAria")}
+                            />
+                            <span className="font-medium">{t("agents.yoloLabel")}</span>
+                          </label>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2 pr-1">
+                      {agentsChecking && agentStatuses.length === 0 ? (
+                        <div className="flex items-center gap-2 rounded-xl border border-border/40 bg-muted/10 px-4 py-6 text-xs text-muted-foreground">
+                          <Loader2 className="size-4 animate-spin" />
+                          {t("agents.detecting")}
+                        </div>
+                      ) : (
+                        <>
+                          {agentStatuses.map((agent) => {
+                            const selected = selectedAgentIds.has(agent.agent_id);
+                            const isDefault = defaultAgentId === agent.agent_id;
+                            const canSetDefault = selected && !isDefault && agent.installed;
+                            const showInstall =
+                              !agent.installed && hasTerminalAgentInstallGuide(agent.agent_id);
+                            return (
+                              <Card
+                                key={agent.agent_id}
+                                className={cn(
+                                  // Always reserve the same border width so checked state only recolors.
+                                  "group/agent overflow-hidden border bg-muted/10",
+                                  selected
+                                    ? "border-foreground/20 bg-muted/20"
+                                    : "border-border/40",
+                                )}
+                              >
+                                <CardContent className="flex h-14 items-center gap-3 p-3">
+                                  <Checkbox
+                                    checked={selected}
+                                    onCheckedChange={(checked) =>
+                                      toggleAgentSelected(agent.agent_id, checked === true)
+                                    }
+                                    aria-label={t("agents.selectAria", { name: agent.label })}
+                                    className="size-4 shrink-0"
+                                  />
+                                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                                    <span className="shrink-0">
+                                      <AgentIcon
+                                        registryId={agent.agent_id}
+                                        name={agent.label}
+                                        size={20}
+                                      />
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex h-5 items-center gap-2">
+                                        <h4 className="truncate text-xs font-semibold text-foreground">
+                                          {agent.label}
+                                        </h4>
+                                        {isDefault ? (
+                                          <Badge
+                                            variant="secondary"
+                                            className="h-5 shrink-0 px-1.5 text-[10px] font-semibold"
+                                          >
+                                            {t("agents.defaultBadge")}
+                                          </Badge>
+                                        ) : null}
+                                      </div>
+                                      <p className="mt-0.5 truncate font-mono text-[10px] leading-4 text-muted-foreground">
+                                        {agent.cmd}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  {/* Fixed-size action slot: status / Install crossfades to Set Default on hover */}
+                                  <div className="relative h-8 w-[7.5rem] shrink-0">
+                                    <div
+                                      className={cn(
+                                        "absolute inset-0 flex items-center justify-end transition-[opacity,transform] duration-150 ease-out",
+                                        canSetDefault &&
+                                          "group-hover/agent:pointer-events-none group-hover/agent:scale-95 group-hover/agent:opacity-0",
+                                      )}
+                                    >
+                                      {showInstall ? (
+                                        <InstallAgentPopover
+                                          agentId={agent.agent_id}
+                                          agentName={agent.label}
+                                          open={installPopoverAgentId === agent.agent_id}
+                                          onOpenChange={(next) =>
+                                            setInstallPopoverAgentId(next ? agent.agent_id : null)
+                                          }
+                                          onInstalled={() =>
+                                            void runAgentChecks({ resetSelection: false })
+                                          }
+                                          checkInstalled={async () => {
+                                            const result =
+                                              await systemApi.getTerminalAgentsStatus();
+                                            const agents = Array.isArray(result.agents)
+                                              ? result.agents
+                                              : [];
+                                            return Boolean(
+                                              agents.find(
+                                                (item) =>
+                                                  item.agent_id === agent.agent_id &&
+                                                  item.installed,
+                                              ),
+                                            );
+                                          }}
+                                        />
+                                      ) : (
+                                        <span
+                                          className={cn(
+                                            "inline-flex items-center gap-1 text-[11px] whitespace-nowrap",
+                                            agent.installed
+                                              ? "font-semibold text-emerald-500"
+                                              : "font-medium text-muted-foreground/70",
+                                          )}
+                                        >
+                                          {agent.installed ? (
+                                            <CheckCircle2 className="size-3.5 shrink-0" />
+                                          ) : (
+                                            <Bot className="size-3.5 shrink-0" />
+                                          )}
+                                          {agent.installed
+                                            ? t("agents.statusInstalled")
+                                            : t("agents.statusMissing")}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {canSetDefault ? (
+                                      <div className="pointer-events-none absolute inset-0 flex scale-95 items-center justify-end opacity-0 transition-[opacity,transform] duration-150 ease-out group-hover/agent:pointer-events-auto group-hover/agent:scale-100 group-hover/agent:opacity-100">
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="secondary"
+                                          className="h-8 cursor-pointer rounded-full border-0 px-2.5 text-[11px] shadow-none"
+                                          onClick={() => setDefaultAgentId(agent.agent_id)}
+                                        >
+                                          {t("agents.setDefault")}
+                                        </Button>
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                          {/* Optional Chat custom agent — not a terminal CLI; default off. */}
                           <Card
-                            key={agent.agent_id}
                             className={cn(
-                              // Always reserve the same border width so checked state only recolors.
-                              'group/agent overflow-hidden border bg-muted/10',
-                              selected
-                                ? 'border-foreground/20 bg-muted/20'
-                                : 'border-border/40',
+                              "overflow-hidden border bg-muted/10",
+                              deepseekSelected
+                                ? "border-foreground/20 bg-muted/20"
+                                : "border-border/40",
                             )}
                           >
                             <CardContent className="flex h-14 items-center gap-3 p-3">
                               <Checkbox
-                                checked={selected}
-                                onCheckedChange={(checked) =>
-                                  toggleAgentSelected(agent.agent_id, checked === true)
-                                }
-                                aria-label={t('agents.selectAria', { name: agent.label })}
+                                checked={deepseekSelected}
+                                onCheckedChange={(checked) => setDeepseekSelected(checked === true)}
+                                aria-label={t("agents.selectAria", {
+                                  name: t("agents.deepseek.name"),
+                                })}
                                 className="size-4 shrink-0"
                               />
                               <div className="flex min-w-0 flex-1 items-center gap-3">
                                 <span className="shrink-0">
                                   <AgentIcon
-                                    registryId={agent.agent_id}
-                                    name={agent.label}
+                                    registryId={DEEPSEEK_HARNESS_ID}
+                                    name={t("agents.deepseek.name")}
                                     size={20}
                                   />
                                 </span>
                                 <div className="min-w-0 flex-1">
                                   <div className="flex h-5 items-center gap-2">
                                     <h4 className="truncate text-xs font-semibold text-foreground">
-                                      {agent.label}
+                                      {t("agents.deepseek.name")}
                                     </h4>
-                                    {isDefault ? (
-                                      <Badge
-                                        variant="secondary"
-                                        className="h-5 shrink-0 px-1.5 text-[10px] font-semibold"
-                                      >
-                                        {t('agents.defaultBadge')}
-                                      </Badge>
-                                    ) : null}
+                                    <Badge
+                                      variant="secondary"
+                                      className="h-5 shrink-0 px-1.5 text-[10px] font-semibold"
+                                    >
+                                      {t("agents.deepseek.optionalBadge")}
+                                    </Badge>
                                   </div>
-                                  <p className="mt-0.5 truncate font-mono text-[10px] leading-4 text-muted-foreground">
-                                    {agent.cmd}
+                                  <p className="mt-0.5 truncate text-[10px] leading-4 text-muted-foreground">
+                                    {t("agents.deepseek.hint")}
                                   </p>
                                 </div>
                               </div>
-                              {/* Fixed-size action slot: status / Install crossfades to Set Default on hover */}
                               <div className="relative h-8 w-[7.5rem] shrink-0">
-                                <div
-                                  className={cn(
-                                    'absolute inset-0 flex items-center justify-end transition-[opacity,transform] duration-150 ease-out',
-                                    canSetDefault &&
-                                      'group-hover/agent:pointer-events-none group-hover/agent:scale-95 group-hover/agent:opacity-0',
-                                  )}
-                                >
-                                  {showInstall ? (
-                                    <InstallAgentPopover
-                                      agentId={agent.agent_id}
-                                      agentName={agent.label}
-                                      open={installPopoverAgentId === agent.agent_id}
-                                      onOpenChange={(next) =>
-                                        setInstallPopoverAgentId(next ? agent.agent_id : null)
-                                      }
-                                      onInstalled={() =>
-                                        void runAgentChecks({ resetSelection: false })
-                                      }
-                                      checkInstalled={async () => {
-                                        const result = await systemApi.getTerminalAgentsStatus();
-                                        const agents = Array.isArray(result.agents)
-                                          ? result.agents
-                                          : [];
-                                        return Boolean(
-                                          agents.find(
-                                            (item) =>
-                                              item.agent_id === agent.agent_id && item.installed,
-                                          ),
-                                        );
-                                      }}
-                                    />
-                                  ) : (
-                                    <span
-                                      className={cn(
-                                        'inline-flex items-center gap-1 text-[11px] whitespace-nowrap',
-                                        agent.installed
-                                          ? 'font-semibold text-emerald-500'
-                                          : 'font-medium text-muted-foreground/70',
-                                      )}
-                                    >
-                                      {agent.installed ? (
-                                        <CheckCircle2 className="size-3.5 shrink-0" />
-                                      ) : (
-                                        <Bot className="size-3.5 shrink-0" />
-                                      )}
-                                      {agent.installed
-                                        ? t('agents.statusInstalled')
-                                        : t('agents.statusMissing')}
-                                    </span>
-                                  )}
+                                <div className="absolute inset-0 flex items-center justify-end">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-medium whitespace-nowrap text-muted-foreground/70">
+                                    <MessagesSquare className="size-3.5 shrink-0" />
+                                    {t("agents.deepseek.chatOnly")}
+                                  </span>
                                 </div>
-                                {canSetDefault ? (
-                                  <div className="absolute inset-0 flex items-center justify-end pointer-events-none scale-95 opacity-0 transition-[opacity,transform] duration-150 ease-out group-hover/agent:pointer-events-auto group-hover/agent:scale-100 group-hover/agent:opacity-100">
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="secondary"
-                                      className="h-8 rounded-full border-0 px-2.5 text-[11px] cursor-pointer shadow-none"
-                                      onClick={() => setDefaultAgentId(agent.agent_id)}
-                                    >
-                                      {t('agents.setDefault')}
-                                    </Button>
-                                  </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </>
+                      )}
+                    </div>
+
+                    {agentsCheckError && (
+                      <p className="flex items-center gap-1.5 text-xs text-amber-500">
+                        <AlertCircle className="size-3.5" />
+                        {agentsCheckError}
+                      </p>
+                    )}
+                    {agentsSaveError && (
+                      <p className="flex items-center gap-1.5 text-xs text-amber-500">
+                        <AlertCircle className="size-3.5" />
+                        {agentsSaveError}
+                      </p>
+                    )}
+                    {!agentsChecking &&
+                      !agentsCheckError &&
+                      agentStatuses.length > 0 &&
+                      installedAgentCount === 0 && (
+                        <p className="text-[11px] leading-relaxed text-muted-foreground">
+                          {t("agents.noneInstalledHint")}
+                        </p>
+                      )}
+                  </div>
+                )}
+
+                {/* STEP 4: AI QUOTA USAGE */}
+                {currentStep === "quota" && (
+                  <div className="animate-in space-y-6 duration-300 fade-in slide-in-from-bottom-4">
+                    <div className="space-y-3">
+                      <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+                        {t("quota.title")}
+                      </h2>
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        {t("quota.subtitle")}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {t("quota.summary", {
+                          selected: selectedQuotaCount,
+                          total: QUOTA_USAGE_ONBOARDING_PROVIDERS.length,
+                          suggested: suggestedFromAgentsCount,
+                        })}
+                      </p>
+                    </div>
+
+                    <div
+                      role="note"
+                      className="flex gap-2.5 rounded-xl border border-border/40 bg-muted/10 px-3.5 py-3 text-[11px] leading-relaxed text-muted-foreground"
+                    >
+                      <KeyRound className="mt-0.5 size-3.5 shrink-0 text-foreground/70" />
+                      <p>{t("quota.keychainNote")}</p>
+                    </div>
+
+                    <div className="space-y-2 pr-1">
+                      {QUOTA_USAGE_ONBOARDING_PROVIDERS.map((provider) => {
+                        const selected = selectedQuotaProviderIds.has(provider.id);
+                        const suggested = suggestedQuotaProviderIds.has(provider.id);
+                        return (
+                          <Card
+                            key={provider.id}
+                            className={cn(
+                              "overflow-hidden border bg-muted/10",
+                              selected ? "border-foreground/20 bg-muted/20" : "border-border/40",
+                            )}
+                          >
+                            <CardContent className="flex h-12 items-center gap-3 p-3">
+                              <Checkbox
+                                checked={selected}
+                                onCheckedChange={(checked) =>
+                                  toggleQuotaProvider(provider.id, checked === true)
+                                }
+                                aria-label={t("quota.selectAria", { name: provider.label })}
+                                className="size-4 shrink-0"
+                              />
+                              <span className="flex size-5 shrink-0 items-center justify-center text-foreground">
+                                <ProviderGlyph providerId={provider.id} size={18} />
+                              </span>
+                              <div className="flex min-w-0 flex-1 items-center gap-2">
+                                <h4 className="truncate text-xs font-semibold text-foreground">
+                                  {provider.label}
+                                </h4>
+                                {suggested ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="h-5 shrink-0 px-1.5 text-[10px] font-semibold"
+                                  >
+                                    {t("quota.fromAgentsBadge")}
+                                  </Badge>
                                 ) : null}
                               </div>
                             </CardContent>
                           </Card>
                         );
                       })}
-                      {/* Optional Chat custom agent — not a terminal CLI; default off. */}
-                      <Card
-                        className={cn(
-                          'overflow-hidden border bg-muted/10',
-                          deepseekSelected
-                            ? 'border-foreground/20 bg-muted/20'
-                            : 'border-border/40',
-                        )}
-                      >
-                        <CardContent className="flex h-14 items-center gap-3 p-3">
-                          <Checkbox
-                            checked={deepseekSelected}
-                            onCheckedChange={(checked) => setDeepseekSelected(checked === true)}
-                            aria-label={t('agents.selectAria', { name: t('agents.deepseek.name') })}
-                            className="size-4 shrink-0"
-                          />
-                          <div className="flex min-w-0 flex-1 items-center gap-3">
-                            <span className="shrink-0">
-                              <AgentIcon
-                                registryId={DEEPSEEK_HARNESS_ID}
-                                name={t('agents.deepseek.name')}
-                                size={20}
-                              />
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex h-5 items-center gap-2">
-                                <h4 className="truncate text-xs font-semibold text-foreground">
-                                  {t('agents.deepseek.name')}
-                                </h4>
-                                <Badge
-                                  variant="secondary"
-                                  className="h-5 shrink-0 px-1.5 text-[10px] font-semibold"
-                                >
-                                  {t('agents.deepseek.optionalBadge')}
-                                </Badge>
-                              </div>
-                              <p className="mt-0.5 truncate text-[10px] leading-4 text-muted-foreground">
-                                {t('agents.deepseek.hint')}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="relative h-8 w-[7.5rem] shrink-0">
-                            <div className="absolute inset-0 flex items-center justify-end">
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium whitespace-nowrap text-muted-foreground/70">
-                                <MessagesSquare className="size-3.5 shrink-0" />
-                                {t('agents.deepseek.chatOnly')}
-                              </span>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                      </>
-                    )}
-                  </div>
+                    </div>
 
-                  {agentsCheckError && (
-                    <p className="flex items-center gap-1.5 text-xs text-amber-500">
-                      <AlertCircle className="size-3.5" />
-                      {agentsCheckError}
-                    </p>
-                  )}
-                  {agentsSaveError && (
-                    <p className="flex items-center gap-1.5 text-xs text-amber-500">
-                      <AlertCircle className="size-3.5" />
-                      {agentsSaveError}
-                    </p>
-                  )}
-                  {!agentsChecking &&
-                    !agentsCheckError &&
-                    agentStatuses.length > 0 &&
-                    installedAgentCount === 0 && (
-                      <p className="text-[11px] leading-relaxed text-muted-foreground">
-                        {t('agents.noneInstalledHint')}
+                    {quotaSaveError && (
+                      <p className="flex items-center gap-1.5 text-xs text-amber-500">
+                        <AlertCircle className="size-3.5" />
+                        {quotaSaveError}
                       </p>
                     )}
-                </div>
-              )}
-
-              {/* STEP 4: AI QUOTA USAGE */}
-              {currentStep === 'quota' && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-6">
-                  <div className="space-y-3">
-                    <h2 className="text-3xl font-semibold tracking-tight text-foreground">
-                      {t('quota.title')}
-                    </h2>
-                    <p className="text-muted-foreground text-xs leading-relaxed">
-                      {t('quota.subtitle')}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {t('quota.summary', {
-                        selected: selectedQuotaCount,
-                        total: QUOTA_USAGE_ONBOARDING_PROVIDERS.length,
-                        suggested: suggestedFromAgentsCount,
-                      })}
-                    </p>
                   </div>
+                )}
 
-                  <div
-                    role="note"
-                    className="flex gap-2.5 rounded-xl border border-border/40 bg-muted/10 px-3.5 py-3 text-[11px] leading-relaxed text-muted-foreground"
-                  >
-                    <KeyRound className="mt-0.5 size-3.5 shrink-0 text-foreground/70" />
-                    <p>{t('quota.keychainNote')}</p>
-                  </div>
+                {/* STEP 5: FIRST PROJECT */}
+                {currentStep === "project" && (
+                  <div className="animate-in space-y-8 duration-300 fade-in slide-in-from-bottom-4">
+                    <div className="space-y-3">
+                      <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+                        {t("project.title")}
+                      </h2>
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        {t("project.subtitle")}
+                      </p>
+                    </div>
 
-                  <div className="space-y-2 pr-1">
-                    {QUOTA_USAGE_ONBOARDING_PROVIDERS.map((provider) => {
-                      const selected = selectedQuotaProviderIds.has(provider.id);
-                      const suggested = suggestedQuotaProviderIds.has(provider.id);
-                      return (
-                        <Card
-                          key={provider.id}
-                          className={cn(
-                            'overflow-hidden border bg-muted/10',
-                            selected
-                              ? 'border-foreground/20 bg-muted/20'
-                              : 'border-border/40',
-                          )}
-                        >
-                          <CardContent className="flex h-12 items-center gap-3 p-3">
-                            <Checkbox
-                              checked={selected}
-                              onCheckedChange={(checked) =>
-                                toggleQuotaProvider(provider.id, checked === true)
-                              }
-                              aria-label={t('quota.selectAria', { name: provider.label })}
-                              className="size-4 shrink-0"
-                            />
-                            <span className="flex size-5 shrink-0 items-center justify-center text-foreground">
-                              <ProviderGlyph providerId={provider.id} size={18} />
-                            </span>
-                            <div className="flex min-w-0 flex-1 items-center gap-2">
-                              <h4 className="truncate text-xs font-semibold text-foreground">
-                                {provider.label}
-                              </h4>
-                              {suggested ? (
-                                <Badge
-                                  variant="secondary"
-                                  className="h-5 shrink-0 px-1.5 text-[10px] font-semibold"
-                                >
-                                  {t('quota.fromAgentsBadge')}
-                                </Badge>
-                              ) : null}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
+                    <form id={PROJECT_FORM_ID} onSubmit={handleProjectSubmit} className="space-y-5">
+                      <div className="space-y-2">
+                        <Label htmlFor="path" className="text-xs font-semibold text-foreground">
+                          {t("project.fields.path")}
+                        </Label>
+                        <div className="flex items-stretch gap-2">
+                          <Input
+                            id="path"
+                            value={path}
+                            onChange={(e) => setPath(e.target.value)}
+                            placeholder={t("project.fields.pathPlaceholder")}
+                            className="min-w-0 flex-1 border-border/40 bg-muted/10 font-mono text-xs focus-visible:ring-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => void handleBrowse()}
+                            disabled={isPickingDirectory}
+                            className="h-9 shrink-0 cursor-pointer gap-1 border-border/40 hover:bg-muted/20 sm:h-9"
+                          >
+                            <FolderOpen className="size-4" />
+                            <span className="hidden sm:inline">{t("project.fields.browse")}</span>
+                          </Button>
+                        </div>
 
-                  {quotaSaveError && (
-                    <p className="flex items-center gap-1.5 text-xs text-amber-500">
-                      <AlertCircle className="size-3.5" />
-                      {quotaSaveError}
-                    </p>
-                  )}
-                </div>
-              )}
+                        {isValidating && (
+                          <p className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                            <Loader2 className="size-3 animate-spin" />
+                            {t("project.validation.validating")}
+                          </p>
+                        )}
 
-              {/* STEP 5: FIRST PROJECT */}
-              {currentStep === 'project' && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-8">
-                  <div className="space-y-3">
-                    <h2 className="text-3xl font-semibold tracking-tight text-foreground">
-                      {t('project.title')}
-                    </h2>
-                    <p className="text-muted-foreground text-xs leading-relaxed">
-                      {t('project.subtitle')}
-                    </p>
-                  </div>
+                        {isGitRepo !== null && !validationError && (
+                          <p className="flex items-center gap-1.5 text-[10px] text-emerald-500">
+                            <CheckCircle2 className="size-3" />
+                            {t("project.validation.gitRepo")}
+                          </p>
+                        )}
 
-                  <form
-                    id={PROJECT_FORM_ID}
-                    onSubmit={handleProjectSubmit}
-                    className="space-y-5"
-                  >
-                    <div className="space-y-2">
-                      <Label htmlFor="path" className="text-xs font-semibold text-foreground">
-                        {t('project.fields.path')}
-                      </Label>
-                      <div className="flex items-stretch gap-2">
-                        <Input
-                          id="path"
-                          value={path}
-                          onChange={(e) => setPath(e.target.value)}
-                          placeholder={t('project.fields.pathPlaceholder')}
-                          className="min-w-0 flex-1 font-mono text-xs border-border/40 bg-muted/10 focus-visible:ring-1"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => void handleBrowse()}
-                          disabled={isPickingDirectory}
-                          className="h-9 sm:h-9 gap-1 border-border/40 hover:bg-muted/20 cursor-pointer shrink-0"
-                        >
-                          <FolderOpen className="size-4" />
-                          <span className="hidden sm:inline">{t('project.fields.browse')}</span>
-                        </Button>
+                        {validationError && (
+                          <p className="flex items-center gap-1.5 text-[10px] text-amber-500">
+                            <AlertCircle className="size-3" />
+                            {validationError}
+                          </p>
+                        )}
                       </div>
 
-                      {isValidating && (
-                        <p className="text-[10px] text-muted-foreground flex items-center gap-1.5">
-                          <Loader2 className="size-3 animate-spin" />
-                          {t('project.validation.validating')}
-                        </p>
-                      )}
+                      <div className="space-y-2">
+                        <Label htmlFor="name" className="text-xs font-semibold text-foreground">
+                          {t("project.fields.name")}
+                        </Label>
+                        <Input
+                          id="name"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          placeholder={t("project.fields.namePlaceholder")}
+                          className="border-border/40 bg-muted/10 focus-visible:ring-1"
+                        />
+                      </div>
+                    </form>
 
-                      {isGitRepo !== null && !validationError && (
-                        <p className="text-[10px] text-emerald-500 flex items-center gap-1.5">
-                          <CheckCircle2 className="size-3" />
-                          {t('project.validation.gitRepo')}
-                        </p>
-                      )}
-
-                      {validationError && (
-                        <p className="text-[10px] text-amber-500 flex items-center gap-1.5">
-                          <AlertCircle className="size-3" />
-                          {validationError}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="name" className="text-xs font-semibold text-foreground">
-                        {t('project.fields.name')}
-                      </Label>
-                      <Input
-                        id="name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder={t('project.fields.namePlaceholder')}
-                        className="border-border/40 bg-muted/10 focus-visible:ring-1"
-                      />
-                    </div>
-                  </form>
-
-                  <FileBrowser
-                    open={showFileBrowser}
-                    onOpenChange={setShowFileBrowser}
-                    onSelect={handleFileBrowserSelect}
-                    title={t('project.fields.browse')}
-                    selectLabel={t('project.submit')}
-                    dirsOnly={true}
-                  />
-                </div>
-              )}
-                  </div>
-
-                  {/* Sticky max-bottom: sits under short content; pins to scrollport bottom on long pages */}
-                  <div className="sticky bottom-0 z-10 mt-2 bg-background/95 pt-4 pb-2 backdrop-blur-sm supports-[backdrop-filter]:bg-background/85">
-                    <OnboardingStepActions
-                      step={currentStep}
-                      onGoToStep={setCurrentStep}
-                      onComplete={onComplete}
-                      envChecking={envChecking}
-                      hasMissingDeps={hasMissingDeps}
-                      onRecheckEnv={handleRecheck}
-                      agentsChecking={agentsChecking}
-                      agentsSaving={agentsSaving}
-                      onAgentsContinue={() => void handleAgentsContinue()}
-                      onRecheckAgents={() => void runAgentChecks({ resetSelection: false })}
-                      quotaSaving={quotaSaving}
-                      onQuotaContinue={() => void handleQuotaContinue()}
-                      onQuotaSkip={() => void handleQuotaSkip()}
-                      canSubmitProject={canSubmitProject}
-                      isSubmitting={isSubmitting}
-                      projectFormId={PROJECT_FORM_ID}
+                    <FileBrowser
+                      open={showFileBrowser}
+                      onOpenChange={setShowFileBrowser}
+                      onSelect={handleFileBrowserSelect}
+                      title={t("project.fields.browse")}
+                      selectLabel={t("project.submit")}
+                      dirsOnly={true}
                     />
                   </div>
+                )}
+              </div>
+
+              {/* Sticky max-bottom: sits under short content; pins to scrollport bottom on long pages */}
+              <div className="sticky bottom-0 z-10 mt-2 bg-background/95 pt-4 pb-2 backdrop-blur-sm supports-[backdrop-filter]:bg-background/85">
+                <OnboardingStepActions
+                  step={currentStep}
+                  onGoToStep={setCurrentStep}
+                  onComplete={onComplete}
+                  envChecking={envChecking}
+                  hasMissingDeps={hasMissingDeps}
+                  onRecheckEnv={handleRecheck}
+                  agentsChecking={agentsChecking}
+                  agentsSaving={agentsSaving}
+                  onAgentsContinue={() => void handleAgentsContinue()}
+                  onRecheckAgents={() => void runAgentChecks({ resetSelection: false })}
+                  quotaSaving={quotaSaving}
+                  onQuotaContinue={() => void handleQuotaContinue()}
+                  onQuotaSkip={() => void handleQuotaSkip()}
+                  canSubmitProject={canSubmitProject}
+                  isSubmitting={isSubmitting}
+                  projectFormId={PROJECT_FORM_ID}
+                />
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Right: particle art — fills remaining viewport, same bg-background as shell */}
-          <div className="relative hidden h-full min-w-0 flex-1 md:flex items-center justify-center overflow-hidden bg-background animate-in fade-in slide-in-from-right-4 duration-500">
-            <ParticleField
-              src={imageSrc}
-              sampleStep={3}
-              threshold={34}
-              dotSize={1}
-              renderScale={1.1}
-              align="bottom"
-              className="w-full h-full"
-            />
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background:
-                  "radial-gradient(900px 600px at 55% 50%, transparent 40%, color-mix(in srgb, var(--background) 88%, transparent) 92%)",
-              }}
-            />
-          </div>
+        {/* Right: particle art — fills remaining viewport, same bg-background as shell */}
+        <div className="relative hidden h-full min-w-0 flex-1 animate-in items-center justify-center overflow-hidden bg-background duration-500 fade-in slide-in-from-right-4 md:flex">
+          <ParticleField
+            src={imageSrc}
+            sampleStep={3}
+            threshold={34}
+            dotSize={1}
+            renderScale={1.1}
+            align="bottom"
+            className="h-full w-full"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(900px 600px at 55% 50%, transparent 40%, color-mix(in srgb, var(--background) 88%, transparent) 92%)",
+            }}
+          />
+        </div>
       </div>
     </div>
   );

@@ -41,7 +41,9 @@ export function elementsForPtIds<T extends { id: string; isDeleted?: boolean }>(
   });
 }
 
-export function selectedIdsForElements(elements: readonly { id: string }[]): Record<string, boolean> {
+export function selectedIdsForElements(
+  elements: readonly { id: string }[],
+): Record<string, boolean> {
   const next: Record<string, boolean> = {};
   for (const el of elements) next[el.id] = true;
   return next;
@@ -85,5 +87,8 @@ export function cameraToShowRect(
 }
 
 export function prefersReducedMotion(): boolean {
-  return typeof window !== "undefined" && Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+  return (
+    typeof window !== "undefined" &&
+    Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)
+  );
 }

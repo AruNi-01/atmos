@@ -24,7 +24,12 @@ import {
   normalizeSlashCommands,
 } from "./composer-suggestions";
 import { copy } from "./copy";
-import { buildComposerPicker, fastWireValue, type ComposerPatch, type PickerAgent } from "./model-picker";
+import {
+  buildComposerPicker,
+  fastWireValue,
+  type ComposerPatch,
+  type PickerAgent,
+} from "./model-picker";
 import type { ComposerPhoto } from "./photo-attachment";
 import { uploadChatPhotos } from "./upload-chat-photos";
 import { useAgentFavorites } from "./use-agent-favorites";
@@ -72,7 +77,15 @@ function messagesHeaderItem(onPress: () => void, tintColor: string): NativeStack
 }
 
 function registryAgents(
-  agents: Array<{ enabled?: boolean; icon?: string | null; id: string; installed: boolean; name: string }> | undefined,
+  agents:
+    | Array<{
+        enabled?: boolean;
+        icon?: string | null;
+        id: string;
+        installed: boolean;
+        name: string;
+      }>
+    | undefined,
   providerId: string | null,
 ): PickerAgent[] {
   const choices: PickerAgent[] = [];
@@ -120,7 +133,11 @@ export function AgentChatThreadScreen({
   const screenTitle = passedTitle || matchedTitle || snapshotTitle;
   const titlePending = screenTitle.length === 0 && (listLoading || snapshotQuery.isPending);
   const savedConfig = snapshotQuery.data?.meta.descriptor.current_config;
-  const providerId = (active?.providerId ?? snapshotQuery.data?.meta.provider_id ?? listProviderId).trim();
+  const providerId = (
+    active?.providerId ??
+    snapshotQuery.data?.meta.provider_id ??
+    listProviderId
+  ).trim();
   const modelId = active?.model ?? savedConfig?.model ?? null;
   const thinkingId = active?.thinking ?? savedConfig?.thinking ?? null;
   const modeId = active?.mode ?? savedConfig?.mode ?? null;
@@ -187,70 +204,87 @@ export function AgentChatThreadScreen({
     mergeSlashCommands(normalizeSlashCommands(options?.commands), commands),
     mentionFiles,
   );
-  const onPickSuggestion = useCallback((id: string) => {
-    if (!suggestions) return;
-    const insert = suggestions.trigger.kind === "slash" ? `/${id} ` : `@${id} `;
-    setText(applyComposerPick(text, suggestions.trigger, insert));
-  }, [suggestions, text]);
+  const onPickSuggestion = useCallback(
+    (id: string) => {
+      if (!suggestions) return;
+      const insert = suggestions.trigger.kind === "slash" ? `/${id} ` : `@${id} `;
+      setText(applyComposerPick(text, suggestions.trigger, insert));
+    },
+    [suggestions, text],
+  );
   const [photos, setPhotos] = useState<ComposerPhoto[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const chatCwd = snapshotQuery.data?.meta.cwd || ".";
 
-  const onPatch = useCallback((patch: ComposerPatch) => {
-    if (!client || wsState !== "open") return;
-    const switchingAgent = Boolean(patch.agentId && patch.agentId !== providerId && !patch.modelId);
-    const next: PickedConfig = {
+  const onPatch = useCallback(
+    (patch: ComposerPatch) => {
+      if (!client || wsState !== "open") return;
+      const switchingAgent = Boolean(
+        patch.agentId && patch.agentId !== providerId && !patch.modelId,
+      );
+      const next: PickedConfig = {
+        chatId,
+        providerId: patch.agentId ?? (providerId || null),
+        model: switchingAgent ? null : (patch.modelId ?? modelId),
+        thinking: switchingAgent ? null : (patch.thinkingId ?? thinkingId),
+        mode: patch.modeId ?? modeId,
+        permissionMode: patch.permissionId ?? permissionId,
+        fast: switchingAgent
+          ? null
+          : patch.fastEnabled != null
+            ? fastWireValue(patch.fastEnabled)
+            : fastId,
+        context: switchingAgent ? null : (patch.contextId ?? contextId),
+      };
+      setPicked(next);
+      void wsActions
+        .agentChatConfigure(client, {
+          chat_id: chatId,
+          ...(patch.agentId ? { provider_id: patch.agentId } : {}),
+          ...(patch.modelId ? { model: patch.modelId } : {}),
+          ...(patch.thinkingId ? { thinking: patch.thinkingId } : {}),
+          ...(patch.modeId ? { mode: patch.modeId } : {}),
+          ...(patch.permissionId ? { permission_mode: patch.permissionId } : {}),
+          ...(patch.fastEnabled != null ? { fast: fastWireValue(patch.fastEnabled) } : {}),
+          ...(patch.contextId ? { context: patch.contextId } : {}),
+        })
+        .catch(() => {
+          setPicked((current) => (current === next ? null : current));
+          void snapshotQuery.refetch();
+        });
+    },
+    [
       chatId,
-      providerId: patch.agentId ?? (providerId || null),
-      model: switchingAgent ? null : (patch.modelId ?? modelId),
-      thinking: switchingAgent ? null : (patch.thinkingId ?? thinkingId),
-      mode: patch.modeId ?? modeId,
-      permissionMode: patch.permissionId ?? permissionId,
-      fast: switchingAgent ? null : (patch.fastEnabled != null ? fastWireValue(patch.fastEnabled) : fastId),
-      context: switchingAgent ? null : (patch.contextId ?? contextId),
-    };
-    setPicked(next);
-    void wsActions.agentChatConfigure(client, {
-      chat_id: chatId,
-      ...(patch.agentId ? { provider_id: patch.agentId } : {}),
-      ...(patch.modelId ? { model: patch.modelId } : {}),
-      ...(patch.thinkingId ? { thinking: patch.thinkingId } : {}),
-      ...(patch.modeId ? { mode: patch.modeId } : {}),
-      ...(patch.permissionId ? { permission_mode: patch.permissionId } : {}),
-      ...(patch.fastEnabled != null ? { fast: fastWireValue(patch.fastEnabled) } : {}),
-      ...(patch.contextId ? { context: patch.contextId } : {}),
-    }).catch(() => {
-      setPicked((current) => (current === next ? null : current));
-      void snapshotQuery.refetch();
-    });
-  }, [
-    chatId,
-    client,
-    contextId,
-    fastId,
-    modeId,
-    modelId,
-    permissionId,
-    providerId,
-    snapshotQuery,
-    thinkingId,
-    wsState,
-  ]);
+      client,
+      contextId,
+      fastId,
+      modeId,
+      modelId,
+      permissionId,
+      providerId,
+      snapshotQuery,
+      thinkingId,
+      wsState,
+    ],
+  );
 
-  const uploadSelectedPhotos = useCallback(async (pending: ComposerPhoto[]) => {
-    if (pending.length === 0) return [];
-    const session = useSessionStore.getState().activeClientSession;
-    if (!session?.gateway_url || !session.client_token) {
-      throw new Error("Could not upload that photo.");
-    }
-    return uploadChatPhotos({
-      gatewayUrl: session.gateway_url,
-      token: session.client_token,
-      chatId,
-      localPath: chatCwd,
-      photos: pending,
-    });
-  }, [chatCwd, chatId]);
+  const uploadSelectedPhotos = useCallback(
+    async (pending: ComposerPhoto[]) => {
+      if (pending.length === 0) return [];
+      const session = useSessionStore.getState().activeClientSession;
+      if (!session?.gateway_url || !session.client_token) {
+        throw new Error("Could not upload that photo.");
+      }
+      return uploadChatPhotos({
+        gatewayUrl: session.gateway_url,
+        token: session.client_token,
+        chatId,
+        localPath: chatCwd,
+        photos: pending,
+      });
+    },
+    [chatCwd, chatId],
+  );
 
   const restoreDraft = useCallback((draft: string, pending: ComposerPhoto[]) => {
     setText((current) => (current.length === 0 ? draft : current));
@@ -325,20 +359,38 @@ export function AgentChatThreadScreen({
           ? {
               unstable_headerLeftItems: () => [backHeaderItem(goBack, theme.colors.label)],
               ...(userMessages.length > 0
-                ? { unstable_headerRightItems: () => [messagesHeaderItem(openMessages, theme.colors.label)] }
+                ? {
+                    unstable_headerRightItems: () => [
+                      messagesHeaderItem(openMessages, theme.colors.label),
+                    ],
+                  }
                 : {}),
             }
           : {
               headerLeft: () => (
-                <Pressable accessibilityLabel="Back" accessibilityRole="button" hitSlop={12} onPress={goBack}>
+                <Pressable
+                  accessibilityLabel="Back"
+                  accessibilityRole="button"
+                  hitSlop={12}
+                  onPress={goBack}
+                >
                   <ChevronLeftIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
                 </Pressable>
               ),
               ...(userMessages.length > 0
                 ? {
                     headerRight: () => (
-                      <Pressable accessibilityLabel={copy.messages} accessibilityRole="button" hitSlop={12} onPress={openMessages}>
-                        <MessagesSquareIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
+                      <Pressable
+                        accessibilityLabel={copy.messages}
+                        accessibilityRole="button"
+                        hitSlop={12}
+                        onPress={openMessages}
+                      >
+                        <MessagesSquareIcon
+                          color={theme.colors.label}
+                          size={22}
+                          strokeWidth={2.2}
+                        />
                       </Pressable>
                     ),
                   }
@@ -403,7 +455,9 @@ export function AgentChatThreadScreen({
               onPatch={onPatch}
               onPickSuggestion={onPickSuggestion}
               onQueue={onQueue}
-              onRemovePhoto={(id) => setPhotos((current) => current.filter((photo) => photo.id !== id))}
+              onRemovePhoto={(id) =>
+                setPhotos((current) => current.filter((photo) => photo.id !== id))
+              }
               onSend={onSend}
               onSteer={onSteer}
               onStop={onStop}
@@ -423,44 +477,57 @@ export function AgentChatThreadScreen({
         }
       >
         <View style={{ backgroundColor: theme.colors.background, flex: 1 }}>
-        {error || uploadError ? (
-          <View style={{ paddingHorizontal: 18, paddingTop: 8 }}>
-            <InlineError message={uploadError || error} />
-          </View>
-        ) : null}
-        {error && messages.length === 0 ? null : (
-          <AgentChatTranscript
-            focusMessageId={focusMessageId}
-            messages={messages}
-            streaming={runningTurnId != null}
-          />
-        )}
-        <ExpoDrawer
-          isPresented={messagesOpen}
-          matchContents={false}
-          onDismiss={() => setMessagesOpen(false)}
-          snapPoints={["half", "full"]}
-        >
-          <Text style={{ color: theme.colors.label, fontSize: 17, fontWeight: "600", marginBottom: 8 }}>{copy.messages}</Text>
-          <ScrollView style={{ flex: 1 }}>
-            {userMessages.map((message) => {
-              const textPart = message.parts.find((part) => part.type === "text" && part.text.trim().length > 0);
-              const preview = textPart?.type === "text" ? textPart.text.trim() : message.id;
-              return (
-                <Pressable
-                  key={message.id}
-                  onPress={() => {
-                    setFocusMessageId(message.id);
-                    setMessagesOpen(false);
-                  }}
-                  style={{ paddingVertical: 12 }}
-                >
-                  <Text numberOfLines={2} style={{ color: theme.colors.label, fontSize: 16 }}>{preview}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </ExpoDrawer>
+          {error || uploadError ? (
+            <View style={{ paddingHorizontal: 18, paddingTop: 8 }}>
+              <InlineError message={uploadError || error} />
+            </View>
+          ) : null}
+          {error && messages.length === 0 ? null : (
+            <AgentChatTranscript
+              focusMessageId={focusMessageId}
+              messages={messages}
+              streaming={runningTurnId != null}
+            />
+          )}
+          <ExpoDrawer
+            isPresented={messagesOpen}
+            matchContents={false}
+            onDismiss={() => setMessagesOpen(false)}
+            snapPoints={["half", "full"]}
+          >
+            <Text
+              style={{
+                color: theme.colors.label,
+                fontSize: 17,
+                fontWeight: "600",
+                marginBottom: 8,
+              }}
+            >
+              {copy.messages}
+            </Text>
+            <ScrollView style={{ flex: 1 }}>
+              {userMessages.map((message) => {
+                const textPart = message.parts.find(
+                  (part) => part.type === "text" && part.text.trim().length > 0,
+                );
+                const preview = textPart?.type === "text" ? textPart.text.trim() : message.id;
+                return (
+                  <Pressable
+                    key={message.id}
+                    onPress={() => {
+                      setFocusMessageId(message.id);
+                      setMessagesOpen(false);
+                    }}
+                    style={{ paddingVertical: 12 }}
+                  >
+                    <Text numberOfLines={2} style={{ color: theme.colors.label, fontSize: 16 }}>
+                      {preview}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </ExpoDrawer>
         </View>
       </ChatKeyboardFrame>
     </>

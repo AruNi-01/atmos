@@ -47,7 +47,8 @@ function project(workspaces: Workspace[]): Project {
 }
 
 function snapshot(
-  overrides: Partial<AgentSessionStatusSnapshot> & Pick<AgentSessionStatusSnapshot, "session_id" | "surface" | "group_key">,
+  overrides: Partial<AgentSessionStatusSnapshot> &
+    Pick<AgentSessionStatusSnapshot, "session_id" | "surface" | "group_key">,
 ): AgentSessionStatusSnapshot {
   return {
     context_id: "workspace-1",
@@ -65,10 +66,7 @@ describe("sidebar session view", () => {
     expect(parseSidebarListView(null)).toBe("workspace");
     expect(parseSidebarListView("nope")).toBe("workspace");
     expect(parseSidebarListView("session")).toBe("session");
-    const settings = readFileSync(
-      join(import.meta.dir, "../left-sidebar-settings.ts"),
-      "utf8",
-    );
+    const settings = readFileSync(join(import.meta.dir, "../left-sidebar-settings.ts"), "utf8");
     expect(settings).toContain("parseSidebarListView(settings.workspace_sidebar?.view)");
     expect(settings).not.toContain("workspace_kanban_view?.view");
   });
@@ -196,41 +194,53 @@ describe("sidebar session view", () => {
     expect(sessionGroups.every((group) => group.items.length === 1)).toBe(true);
 
     // Workspace By Agent Status still rolls both panes into permission.
-    expect(resolveWorkspaceAgentGroupKey({
-      agentState: "running",
-      attentionReason: "permission_request",
-    })).toBe("permission");
-    expect(resolveWorkspaceAgentGroupKey({
-      agentState: "permission_request",
-      attentionReason: null,
-    })).toBe("permission");
+    expect(
+      resolveWorkspaceAgentGroupKey({
+        agentState: "running",
+        attentionReason: "permission_request",
+      }),
+    ).toBe("permission");
+    expect(
+      resolveWorkspaceAgentGroupKey({
+        agentState: "permission_request",
+        attentionReason: null,
+      }),
+    ).toBe("permission");
   });
 
   test("subtitle omits empty segments", () => {
-    expect(formatSessionRowSubtitle({
-      projectName: "Atmos",
-      workspaceName: "Feature",
-      branch: "feat",
-      prState: "Open",
-    })).toBe("Atmos · Feature · feat · Open");
-    expect(formatSessionRowSubtitle({
-      projectName: "Atmos",
-      workspaceName: "  ",
-      branch: null,
-      prState: "Open",
-    })).toBe("Atmos · Open");
-    expect(formatSessionRowSubtitle({
-      projectName: "",
-      workspaceName: null,
-      branch: "",
-      prState: null,
-    })).toBe("");
-    expect(formatSessionRowSubtitle({
-      projectName: "atmos",
-      workspaceName: "atmos/koffing",
-      branch: "atmos/koffing",
-      prState: null,
-    })).toBe("atmos · atmos/koffing");
+    expect(
+      formatSessionRowSubtitle({
+        projectName: "Atmos",
+        workspaceName: "Feature",
+        branch: "feat",
+        prState: "Open",
+      }),
+    ).toBe("Atmos · Feature · feat · Open");
+    expect(
+      formatSessionRowSubtitle({
+        projectName: "Atmos",
+        workspaceName: "  ",
+        branch: null,
+        prState: "Open",
+      }),
+    ).toBe("Atmos · Open");
+    expect(
+      formatSessionRowSubtitle({
+        projectName: "",
+        workspaceName: null,
+        branch: "",
+        prState: null,
+      }),
+    ).toBe("");
+    expect(
+      formatSessionRowSubtitle({
+        projectName: "atmos",
+        workspaceName: "atmos/koffing",
+        branch: "atmos/koffing",
+        prState: null,
+      }),
+    ).toBe("atmos · atmos/koffing");
   });
 
   test("active session matches the open chat or terminal, not the status group", () => {
@@ -247,9 +257,11 @@ describe("sidebar session view", () => {
     expect(sidebarSessionRowIsActive(chat, { chatId: "abc" })).toBe(true);
     expect(sidebarSessionRowIsActive(chat, { chatId: "other" })).toBe(false);
     expect(sidebarSessionRowIsActive(terminal, { chatId: "abc" })).toBe(false);
-    expect(sidebarSessionRowIsActive(terminal, {
-      terminalIds: ["ws-1:claude"],
-    })).toBe(true);
+    expect(
+      sidebarSessionRowIsActive(terminal, {
+        terminalIds: ["ws-1:claude"],
+      }),
+    ).toBe(true);
     expect(sidebarSessionRowIsActive(terminal, { terminalIds: ["ws-1:other"] })).toBe(false);
   });
 

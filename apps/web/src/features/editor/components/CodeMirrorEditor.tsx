@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import dynamic from 'next/dynamic';
-import { useTranslations } from 'next-intl';
-import { useHotkeys } from 'react-hotkeys-hook';
-import { flushSync } from 'react-dom';
-import { useShallow } from 'zustand/react/shallow';
-import { EditorView } from '@codemirror/view';
-import { openSearchPanel } from '@codemirror/search';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import { useTranslations } from "next-intl";
+import { useHotkeys } from "react-hotkeys-hook";
+import { flushSync } from "react-dom";
+import { useShallow } from "zustand/react/shallow";
+import { EditorView } from "@codemirror/view";
+import { openSearchPanel } from "@codemirror/search";
 import {
   cn,
   Popover,
@@ -20,73 +20,90 @@ import {
   TooltipTrigger,
   toastManager,
   getFileIconProps,
-} from '@workspace/ui';
-import { Loader2 as LucideLoader2, Eye, FileText, Settings2, ChevronRight, Folder, File, Search } from 'lucide-react';
-import { useEditorStore, OpenFile } from '@/features/editor/store/use-editor-store';
-import { invalidateGitQueries } from '@/features/git/hooks/use-git-changed-files-query';
-import { useFileTreeStore } from '@/features/files/store/use-file-tree-store';
-import { useFileTreeQuery, useListDirQuery } from '@/features/files/hooks/use-file-tree-query';
-import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
-import { MarkdownToc } from '@/shared/components/markdown/MarkdownToc';
-import { isLiveEligibleMarkdownPath, isUntitledMarkdownPath } from '@/features/md-live/lib/md-live-paths';
-import { isMdLiveStreamLocked, useMdLiveStreamLocked } from '@/features/md-live/lib/md-live-stream-lock';
-import { fsApi } from '@/api/ws-api';
-import { BaseCodeMirrorEditor } from './BaseCodeMirrorEditor';
-import { setCodeMirrorSearchPanelMessages } from './codemirror-search-panel';
-import { MarkdownFindPanel } from './MarkdownFindPanel';
-import { FindHighlightLayer, FindHighlightProvider } from './FindPanel';
-import { useSelectionPopover } from '@/features/selection/hooks/use-selection-popover';
-import { SelectionPopover } from '@/features/selection/components/SelectionPopover';
+} from "@workspace/ui";
+import {
+  Loader2 as LucideLoader2,
+  Eye,
+  FileText,
+  Settings2,
+  ChevronRight,
+  Folder,
+  File,
+  Search,
+} from "lucide-react";
+import { useEditorStore, OpenFile } from "@/features/editor/store/use-editor-store";
+import { invalidateGitQueries } from "@/features/git/hooks/use-git-changed-files-query";
+import { useFileTreeStore } from "@/features/files/store/use-file-tree-store";
+import { useFileTreeQuery, useListDirQuery } from "@/features/files/hooks/use-file-tree-query";
+import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
+import { MarkdownToc } from "@/shared/components/markdown/MarkdownToc";
+import {
+  isLiveEligibleMarkdownPath,
+  isUntitledMarkdownPath,
+} from "@/features/md-live/lib/md-live-paths";
+import {
+  isMdLiveStreamLocked,
+  useMdLiveStreamLocked,
+} from "@/features/md-live/lib/md-live-stream-lock";
+import { fsApi } from "@/api/ws-api";
+import { BaseCodeMirrorEditor } from "./BaseCodeMirrorEditor";
+import { setCodeMirrorSearchPanelMessages } from "./codemirror-search-panel";
+import { MarkdownFindPanel } from "./MarkdownFindPanel";
+import { FindHighlightLayer, FindHighlightProvider } from "./FindPanel";
+import { useSelectionPopover } from "@/features/selection/hooks/use-selection-popover";
+import { SelectionPopover } from "@/features/selection/components/SelectionPopover";
 import { usePathname } from "next/navigation";
 import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
-import { useEditorSettingsStore } from '@/features/settings/store/editor-settings-store';
-import { useQueryState } from 'nuqs';
-import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
+import { useEditorSettingsStore } from "@/features/settings/store/editor-settings-store";
+import { useQueryState } from "nuqs";
+import { settingsModalParams } from "@/shared/lib/nuqs/searchParams";
 import { isSettingsPathname } from "@/features/settings/lib/settings-return";
-import { parseReviewReportMetadata } from '@/features/code-review/lib/review-report-frontmatter';
-import { ReviewReportMetadataCard } from '@/features/code-review/components/ReviewReportMetadataCard';
-import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
-import { type FileTreeNode } from '@/api/ws-api';
-import { FileTree } from '@/features/files/components/FileTree';
-import { tryRelativePathUnderRoot } from '@/shared/lib/path-under-root';
-import { CenterExplorerToggle } from '@/app-shell/CenterExplorerToggle';
-import { CENTER_EXPLORER_BODY_INSET_CLASS } from '@/app-shell/center-explorer-layout';
+import { parseReviewReportMetadata } from "@/features/code-review/lib/review-report-frontmatter";
+import { ReviewReportMetadataCard } from "@/features/code-review/components/ReviewReportMetadataCard";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
+import { type FileTreeNode } from "@/api/ws-api";
+import { FileTree } from "@/features/files/components/FileTree";
+import { tryRelativePathUnderRoot } from "@/shared/lib/path-under-root";
+import { CenterExplorerToggle } from "@/app-shell/CenterExplorerToggle";
+import { CENTER_EXPLORER_BODY_INSET_CLASS } from "@/app-shell/center-explorer-layout";
 
 /** Strip trailing slashes only — keep a leading `/` for absolute paths. */
 function stripTrailingSlashes(path: string): string {
   if (!path) return path;
-  const trimmed = path.replace(/\/+$/, '');
-  return trimmed.length > 0 ? trimmed : '/';
+  const trimmed = path.replace(/\/+$/, "");
+  return trimmed.length > 0 ? trimmed : "/";
 }
 
 const MarkdownLiveEditor = dynamic(
   () =>
-    import('@/features/md-live/components/MarkdownLiveEditor').then(
+    import("@/features/md-live/components/MarkdownLiveEditor").then(
       (mod) => mod.MarkdownLiveEditor,
     ),
   { ssr: false },
 );
 const MdLiveAgentDock = dynamic(
-  () =>
-    import('@/features/md-live/components/MdLiveAgentDock').then(
-      (mod) => mod.MdLiveAgentDock,
-    ),
+  () => import("@/features/md-live/components/MdLiveAgentDock").then((mod) => mod.MdLiveAgentDock),
   { ssr: false },
 );
 const MdLiveSaveAsDialog = dynamic(
   () =>
-    import('@/features/md-live/components/MdLiveSaveAsDialog').then(
+    import("@/features/md-live/components/MdLiveSaveAsDialog").then(
       (mod) => mod.MdLiveSaveAsDialog,
     ),
   { ssr: false },
 );
 
-function markdownJumpWantsSource(target: {
-  preferMarkdownSource?: boolean;
-  selectRanges?: { startLine: number; endLine: number }[];
-  line?: number;
-  openGitGutter?: "all";
-} | null | undefined): boolean {
+function markdownJumpWantsSource(
+  target:
+    | {
+        preferMarkdownSource?: boolean;
+        selectRanges?: { startLine: number; endLine: number }[];
+        line?: number;
+        openGitGutter?: "all";
+      }
+    | null
+    | undefined,
+): boolean {
   return Boolean(
     target?.preferMarkdownSource ||
     (target?.selectRanges?.length ?? 0) > 0 ||
@@ -97,11 +114,11 @@ function markdownJumpWantsSource(target: {
 
 function parentDirPath(path: string, fallbackRoot: string | null): string {
   const normalized = stripTrailingSlashes(path);
-  const idx = normalized.lastIndexOf('/');
+  const idx = normalized.lastIndexOf("/");
   if (idx <= 0) {
-    return fallbackRoot && fallbackRoot.length > 0 ? stripTrailingSlashes(fallbackRoot) : '/';
+    return fallbackRoot && fallbackRoot.length > 0 ? stripTrailingSlashes(fallbackRoot) : "/";
   }
-  return normalized.slice(0, idx) || '/';
+  return normalized.slice(0, idx) || "/";
 }
 
 interface CodeMirrorEditorProps {
@@ -126,15 +143,17 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const pathname = usePathname();
   const paintContextId = useCenterPaintContextId();
   const editorContextId = contextId ?? paintContextId;
-  const workspaceActivePath = useEditorStore((s) => s.getActiveFilePath(editorContextId || undefined));
-  const updateFileContent = useEditorStore(s => s.updateFileContent);
-  const saveFile = useEditorStore(s => s.saveFile);
+  const workspaceActivePath = useEditorStore((s) =>
+    s.getActiveFilePath(editorContextId || undefined),
+  );
+  const updateFileContent = useEditorStore((s) => s.updateFileContent);
+  const saveFile = useEditorStore((s) => s.saveFile);
   const replaceOpenFilePath = useEditorStore((s) => s.replaceOpenFilePath);
 
   const reloadFileContent = useEditorStore((s) => s.reloadFileContent);
-  const clearNavigationTarget = useEditorStore(s => s.clearNavigationTarget);
+  const clearNavigationTarget = useEditorStore((s) => s.clearNavigationTarget);
   const navigationTarget = useEditorStore((state) =>
-    editorContextId ? state.navigationTargets[editorContextId]?.[file.path] ?? null : null
+    editorContextId ? (state.navigationTargets[editorContextId]?.[file.path] ?? null) : null,
   );
   const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
   const projects = useProjects();
@@ -183,18 +202,18 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const liveChromeRef = useRef<HTMLDivElement | null>(null);
   const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
-  const [markdownView, setMarkdownView] = useState<'live' | 'source'>(() => {
+  const [markdownView, setMarkdownView] = useState<"live" | "source">(() => {
     const target = editorContextId
       ? useEditorStore.getState().navigationTargets[editorContextId]?.[file.path]
       : undefined;
-    return markdownJumpWantsSource(target) ? 'source' : 'live';
+    return markdownJumpWantsSource(target) ? "source" : "live";
   });
   const [saveAsOpen, setSaveAsOpen] = useState(false);
   const [debouncedContent, setDebouncedContent] = useState(file.content);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editorSettingsSettled, setEditorSettingsSettled] = useState(editorSettingsLoaded);
   const [gitDiffRefreshNonce, setGitDiffRefreshNonce] = useState(0);
-  const [settingsModalOpen] = useQueryState('settingsModal', settingsModalParams.settingsModal);
+  const [settingsModalOpen] = useQueryState("settingsModal", settingsModalParams.settingsModal);
   // Settings path keeps underlay context for push animation — detect via pathname, not currentView.
   const settingsSurfaceOpen = settingsModalOpen || isSettingsPathname(pathname);
 
@@ -206,20 +225,23 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   }, [currentProjectPath]);
 
   const handleGitGutterStateChanged = useCallback(
-    async (kind: 'stage' | 'restore') => {
+    async (kind: "stage" | "restore") => {
       await refreshEditorGitGutter();
-      if (kind === 'restore') {
+      if (kind === "restore") {
         await reloadFileContent(file.path, editorContextId || undefined);
       }
     },
     [refreshEditorGitGutter, reloadFileContent, file.path, editorContextId],
   );
 
-  const handleEditorSettingsPopoverOpenChange = useCallback((open: boolean) => {
-    if (!surfaceActive) return;
-    if (open && settingsSurfaceOpen) return;
-    setSettingsOpen(open);
-  }, [settingsSurfaceOpen, surfaceActive]);
+  const handleEditorSettingsPopoverOpenChange = useCallback(
+    (open: boolean) => {
+      if (!surfaceActive) return;
+      if (open && settingsSurfaceOpen) return;
+      setSettingsOpen(open);
+    },
+    [settingsSurfaceOpen, surfaceActive],
+  );
 
   useEffect(() => {
     if (settingsSurfaceOpen) setSettingsOpen(false);
@@ -267,8 +289,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
     // Last resort: walk up from the file until we still have a path (for canvas
     // opens where sidebar file-tree context was never set).
-    const abs = stripTrailingSlashes(fullPath.replace(/\\/g, '/'));
-    const lastSlash = abs.lastIndexOf('/');
+    const abs = stripTrailingSlashes(fullPath.replace(/\\/g, "/"));
+    const lastSlash = abs.lastIndexOf("/");
     if (lastSlash > 0) {
       return {
         relativePath: abs.slice(lastSlash + 1),
@@ -278,7 +300,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
     return {
       relativePath: fullPath,
-      projectRoot: '',
+      projectRoot: "",
     };
   }, [file.path, currentProjectPath, projects]);
 
@@ -292,7 +314,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const fileTreeRootPath = breadcrumbTreeRoot;
 
   const breadcrumbParts = useMemo(() => {
-    return relativePath.split('/').filter(Boolean);
+    return relativePath.split("/").filter(Boolean);
   }, [relativePath]);
 
   const editorGitDiffSource = useMemo(
@@ -304,13 +326,18 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   );
 
   // Get the full path for a breadcrumb part at a given index
-  const getBreadcrumbPath = useCallback((index: number) => {
-    const parts = relativePath.split('/').filter(Boolean);
-    const relevantParts = parts.slice(0, index + 1);
-    if (!projectRoot) return relevantParts.join('/');
-    const joined = relevantParts.join('/');
-    return joined ? `${stripTrailingSlashes(projectRoot)}/${joined}` : stripTrailingSlashes(projectRoot);
-  }, [relativePath, projectRoot]);
+  const getBreadcrumbPath = useCallback(
+    (index: number) => {
+      const parts = relativePath.split("/").filter(Boolean);
+      const relevantParts = parts.slice(0, index + 1);
+      if (!projectRoot) return relevantParts.join("/");
+      const joined = relevantParts.join("/");
+      return joined
+        ? `${stripTrailingSlashes(projectRoot)}/${joined}`
+        : stripTrailingSlashes(projectRoot);
+    },
+    [relativePath, projectRoot],
+  );
 
   // Parent dir of the open breadcrumb segment — used for listDir fallback when
   // the recursive tree is empty / not synced (common on canvas).
@@ -326,60 +353,64 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   });
 
   // Get the sibling files/directories for a breadcrumb path (same level)
-  const getBreadcrumbSiblings = useCallback((targetPath: string): FileTreeNode[] => {
-    // Prefer a live listDir for the open popover's parent — independent of
-    // whether the left Files panel has loaded this project.
-    if (
-      openBreadcrumbParentPath &&
-      breadcrumbListDirQuery.data?.entries &&
-      parentDirPath(targetPath, fileTreeRootPath) === stripTrailingSlashes(openBreadcrumbParentPath)
-    ) {
-      return breadcrumbListDirQuery.data.entries.map((entry) => ({
-        name: entry.name,
-        path: entry.path,
-        is_dir: entry.is_dir,
-        is_symlink: entry.is_symlink,
-        is_ignored: entry.is_ignored,
-        symlink_target: entry.symlink_target,
-      }));
-    }
-
-    if (!fileTreeData.length || !fileTreeRootPath) return [];
-
-    // Normalize for comparison only (strip trailing slash + unify separators).
-    const normalizePath = (path: string) =>
-      stripTrailingSlashes(path.replace(/\\/g, '/')).replace(/^\/+/, '');
-
-    const parentPath = parentDirPath(targetPath, fileTreeRootPath);
-    const normalizedParentPath = normalizePath(parentPath);
-    const normalizedTreeRootPath = normalizePath(fileTreeRootPath);
-
-    // Top-level list_project_files payload is the children of the project root.
-    if (normalizedParentPath === normalizedTreeRootPath) {
-      return fileTreeData;
-    }
-
-    const findSiblings = (nodes: FileTreeNode[], targetParentPath: string): FileTreeNode[] => {
-      for (const node of nodes) {
-        const normalizedNodePath = normalizePath(node.path);
-        if (normalizedNodePath === targetParentPath && node.children) {
-          return node.children;
-        }
-        if (node.children) {
-          const result = findSiblings(node.children, targetParentPath);
-          if (result.length > 0) return result;
-        }
+  const getBreadcrumbSiblings = useCallback(
+    (targetPath: string): FileTreeNode[] => {
+      // Prefer a live listDir for the open popover's parent — independent of
+      // whether the left Files panel has loaded this project.
+      if (
+        openBreadcrumbParentPath &&
+        breadcrumbListDirQuery.data?.entries &&
+        parentDirPath(targetPath, fileTreeRootPath) ===
+          stripTrailingSlashes(openBreadcrumbParentPath)
+      ) {
+        return breadcrumbListDirQuery.data.entries.map((entry) => ({
+          name: entry.name,
+          path: entry.path,
+          is_dir: entry.is_dir,
+          is_symlink: entry.is_symlink,
+          is_ignored: entry.is_ignored,
+          symlink_target: entry.symlink_target,
+        }));
       }
-      return [];
-    };
 
-    return findSiblings(fileTreeData, normalizedParentPath);
-  }, [
-    breadcrumbListDirQuery.data?.entries,
-    fileTreeData,
-    fileTreeRootPath,
-    openBreadcrumbParentPath,
-  ]);
+      if (!fileTreeData.length || !fileTreeRootPath) return [];
+
+      // Normalize for comparison only (strip trailing slash + unify separators).
+      const normalizePath = (path: string) =>
+        stripTrailingSlashes(path.replace(/\\/g, "/")).replace(/^\/+/, "");
+
+      const parentPath = parentDirPath(targetPath, fileTreeRootPath);
+      const normalizedParentPath = normalizePath(parentPath);
+      const normalizedTreeRootPath = normalizePath(fileTreeRootPath);
+
+      // Top-level list_project_files payload is the children of the project root.
+      if (normalizedParentPath === normalizedTreeRootPath) {
+        return fileTreeData;
+      }
+
+      const findSiblings = (nodes: FileTreeNode[], targetParentPath: string): FileTreeNode[] => {
+        for (const node of nodes) {
+          const normalizedNodePath = normalizePath(node.path);
+          if (normalizedNodePath === targetParentPath && node.children) {
+            return node.children;
+          }
+          if (node.children) {
+            const result = findSiblings(node.children, targetParentPath);
+            if (result.length > 0) return result;
+          }
+        }
+        return [];
+      };
+
+      return findSiblings(fileTreeData, normalizedParentPath);
+    },
+    [
+      breadcrumbListDirQuery.data?.entries,
+      fileTreeData,
+      fileTreeRootPath,
+      openBreadcrumbParentPath,
+    ],
+  );
 
   // Close breadcrumb popover when file changes
   useEffect(() => {
@@ -406,16 +437,17 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     }
   }, [file.isLoading]);
 
-  const isMarkdown = file.language === 'markdown' || file.name.endsWith('.md') || file.name.endsWith('.mdx');
+  const isMarkdown =
+    file.language === "markdown" || file.name.endsWith(".md") || file.name.endsWith(".mdx");
   const isLiveEligible = isLiveEligibleMarkdownPath(file.path, {
     fileName: file.name,
     language: file.language,
   });
   const jumpWantsSource = markdownJumpWantsSource(navigationTarget);
-  const isLive = isLiveEligible && markdownView === 'live' && !jumpWantsSource;
+  const isLive = isLiveEligible && markdownView === "live" && !jumpWantsSource;
   const streamLocked = useMdLiveStreamLocked(file.path);
   const isPreview = !isLiveEligible && isMarkdown && previewFilePath === file.path;
-  const isReviewReport = isMarkdown && file.path.includes('/.atmos/reviews/');
+  const isReviewReport = isMarkdown && file.path.includes("/.atmos/reviews/");
   const markdownFindEnabled = (isPreview || isLive) && !file.isLoading;
 
   const openMarkdownFind = useCallback(() => {
@@ -473,14 +505,14 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     if (
       !jumpToSource &&
       isMarkdown &&
-      file.path.includes('/.atmos/reviews/') &&
+      file.path.includes("/.atmos/reviews/") &&
       previewFilePath !== file.path
     ) {
       setPreviewFilePath(file.path);
       setDebouncedContent(file.content);
     }
-    setMarkdownView(jumpToSource || !liveEligible ? 'source' : 'live');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    setMarkdownView(jumpToSource || !liveEligible ? "source" : "live");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.path]);
 
   useEffect(() => {
@@ -489,7 +521,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
       (navigationTarget.selectRanges?.length ?? 0) > 0 ||
       navigationTarget.line != null ||
       navigationTarget.openGitGutter === "all";
-    setMarkdownView('source');
+    setMarkdownView("source");
     setPreviewFilePath((current) => (current === file.path ? null : current));
     if (!hasCmTarget) {
       clearNavigationTarget(file.path, editorContextId || undefined);
@@ -508,19 +540,19 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
   useEffect(() => {
     setCodeMirrorSearchPanelMessages({
-      findInFile: t('searchPanel.findInFile'),
-      replaceWith: t('searchPanel.replaceWith'),
-      hideReplace: t('searchPanel.hideReplace'),
-      showReplace: t('searchPanel.showReplace'),
-      find: t('searchPanel.find'),
-      previousMatch: t('searchPanel.previousMatch'),
-      nextMatch: t('searchPanel.nextMatch'),
-      closeSearch: t('searchPanel.closeSearch'),
-      matchCase: t('searchPanel.matchCase'),
-      wholeWord: t('searchPanel.wholeWord'),
-      regexp: t('searchPanel.regexp'),
-      replace: t('searchPanel.replace'),
-      replaceAll: t('searchPanel.replaceAll'),
+      findInFile: t("searchPanel.findInFile"),
+      replaceWith: t("searchPanel.replaceWith"),
+      hideReplace: t("searchPanel.hideReplace"),
+      showReplace: t("searchPanel.showReplace"),
+      find: t("searchPanel.find"),
+      previousMatch: t("searchPanel.previousMatch"),
+      nextMatch: t("searchPanel.nextMatch"),
+      closeSearch: t("searchPanel.closeSearch"),
+      matchCase: t("searchPanel.matchCase"),
+      wholeWord: t("searchPanel.wholeWord"),
+      regexp: t("searchPanel.regexp"),
+      replace: t("searchPanel.replace"),
+      replaceAll: t("searchPanel.replaceAll"),
     });
   }, [t]);
 
@@ -601,9 +633,9 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
         .then(() => refreshEditorGitGutter())
         .catch(() => {
           toastManager.add({
-            title: t('codeMirror.autoSaveFailedTitle'),
-            description: t('codeMirror.autoSaveFailedDescription', { fileName: file.name }),
-            type: 'error',
+            title: t("codeMirror.autoSaveFailedTitle"),
+            description: t("codeMirror.autoSaveFailedDescription", { fileName: file.name }),
+            type: "error",
           });
         });
     }, 2000);
@@ -625,7 +657,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   // Toggle preview
   const togglePreview = useCallback(() => {
     if (isLiveEligible) {
-      setMarkdownView((prev) => (prev === 'live' ? 'source' : 'live'));
+      setMarkdownView((prev) => (prev === "live" ? "source" : "live"));
       return;
     }
     if (!isMarkdown) return;
@@ -644,24 +676,27 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
       await saveFile(file.path, editorContextId || undefined);
       await refreshEditorGitGutter();
       toastManager.add({
-        title: t('codeMirror.savedTitle'),
-        description: t('codeMirror.savedDescription', { fileName: file.name }),
-        type: 'success',
+        title: t("codeMirror.savedTitle"),
+        description: t("codeMirror.savedDescription", { fileName: file.name }),
+        type: "success",
       });
     } catch {
       toastManager.add({
-        title: t('codeMirror.saveFailedTitle'),
-        description: t('codeMirror.saveFailedDescription', { fileName: file.name }),
-        type: 'error',
+        title: t("codeMirror.saveFailedTitle"),
+        description: t("codeMirror.saveFailedDescription", { fileName: file.name }),
+        type: "error",
       });
     }
   }, [editorContextId, file.path, file.name, refreshEditorGitGutter, saveFile, t]);
 
-  const handleSaveAsConfirm = useCallback(async (fullPath: string) => {
-    await fsApi.writeFile(fullPath, file.content);
-    replaceOpenFilePath(file.path, fullPath, editorContextId || undefined);
-    await refreshEditorGitGutter();
-  }, [editorContextId, file.content, file.path, refreshEditorGitGutter, replaceOpenFilePath]);
+  const handleSaveAsConfirm = useCallback(
+    async (fullPath: string) => {
+      await fsApi.writeFile(fullPath, file.content);
+      replaceOpenFilePath(file.path, fullPath, editorContextId || undefined);
+      await refreshEditorGitGutter();
+    },
+    [editorContextId, file.content, file.path, refreshEditorGitGutter, replaceOpenFilePath],
+  );
 
   const handleEditorCreate = useCallback((editor: EditorView) => {
     editorRef.current = editor;
@@ -669,12 +704,15 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     editor.focus();
   }, []);
 
-  const handleEditorChange = useCallback((value: string) => {
-    updateFileContent(file.path, value, editorContextId || undefined);
-  }, [editorContextId, file.path, updateFileContent]);
+  const handleEditorChange = useCallback(
+    (value: string) => {
+      updateFileContent(file.path, value, editorContextId || undefined);
+    },
+    [editorContextId, file.path, updateFileContent],
+  );
 
   const toolbarIconBtnClass =
-    'flex size-6 items-center justify-center rounded hover:bg-accent hover:text-foreground cursor-pointer select-none';
+    "flex size-6 items-center justify-center rounded hover:bg-accent hover:text-foreground cursor-pointer select-none";
 
   const renderMarkdownPreviewButton = (buttonClassName: string) =>
     isMarkdown ? (
@@ -687,13 +725,21 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
         className={buttonClassName}
         title={
           isLiveEligible
-            ? (isLive ? mdLiveT('source') : mdLiveT('live'))
-            : (isPreview ? t('codeMirror.showEditor') : t('codeMirror.showPreview'))
+            ? isLive
+              ? mdLiveT("source")
+              : mdLiveT("live")
+            : isPreview
+              ? t("codeMirror.showEditor")
+              : t("codeMirror.showPreview")
         }
         aria-label={
           isLiveEligible
-            ? (isLive ? mdLiveT('source') : mdLiveT('live'))
-            : (isPreview ? t('codeMirror.showEditor') : t('codeMirror.showPreview'))
+            ? isLive
+              ? mdLiveT("source")
+              : mdLiveT("live")
+            : isPreview
+              ? t("codeMirror.showEditor")
+              : t("codeMirror.showPreview")
         }
       >
         {isLive || isPreview ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
@@ -706,8 +752,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
         <button
           type="button"
           className={triggerClassName}
-          title={t('codeMirror.editorSettings')}
-          aria-label={t('codeMirror.openEditorSettings')}
+          title={t("codeMirror.editorSettings")}
+          aria-label={t("codeMirror.openEditorSettings")}
         >
           <Settings2 className="size-3.5" />
         </button>
@@ -715,19 +761,19 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-64 p-1.5 max-h-[80vh] overflow-y-auto"
+        className="max-h-[80vh] w-64 overflow-y-auto p-1.5"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
         <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
           <TooltipProvider delayDuration={150}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                  {t('codeMirror.settings.lineWrap')}
+                <span className="cursor-help text-[13px] leading-none font-medium text-popover-foreground">
+                  {t("codeMirror.settings.lineWrap")}
                 </span>
               </TooltipTrigger>
               <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                {t('codeMirror.settings.lineWrapTooltip')}
+                {t("codeMirror.settings.lineWrapTooltip")}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -745,12 +791,12 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
           <TooltipProvider delayDuration={150}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                  {t('codeMirror.settings.autoSave')}
+                <span className="cursor-help text-[13px] leading-none font-medium text-popover-foreground">
+                  {t("codeMirror.settings.autoSave")}
                 </span>
               </TooltipTrigger>
               <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                {t('codeMirror.settings.autoSaveTooltip')}
+                {t("codeMirror.settings.autoSaveTooltip")}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -768,12 +814,12 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
           <TooltipProvider delayDuration={150}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                  {t('codeMirror.settings.bracketMatching')}
+                <span className="cursor-help text-[13px] leading-none font-medium text-popover-foreground">
+                  {t("codeMirror.settings.bracketMatching")}
                 </span>
               </TooltipTrigger>
               <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                {t('codeMirror.settings.bracketMatchingTooltip')}
+                {t("codeMirror.settings.bracketMatchingTooltip")}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -791,12 +837,12 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
           <TooltipProvider delayDuration={150}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                  {t('codeMirror.settings.minimap')}
+                <span className="cursor-help text-[13px] leading-none font-medium text-popover-foreground">
+                  {t("codeMirror.settings.minimap")}
                 </span>
               </TooltipTrigger>
               <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                {t('codeMirror.settings.minimapTooltip')}
+                {t("codeMirror.settings.minimapTooltip")}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -814,12 +860,12 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
           <TooltipProvider delayDuration={150}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                  {t('codeMirror.settings.lineHighlight')}
+                <span className="cursor-help text-[13px] leading-none font-medium text-popover-foreground">
+                  {t("codeMirror.settings.lineHighlight")}
                 </span>
               </TooltipTrigger>
               <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                {t('codeMirror.settings.lineHighlightTooltip')}
+                {t("codeMirror.settings.lineHighlightTooltip")}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -837,12 +883,12 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
           <TooltipProvider delayDuration={150}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                  {t('codeMirror.settings.gitIntegration')}
+                <span className="cursor-help text-[13px] leading-none font-medium text-popover-foreground">
+                  {t("codeMirror.settings.gitIntegration")}
                 </span>
               </TooltipTrigger>
               <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                {t('codeMirror.settings.gitIntegrationTooltip')}
+                {t("codeMirror.settings.gitIntegrationTooltip")}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -860,12 +906,12 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
           <TooltipProvider delayDuration={150}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                  {t('codeMirror.settings.gitBlame')}
+                <span className="cursor-help text-[13px] leading-none font-medium text-popover-foreground">
+                  {t("codeMirror.settings.gitBlame")}
                 </span>
               </TooltipTrigger>
               <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                {t('codeMirror.settings.gitBlameTooltip')}
+                {t("codeMirror.settings.gitBlameTooltip")}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -884,12 +930,12 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             <TooltipProvider delayDuration={150}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                    {t('codeMirror.settings.expandToggles')}
+                  <span className="cursor-help text-[13px] leading-none font-medium text-popover-foreground">
+                    {t("codeMirror.settings.expandToggles")}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                  {t('codeMirror.settings.expandTogglesTooltip')}
+                  {t("codeMirror.settings.expandTogglesTooltip")}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -908,7 +954,10 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   );
 
   return (
-    <div ref={containerRef} className={cn('relative flex h-full min-h-0 w-full flex-col overflow-hidden', className)}>
+    <div
+      ref={containerRef}
+      className={cn("relative flex h-full min-h-0 w-full flex-col overflow-hidden", className)}
+    >
       {!surfaceActive || file.isLoading ? null : (
         <>
           {/* Selection Popover for AI */}
@@ -925,244 +974,252 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
         </>
       )}
 
-      <div ref={liveChromeRef} className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-            <div data-center-explorer-chrome="" className="flex h-8 flex-shrink-0 items-center justify-between bg-background/50 px-2.5 text-xs text-muted-foreground backdrop-blur-sm">
-                {/* Breadcrumbs */}
-                <div className="flex items-center gap-1 flex-1 min-w-0">
-                  {breadcrumbParts.map((part, index, array) => {
-                    const breadcrumbPath = getBreadcrumbPath(index);
-                    const siblingsData = getBreadcrumbSiblings(breadcrumbPath);
-                    const siblingRootPath =
-                      parentDirPath(breadcrumbPath, fileTreeRootPath) || fileTreeRootPath;
-                    const isListDirLoading =
-                      openBreadcrumbIndex === index &&
-                      breadcrumbListDirQuery.isLoading &&
-                      siblingsData.length === 0;
-                    const segmentClass =
-                      index === array.length - 1
-                        ? 'text-foreground font-medium cursor-default truncate flex items-center gap-1'
-                        : 'hover:text-foreground cursor-pointer flex items-center gap-1 truncate';
+      <div
+        ref={liveChromeRef}
+        className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden"
+      >
+        <div
+          data-center-explorer-chrome=""
+          className="flex h-8 flex-shrink-0 items-center justify-between bg-background/50 px-2.5 text-xs text-muted-foreground backdrop-blur-sm"
+        >
+          {/* Breadcrumbs */}
+          <div className="flex min-w-0 flex-1 items-center gap-1">
+            {breadcrumbParts.map((part, index, array) => {
+              const breadcrumbPath = getBreadcrumbPath(index);
+              const siblingsData = getBreadcrumbSiblings(breadcrumbPath);
+              const siblingRootPath =
+                parentDirPath(breadcrumbPath, fileTreeRootPath) || fileTreeRootPath;
+              const isListDirLoading =
+                openBreadcrumbIndex === index &&
+                breadcrumbListDirQuery.isLoading &&
+                siblingsData.length === 0;
+              const segmentClass =
+                index === array.length - 1
+                  ? "text-foreground font-medium cursor-default truncate flex items-center gap-1"
+                  : "hover:text-foreground cursor-pointer flex items-center gap-1 truncate";
 
-                    if (!surfaceActive) {
-                      return (
-                        <span key={index} className={segmentClass}>
-                          {part}
-                          {index < array.length - 1 && <ChevronRight className="size-3 shrink-0" />}
-                        </span>
-                      );
-                    }
+              if (!surfaceActive) {
+                return (
+                  <span key={index} className={segmentClass}>
+                    {part}
+                    {index < array.length - 1 && <ChevronRight className="size-3 shrink-0" />}
+                  </span>
+                );
+              }
 
-                    return (
-                      <React.Fragment key={index}>
-                        <Popover
-                          open={openBreadcrumbIndex === index}
-                          onOpenChange={(open) => setOpenBreadcrumbIndex(open ? index : null)}
-                        >
-                          <PopoverTrigger asChild>
-                            <span className={segmentClass}>
-                              {part}
-                              {index < array.length - 1 && <ChevronRight className="size-3 shrink-0" />}
-                            </span>
-                          </PopoverTrigger>
-                          <PopoverContent
-                            align="start"
-                            side="bottom"
-                            sideOffset={4}
-                            className="z-[80] w-80 max-h-96 overflow-y-auto p-0"
-                          >
-                            {isListDirLoading ? (
-                              <div className="flex items-center justify-center px-2 py-4 text-muted-foreground">
-                                <LucideLoader2 className="size-3.5 animate-spin" />
-                              </div>
-                            ) : siblingsData.length === 0 ? (
-                              <div className="text-xs text-muted-foreground px-2 py-4 text-center">
-                                {t('codeMirror.noFilesFound')}
-                              </div>
-                            ) : (
-                              <FileTree
-                                data={siblingsData}
-                                rootPath={siblingRootPath}
-                                showHidden={fileTreeShowHidden}
-                                contextId={editorContextId}
-                                currentProjectPath={projectRoot || null}
-                                onRefresh={() => {
-                                  void breadcrumbListDirQuery.refetch();
-                                  void fileTreeQuery.refetch();
-                                }}
-                                beforeOpenFile={() => {
-                                  flushSync(() => setOpenBreadcrumbIndex(null));
-                                }}
-                              />
-                            )}
-                          </PopoverContent>
-                        </Popover>
-                      </React.Fragment>
-                    );
-                  })}
-                </div>
-
-                {/* Right side buttons */}
-                {surfaceActive ? (
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                      type="button"
-                      onClick={handleSearchClick}
-                      className={toolbarIconBtnClass}
-                      title={t('codeMirror.searchWithShortcut')}
-                      aria-label={t('codeMirror.search')}
-                      data-editor-search=""
+              return (
+                <React.Fragment key={index}>
+                  <Popover
+                    open={openBreadcrumbIndex === index}
+                    onOpenChange={(open) => setOpenBreadcrumbIndex(open ? index : null)}
+                  >
+                    <PopoverTrigger asChild>
+                      <span className={segmentClass}>
+                        {part}
+                        {index < array.length - 1 && <ChevronRight className="size-3 shrink-0" />}
+                      </span>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="start"
+                      side="bottom"
+                      sideOffset={4}
+                      className="z-[80] max-h-96 w-80 overflow-y-auto p-0"
                     >
-                      <Search className="size-3.5" />
-                    </button>
+                      {isListDirLoading ? (
+                        <div className="flex items-center justify-center px-2 py-4 text-muted-foreground">
+                          <LucideLoader2 className="size-3.5 animate-spin" />
+                        </div>
+                      ) : siblingsData.length === 0 ? (
+                        <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+                          {t("codeMirror.noFilesFound")}
+                        </div>
+                      ) : (
+                        <FileTree
+                          data={siblingsData}
+                          rootPath={siblingRootPath}
+                          showHidden={fileTreeShowHidden}
+                          contextId={editorContextId}
+                          currentProjectPath={projectRoot || null}
+                          onRefresh={() => {
+                            void breadcrumbListDirQuery.refetch();
+                            void fileTreeQuery.refetch();
+                          }}
+                          beforeOpenFile={() => {
+                            flushSync(() => setOpenBreadcrumbIndex(null));
+                          }}
+                        />
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                </React.Fragment>
+              );
+            })}
+          </div>
 
-                  {renderMarkdownPreviewButton(toolbarIconBtnClass)}
-                  {renderEditorSettingsMenu(toolbarIconBtnClass)}
-                  {showFilesExplorerToggle ? (
-                    <CenterExplorerToggle kind="files" className={toolbarIconBtnClass} />
-                  ) : null}
-                </div>
-                ) : null}
-              </div>
-            {file.isLoading ? (
-              <div
-                className={cn(
-                  "flex min-h-0 flex-1 items-center justify-center bg-background",
-                  CENTER_EXPLORER_BODY_INSET_CLASS,
-                )}
+          {/* Right side buttons */}
+          {surfaceActive ? (
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={handleSearchClick}
+                className={toolbarIconBtnClass}
+                title={t("codeMirror.searchWithShortcut")}
+                aria-label={t("codeMirror.search")}
+                data-editor-search=""
               >
-                <LucideLoader2 className="size-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <>
+                <Search className="size-3.5" />
+              </button>
+
+              {renderMarkdownPreviewButton(toolbarIconBtnClass)}
+              {renderEditorSettingsMenu(toolbarIconBtnClass)}
+              {showFilesExplorerToggle ? (
+                <CenterExplorerToggle kind="files" className={toolbarIconBtnClass} />
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+        {file.isLoading ? (
+          <div
+            className={cn(
+              "flex min-h-0 flex-1 items-center justify-center bg-background",
+              CENTER_EXPLORER_BODY_INSET_CLASS,
+            )}
+          >
+            <LucideLoader2 className="size-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <>
             <div
               className={cn(
                 "relative min-h-0 flex-1 overflow-hidden",
                 CENTER_EXPLORER_BODY_INSET_CLASS,
               )}
             >
-            <FindHighlightProvider>
-            {isLive && surfaceActive ? (
-              <div
-                id="editor-preview-root"
-                ref={setPreviewRoot}
-                className="absolute inset-0 overflow-y-auto overscroll-contain scroll-smooth bg-background"
-              >
-                <div data-markdown-find-content="" className="relative min-h-full">
-                <MarkdownLiveEditor
-                  key={file.path}
-                  filePath={file.path}
-                  value={file.content}
-                  onChange={handleEditorChange}
-                  onSave={() => void handleSave()}
-                />
-                <FindHighlightLayer />
-                </div>
-              </div>
-            ) : null}
-            <div className={cn("absolute inset-0", (isPreview || isLive) && "hidden")}>
-              {editorSettingsSettled && !isLive ? (
-                <BaseCodeMirrorEditor
-                  language={file.language}
-                  value={file.content}
-                  lineWrap={lineWrap}
-                  enableBracketMatching={bracketMatching}
-                  minimap={minimap}
-                  breadcrumbs={true}
-                  lineHighlight={lineHighlight}
-                  gitIntegration={gitIntegration}
-                  gitBlame={gitBlame}
-                  gitDiffSource={editorGitDiffSource}
-                  gitDiffRefreshNonce={gitDiffRefreshNonce}
-                  onGitGutterStateChanged={handleGitGutterStateChanged}
-                  navigationTarget={
-                    navigationTarget?.selectRanges?.length ||
-                    navigationTarget?.line != null ||
-                    navigationTarget?.openGitGutter === "all"
-                      ? {
-                          line: navigationTarget.line,
-                          column: navigationTarget.column,
-                          selectRanges: navigationTarget.selectRanges,
-                          openGitGutter: navigationTarget.openGitGutter,
-                        }
-                      : null
-                  }
-                  onChange={handleEditorChange}
-                  onCreateEditor={handleEditorCreate}
-                  onNavigationTargetApplied={() => clearNavigationTarget(file.path, editorContextId || undefined)}
-                  onSave={handleSave}
-                  autoFocus
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center bg-background">
-                  <LucideLoader2 className="size-5 animate-spin text-muted-foreground" />
-                </div>
-              )}
-            </div>
-
-            {isPreview && isMarkdown && (
-              <div
-                id="editor-preview-root"
-                ref={setPreviewRoot}
-                className="absolute inset-0 overflow-y-auto overscroll-contain bg-background px-8 py-12 scroll-smooth"
-              >
-                <div data-markdown-find-content="" className="relative min-h-full">
-                  {reportMetadata ? (
-                    <ReviewReportMetadataCard metadata={reportMetadata} />
-                  ) : null}
-                  <MarkdownRenderer
-                    key={mdToggleDefaultOpen ? "details-open" : "details-closed"}
-                    detailsOpenByDefault={mdToggleDefaultOpen}
+              <FindHighlightProvider>
+                {isLive && surfaceActive ? (
+                  <div
+                    id="editor-preview-root"
+                    ref={setPreviewRoot}
+                    className="absolute inset-0 overflow-y-auto overscroll-contain scroll-smooth bg-background"
                   >
-                    {previewBody}
-                  </MarkdownRenderer>
-                  <FindHighlightLayer />
+                    <div data-markdown-find-content="" className="relative min-h-full">
+                      <MarkdownLiveEditor
+                        key={file.path}
+                        filePath={file.path}
+                        value={file.content}
+                        onChange={handleEditorChange}
+                        onSave={() => void handleSave()}
+                      />
+                      <FindHighlightLayer />
+                    </div>
+                  </div>
+                ) : null}
+                <div className={cn("absolute inset-0", (isPreview || isLive) && "hidden")}>
+                  {editorSettingsSettled && !isLive ? (
+                    <BaseCodeMirrorEditor
+                      language={file.language}
+                      value={file.content}
+                      lineWrap={lineWrap}
+                      enableBracketMatching={bracketMatching}
+                      minimap={minimap}
+                      breadcrumbs={true}
+                      lineHighlight={lineHighlight}
+                      gitIntegration={gitIntegration}
+                      gitBlame={gitBlame}
+                      gitDiffSource={editorGitDiffSource}
+                      gitDiffRefreshNonce={gitDiffRefreshNonce}
+                      onGitGutterStateChanged={handleGitGutterStateChanged}
+                      navigationTarget={
+                        navigationTarget?.selectRanges?.length ||
+                        navigationTarget?.line != null ||
+                        navigationTarget?.openGitGutter === "all"
+                          ? {
+                              line: navigationTarget.line,
+                              column: navigationTarget.column,
+                              selectRanges: navigationTarget.selectRanges,
+                              openGitGutter: navigationTarget.openGitGutter,
+                            }
+                          : null
+                      }
+                      onChange={handleEditorChange}
+                      onCreateEditor={handleEditorCreate}
+                      onNavigationTargetApplied={() =>
+                        clearNavigationTarget(file.path, editorContextId || undefined)
+                      }
+                      onSave={handleSave}
+                      autoFocus
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center bg-background">
+                      <LucideLoader2 className="size-5 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
 
-            {isPreview && isMarkdown && (
-              <MarkdownToc
-                markdown={previewBody}
-                scrollContainerId="editor-preview-root"
-                side="left"
-              />
-            )}
-            {isLive && (
-              <MarkdownToc
-                markdown={file.content}
-                scrollContainerId="editor-preview-root"
-                side="left"
-              />
-            )}
-            {markdownFindEnabled ? (
-              <MarkdownFindPanel
-                open={markdownFindOpen}
-                root={previewRoot}
-                focusNonce={markdownFindFocusNonce}
-                onClose={() => setMarkdownFindOpen(false)}
-              />
-            ) : null}
-            {isLive && surfaceActive ? (
-              <MdLiveAgentDock
-                filePath={file.path}
-                markdown={file.content}
-                ensureLive={() => setMarkdownView("live")}
-                scopeRef={liveChromeRef}
-              />
-            ) : null}
-            </FindHighlightProvider>
+                {isPreview && isMarkdown && (
+                  <div
+                    id="editor-preview-root"
+                    ref={setPreviewRoot}
+                    className="absolute inset-0 overflow-y-auto overscroll-contain scroll-smooth bg-background px-8 py-12"
+                  >
+                    <div data-markdown-find-content="" className="relative min-h-full">
+                      {reportMetadata ? (
+                        <ReviewReportMetadataCard metadata={reportMetadata} />
+                      ) : null}
+                      <MarkdownRenderer
+                        key={mdToggleDefaultOpen ? "details-open" : "details-closed"}
+                        detailsOpenByDefault={mdToggleDefaultOpen}
+                      >
+                        {previewBody}
+                      </MarkdownRenderer>
+                      <FindHighlightLayer />
+                    </div>
+                  </div>
+                )}
+
+                {isPreview && isMarkdown && (
+                  <MarkdownToc
+                    markdown={previewBody}
+                    scrollContainerId="editor-preview-root"
+                    side="left"
+                  />
+                )}
+                {isLive && (
+                  <MarkdownToc
+                    markdown={file.content}
+                    scrollContainerId="editor-preview-root"
+                    side="left"
+                  />
+                )}
+                {markdownFindEnabled ? (
+                  <MarkdownFindPanel
+                    open={markdownFindOpen}
+                    root={previewRoot}
+                    focusNonce={markdownFindFocusNonce}
+                    onClose={() => setMarkdownFindOpen(false)}
+                  />
+                ) : null}
+                {isLive && surfaceActive ? (
+                  <MdLiveAgentDock
+                    filePath={file.path}
+                    markdown={file.content}
+                    ensureLive={() => setMarkdownView("live")}
+                    scopeRef={liveChromeRef}
+                  />
+                ) : null}
+              </FindHighlightProvider>
             </div>
-              </>
-            )}
-          </div>
-    {saveAsOpen ? (
-      <MdLiveSaveAsDialog
-        open={saveAsOpen}
-        defaultDirectory={currentProjectPath || '/'}
-        onOpenChange={setSaveAsOpen}
-        onConfirm={handleSaveAsConfirm}
-      />
-    ) : null}
+          </>
+        )}
+      </div>
+      {saveAsOpen ? (
+        <MdLiveSaveAsDialog
+          open={saveAsOpen}
+          defaultDirectory={currentProjectPath || "/"}
+          onOpenChange={setSaveAsOpen}
+          onConfirm={handleSaveAsConfirm}
+        />
+      ) : null}
     </div>
   );
 };

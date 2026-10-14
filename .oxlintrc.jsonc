@@ -14,23 +14,23 @@
     "react",
     "jsx-a11y",
     "nextjs",
-    "node"
+    "node",
   ],
   "categories": {
-    "correctness": "off"
+    "correctness": "off",
   },
   "env": {
     "builtin": true,
     "browser": true,
-    "node": true
+    "node": true,
   },
   "settings": {
     "react": {
-      "version": "19.2.3"
+      "version": "19.2.3",
     },
     "next": {
-      "rootDir": ["apps/web", "apps/landing", "apps/docs"]
-    }
+      "rootDir": ["apps/web", "apps/landing", "apps/docs"],
+    },
   },
   "ignorePatterns": [
     "vendor/**",
@@ -53,7 +53,7 @@
     "e2e/test-results/**",
     "target/**",
     "**/node_modules/**",
-    "apps/desktop/src-tauri/**"
+    "apps/desktop/src-tauri/**",
   ],
   "rules": {
     // --- ESLint core (typescript-eslint recommended / Next) ---
@@ -61,10 +61,7 @@
     "no-unused-expressions": "warn",
     "no-unused-vars": "warn",
     "no-var": "error",
-    "prefer-const": [
-      "error",
-      { "destructuring": "all", "ignoreReadBeforeAssign": true }
-    ],
+    "prefer-const": ["error", { "destructuring": "all", "ignoreReadBeforeAssign": true }],
     "prefer-rest-params": "error",
     "prefer-spread": "error",
 
@@ -157,8 +154,8 @@
       "warn",
       {
         "elements": ["img"],
-        "img": ["Image"]
-      }
+        "img": ["Image"],
+      },
     ],
     "jsx-a11y/aria-props": "warn",
     "jsx-a11y/aria-proptypes": "warn",
@@ -169,7 +166,7 @@
     // --- unicorn (plugin enabled; small correctness slice, not the full set) ---
     "unicorn/no-instanceof-builtins": "error",
     "unicorn/no-new-buffer": "error",
-    "unicorn/no-empty-file": "warn"
+    "unicorn/no-empty-file": "warn",
   },
   "overrides": [
     {
@@ -191,8 +188,8 @@
         "no-this-before-super": "off",
         "no-unreachable": "off",
         "no-unsafe-negation": "off",
-        "no-with": "off"
-      }
+        "no-with": "off",
+      },
     },
     {
       // Next.js pages-dir / app-dir rules only make sense in Next apps.
@@ -202,7 +199,7 @@
         "apps/desktop-electron/**",
         "e2e/**",
         "scripts/**",
-        "extension/**"
+        "extension/**",
       ],
       "rules": {
         "nextjs/no-html-link-for-pages": "off",
@@ -211,8 +208,8 @@
         "nextjs/google-font-display": "off",
         "nextjs/google-font-preconnect": "off",
         "nextjs/next-script-for-ga": "off",
-        "nextjs/no-page-custom-font": "off"
-      }
+        "nextjs/no-page-custom-font": "off",
+      },
     },
     {
       // Injected browser guest runtime is an IIFE that must stay ES5-ish (`var`).
@@ -222,34 +219,34 @@
         "extension/browser-runtime.js",
         "extension/injected.js",
         "extension/content.js",
-        "extension/background.js"
+        "extension/background.js",
       ],
       "rules": {
         "no-var": "off",
-        "prefer-rest-params": "off"
-      }
+        "prefer-rest-params": "off",
+      },
     },
     {
       // CJS / plain JS is allowed to use require(); this rule is a TS ESM lint.
       "files": ["**/*.{js,cjs}"],
       "rules": {
-        "typescript/no-require-imports": "off"
-      }
+        "typescript/no-require-imports": "off",
+      },
     },
     {
       // Metro bundler asset `require(...)` is the supported image import form.
       "files": ["apps/mobile/**"],
       "rules": {
         "typescript/no-require-imports": "warn",
-        "react/static-components": "warn"
-      }
+        "react/static-components": "warn",
+      },
     },
     {
       // Pre-existing React Compiler static-components in the design system.
       "files": ["packages/ui/**"],
       "rules": {
-        "react/static-components": "warn"
-      }
-    }
-  ]
+        "react/static-components": "warn",
+      },
+    },
+  ],
 }

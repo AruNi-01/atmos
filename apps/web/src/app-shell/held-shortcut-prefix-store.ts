@@ -24,20 +24,14 @@ export const useHeldShortcutPrefixStore = create<HeldShortcutPrefixState>((set, 
   setPrefix: (prefix) => {
     const current = get();
     const sidebarDigits = digitsForPrefix(prefix);
-    if (
-      current.prefix === prefix &&
-      sameDigitMap(current.sidebarDigits, sidebarDigits)
-    ) {
+    if (current.prefix === prefix && sameDigitMap(current.sidebarDigits, sidebarDigits)) {
       return;
     }
     set({ prefix, sidebarDigits });
   },
 }));
 
-function sameDigitMap(
-  left: Record<string, number>,
-  right: Record<string, number>,
-): boolean {
+function sameDigitMap(left: Record<string, number>, right: Record<string, number>): boolean {
   const leftKeys = Object.keys(left);
   const rightKeys = Object.keys(right);
   if (leftKeys.length !== rightKeys.length) return false;

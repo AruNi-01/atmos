@@ -69,9 +69,9 @@ export function formatQuotaCarouselText(provider: QuotaProviderResponse): string
 
   const visibleMetrics =
     provider.id === "zai" || provider.id === "minimax" ? metrics.slice(0, 1) : metrics.slice(0, 3);
-  const omitSingleMetricLabel = provider.id === "amp" || (
-    visibleMetrics.length === 1 && visibleMetrics[0].label.toLowerCase() === "usage"
-  );
+  const omitSingleMetricLabel =
+    provider.id === "amp" ||
+    (visibleMetrics.length === 1 && visibleMetrics[0].label.toLowerCase() === "usage");
   const parts = visibleMetrics.map((metric) => formatMetric(metric, !omitSingleMetricLabel));
 
   if (credit && provider.id !== "cursor") {
@@ -93,17 +93,13 @@ export function formatQuotaFetchFailureMessage(
   if (clientError) return clientError;
 
   const allowed = options?.providerIds ? new Set(options.providerIds) : null;
-  const issues = partialFailures.filter(
-    (issue) => !allowed || allowed.has(issue.provider_id),
-  );
+  const issues = partialFailures.filter((issue) => !allowed || allowed.has(issue.provider_id));
   if (issues.length === 0) return null;
-  return issues
-    .map((issue) => `${issue.provider_label}: ${issue.message}`)
-    .join(" · ");
+  return issues.map((issue) => `${issue.provider_label}: ${issue.message}`).join(" · ");
 }
 
 export function buildUsageCarouselItems(
-  overview: QuotaOverviewResponse | null
+  overview: QuotaOverviewResponse | null,
 ): UsageCarouselItem[] {
   if (!overview) return [];
 

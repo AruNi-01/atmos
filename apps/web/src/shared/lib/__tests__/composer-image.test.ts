@@ -24,9 +24,7 @@ describe("pickClipboardImageFiles", () => {
       type: "image/tiff",
     });
     expect(
-      pickClipboardImageFiles([
-        { kind: "file", type: "image/tiff", getAsFile: () => tiff },
-      ]),
+      pickClipboardImageFiles([{ kind: "file", type: "image/tiff", getAsFile: () => tiff }]),
     ).toEqual([tiff]);
   });
 });
@@ -78,8 +76,8 @@ describe("decodeTiffToRgba", () => {
       height: 4,
       samplesPerPixel: 4,
       samples: Uint8Array.from([
-        128, 63, 192, 0, 8, 20, 14, 13, 7, 129, 193, 96, 176, 136, 68, 42, 25, 12,
-        135, 67, 224, 240, 16,
+        128, 63, 192, 0, 8, 20, 14, 13, 7, 129, 193, 96, 176, 136, 68, 42, 25, 12, 135, 67, 224,
+        240, 16,
       ]),
       compression: 5,
       predictor: 2,
@@ -89,9 +87,7 @@ describe("decodeTiffToRgba", () => {
     expect(decoded?.width).toBe(4);
     expect(decoded?.height).toBe(4);
     expect([...decoded!.rgba.slice(0, 8)]).toEqual([255, 0, 0, 255, 255, 0, 0, 255]);
-    expect(decoded!.rgba.every((value, index) => value === [255, 0, 0, 255][index % 4])).toBe(
-      true,
-    );
+    expect(decoded!.rgba.every((value, index) => value === [255, 0, 0, 255][index % 4])).toBe(true);
   });
 });
 
@@ -101,9 +97,7 @@ describe("normalizeComposerImageFile", () => {
       width: 2,
       height: 2,
       samplesPerPixel: 4,
-      samples: Uint8Array.from([
-        255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255,
-      ]),
+      samples: Uint8Array.from([255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255]),
     });
     const file = new File([tiff], "screenshot.tiff", { type: "image/tiff" });
     const normalized = await normalizeComposerImageFile(file);
@@ -155,12 +149,8 @@ describe("normalizeComposerImageFile", () => {
 
 describe("imageExtensionForFile", () => {
   it("maps converted PNG and leftover TIFF names", () => {
-    expect(imageExtensionForFile({ name: "paste.png", type: "image/png" })).toBe(
-      "png",
-    );
-    expect(
-      imageExtensionForFile({ name: "paste.tiff", type: "image/tiff" }),
-    ).toBe("tiff");
+    expect(imageExtensionForFile({ name: "paste.png", type: "image/png" })).toBe("png");
+    expect(imageExtensionForFile({ name: "paste.tiff", type: "image/tiff" })).toBe("tiff");
   });
 });
 
@@ -250,7 +240,7 @@ function buildTiff({
 
 function packBits(data: Uint8Array): Uint8Array {
   const out: number[] = [];
-  for (let i = 0; i < data.length; ) {
+  for (let i = 0; i < data.length;) {
     const count = Math.min(128, data.length - i);
     out.push(count - 1);
     for (let j = 0; j < count; j += 1) out.push(data[i + j]!);

@@ -35,10 +35,7 @@ import {
   schedulePromoteWorkspaceSurfaceSwitch,
   shouldPromoteWorkspaceSurface,
 } from "@/app-shell/workspace-surface-switch";
-import {
-  readCenterStageLastTab,
-  setCenterStageLastTab,
-} from "@/shared/stores/use-ui-pref-hooks";
+import { readCenterStageLastTab, setCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
 import { CenterStageSurface } from "@/app-shell/center-stage-chrome";
 
 export { resolveCenterStageProjectContext } from "@/app-shell/center-stage-project-context";
@@ -81,9 +78,7 @@ export function CenterStageNoContextView({
     if (currentView === "agent-observer") return <AgentObserverView />;
     if (currentView === "tasks") return <TaskManagementView />;
     if (currentView === "agent-sessions") return <HostSessionCenterView />;
-    return (
-      <HostedWelcomeGate onAddProject={onAddProject} onConnectAgent={onConnectAgent} />
-    );
+    return <HostedWelcomeGate onAddProject={onAddProject} onConnectAgent={onConnectAgent} />;
   })();
 
   return (
@@ -122,10 +117,9 @@ export function useReloadOpenFilesWhenReady({
       const key = `${effectiveContextId}:${file.path}`;
       if (reloadingFilesRef.current.has(key)) continue;
       reloadingFilesRef.current.add(key);
-      reloadFileContent(file.path, effectiveContextId)
-        .finally(() => {
-          reloadingFilesRef.current.delete(key);
-        });
+      reloadFileContent(file.path, effectiveContextId).finally(() => {
+        reloadingFilesRef.current.delete(key);
+      });
     }
   }, [effectiveContextId, isSetupBlocking, openFiles, reloadFileContent]);
 }
@@ -316,7 +310,8 @@ export function usePendingNamedTerminalCommand({
   userTriggeredRef: React.RefObject<boolean>;
 }) {
   React.useEffect(() => {
-    if (!pendingCommand || !effectiveContextId || !tabVisible || activeValue !== activeTabValue) return;
+    if (!pendingCommand || !effectiveContextId || !tabVisible || activeValue !== activeTabValue)
+      return;
 
     const run = pendingCommand;
     setPendingCommand(null);
@@ -350,10 +345,7 @@ export function useCenterStageKeyboardShortcuts({
   orderedTabValues,
 }: {
   effectiveContextId: string | null | undefined;
-  handleCenterStageTabChange: (
-    value: string,
-    options?: { placement?: "focused" },
-  ) => void;
+  handleCenterStageTabChange: (value: string, options?: { placement?: "focused" }) => void;
   orderedTabValues: readonly string[];
 }) {
   React.useEffect(() => {

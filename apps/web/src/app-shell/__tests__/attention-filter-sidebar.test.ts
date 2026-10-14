@@ -19,9 +19,7 @@ describe("attention filter sidebar", () => {
 
   it("does not show an empty workspace placeholder in the attention list", () => {
     const projectItem = read("../sidebar/ProjectItem.tsx");
-    expect(projectItem).toContain(
-      "project.workspaces.length === 0 && !attentionFilterMode",
-    );
+    expect(projectItem).toContain("project.workspaces.length === 0 && !attentionFilterMode");
 
     const twoColumn = read("../left-sidebar-controls.tsx");
     expect(twoColumn).toContain(

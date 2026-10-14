@@ -62,7 +62,9 @@ const REASONING_VALUE_STYLES = new Set<TerminalAgentReasoningValueStyle>([
   "config",
 ]);
 
-function normalizePromptStrategy(value: string | undefined): TerminalAgentPromptStrategy | undefined {
+function normalizePromptStrategy(
+  value: string | undefined,
+): TerminalAgentPromptStrategy | undefined {
   if (!value) return undefined;
   if (PROMPT_STRATEGIES.has(value as TerminalAgentPromptStrategy)) {
     return value as TerminalAgentPromptStrategy;
@@ -108,7 +110,8 @@ function normalizeReasoningSupport(value: unknown): TerminalAgentReasoningSuppor
     throw new Error(`Unsupported terminal agent reasoningSupport.mode: ${String(mode)}`);
   }
   const normalizedMode = mode as TerminalAgentReasoningMode;
-  const arg = typeof candidate.arg === "string" && candidate.arg.trim() ? candidate.arg.trim() : undefined;
+  const arg =
+    typeof candidate.arg === "string" && candidate.arg.trim() ? candidate.arg.trim() : undefined;
   const options = Array.isArray(candidate.options)
     ? candidate.options
         .filter((item): item is string => typeof item === "string")
@@ -120,12 +123,15 @@ function normalizeReasoningSupport(value: unknown): TerminalAgentReasoningSuppor
       ? candidate.placeholder.trim()
       : undefined;
   const valueStyle =
-    typeof candidate.valueStyle === "string" && REASONING_VALUE_STYLES.has(candidate.valueStyle as TerminalAgentReasoningValueStyle)
+    typeof candidate.valueStyle === "string" &&
+    REASONING_VALUE_STYLES.has(candidate.valueStyle as TerminalAgentReasoningValueStyle)
       ? (candidate.valueStyle as TerminalAgentReasoningValueStyle)
       : undefined;
   if (normalizedMode === "enum" || normalizedMode === "manual") {
     if (!arg) {
-      throw new Error(`Structured terminal agent reasoningSupport requires an arg for mode ${normalizedMode}.`);
+      throw new Error(
+        `Structured terminal agent reasoningSupport requires an arg for mode ${normalizedMode}.`,
+      );
     }
   }
   if (normalizedMode === "enum" && (!options || options.length === 0)) {
@@ -140,9 +146,11 @@ function normalizeReasoningSupport(value: unknown): TerminalAgentReasoningSuppor
   };
 }
 
-export const TERMINAL_AGENT_DEFINITIONS: readonly TerminalAgentDefinition[] = terminalAgents.map((agent) => ({
-  ...agent,
-  promptStrategy: normalizePromptStrategy(agent.promptStrategy),
-  modelSupport: normalizeModelSupport(agent.modelSupport),
-  reasoningSupport: normalizeReasoningSupport(agent.reasoningSupport),
-}));
+export const TERMINAL_AGENT_DEFINITIONS: readonly TerminalAgentDefinition[] = terminalAgents.map(
+  (agent) => ({
+    ...agent,
+    promptStrategy: normalizePromptStrategy(agent.promptStrategy),
+    modelSupport: normalizeModelSupport(agent.modelSupport),
+    reasoningSupport: normalizeReasoningSupport(agent.reasoningSupport),
+  }),
+);

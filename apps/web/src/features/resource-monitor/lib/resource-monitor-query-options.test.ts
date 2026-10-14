@@ -12,10 +12,7 @@ const scope: ComputerQueryScope = {
   relaySessionRevision: 0,
 };
 
-const optionsSrc = readFileSync(
-  join(import.meta.dir, "resource-monitor-query-options.ts"),
-  "utf8",
-);
+const optionsSrc = readFileSync(join(import.meta.dir, "resource-monitor-query-options.ts"), "utf8");
 
 describe("resourceMonitorSnapshotQueryOptions", () => {
   test("wires the Computer-scoped snapshot key through wsQueryOptions", () => {

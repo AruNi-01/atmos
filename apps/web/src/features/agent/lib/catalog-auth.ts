@@ -105,15 +105,16 @@ export function catalogAuthFromSnapshot(
   const command = nativeCliLoginCommand(snapshot.agent_id);
   return {
     request_id: `catalog-${snapshot.agent_id}`,
-    methods: methods.length > 0
-      ? methods
-      : [
-          {
-            id: `${CLI_LOGIN_METHOD_PREFIX}${canonicalizeChatProviderId(snapshot.agent_id)}`,
-            name: "Sign in",
-            description: command || "Sign in from the agent CLI, then continue.",
-          },
-        ],
+    methods:
+      methods.length > 0
+        ? methods
+        : [
+            {
+              id: `${CLI_LOGIN_METHOD_PREFIX}${canonicalizeChatProviderId(snapshot.agent_id)}`,
+              name: "Sign in",
+              description: command || "Sign in from the agent CLI, then continue.",
+            },
+          ],
     message: snapshot.message?.trim() || "Authentication required by agent",
   };
 }

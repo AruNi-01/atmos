@@ -5,9 +5,7 @@
  *
  * @param {import('electron-builder').AfterPackContext} context
  */
-const {
-  slimPackagedElectronApp,
-} = require("./slim-electron-runtime.cjs");
+const { slimPackagedElectronApp } = require("./slim-electron-runtime.cjs");
 const afterPackMacosIcon = require("./after-pack-macos-icon.cjs");
 
 function formatBytes(n) {

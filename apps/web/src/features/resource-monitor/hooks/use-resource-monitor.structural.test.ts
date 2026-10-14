@@ -29,7 +29,7 @@ describe("useResourceMonitor lifecycle wiring", () => {
     expect(hookSrc).toContain("resourceMonitorApi.unsubscribe");
     expect(hookSrc).toContain("canFetchDesktopShellMetrics");
     expect(hookSrc).toContain("fetchDesktopShellMetrics");
-    expect(hookSrc).toContain("!options.interactive && connectionState === \"connected\"");
+    expect(hookSrc).toContain('!options.interactive && connectionState === "connected"');
     expect(hookSrc).toContain("lastUpdatedAtMs: serverQuery.dataUpdatedAt");
     expect(hookSrc).toContain("desktopLoading");
     expect(hookSrc).toContain("appendResourceHostHistoryPoint");
@@ -50,7 +50,7 @@ describe("useResourceMonitor lifecycle wiring", () => {
     expect(footerSrc).toContain("desktopLoading={desktopLoading}");
     expect(footerSrc).toContain("history={history}");
     expect(footerSrc).toContain("Tooltip");
-    expect(footerSrc).not.toContain("title={t(\"title\")}");
+    expect(footerSrc).not.toContain('title={t("title")}');
     expect(footerSrc).toContain("navigatingRef");
     expect(footerSrc).toContain("onCloseAutoFocus");
     expect(footerSrc).toContain("preventResourceMonitorCloseAutoFocus");
@@ -71,7 +71,7 @@ describe("useResourceMonitor lifecycle wiring", () => {
 
 describe("Resource Monitor live session titles", () => {
   test("popover subscribes to workspacePanes and resolves display-only titles", () => {
-    expect(popoverSrc).toContain('useTerminalStore((s) => s.workspacePanes)');
+    expect(popoverSrc).toContain("useTerminalStore((s) => s.workspacePanes)");
     expect(popoverSrc).toContain("buildResourceMonitorSessionDisplayMap(workspacePanes)");
     expect(popoverSrc).toContain("collectResourceMonitorChatSessions");
     expect(popoverSrc).toContain("mergeResourceMonitorChatSessions");
@@ -104,7 +104,7 @@ describe("Resource Monitor live session titles", () => {
     expect(titlesSrc).toContain("resolvePaneTitleForCenterTab");
     expect(titlesSrc).toContain("isTmuxIndexTitle");
     expect(titlesSrc).toContain("never write this back onto the WS snapshot DTO");
-    expect(titlesSrc).not.toContain("from \"@/features/terminal/components");
-    expect(popoverSrc).not.toContain("from \"@/features/terminal/components");
+    expect(titlesSrc).not.toContain('from "@/features/terminal/components');
+    expect(popoverSrc).not.toContain('from "@/features/terminal/components');
   });
 });

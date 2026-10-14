@@ -11,10 +11,7 @@ describe("md-live headless agents", () => {
   test("unknown and custom ids are excluded", () => {
     expect(agentSupportsHeadless("not-a-real-agent")).toBe(false);
     expect(
-      filterHeadlessAgents([
-        { id: "codex" },
-        { id: "my-custom-bot" },
-      ]).map((agent) => agent.id),
+      filterHeadlessAgents([{ id: "codex" }, { id: "my-custom-bot" }]).map((agent) => agent.id),
     ).toEqual(["codex"]);
   });
 });

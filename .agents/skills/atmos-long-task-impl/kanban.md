@@ -11,12 +11,12 @@ If the spec has no `PROGRESS.md` yet, create it from `specs/references/progress-
 
 > Orchestration board for `atmos-long-task-impl`. Not a requirements source.
 
-| ID | Wave | Owns | Forbids | Depends | Status | Impl | Review | Verify |
-|----|------|------|---------|---------|--------|------|--------|--------|
-| S0 | 0 | `packages/api-types/src/ws/dto/foo.ts` | hot files except owns | — | done | ok | pass | `bun run typecheck` |
-| S1 | 1 | `crates/agent/src/foo/**` | `apps/web/**` | S0 | in_review | ok | — | `cargo test -p atmos-agent foo` |
-| S2 | 1 | `apps/web/src/features/foo/**` | `packages/api-types/**` | S0 | in_progress | running | — | `bun test apps/web/src/features/foo` |
-| S3 | 2 | `apps/web/messages/*.json` | — | S1,S2 | planned | — | — | locale key grep |
+| ID  | Wave | Owns                                   | Forbids                 | Depends | Status      | Impl    | Review | Verify                               |
+| --- | ---- | -------------------------------------- | ----------------------- | ------- | ----------- | ------- | ------ | ------------------------------------ |
+| S0  | 0    | `packages/api-types/src/ws/dto/foo.ts` | hot files except owns   | —       | done        | ok      | pass   | `bun run typecheck`                  |
+| S1  | 1    | `crates/agent/src/foo/**`              | `apps/web/**`           | S0      | in_review   | ok      | —      | `cargo test -p atmos-agent foo`      |
+| S2  | 1    | `apps/web/src/features/foo/**`         | `packages/api-types/**` | S0      | in_progress | running | —      | `bun test apps/web/src/features/foo` |
+| S3  | 2    | `apps/web/messages/*.json`             | —                       | S1,S2   | planned     | —       | —      | locale key grep                      |
 
 **Status**: `planned` · `ready` · `in_progress` · `blocked` · `in_review` · `rework` · `done`
 
@@ -52,14 +52,14 @@ Complete every field before dispatch. Attach under `## Slice Cards` in `PROGRESS
 
 By default **do not** appear in two parallel slices' `Owns`. Assign to Wave 0, the final integration slice, or exactly one slice.
 
-| Kind | Typical paths |
-|------|----------------|
-| i18n | `apps/web/messages/en.json`, `apps/web/messages/zh.json` |
-| WS wire | `packages/api-types/src/ws/actions.ts`, `contract/**`, `dto/**` |
-| Barrels | `index.ts` / `mod.rs` that re-export many modules |
-| Shared stores | `use-*-store.ts` when multiple features write them |
-| Spec board | `PROGRESS.md` — lead agent only |
-| Agent guides | `**/AGENTS.md` |
+| Kind          | Typical paths                                                   |
+| ------------- | --------------------------------------------------------------- |
+| i18n          | `apps/web/messages/en.json`, `apps/web/messages/zh.json`        |
+| WS wire       | `packages/api-types/src/ws/actions.ts`, `contract/**`, `dto/**` |
+| Barrels       | `index.ts` / `mod.rs` that re-export many modules               |
+| Shared stores | `use-*-store.ts` when multiple features write them              |
+| Spec board    | `PROGRESS.md` — lead agent only                                 |
+| Agent guides  | `**/AGENTS.md`                                                  |
 
 Same-wave collision check (required before dispatch):
 

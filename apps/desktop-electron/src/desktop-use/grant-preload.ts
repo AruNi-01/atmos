@@ -14,10 +14,10 @@ contextBridge.exposeInMainWorld("atmosGrant", {
   },
   /** Pre-rendered full chip (icon + label) used as the startDrag ghost. */
   setDragPreview(dataUrl: string) {
-    return ipcRenderer.sendSync(
-      "desktop-use-grant-drag-preview",
-      dataUrl,
-    ) as { ok?: boolean; error?: string };
+    return ipcRenderer.sendSync("desktop-use-grant-drag-preview", dataUrl) as {
+      ok?: boolean;
+      error?: string;
+    };
   },
   close() {
     ipcRenderer.send("desktop-use-grant-close");

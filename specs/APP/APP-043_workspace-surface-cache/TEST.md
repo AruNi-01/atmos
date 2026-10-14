@@ -13,58 +13,58 @@
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 Warm multi-context center | S1, S2 |
-| M2 Three-tier lifecycle | S3, S4, S10, S21 |
-| M3 Surface-specific keep policy | S5, S6, S7, S22 |
-| M4 Budgets | S4, S6, S7, S8 |
-| M5 Non-blocking switch | S9, S18 |
-| M6 Warm continuity | S1, S2, S5 |
-| M6b Frozen identity | S21 |
-| M7 Protection rules | S8 |
-| M8 Visibility restore | S11 |
-| M9 Prefetch | S12 |
-| M10 Settings | S13 |
-| M11 Single model cutover | S14 |
-| M12 Isolation | S15, S23 |
-| Multi-frame URL / focus / agent targeting | S18, S19, S20 |
-| N1 Pin (if shipped) | S16 |
-| Performance budgets | S17 (manual + optional marks) |
-| Switch-path perf (nav cheap / sticky / structure / hop thrash) | S24, S25, S26, S27 |
-| Post-ship ops log | [IMPROVEMENT.md](./IMPROVEMENT.md) IMP-001–007 |
+| PRD item                                                       | Scenario IDs                                   |
+| -------------------------------------------------------------- | ---------------------------------------------- |
+| M1 Warm multi-context center                                   | S1, S2                                         |
+| M2 Three-tier lifecycle                                        | S3, S4, S10, S21                               |
+| M3 Surface-specific keep policy                                | S5, S6, S7, S22                                |
+| M4 Budgets                                                     | S4, S6, S7, S8                                 |
+| M5 Non-blocking switch                                         | S9, S18                                        |
+| M6 Warm continuity                                             | S1, S2, S5                                     |
+| M6b Frozen identity                                            | S21                                            |
+| M7 Protection rules                                            | S8                                             |
+| M8 Visibility restore                                          | S11                                            |
+| M9 Prefetch                                                    | S12                                            |
+| M10 Settings                                                   | S13                                            |
+| M11 Single model cutover                                       | S14                                            |
+| M12 Isolation                                                  | S15, S23                                       |
+| Multi-frame URL / focus / agent targeting                      | S18, S19, S20                                  |
+| N1 Pin (if shipped)                                            | S16                                            |
+| Performance budgets                                            | S17 (manual + optional marks)                  |
+| Switch-path perf (nav cheap / sticky / structure / hop thrash) | S24, S25, S26, S27                             |
+| Post-ship ops log                                              | [IMPROVEMENT.md](./IMPROVEMENT.md) IMP-001–007 |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | E2E | Playwright | `just test-e2e -- tests/specs/APP-043_workspace-surface-cache.e2e.ts` | 2 workspaces with terminal output | Frame A `hidden` while B active; return A buffer unchanged | planned |
-| S2 | E2E | Playwright | same | warm file tab context | return restores file tab without full reload flash | planned |
-| S3 | Bun unit | `bun test` | workspace surface cache store tests | fake timers | tier transitions active↔warm↔frozen | planned |
-| S4 | Bun unit | `bun test` | cache store over maxWarm | N+1 contexts | oldest frozen; warm length ≤ cap | planned |
-| S5 | Bun unit | `bun test` | editor mount policy | 20 open files | mounted ≤ per-ws cap | planned |
-| S6 | Bun unit | `bun test` | global editor/browser caps | multi-context fixtures | demount order | planned |
-| S7 | Bun unit | `bun test` | terminal pane global cap | multi-pane fixtures | excess demoted | planned |
-| S8 | Bun unit | `bun test` | protect dirty/agent | mixed protect flags | unprotected frozen first | planned |
-| S9 | Bun/component | `bun test` | restore helper | last tab + not ready terminal | chrome tab set without wait | planned |
-| S10 | Bun unit | `bun test` | TTL sweep | mocked now | expired warm frozen | planned |
-| S11 | E2E or manual | Playwright/manual | fit on show | warm terminal | no zero-size terminal after return | planned |
-| S12 | Bun/component | `bun test` | hover prefetch debounce | mock primeWorkspace | called once after debounce | planned |
-| S13 | Bun unit | `bun test` | settings apply | set maxWarm=2 | next touch respects 2 | planned |
-| S14 | Bun/grep gate | `bun test` + repo check | no APP-034 store/settings/inventory ownership | codebase | zero `useTerminalCacheStore`; no live `terminal.max_cached_*` reads; inventory not owned by APP-034 | planned |
-| S15 | Bun unit | `bun test` | clearAll on instance change | warm set non-empty | empty after clear | planned |
-| S16 | Bun unit | `bun test` | pin | if N1 shipped | pinned survives LRU | planned |
-| S17 | Manual | stopwatch / marks | dogfood script | local desktop | meets PRD ms targets | planned |
-| S18 | Bun unit | `bun test` | frameActiveTab / URL contract | active vs warm fixtures | warm panels ignore global URL tab; activate pushes last tab once | planned |
-| S19 | Bun/component | `bun test` | focus / hotkeys active-only | two frames | hidden frame does not receive focus or tab hotkey side effects | planned |
-| S20 | Bun/unit | `bun test` | agent-fix / pending run targets active only | pending for A while B active | applied only to B or queued for active id per TECH | planned |
-| S21 | Bun unit | `bun test` | freeze uses detach not full evict | tabs/layouts/persisted present after freeze | strip identity retained; no `evictWorkspaceRuntime` on freeze | planned |
-| S22 | Bun unit | `bun test` | light panel narrow mount | warm frame last tab terminal | overview/wiki not all mounted | planned |
-| S23 | Bun unit | `bun test` | clearAll wired with computer scope | mock connection switch helper | WSC clear + no cross-instance frame ids | planned |
-| S24 | Bun unit | `bun test` | `workspace-surface-switch` + store `switchContext` | prepared href + atomic leave→warm | nav injects last tab only; switchContext single update; sticky ids keep leave until warm | covered |
-| S25 | Bun unit / code gate | `bun test` + review | structural pane key / no full panes in host | title change fixtures if present | host does not depend on dynamic title strings | partial |
-| S26 | Bun unit / manual | `bun test` + dogfood | prefetch debounce + markVisited | rapid hop / hover | prime cancelled on leave; markVisited debounced without broad cancelQueries | partial |
-| S27 | Manual | stopwatch / marks | multi-frame hop under load | ≥4 warm frames local desktop | nav prepare cheap; residual commit spikes documented in IMPROVEMENT IMP-007 | dogfood |
+| Scenario | Level                | Expected tool           | Target command / method                                               | Fixture / data                              | Signals                                                                                             | Status  |
+| -------- | -------------------- | ----------------------- | --------------------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------- |
+| S1       | E2E                  | Playwright              | `just test-e2e -- tests/specs/APP-043_workspace-surface-cache.e2e.ts` | 2 workspaces with terminal output           | Frame A `hidden` while B active; return A buffer unchanged                                          | planned |
+| S2       | E2E                  | Playwright              | same                                                                  | warm file tab context                       | return restores file tab without full reload flash                                                  | planned |
+| S3       | Bun unit             | `bun test`              | workspace surface cache store tests                                   | fake timers                                 | tier transitions active↔warm↔frozen                                                                 | planned |
+| S4       | Bun unit             | `bun test`              | cache store over maxWarm                                              | N+1 contexts                                | oldest frozen; warm length ≤ cap                                                                    | planned |
+| S5       | Bun unit             | `bun test`              | editor mount policy                                                   | 20 open files                               | mounted ≤ per-ws cap                                                                                | planned |
+| S6       | Bun unit             | `bun test`              | global editor/browser caps                                            | multi-context fixtures                      | demount order                                                                                       | planned |
+| S7       | Bun unit             | `bun test`              | terminal pane global cap                                              | multi-pane fixtures                         | excess demoted                                                                                      | planned |
+| S8       | Bun unit             | `bun test`              | protect dirty/agent                                                   | mixed protect flags                         | unprotected frozen first                                                                            | planned |
+| S9       | Bun/component        | `bun test`              | restore helper                                                        | last tab + not ready terminal               | chrome tab set without wait                                                                         | planned |
+| S10      | Bun unit             | `bun test`              | TTL sweep                                                             | mocked now                                  | expired warm frozen                                                                                 | planned |
+| S11      | E2E or manual        | Playwright/manual       | fit on show                                                           | warm terminal                               | no zero-size terminal after return                                                                  | planned |
+| S12      | Bun/component        | `bun test`              | hover prefetch debounce                                               | mock primeWorkspace                         | called once after debounce                                                                          | planned |
+| S13      | Bun unit             | `bun test`              | settings apply                                                        | set maxWarm=2                               | next touch respects 2                                                                               | planned |
+| S14      | Bun/grep gate        | `bun test` + repo check | no APP-034 store/settings/inventory ownership                         | codebase                                    | zero `useTerminalCacheStore`; no live `terminal.max_cached_*` reads; inventory not owned by APP-034 | planned |
+| S15      | Bun unit             | `bun test`              | clearAll on instance change                                           | warm set non-empty                          | empty after clear                                                                                   | planned |
+| S16      | Bun unit             | `bun test`              | pin                                                                   | if N1 shipped                               | pinned survives LRU                                                                                 | planned |
+| S17      | Manual               | stopwatch / marks       | dogfood script                                                        | local desktop                               | meets PRD ms targets                                                                                | planned |
+| S18      | Bun unit             | `bun test`              | frameActiveTab / URL contract                                         | active vs warm fixtures                     | warm panels ignore global URL tab; activate pushes last tab once                                    | planned |
+| S19      | Bun/component        | `bun test`              | focus / hotkeys active-only                                           | two frames                                  | hidden frame does not receive focus or tab hotkey side effects                                      | planned |
+| S20      | Bun/unit             | `bun test`              | agent-fix / pending run targets active only                           | pending for A while B active                | applied only to B or queued for active id per TECH                                                  | planned |
+| S21      | Bun unit             | `bun test`              | freeze uses detach not full evict                                     | tabs/layouts/persisted present after freeze | strip identity retained; no `evictWorkspaceRuntime` on freeze                                       | planned |
+| S22      | Bun unit             | `bun test`              | light panel narrow mount                                              | warm frame last tab terminal                | overview/wiki not all mounted                                                                       | planned |
+| S23      | Bun unit             | `bun test`              | clearAll wired with computer scope                                    | mock connection switch helper               | WSC clear + no cross-instance frame ids                                                             | planned |
+| S24      | Bun unit             | `bun test`              | `workspace-surface-switch` + store `switchContext`                    | prepared href + atomic leave→warm           | nav injects last tab only; switchContext single update; sticky ids keep leave until warm            | covered |
+| S25      | Bun unit / code gate | `bun test` + review     | structural pane key / no full panes in host                           | title change fixtures if present            | host does not depend on dynamic title strings                                                       | partial |
+| S26      | Bun unit / manual    | `bun test` + dogfood    | prefetch debounce + markVisited                                       | rapid hop / hover                           | prime cancelled on leave; markVisited debounced without broad cancelQueries                         | partial |
+| S27      | Manual               | stopwatch / marks       | multi-frame hop under load                                            | ≥4 warm frames local desktop                | nav prepare cheap; residual commit spikes documented in IMPROVEMENT IMP-007                         | dogfood |
 
 ## Scenarios
 
@@ -368,33 +368,33 @@ Load Agent Browser skill / `agent-browser skills get core --full` before running
 
 Updated during APP-043 implementation + switch-path perf dogfood (2026-07-24 → 2026-07-25).
 
-| Scenario group | Status | Evidence |
-|----------------|--------|----------|
-| S3–S8, S10, S13, S18, S21–S22 (policies) | ✅ | `bun test` `apps/web/src/app-shell/__tests__/workspace-surface-policies.test.ts` |
-| S1 / S21 detach / freeze identity | ✅ | `bun test` detach + store tests; **Playwright** `e2e/tests/specs/APP-043_workspace-surface-cache.e2e.ts` (warm A hidden while B active, reverse) |
-| S4, S8, S10, S13, S15 store | ✅ | `bun test` `workspace-surface-cache-store.test.ts` (includes `switchContext` atomic leave→warm) |
-| S9 non-blocking restore | ✅ | `planTerminalLastTabRestore` unit + `CenterStage.tsx` uses it |
-| S12 hover prefetch | ✅ | `createWorkspacePrimePrefetch` unit + `WorkspaceItem` hover wire |
-| S14 cutover | ✅ | bun gate walks `apps/web/src` — no `useTerminalCacheStore` / `max_cached_*` |
-| S19 / S20 active-only targeting | ✅ | `shouldAcceptFrameInput` / `resolveActiveOnlyContextId` unit |
-| S23 computer clearAll | ✅ | `clearWorkspaceSurfaceCacheOnTargetChange` unit + `prepareConnectionTargetChange` calls it |
-| S24 nav + sticky + switchContext | ✅ | `workspace-surface-switch.test.ts` + policies sticky helpers + store `switchContext` unit; shipped code enforces no WSC on nav path |
-| S25 structural pane key | ⚠ partial | shipped in `CenterStagePanels` (`terminalPaneStructureKey`); dedicated “title-only change does not remount host” unit not yet isolated |
-| S26 prefetch cancel + markVisited debounce | ⚠ partial | prefetch unit + shipped debounce/patch behavior; full hop storm not automated |
-| S17 / S27 perf budgets under load | ⚠ dogfood | 2026-07-25: afterPaint wait eliminated; settle p50 ~90ms; residual 200–450ms commit spikes → [IMP-007](./IMPROVEMENT.md#imp-007--residual-multi-frame-react-commit-spikes) open |
-| S16 pin | ⚠ N1 not shipped | n/a |
+| Scenario group                             | Status           | Evidence                                                                                                                                                                        |
+| ------------------------------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S3–S8, S10, S13, S18, S21–S22 (policies)   | ✅               | `bun test` `apps/web/src/app-shell/__tests__/workspace-surface-policies.test.ts`                                                                                                |
+| S1 / S21 detach / freeze identity          | ✅               | `bun test` detach + store tests; **Playwright** `e2e/tests/specs/APP-043_workspace-surface-cache.e2e.ts` (warm A hidden while B active, reverse)                                |
+| S4, S8, S10, S13, S15 store                | ✅               | `bun test` `workspace-surface-cache-store.test.ts` (includes `switchContext` atomic leave→warm)                                                                                 |
+| S9 non-blocking restore                    | ✅               | `planTerminalLastTabRestore` unit + `CenterStage.tsx` uses it                                                                                                                   |
+| S12 hover prefetch                         | ✅               | `createWorkspacePrimePrefetch` unit + `WorkspaceItem` hover wire                                                                                                                |
+| S14 cutover                                | ✅               | bun gate walks `apps/web/src` — no `useTerminalCacheStore` / `max_cached_*`                                                                                                     |
+| S19 / S20 active-only targeting            | ✅               | `shouldAcceptFrameInput` / `resolveActiveOnlyContextId` unit                                                                                                                    |
+| S23 computer clearAll                      | ✅               | `clearWorkspaceSurfaceCacheOnTargetChange` unit + `prepareConnectionTargetChange` calls it                                                                                      |
+| S24 nav + sticky + switchContext           | ✅               | `workspace-surface-switch.test.ts` + policies sticky helpers + store `switchContext` unit; shipped code enforces no WSC on nav path                                             |
+| S25 structural pane key                    | ⚠ partial        | shipped in `CenterStagePanels` (`terminalPaneStructureKey`); dedicated “title-only change does not remount host” unit not yet isolated                                          |
+| S26 prefetch cancel + markVisited debounce | ⚠ partial        | prefetch unit + shipped debounce/patch behavior; full hop storm not automated                                                                                                   |
+| S17 / S27 perf budgets under load          | ⚠ dogfood        | 2026-07-25: afterPaint wait eliminated; settle p50 ~90ms; residual 200–450ms commit spikes → [IMP-007](./IMPROVEMENT.md#imp-007--residual-multi-frame-react-commit-spikes) open |
+| S16 pin                                    | ⚠ N1 not shipped | n/a                                                                                                                                                                             |
 
 ### Ops log cross-links
 
-| IMP | Status | Maps to scenarios |
-|-----|--------|-------------------|
-| IMP-001 render-phase setState | closed | S24 |
-| IMP-002 sticky leave disconnect | closed | S1, S24 |
-| IMP-003 nav-path WSC block | closed | S24 |
-| IMP-004 double-rAF afterPaint | closed | S27 / TECH §9.8 |
-| IMP-005 title thrash | closed | S25 |
-| IMP-006 hover/bootstrap storm | closed | S12, S26 |
-| IMP-007 residual commit spikes | open | S17, S27 |
+| IMP                             | Status | Maps to scenarios |
+| ------------------------------- | ------ | ----------------- |
+| IMP-001 render-phase setState   | closed | S24               |
+| IMP-002 sticky leave disconnect | closed | S1, S24           |
+| IMP-003 nav-path WSC block      | closed | S24               |
+| IMP-004 double-rAF afterPaint   | closed | S27 / TECH §9.8   |
+| IMP-005 title thrash            | closed | S25               |
+| IMP-006 hover/bootstrap storm   | closed | S12, S26          |
+| IMP-007 residual commit spikes  | open   | S17, S27          |
 
 ### Commands
 

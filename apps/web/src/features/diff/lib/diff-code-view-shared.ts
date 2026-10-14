@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import type { MutableRefObject } from 'react';
+import type { MutableRefObject } from "react";
 import type {
   ChangeContent,
   CodeViewDiffItem,
@@ -8,12 +8,12 @@ import type {
   DiffLineAnnotation,
   FileDiffMetadata,
   SelectedLineRange,
-} from '@pierre/diffs';
-import type { CodeViewHandle } from '@pierre/diffs/react';
-import type { SelectionInfo } from '@/shared/lib/format-selection-for-ai';
+} from "@pierre/diffs";
+import type { CodeViewHandle } from "@pierre/diffs/react";
+import type { SelectionInfo } from "@/shared/lib/format-selection-for-ai";
 
 export type CopyAnnotationMeta = {
-  kind: 'copy';
+  kind: "copy";
   key: string;
   filePath: string;
   range: SelectedLineRange;
@@ -21,12 +21,12 @@ export type CopyAnnotationMeta = {
 
 /** Binary / too-large file annotation rendered as BinaryDiffCard. */
 export type BinaryAnnotationMeta = {
-  kind: 'binary';
+  kind: "binary";
   filePath: string;
   /** Serialized subset of GitFileDiffResponse used by BinaryDiffCard. */
-  diff: import('@/api/ws-api-types').GitFileDiffResponse;
+  diff: import("@/api/ws-api-types").GitFileDiffResponse;
   /** Split layout: previous → left/deletions, current → right/additions. */
-  panel: import('@/features/diff/lib/diff-content-kind').BinaryDiffPanel;
+  panel: import("@/features/diff/lib/diff-content-kind").BinaryDiffPanel;
 };
 
 export type DiffListAnnotationMeta = CopyAnnotationMeta | BinaryAnnotationMeta;
@@ -36,7 +36,7 @@ export function isCopyAnnotation(
 ): annotation is DiffLineAnnotation<DiffListAnnotationMeta> & {
   metadata: CopyAnnotationMeta;
 } {
-  return annotation.metadata?.kind === 'copy';
+  return annotation.metadata?.kind === "copy";
 }
 
 export function isBinaryAnnotation(
@@ -44,13 +44,11 @@ export function isBinaryAnnotation(
 ): annotation is DiffLineAnnotation<DiffListAnnotationMeta> & {
   metadata: BinaryAnnotationMeta;
 } {
-  return annotation.metadata?.kind === 'binary';
+  return annotation.metadata?.kind === "binary";
 }
 
-export function getNextItemVersion<LAnnotation>(
-  item: CodeViewItem<LAnnotation>,
-): number {
-  return typeof item.version === 'number' ? item.version + 1 : 1;
+export function getNextItemVersion<LAnnotation>(item: CodeViewItem<LAnnotation>): number {
+  return typeof item.version === "number" ? item.version + 1 : 1;
 }
 
 export function getTextForRange(
@@ -58,17 +56,16 @@ export function getTextForRange(
   range: SelectedLineRange,
 ): string {
   const side = range.endSide ?? range.side;
-  if (!side) return '';
+  if (!side) return "";
   const start = Math.min(range.start, range.end);
   const end = Math.max(range.start, range.end);
-  const source =
-    side === 'deletions' ? contents.oldContent : contents.newContent;
-  const lines = source.split('\n');
-  return lines.slice(start - 1, end).join('\n');
+  const source = side === "deletions" ? contents.oldContent : contents.newContent;
+  const lines = source.split("\n");
+  return lines.slice(start - 1, end).join("\n");
 }
 
 type LineTypeInfo = {
-  type: 'context' | 'addition' | 'deletion' | 'mixed';
+  type: "context" | "addition" | "deletion" | "mixed";
   oldLine?: number;
   newLine?: number;
 };
@@ -82,13 +79,11 @@ function buildLineTypeMaps(fileDiff: FileDiffMetadata) {
     let newLine = hunk.additionStart;
 
     for (const content of hunk.hunkContent) {
-      if (content.type === 'context') {
-        const lineCount = Array.isArray(content.lines)
-          ? content.lines.length
-          : content.lines;
+      if (content.type === "context") {
+        const lineCount = Array.isArray(content.lines) ? content.lines.length : content.lines;
 
         for (let index = 0; index < lineCount; index += 1) {
-          const info: LineTypeInfo = { type: 'context', oldLine, newLine };
+          const info: LineTypeInfo = { type: "context", oldLine, newLine };
           oldMap.set(oldLine, info);
           newMap.set(newLine, info);
           oldLine += 1;
@@ -105,11 +100,11 @@ function buildLineTypeMaps(fileDiff: FileDiffMetadata) {
         ? change.additions.length
         : change.additions;
       const hasBoth = deletionCount > 0 && additionCount > 0;
-      const lineType: LineTypeInfo['type'] = hasBoth
-        ? 'mixed'
+      const lineType: LineTypeInfo["type"] = hasBoth
+        ? "mixed"
         : deletionCount > 0
-          ? 'deletion'
-          : 'addition';
+          ? "deletion"
+          : "addition";
       const deletionStart = oldLine;
       const additionStart = newLine;
 
@@ -164,66 +159,66 @@ export function buildDiffSelectionInfo(args: {
 
   const startLine = Math.min(args.range.start, args.range.end);
   const endLine = Math.max(args.range.start, args.range.end);
-  const oldLines = args.contents.oldContent.split('\n');
-  const newLines = args.contents.newContent.split('\n');
-  const sourceLines = side === 'deletions' ? oldLines : newLines;
-  const selectedText = sourceLines.slice(startLine - 1, endLine).join('\n');
+  const oldLines = args.contents.oldContent.split("\n");
+  const newLines = args.contents.newContent.split("\n");
+  const sourceLines = side === "deletions" ? oldLines : newLines;
+  const selectedText = sourceLines.slice(startLine - 1, endLine).join("\n");
   const { oldMap, newMap } = buildLineTypeMaps(args.fileDiff);
-  const lineMap = side === 'deletions' ? oldMap : newMap;
-  const lineTypes = new Set<LineTypeInfo['type']>();
+  const lineMap = side === "deletions" ? oldMap : newMap;
+  const lineTypes = new Set<LineTypeInfo["type"]>();
 
   for (let line = startLine; line <= endLine; line += 1) {
-    lineTypes.add(lineMap.get(line)?.type ?? 'context');
+    lineTypes.add(lineMap.get(line)?.type ?? "context");
   }
 
-  const hasMixed = lineTypes.has('mixed');
-  const hasAddition = lineTypes.has('addition');
-  const hasDeletion = lineTypes.has('deletion');
-  const hasContext = lineTypes.has('context');
+  const hasMixed = lineTypes.has("mixed");
+  const hasAddition = lineTypes.has("addition");
+  const hasDeletion = lineTypes.has("deletion");
+  const hasContext = lineTypes.has("context");
   const onlyContext = lineTypes.size === 1 && hasContext;
   const onlyAddition = !hasMixed && !hasDeletion && hasAddition;
   const onlyDeletion = !hasMixed && !hasAddition && hasDeletion;
 
-  let changeType: SelectionInfo['changeType'];
+  let changeType: SelectionInfo["changeType"];
   let beforeText: string | undefined;
   let afterText: string | undefined;
 
   if (onlyContext) {
-    changeType = 'context';
+    changeType = "context";
     const mapped = getMappedContextRange(lineMap, startLine, endLine);
-    beforeText = oldLines.slice(mapped.oldStart - 1, mapped.oldEnd).join('\n');
-    afterText = newLines.slice(mapped.newStart - 1, mapped.newEnd).join('\n');
+    beforeText = oldLines.slice(mapped.oldStart - 1, mapped.oldEnd).join("\n");
+    afterText = newLines.slice(mapped.newStart - 1, mapped.newEnd).join("\n");
   } else if (onlyAddition) {
-    changeType = 'addition';
-    afterText = newLines.slice(startLine - 1, endLine).join('\n');
+    changeType = "addition";
+    afterText = newLines.slice(startLine - 1, endLine).join("\n");
   } else if (onlyDeletion) {
-    changeType = 'deletion';
-    beforeText = oldLines.slice(startLine - 1, endLine).join('\n');
+    changeType = "deletion";
+    beforeText = oldLines.slice(startLine - 1, endLine).join("\n");
   } else {
-    changeType = 'mixed';
+    changeType = "mixed";
     let minOtherLine = Infinity;
     let maxOtherLine = -Infinity;
 
     for (let line = startLine; line <= endLine; line += 1) {
       const info = lineMap.get(line);
       if (!info) continue;
-      const otherLine = side === 'deletions' ? info.newLine : info.oldLine;
+      const otherLine = side === "deletions" ? info.newLine : info.oldLine;
       if (otherLine == null) continue;
       minOtherLine = Math.min(minOtherLine, otherLine);
       maxOtherLine = Math.max(maxOtherLine, otherLine);
     }
 
-    if (side === 'deletions') {
-      beforeText = oldLines.slice(startLine - 1, endLine).join('\n');
+    if (side === "deletions") {
+      beforeText = oldLines.slice(startLine - 1, endLine).join("\n");
       afterText =
         minOtherLine <= maxOtherLine
-          ? newLines.slice(minOtherLine - 1, maxOtherLine).join('\n')
+          ? newLines.slice(minOtherLine - 1, maxOtherLine).join("\n")
           : undefined;
     } else {
-      afterText = newLines.slice(startLine - 1, endLine).join('\n');
+      afterText = newLines.slice(startLine - 1, endLine).join("\n");
       beforeText =
         minOtherLine <= maxOtherLine
-          ? oldLines.slice(minOtherLine - 1, maxOtherLine).join('\n')
+          ? oldLines.slice(minOtherLine - 1, maxOtherLine).join("\n")
           : undefined;
     }
   }
@@ -232,10 +227,9 @@ export function buildDiffSelectionInfo(args: {
     filePath: args.filePath,
     startLine,
     endLine,
-    selectedText:
-      selectedText || `Lines ${startLine}${startLine === endLine ? '' : `-${endLine}`}`,
+    selectedText: selectedText || `Lines ${startLine}${startLine === endLine ? "" : `-${endLine}`}`,
     changeType,
-    diffSide: side === 'deletions' ? 'old' : 'new',
+    diffSide: side === "deletions" ? "old" : "new",
     beforeText,
     afterText,
   };
@@ -248,7 +242,7 @@ export function updateViewerDiffItem<LAnnotation>(
 ): boolean {
   if (viewer == null) return false;
   const item = viewer.getItem(itemId);
-  if (item == null || item.type !== 'diff') return false;
+  if (item == null || item.type !== "diff") return false;
   if (!mutate(item)) return false;
   item.version = getNextItemVersion(item);
   return viewer.updateItem(item);
@@ -261,7 +255,7 @@ export function toggleItemCollapsed<LAnnotation>(
   const viewer = viewerRef.current;
   const instance = viewer?.getInstance();
   const item = viewer?.getItem(itemId);
-  if (viewer == null || instance == null || item == null || item.type !== 'diff') {
+  if (viewer == null || instance == null || item == null || item.type !== "diff") {
     return;
   }
 
@@ -271,21 +265,21 @@ export function toggleItemCollapsed<LAnnotation>(
   if (!viewer.updateItem(item)) return;
 
   if (itemTop != null && itemTop < instance.getScrollTop()) {
-    viewer.scrollTo({ type: 'item', id: item.id, align: 'start' });
+    viewer.scrollTo({ type: "item", id: item.id, align: "start" });
   }
 }
 
 export function applyCollapseModeToItems<LAnnotation>(
   viewerRef: MutableRefObject<CodeViewHandle<LAnnotation> | null>,
   itemIds: readonly string[],
-  mode: 'expanded' | 'collapsed',
+  mode: "expanded" | "collapsed",
 ) {
   const viewer = viewerRef.current;
   if (viewer == null) return;
-  const targetCollapsed = mode === 'collapsed';
+  const targetCollapsed = mode === "collapsed";
   for (const itemId of itemIds) {
     const item = viewer.getItem(itemId);
-    if (item == null || item.type !== 'diff') continue;
+    if (item == null || item.type !== "diff") continue;
     if ((item.collapsed === true) === targetCollapsed) continue;
     item.collapsed = targetCollapsed;
     item.version = getNextItemVersion(item);

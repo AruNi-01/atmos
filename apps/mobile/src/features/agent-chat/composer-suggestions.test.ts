@@ -17,7 +17,11 @@ describe("readComposerTrigger", () => {
   });
 
   test("reads an at query and ignores a finished slash token", () => {
-    expect(readComposerTrigger("/fork @src/ap")).toEqual({ kind: "mention", query: "src/ap", offset: 6 });
+    expect(readComposerTrigger("/fork @src/ap")).toEqual({
+      kind: "mention",
+      query: "src/ap",
+      offset: 6,
+    });
   });
 
   test("ignores a trigger that already has a space", () => {
@@ -43,20 +47,24 @@ describe("slash and mention filters", () => {
   });
 
   test("flattens the project tree and filters by path", () => {
-    const tree: FileTreeNode[] = [{
-      name: "src",
-      path: "/repo/src",
-      is_dir: true,
-      is_symlink: false,
-      is_ignored: false,
-      children: [{
-        name: "main.ts",
-        path: "/repo/src/main.ts",
-        is_dir: false,
+    const tree: FileTreeNode[] = [
+      {
+        name: "src",
+        path: "/repo/src",
+        is_dir: true,
         is_symlink: false,
         is_ignored: false,
-      }],
-    }];
+        children: [
+          {
+            name: "main.ts",
+            path: "/repo/src/main.ts",
+            is_dir: false,
+            is_symlink: false,
+            is_ignored: false,
+          },
+        ],
+      },
+    ];
     const files = flattenMentionFiles(tree, "/repo");
     expect(files.map((file) => file.path)).toEqual(["src", "src/main.ts"]);
     expect(filterMentionFiles(files, "main").map((file) => file.path)).toEqual(["src/main.ts"]);

@@ -7,24 +7,24 @@ description: 把这台机器注册为 Atmos Computer。
 
 ## 常见任务
 
-| 任务 | 命令 |
-|------|------|
-| 注册并启动这台机器 | `atmos computer start --token <registration_code>` |
+| 任务                                | 命令                                                        |
+| ----------------------------------- | ----------------------------------------------------------- |
+| 注册并启动这台机器                  | `atmos computer start --token <registration_code>`          |
 | 后台启动 API，并在 readiness 后退出 | `atmos computer start --token <registration_code> --daemon` |
-| 启动已经注册过的机器 | `atmos computer start` |
-| 检查注册和连接状态 | `atmos computer status` |
+| 启动已经注册过的机器                | `atmos computer start`                                      |
+| 检查注册和连接状态                  | `atmos computer status`                                     |
 
 ## start 参数
 
-| 参数或环境变量 | 用途 |
-|----------------|------|
-| `--token`、`ATMOS_REGISTER_TOKEN` | 一次性注册 token |
-| `--relay`、`ATMOS_RELAY_URL` | 自定义 Relay URL |
-| `--relay-secret-key`、`ATMOS_RELAY_SECRET_KEY` | 私有 Relay 鉴权 |
-| `--display-name`、`ATMOS_COMPUTER_DISPLAY_NAME` | **My Computers** 中显示的名称 |
-| `--port`、`--host`、`--lan` | 本地 Atmos Server 绑定 |
-| `--force-restart` | 注册前重启本地 runtime |
-| `--daemon` | 后台启动，等待 readiness，然后返回 |
+| 参数或环境变量                                  | 用途                               |
+| ----------------------------------------------- | ---------------------------------- |
+| `--token`、`ATMOS_REGISTER_TOKEN`               | 一次性注册 token                   |
+| `--relay`、`ATMOS_RELAY_URL`                    | 自定义 Relay URL                   |
+| `--relay-secret-key`、`ATMOS_RELAY_SECRET_KEY`  | 私有 Relay 鉴权                    |
+| `--display-name`、`ATMOS_COMPUTER_DISPLAY_NAME` | **My Computers** 中显示的名称      |
+| `--port`、`--host`、`--lan`                     | 本地 Atmos Server 绑定             |
+| `--force-restart`                               | 注册前重启本地 runtime             |
+| `--daemon`                                      | 后台启动，等待 readiness，然后返回 |
 
 ## 典型流程
 

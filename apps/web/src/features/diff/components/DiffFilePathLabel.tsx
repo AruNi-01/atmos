@@ -34,7 +34,9 @@ export const DiffFilePathLabel: React.FC<DiffFilePathLabelProps> = ({
     <span ref={labelRef} className={className ? className : "flex min-w-0 items-center gap-2"}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img {...iconProps} alt={`File: ${fileName}`} />
-      <span ref={fileNameRef} className={fileNameClassName}>{fileName}</span>
+      <span ref={fileNameRef} className={fileNameClassName}>
+        {fileName}
+      </span>
       <span className={dirPathClassName} dir="rtl">
         <bdi>{dirPath ? `${dirPath}/` : ""}</bdi>
       </span>

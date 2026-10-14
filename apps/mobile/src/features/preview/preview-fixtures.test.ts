@@ -1,9 +1,6 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
-import {
-  PREVIEW_WORKSPACES,
-  previewEntriesForWorkspace,
-} from "./preview-fixtures";
+import { PREVIEW_WORKSPACES, previewEntriesForWorkspace } from "./preview-fixtures";
 
 describe("preview fixtures", () => {
   test("keeps same-name tmux windows as sibling tabs", () => {

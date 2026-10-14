@@ -16,7 +16,13 @@ import { Download, Loader2, LoaderCircle, RotateCw } from "lucide-react";
 import { systemApi } from "@/api/rest-api";
 import { skillsApi } from "@/api/ws-api";
 import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
-import { AgentSelect, buildWikiTerminalRun, toTerminalPaneAgent, type AgentId, type WikiTerminalRun } from "./AgentSelect";
+import {
+  AgentSelect,
+  buildWikiTerminalRun,
+  toTerminalPaneAgent,
+  type AgentId,
+  type WikiTerminalRun,
+} from "./AgentSelect";
 import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
 
 const PROJECT_WIKI_UPDATE_SKILL_PATH = "~/.atmos/skills/.system/project-wiki-update";
@@ -58,7 +64,9 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
 }) => {
   const t = useTranslations("wiki.updateDialog");
   const [agentId, setAgentId] = useState<AgentId>("claude");
-  const [agentRunConfigs, setAgentRunConfigs] = useState<Record<string, TerminalAgentRunConfigInput | null>>({});
+  const [agentRunConfigs, setAgentRunConfigs] = useState<
+    Record<string, TerminalAgentRunConfigInput | null>
+  >({});
   const [isRunning, setIsRunning] = useState(false);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
   const [pendingCommand, setPendingCommand] = useState<WikiTerminalRun | null>(null);
@@ -141,14 +149,7 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
       onComplete?.();
       onOpenChange(false);
     },
-    [
-      terminalGridRef,
-      onSwitchToTerminal,
-      onSwitchToProjectWikiAndRun,
-      onComplete,
-      onOpenChange,
-      t,
-    ]
+    [terminalGridRef, onSwitchToTerminal, onSwitchToProjectWikiAndRun, onComplete, onOpenChange, t],
   );
 
   const handleRunUpdate = useCallback(async () => {
@@ -210,10 +211,8 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
               {t("title")}
             </DialogTitle>
             <DialogDescription asChild>
-              <div className="space-y-2 text-muted-foreground text-sm">
-                <p>
-                  {t("description")}
-                </p>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>{t("description")}</p>
                 {typeof commitCount === "number" && commitCount > 0 && (
                   <p className="rounded-md bg-muted/60 px-3 py-2 text-muted-foreground">
                     {t.rich("commitCount", {
@@ -229,11 +228,9 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
           </DialogHeader>
           <div className="space-y-4 py-2">
             {(skillLoading || systemHasSkill !== true) && (
-              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+              <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
                 <p className="text-sm text-muted-foreground">
-                  {skillLoading
-                    ? t("skills.checking")
-                    : t("skills.notInstalled")}
+                  {skillLoading ? t("skills.checking") : t("skills.notInstalled")}
                 </p>
                 {!skillLoading && (
                   <Button
@@ -242,18 +239,18 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
                     onClick={handleInstallSkill}
                     disabled={isInstalling}
                     className="cursor-pointer"
-                    >
-                      {isInstalling ? (
-                        <>
-                          <Loader2 className="size-4 animate-spin mr-2" />
-                          {t("skills.installing")}
-                        </>
-                      ) : (
-                        <>
-                          <Download className="size-4 mr-2" />
-                          {t("skills.install")}
-                        </>
-                      )}
+                  >
+                    {isInstalling ? (
+                      <>
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                        {t("skills.installing")}
+                      </>
+                    ) : (
+                      <>
+                        <Download className="mr-2 size-4" />
+                        {t("skills.install")}
+                      </>
+                    )}
                   </Button>
                 )}
               </div>
@@ -277,18 +274,15 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isRunning}>
               {t("actions.cancel")}
             </Button>
-            <Button
-              onClick={handleRunUpdate}
-              disabled={isRunning || systemHasSkill !== true}
-            >
+            <Button onClick={handleRunUpdate} disabled={isRunning || systemHasSkill !== true}>
               {isRunning ? (
                 <>
-                  <Loader2 className="size-4 animate-spin mr-2" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                   {t("actions.starting")}
                 </>
               ) : (
                 <>
-                  <RotateCw className="size-4 mr-2" />
+                  <RotateCw className="mr-2 size-4" />
                   {t("actions.updateWiki")}
                 </>
               )}
@@ -304,18 +298,19 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("conflict.title")}</DialogTitle>
-            <DialogDescription>
-              {t("conflict.description")}
-            </DialogDescription>
+            <DialogDescription>{t("conflict.description")}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => (setConflictDialogOpen(false), setPendingCommand(null))}>
+            <Button
+              variant="outline"
+              onClick={() => (setConflictDialogOpen(false), setPendingCommand(null))}
+            >
               {t("actions.cancel")}
             </Button>
             <Button onClick={handleConfirmReplaceAndRun} disabled={isRunning}>
               {isRunning ? (
                 <>
-                  <Loader2 className="size-4 animate-spin mr-2" />
+                  <Loader2 className="mr-2 size-4 animate-spin" />
                   {t("actions.starting")}
                 </>
               ) : (

@@ -11,29 +11,29 @@
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S2 |
-| M2 | S2, S3, S4, S5, S6, S7, S8 |
-| M3 | S3 |
-| M4 | S4 |
-| M5 | S5 |
-| M6 | S6, S6a, S6b, S6c, S7 |
-| M7 | S6 |
-| M8 | S6, S9 |
-| M9 | S10 |
-| M10 | S11, S12 |
-| M11 | S12 |
-| M12 | S9 |
-| M13 | S13 |
-| M14 | S14 |
-| M15 | S15 |
-| M16 | S16 |
-| M17 | S7, S10 |
-| M18 | S7, S17 |
-| N1 | S15 (deferred UI polish) |
-| N3 | S6 (manual refresh if implemented) |
-| N6 | S3, S15 (diagnostic surfaces if implemented) |
+| PRD item | Scenario IDs                                 |
+| -------- | -------------------------------------------- |
+| M1       | S1, S2                                       |
+| M2       | S2, S3, S4, S5, S6, S7, S8                   |
+| M3       | S3                                           |
+| M4       | S4                                           |
+| M5       | S5                                           |
+| M6       | S6, S6a, S6b, S6c, S7                        |
+| M7       | S6                                           |
+| M8       | S6, S9                                       |
+| M9       | S10                                          |
+| M10      | S11, S12                                     |
+| M11      | S12                                          |
+| M12      | S9                                           |
+| M13      | S13                                          |
+| M14      | S14                                          |
+| M15      | S15                                          |
+| M16      | S16                                          |
+| M17      | S7, S10                                      |
+| M18      | S7, S17                                      |
+| N1       | S15 (deferred UI polish)                     |
+| N3       | S6 (manual refresh if implemented)           |
+| N6       | S3, S15 (diagnostic surfaces if implemented) |
 
 ## Scenarios
 

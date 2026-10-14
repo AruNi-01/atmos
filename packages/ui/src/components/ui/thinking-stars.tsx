@@ -18,8 +18,7 @@ const STAR_LAYOUT = [
   { x: 78, y: 76, scale: 0.55 },
   { x: 22, y: 78, scale: 0.4 },
 ] as const;
-const STAR_PATH =
-  "M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z";
+const STAR_PATH = "M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z";
 
 export function ThinkingStars({
   className,

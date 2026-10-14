@@ -11,13 +11,7 @@ export function ResourceMonitorSessionIcon({
   toolbarAgent: TerminalTitleAgent | undefined;
 }) {
   if (toolbarAgent?.iconType === "built-in") {
-    return (
-      <AgentIcon
-        registryId={toolbarAgent.id}
-        name={toolbarAgent.label}
-        size={12}
-      />
-    );
+    return <AgentIcon registryId={toolbarAgent.id} name={toolbarAgent.label} size={12} />;
   }
   if (toolbarAgent?.iconType === "custom") {
     return <Bot className="size-3 text-muted-foreground" aria-hidden />;

@@ -50,9 +50,9 @@ describe("assistant process collapse", () => {
       { type: "text", text: "final" },
     ];
     const { processParts, tailParts } = splitAssistantProcessParts(parts);
-    expect(processParts.map((item) =>
-      item.part.type === "text" ? item.part.text : item.part.type,
-    )).toEqual(["looking", "tool_call", "mid commentary", "tool_call"]);
+    expect(
+      processParts.map((item) => (item.part.type === "text" ? item.part.text : item.part.type)),
+    ).toEqual(["looking", "tool_call", "mid commentary", "tool_call"]);
     expect(tailParts.map((item) => item.part)).toEqual([{ type: "text", text: "final" }]);
   });
 
@@ -64,7 +64,11 @@ describe("assistant process collapse", () => {
         name: "grok_chrome",
         kind: "subagent",
         status: "running",
-        params: { type: "subagent", description: "goal achievement skeptic", agent_type: "general-purpose" },
+        params: {
+          type: "subagent",
+          description: "goal achievement skeptic",
+          agent_type: "general-purpose",
+        },
       },
       { type: "text", text: "only-a", parent_tool_call_id: "sa-a" },
       {
@@ -92,7 +96,11 @@ describe("assistant process collapse", () => {
         name: "spawn_subagent",
         kind: "subagent",
         status: "running",
-        params: { type: "subagent", description: "Explore Rust backend layers", agent_type: "explore" },
+        params: {
+          type: "subagent",
+          description: "Explore Rust backend layers",
+          agent_type: "explore",
+        },
       },
       {
         type: "tool_call",
@@ -100,7 +108,12 @@ describe("assistant process collapse", () => {
         name: "grok_chrome",
         kind: "subagent",
         status: "running",
-        params: { type: "subagent", description: "Explore Rust backend layers", agent_type: "explore", task_id: "sa-rust" },
+        params: {
+          type: "subagent",
+          description: "Explore Rust backend layers",
+          agent_type: "explore",
+          task_id: "sa-rust",
+        },
       },
       { type: "text", text: "parent reply" },
     ];
@@ -211,10 +224,14 @@ describe("assistant process collapse", () => {
       { type: "text", text: "Plan is up-to-date." },
     ];
     const { processParts, tailParts } = splitAssistantProcessParts(parts);
-    expect(processParts.map((item) => item.part.type)).toEqual(["thinking", "tool_call", "thinking"]);
-    expect(tailParts.map((item) =>
-      item.part.type === "text" ? item.part.text : item.part.type,
-    )).toEqual([
+    expect(processParts.map((item) => item.part.type)).toEqual([
+      "thinking",
+      "tool_call",
+      "thinking",
+    ]);
+    expect(
+      tailParts.map((item) => (item.part.type === "text" ? item.part.text : item.part.type)),
+    ).toEqual([
       "## 验证\n\n- 浏览器实测通过。",
       "thinking",
       "plan",
@@ -256,9 +273,9 @@ describe("assistant process collapse", () => {
       { type: "text", text: "also patched b.ts" },
     ];
     const { processParts, tailParts } = splitAssistantProcessParts(parts);
-    expect(processParts.map((item) =>
-      item.part.type === "text" ? item.part.text : item.part.type,
-    )).toEqual(["tool_call", "## 验证\n\n- 浏览器实测通过。", "tool_call"]);
+    expect(
+      processParts.map((item) => (item.part.type === "text" ? item.part.text : item.part.type)),
+    ).toEqual(["tool_call", "## 验证\n\n- 浏览器实测通过。", "tool_call"]);
     expect(tailParts.map((item) => item.part)).toEqual([
       { type: "text", text: "also patched b.ts" },
     ]);
@@ -267,22 +284,23 @@ describe("assistant process collapse", () => {
   it("does not collapse while the turn is still streaming or only between text and tools", () => {
     expect(shouldCollapseAssistantProcess({ streaming: true }, false, true, true)).toBe(false);
     expect(shouldCollapseAssistantProcess({ streaming: false }, false, true, true)).toBe(false);
-    expect(shouldCollapseAssistantProcess({ streaming: false, completed_at: null }, true, true, true)).toBe(false);
+    expect(
+      shouldCollapseAssistantProcess({ streaming: false, completed_at: null }, true, true, true),
+    ).toBe(false);
   });
 
   it("collapses process only after the turn has fully settled", () => {
-    expect(shouldCollapseAssistantProcess(
-      { streaming: false, completed_at: "2026-08-29T00:00:00.000Z" },
-      false,
-      true,
-      true,
-    )).toBe(true);
-    expect(shouldCollapseAssistantProcess(
-      { streaming: false, worked_ms: 3200 },
-      false,
-      true,
-      true,
-    )).toBe(false);
+    expect(
+      shouldCollapseAssistantProcess(
+        { streaming: false, completed_at: "2026-08-29T00:00:00.000Z" },
+        false,
+        true,
+        true,
+      ),
+    ).toBe(true);
+    expect(
+      shouldCollapseAssistantProcess({ streaming: false, worked_ms: 3200 }, false, true, true),
+    ).toBe(false);
   });
 
   it("skips auto-collapse on settle when the user is inspecting expanded tools", () => {

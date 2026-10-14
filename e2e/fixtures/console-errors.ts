@@ -60,7 +60,9 @@ export async function attachBrowserErrorCollector(
       if (isAllowedConsoleError(message)) return false;
       if (
         failedResponseUrls.size > 0 &&
-        /\[console\.error\] Failed to load resource: the server responded with a status of \d+/.test(message)
+        /\[console\.error\] Failed to load resource: the server responded with a status of \d+/.test(
+          message,
+        )
       ) {
         return false;
       }
@@ -76,9 +78,7 @@ export async function attachBrowserErrorCollector(
     });
 
     throw new Error(
-      `Unexpected browser error output:\n${unexpected
-        .map((message) => `- ${message}`)
-        .join("\n")}`,
+      `Unexpected browser error output:\n${unexpected.map((message) => `- ${message}`).join("\n")}`,
     );
   };
 }

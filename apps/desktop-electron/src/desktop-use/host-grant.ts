@@ -19,10 +19,7 @@ import {
   type GrantOverlayPurpose,
 } from "./grant-overlay.js";
 
-export type DesktopUseGrantTarget =
-  | "accessibility"
-  | "screen_recording"
-  | "all";
+export type DesktopUseGrantTarget = "accessibility" | "screen_recording" | "all";
 
 let lastFlowAt = 0;
 let lastFlowTarget = "";
@@ -53,9 +50,7 @@ async function tickGrantWatch(timeoutMs: number): Promise<void> {
       screen_recording?: boolean | null;
     };
     const granted =
-      target === "accessibility"
-        ? doctor.accessibility === true
-        : doctor.screen_recording === true;
+      target === "accessibility" ? doctor.accessibility === true : doctor.screen_recording === true;
     if (!granted) return;
     stopGrantWatch();
     try {
@@ -63,9 +58,7 @@ async function tickGrantWatch(timeoutMs: number): Promise<void> {
     } catch {
       /* overlay optional */
     }
-    mainLog(
-      `[desktop-use-grant] ${target} granted — restarting Desktop Use host`,
-    );
+    mainLog(`[desktop-use-grant] ${target} granted — restarting Desktop Use host`);
     await desktopUseDriverRestart();
   } catch (error) {
     mainLog(
@@ -76,10 +69,7 @@ async function tickGrantWatch(timeoutMs: number): Promise<void> {
 }
 
 /** Poll doctor until the requested grant appears, then restart the host once. */
-export function startDesktopUseGrantWatch(
-  target: GrantOverlayPurpose,
-  timeoutMs = 120_000,
-): void {
+export function startDesktopUseGrantWatch(target: GrantOverlayPurpose, timeoutMs = 120_000): void {
   watchTarget = target;
   watchStartedAt = Date.now();
   if (watchTimer) clearInterval(watchTimer);
@@ -122,9 +112,7 @@ export async function openDesktopUseGrantFlow(opts: {
   lastFlowTarget = flowKey;
 
   const cliTarget =
-    opts.target === "accessibility" ||
-    opts.target === "screen_recording" ||
-    opts.target === "all"
+    opts.target === "accessibility" || opts.target === "screen_recording" || opts.target === "all"
       ? opts.target
       : "all";
   const result = (await desktopUseGrantPermissions(cliTarget)) as {
@@ -134,10 +122,8 @@ export async function openDesktopUseGrantFlow(opts: {
     [key: string]: unknown;
   };
 
-  let hostPath =
-    typeof result.host_app_path === "string" ? result.host_app_path : "";
-  let hostName =
-    typeof result.host_app_name === "string" ? result.host_app_name : undefined;
+  let hostPath = typeof result.host_app_path === "string" ? result.host_app_path : "";
+  let hostName = typeof result.host_app_name === "string" ? result.host_app_name : undefined;
   if (!hostPath) {
     try {
       const st = await desktopUseStatus();

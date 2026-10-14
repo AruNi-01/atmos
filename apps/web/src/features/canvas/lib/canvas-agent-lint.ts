@@ -91,11 +91,7 @@ function isContentShape(shape: TLShape): boolean {
  * True when boxes collide or sit closer than `padding` (gutter).
  * With padding=2, shapes 0–2px apart count as overlapping for lint.
  */
-function boxesOverlap(
-  a: ShapePageBounds,
-  b: ShapePageBounds,
-  padding = 2,
-): boolean {
+function boxesOverlap(a: ShapePageBounds, b: ShapePageBounds, padding = 2): boolean {
   return !(
     a.maxX + padding <= b.minX ||
     b.maxX + padding <= a.minX ||
@@ -105,11 +101,7 @@ function boxesOverlap(
 }
 
 /** True when one box approximately contains the other (frame wrapping cards). */
-function boxesContain(
-  a: ShapePageBounds,
-  b: ShapePageBounds,
-  tolerance = 2,
-): boolean {
+function boxesContain(a: ShapePageBounds, b: ShapePageBounds, tolerance = 2): boolean {
   const aContainsB =
     a.minX <= b.minX + tolerance &&
     a.minY <= b.minY + tolerance &&
@@ -123,11 +115,7 @@ function boxesContain(
   return aContainsB || bContainsA;
 }
 
-function isAncestorOf(
-  ancestorId: string,
-  shape: TLShape,
-  byId: Map<string, TLShape>,
-): boolean {
+function isAncestorOf(ancestorId: string, shape: TLShape, byId: Map<string, TLShape>): boolean {
   let parent = byId.get(shape.parentId as string);
   while (parent) {
     if (parent.id === ancestorId) return true;
@@ -136,11 +124,7 @@ function isAncestorOf(
   return false;
 }
 
-function shapesAreRelated(
-  a: TLShape,
-  b: TLShape,
-  byId: Map<string, TLShape>,
-): boolean {
+function shapesAreRelated(a: TLShape, b: TLShape, byId: Map<string, TLShape>): boolean {
   return isAncestorOf(a.id, b, byId) || isAncestorOf(b.id, a, byId);
 }
 
@@ -227,8 +211,7 @@ export function suggestOverlapSeparation(
   }
 
   // Prefer the cheaper axis (smaller absolute move that still clears).
-  const preferX =
-    needY <= 0 ? true : needX <= 0 ? false : needX <= needY;
+  const preferX = needY <= 0 ? true : needX <= 0 ? false : needX <= needY;
 
   if (preferX) {
     const pushRight = b.midX >= a.midX;

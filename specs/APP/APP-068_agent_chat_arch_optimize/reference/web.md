@@ -37,29 +37,29 @@ flowchart LR
 
 ## Locked decisions
 
-| Fork | Decision |
-|------|----------|
-| Kind SOT | Wire `part.kind`. Never `classifyTool(name, input, output)`. |
-| Background SOT | `params.execute.background` (+ `task_id`, `command`). Never `background-command/adapters/*`. |
-| Result SOT | `part.result` is `AgentToolResult`. `parse-tool-result.ts` **presents** it; it does not sniff vendor envelopes to pick kind. |
-| Composer SOT | `meta.descriptor`. Catalog (`agent_options_get`) only before a chat exists. |
-| Deleted meta | `supports_steer`, `session_config_options`, `selected_model` / `selected_thinking` / `selected_mode` as parallel fields. Selection is `descriptor.current_config`. |
-| Dual fields | No live read of `input` / `output` / `content` / `native`. No client fallback for pre-APP-068 jsonl. |
-| Thinking/plan | Already Atmos parts/events. Client must not re-fold `think` / `TodoWrite` tool names. |
-| Poll/hide | Adapter omits poll tools. Web does **not** hide `TaskOutput` by name. If it arrives, it is `other` (one card). |
-| Subagent | `kind === "subagent"` only. Nested children are Atmos tool_calls. Delete vendor `lib/agent/subagent/adapters/*` from the Chat live path. |
-| ACP | Chat live modules must not import `agent-client-protocol`, `acp_session_id`, or `/ws/agent`. Move `AgentConfigOption` / `AgentPlan` off `use-agent-session.ts`. |
+| Fork           | Decision                                                                                                                                                           |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Kind SOT       | Wire `part.kind`. Never `classifyTool(name, input, output)`.                                                                                                       |
+| Background SOT | `params.execute.background` (+ `task_id`, `command`). Never `background-command/adapters/*`.                                                                       |
+| Result SOT     | `part.result` is `AgentToolResult`. `parse-tool-result.ts` **presents** it; it does not sniff vendor envelopes to pick kind.                                       |
+| Composer SOT   | `meta.descriptor`. Catalog (`agent_options_get`) only before a chat exists.                                                                                        |
+| Deleted meta   | `supports_steer`, `session_config_options`, `selected_model` / `selected_thinking` / `selected_mode` as parallel fields. Selection is `descriptor.current_config`. |
+| Dual fields    | No live read of `input` / `output` / `content` / `native`. No client fallback for pre-APP-068 jsonl.                                                               |
+| Thinking/plan  | Already Atmos parts/events. Client must not re-fold `think` / `TodoWrite` tool names.                                                                              |
+| Poll/hide      | Adapter omits poll tools. Web does **not** hide `TaskOutput` by name. If it arrives, it is `other` (one card).                                                     |
+| Subagent       | `kind === "subagent"` only. Nested children are Atmos tool_calls. Delete vendor `lib/agent/subagent/adapters/*` from the Chat live path.                           |
+| ACP            | Chat live modules must not import `agent-client-protocol`, `acp_session_id`, or `/ws/agent`. Move `AgentConfigOption` / `AgentPlan` off `use-agent-session.ts`.    |
 
 ## MUST / MUST NOT
 
-| MUST | MUST NOT |
-|------|----------|
-| Switch cards on `kind` + typed `params`/`result` | Alias tables: `bash`/`WebSearch`/`run_script`/`_toolName` |
-| Hide thinking when `supported_options.thinking` is `none` | Fake a thinking slider from ACP `thought_level` bags |
-| Hide mode when `modes` is empty | Render leftover advertised option ids via `extraConfigOptions` |
-| Offer steer only if `capabilities.steer === "supported"` | Call `agent_chat_steer` when unsupported (queue instead) |
-| Generic `other` card always visible | Dual-store or hide unknown tools |
-| Keep `agent_chat_*` + multipart upload | New Chat REST, ACP socket, TypeScript vendor SDKs |
+| MUST                                                      | MUST NOT                                                       |
+| --------------------------------------------------------- | -------------------------------------------------------------- |
+| Switch cards on `kind` + typed `params`/`result`          | Alias tables: `bash`/`WebSearch`/`run_script`/`_toolName`      |
+| Hide thinking when `supported_options.thinking` is `none` | Fake a thinking slider from ACP `thought_level` bags           |
+| Hide mode when `modes` is empty                           | Render leftover advertised option ids via `extraConfigOptions` |
+| Offer steer only if `capabilities.steer === "supported"`  | Call `agent_chat_steer` when unsupported (queue instead)       |
+| Generic `other` card always visible                       | Dual-store or hide unknown tools                               |
+| Keep `agent_chat_*` + multipart upload                    | New Chat REST, ACP socket, TypeScript vendor SDKs              |
 
 ## Files
 
@@ -79,22 +79,22 @@ Delete `classifyTool`, `thinkingText`, `planFromToolInput` (adapter-owned), `EXE
 
 ### Rewrite
 
-| Path | Change |
-|------|--------|
-| `lib/agent-tool-kind.ts` | Keep `AgentToolCallPart`, `isActiveToolStatus`, `isGenericToolLabel`. Drop vendor classify. Background helpers read Execute params. |
-| `lib/agent/background-command/index.ts` | `isLiveBackgroundToolCall(part)` = `kind === "execute" && params.background && status active`. Display = `params.command`. No `resolveAgentVendor`. |
-| `lib/agent-chat-events.ts` | Copy `kind`/`params`/`result` from the event. Stop calling `classifyTool` / `applyBackgroundPollTool`. |
-| `lib/chat-helpers.ts` | Activity label from `part.kind` only (add `web_search`). `runningBackgroundTools` uses Execute params. Delete `resolvedActivityKind` classify fallback. |
-| `lib/tool-results/parse-tool-result.ts` | Entry: `presentAgentTool(part) → ParsedToolResult`. Keep `languageFromPath`, `hostFromUrl`, path display, favicon host. |
-| `lib/tool-results/diff-stats.ts`, `turn-file-changes.ts` | Read `result.diff_stats` / edit params `path`. Do not parse vendor `input`. |
-| `hooks/use-agent-chat-session.ts` | Descriptor is picker + steer SOT. Drop `sessionConfigOptions` / `meta.supports_steer`. Drop synthetic ACP `capabilities` (`session_list`, `load_session`, …). |
-| `lib/agent-chat-thread.ts` | `descriptorToConfigOptions(descriptor)` replaces `advertisedOptionsToConfigOptions` on the live path. Pre-chat: `catalogToConfigOptions` mapped as `supported_options`. |
-| `lib/followup-policy.ts` | Keep `supportsSteer === false → queue`. Source is descriptor. |
-| `components/AgentPromptComposer.tsx` | Options from descriptor-backed `configOptions`. Empty groups omitted. No leftover `extraConfigOptions` from unknown ACP ids. |
-| `components/ToolView.tsx` | `switch (part.kind)`. Stop classifying child tools. |
-| `components/tool-results/AgentToolResultBlock.tsx` | Call `presentAgentTool(part)`. |
-| `components/TerminalBlock.tsx`, `BackgroundCommandsDock.tsx` | Command/output from Execute params/result only. |
-| `lib/__tests__/no-acp-schema.test.ts` | Chat live tree not on `ALLOW_ACP_ADAPTER`. Ban `classifyTool(` and `background-command/adapters`. |
+| Path                                                         | Change                                                                                                                                                                  |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/agent-tool-kind.ts`                                     | Keep `AgentToolCallPart`, `isActiveToolStatus`, `isGenericToolLabel`. Drop vendor classify. Background helpers read Execute params.                                     |
+| `lib/agent/background-command/index.ts`                      | `isLiveBackgroundToolCall(part)` = `kind === "execute" && params.background && status active`. Display = `params.command`. No `resolveAgentVendor`.                     |
+| `lib/agent-chat-events.ts`                                   | Copy `kind`/`params`/`result` from the event. Stop calling `classifyTool` / `applyBackgroundPollTool`.                                                                  |
+| `lib/chat-helpers.ts`                                        | Activity label from `part.kind` only (add `web_search`). `runningBackgroundTools` uses Execute params. Delete `resolvedActivityKind` classify fallback.                 |
+| `lib/tool-results/parse-tool-result.ts`                      | Entry: `presentAgentTool(part) → ParsedToolResult`. Keep `languageFromPath`, `hostFromUrl`, path display, favicon host.                                                 |
+| `lib/tool-results/diff-stats.ts`, `turn-file-changes.ts`     | Read `result.diff_stats` / edit params `path`. Do not parse vendor `input`.                                                                                             |
+| `hooks/use-agent-chat-session.ts`                            | Descriptor is picker + steer SOT. Drop `sessionConfigOptions` / `meta.supports_steer`. Drop synthetic ACP `capabilities` (`session_list`, `load_session`, …).           |
+| `lib/agent-chat-thread.ts`                                   | `descriptorToConfigOptions(descriptor)` replaces `advertisedOptionsToConfigOptions` on the live path. Pre-chat: `catalogToConfigOptions` mapped as `supported_options`. |
+| `lib/followup-policy.ts`                                     | Keep `supportsSteer === false → queue`. Source is descriptor.                                                                                                           |
+| `components/AgentPromptComposer.tsx`                         | Options from descriptor-backed `configOptions`. Empty groups omitted. No leftover `extraConfigOptions` from unknown ACP ids.                                            |
+| `components/ToolView.tsx`                                    | `switch (part.kind)`. Stop classifying child tools.                                                                                                                     |
+| `components/tool-results/AgentToolResultBlock.tsx`           | Call `presentAgentTool(part)`.                                                                                                                                          |
+| `components/TerminalBlock.tsx`, `BackgroundCommandsDock.tsx` | Command/output from Execute params/result only.                                                                                                                         |
+| `lib/__tests__/no-acp-schema.test.ts`                        | Chat live tree not on `ALLOW_ACP_ADAPTER`. Ban `classifyTool(` and `background-command/adapters`.                                                                       |
 
 ### Keep (product chrome)
 
@@ -119,7 +119,9 @@ type AgentToolCallPart = {
 };
 
 type ComposerDescriptor = {
-  capabilities: { steer: "supported" | "unsupported"; /* resume, permission, configure unused by chrome */ };
+  capabilities: {
+    steer: "supported" | "unsupported" /* resume, permission, configure unused by chrome */;
+  };
   supported_options: {
     models: { id: string; label: string }[];
     thinking: { type: "enum"; options: string[] } | "none";
@@ -135,13 +137,13 @@ type ComposerDescriptor = {
 
 `AgentPromptComposer` already splits model / thinking / mode via `configKindMatches` / `isThinkingConfigId`. Change the **source**, not the chrome.
 
-| Control | Show when | Value | Hide when |
-|---------|-----------|-------|-----------|
-| Model | `supported_options.models.length > 0` | `current_config.model` | empty models |
-| Thinking | thinking is not `none` and options exist | `current_config.thinking` | `none` / missing |
-| Mode | `modes.length > 0` | `current_config.mode` | empty modes |
-| Steer | `capabilities.steer === "supported"` **and** running `turn_id` | `agent_chat_steer` | unsupported → queue/stop only |
-| Extra selects | never in v1 | — | unknown ACP option ids |
+| Control       | Show when                                                      | Value                     | Hide when                     |
+| ------------- | -------------------------------------------------------------- | ------------------------- | ----------------------------- |
+| Model         | `supported_options.models.length > 0`                          | `current_config.model`    | empty models                  |
+| Thinking      | thinking is not `none` and options exist                       | `current_config.thinking` | `none` / missing              |
+| Mode          | `modes.length > 0`                                             | `current_config.mode`     | empty modes                   |
+| Steer         | `capabilities.steer === "supported"` **and** running `turn_id` | `agent_chat_steer`        | unsupported → queue/stop only |
+| Extra selects | never in v1                                                    | —                         | unknown ACP option ids        |
 
 **New Chat (no `chat_id`):** `agent_options_get` → local `supported_options`. Do not wait for `session_config_options`.
 
@@ -166,10 +168,10 @@ Do not pass `configOptions` that include ACP ids (`thought_level`, raw `configOp
 `agent-chat-events.ts` tool fold:
 
 ```ts
-kind: tool.kind            // required; default "other" only if missing
-params: tool.params
-result: tool.result
-name / title / status / tool_call_id as today
+kind: tool.kind; // required; default "other" only if missing
+params: tool.params;
+result: tool.result;
+(name / title / status / tool_call_id) as today;
 ```
 
 `mergeToolPart` must not keep `input`/`output`. Thinking/plan events stay their own part types (APP-067). Client must not convert a tool_call into thinking because the name is `think`.
@@ -178,18 +180,18 @@ name / title / status / tool_call_id as today
 
 `ToolView` (`components/ToolView.tsx`):
 
-| `kind` | Component | Fields rendered |
-|--------|-----------|-----------------|
-| `execute` | `TerminalBlock` | `params.command`, `params.cwd`, `result.output`, `result.exit_code` |
-| `read` | `AgentToolResultBlock` | `params.path`, `result` file text → code body |
-| `edit` | same | `params.path`, `result.diff_stats` or patch/diff body |
-| `delete` / `move` | same | path / from-to from params |
-| `search` | same | `params.query` (+ path/glob). Hits only if result carries them (N1 else `Text`) |
-| `web_search` | web-search body | `params.query` + `result.links` |
-| `fetch` | web-fetch body | `params.url` + title/markdown/text |
-| `skill` | existing skill chrome | `params.skill` |
-| `subagent` | `SubAgentBlockView` | `params.description`; children via Atmos parts + recursive `ToolView` |
-| `other` | generic card | `name`/`title` heading; pretty-print `params` + `result` once |
+| `kind`            | Component              | Fields rendered                                                                 |
+| ----------------- | ---------------------- | ------------------------------------------------------------------------------- |
+| `execute`         | `TerminalBlock`        | `params.command`, `params.cwd`, `result.output`, `result.exit_code`             |
+| `read`            | `AgentToolResultBlock` | `params.path`, `result` file text → code body                                   |
+| `edit`            | same                   | `params.path`, `result.diff_stats` or patch/diff body                           |
+| `delete` / `move` | same                   | path / from-to from params                                                      |
+| `search`          | same                   | `params.query` (+ path/glob). Hits only if result carries them (N1 else `Text`) |
+| `web_search`      | web-search body        | `params.query` + `result.links`                                                 |
+| `fetch`           | web-fetch body         | `params.url` + title/markdown/text                                              |
+| `skill`           | existing skill chrome  | `params.skill`                                                                  |
+| `subagent`        | `SubAgentBlockView`    | `params.description`; children via Atmos parts + recursive `ToolView`           |
+| `other`           | generic card           | `name`/`title` heading; pretty-print `params` + `result` once                   |
 
 `web_search` ≠ `search`. Do not send web links through the workspace grep body.
 
@@ -217,17 +219,17 @@ Switch on `part.kind` + `part.result` discriminant (`text`, `file_content`, `dif
 
 Allowed helpers: `languageFromPath`, `hostFromUrl`, `displayToolPath`, line-range from Atmos read params (`offset`/`limit`), pretty JSON for `other`.
 
-| kind + result | `ToolPresentation` |
-|---------------|-------------------|
-| execute + Execute | command stays on the terminal card; body is `text` from `output` |
-| read + FileContent | `code` (language from path) |
-| edit + DiffStats / patch text | `diff` / `patch` |
-| web_search + WebSearch | `web_search` `{ query, links }` |
-| fetch + WebFetch | `web_fetch` `{ url, title, markdown, text }` |
-| search + Text | `text` (N1 hits later) |
-| other + Other/Text | `json` or `text` |
-| any + Error | `error` |
-| empty / pending | `empty` |
+| kind + result                 | `ToolPresentation`                                               |
+| ----------------------------- | ---------------------------------------------------------------- |
+| execute + Execute             | command stays on the terminal card; body is `text` from `output` |
+| read + FileContent            | `code` (language from path)                                      |
+| edit + DiffStats / patch text | `diff` / `patch`                                                 |
+| web_search + WebSearch        | `web_search` `{ query, links }`                                  |
+| fetch + WebFetch              | `web_fetch` `{ url, title, markdown, text }`                     |
+| search + Text                 | `text` (N1 hits later)                                           |
+| other + Other/Text            | `json` or `text`                                                 |
+| any + Error                   | `error`                                                          |
+| empty / pending               | `empty`                                                          |
 
 Forbidden on the live path: `unwrapVendorToolEnvelope`, Grok `content_concise` / `URL Content from:` / `Web Search Results for:` / `Loaded N tool(s)`, `_toolName`, `isReadTool(name)` / `isSearchTool(name)` tables, `parseLoadedToolNames` as kind.
 
@@ -235,17 +237,17 @@ Keep `ToolPresentation` as view-only. Do not add vendor envelope types.
 
 ## Bun tests
 
-| TEST.md | File (new or rewrite) | Assert |
-|---------|----------------------|--------|
-| S2 | `components/__tests__/agent-prompt-composer.test.ts` plus a small options helper test in `lib/__tests__/agent-chat-thread.test.ts` | Descriptor A enum thinking → thinking control; B `thinking: none` + empty modes → no thinking, no mode. No fake defaults. |
-| S6 | session/thread test | Picker reads `current_config`, not `session_config_options`. |
-| S9 | `components/__tests__/agent-tool-other-card.test.ts` (or part-view) | Fixture `kind: "other"` + vendor JSON params/result → one card, both shown, no `native`. |
-| S12 | extend `lib/__tests__/no-acp-schema.test.ts` | Walk `apps/web/src/features/agent` live path (exclude `__tests__`): no `agent-client-protocol`, no `acp_session_id`, no `classifyTool(`, no `background-command/adapters`. Fixture part with only `params`/`result` still renders. |
-| S16 | `lib/tool-results/__tests__/parse-tool-result.test.ts` rewrite | `web_search` links and `fetch` url/body from **Atmos result**, not vendor banners. Workspace grep stays `search`. |
-| activity | `lib/__tests__/derive-agent-activity.test.ts` | Labels from `kind`; `web_search` → searching; background execute ignored when `params.background`. |
-| events | `lib/__tests__/agent-chat-events.test.ts` | Fold copies `params`/`result`; does not call classify. |
-| follow-up | `lib/__tests__/followup-policy.test.ts` | `supportsSteer: false` → queue (unchanged rule, new source). |
-| background | rewrite `lib/agent/background-command/__tests__/background-command.test.ts` | Execute `{ background: true, command }` is live; no Grok/Claude probes. |
+| TEST.md    | File (new or rewrite)                                                                                                              | Assert                                                                                                                                                                                                                             |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S2         | `components/__tests__/agent-prompt-composer.test.ts` plus a small options helper test in `lib/__tests__/agent-chat-thread.test.ts` | Descriptor A enum thinking → thinking control; B `thinking: none` + empty modes → no thinking, no mode. No fake defaults.                                                                                                          |
+| S6         | session/thread test                                                                                                                | Picker reads `current_config`, not `session_config_options`.                                                                                                                                                                       |
+| S9         | `components/__tests__/agent-tool-other-card.test.ts` (or part-view)                                                                | Fixture `kind: "other"` + vendor JSON params/result → one card, both shown, no `native`.                                                                                                                                           |
+| S12        | extend `lib/__tests__/no-acp-schema.test.ts`                                                                                       | Walk `apps/web/src/features/agent` live path (exclude `__tests__`): no `agent-client-protocol`, no `acp_session_id`, no `classifyTool(`, no `background-command/adapters`. Fixture part with only `params`/`result` still renders. |
+| S16        | `lib/tool-results/__tests__/parse-tool-result.test.ts` rewrite                                                                     | `web_search` links and `fetch` url/body from **Atmos result**, not vendor banners. Workspace grep stays `search`.                                                                                                                  |
+| activity   | `lib/__tests__/derive-agent-activity.test.ts`                                                                                      | Labels from `kind`; `web_search` → searching; background execute ignored when `params.background`.                                                                                                                                 |
+| events     | `lib/__tests__/agent-chat-events.test.ts`                                                                                          | Fold copies `params`/`result`; does not call classify.                                                                                                                                                                             |
+| follow-up  | `lib/__tests__/followup-policy.test.ts`                                                                                            | `supportsSteer: false` → queue (unchanged rule, new source).                                                                                                                                                                       |
+| background | rewrite `lib/agent/background-command/__tests__/background-command.test.ts`                                                        | Execute `{ background: true, command }` is live; no Grok/Claude probes.                                                                                                                                                            |
 
 Delete classifyTool cases in `lib/__tests__/agent-tool-kind.test.ts`. Delete Grok envelope cases in `parse-tool-result.test.ts` that unwrap `type: ReadFile` / Bash bytes to decide kind.
 

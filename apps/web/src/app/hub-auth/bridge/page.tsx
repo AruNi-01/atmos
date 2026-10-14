@@ -102,12 +102,7 @@ function HubAuthBridgeInner() {
   }, [params, t]);
 
   return (
-    <OAuthCallbackShell
-      provider={provider}
-      status={status}
-      title={t("title")}
-      message={message}
-    >
+    <OAuthCallbackShell provider={provider} status={status} title={t("title")} message={message}>
       {status === "ok" || status === "error" ? (
         <OAuthCallbackReturnFooter
           ctx={returnCtx}
@@ -122,13 +117,7 @@ function HubAuthBridgeInner() {
 
 function HubAuthBridgeFallback() {
   const t = useTranslations("hubAuthBridge");
-  return (
-    <OAuthCallbackShell
-      status="working"
-      title={t("title")}
-      message={t("working")}
-    />
-  );
+  return <OAuthCallbackShell status="working" title={t("title")} message={t("working")} />;
 }
 
 export default function HubAuthBridgePage() {

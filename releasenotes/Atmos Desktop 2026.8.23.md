@@ -47,6 +47,7 @@ Atmos Desktop 2026.8.23 adds Prototype Design, named independent center spaces, 
 - Full comparison: https://github.com/AruNi-01/atmos/compare/desktop-electron-2026.8.16...desktop-electron-2026.8.23
 
 <!-- atmos-desktop-contributors -->
+
 Thanks to @AruNi-01 and @cursoragent.
 
 <!-- atmos-desktop-download -->

@@ -140,16 +140,12 @@ export function useSidebarPeekVisibility() {
   };
 }
 
-function isNodeInsideRef(
-  target: EventTarget | null,
-  ref: React.RefObject<HTMLElement | null>,
-) {
+function isNodeInsideRef(target: EventTarget | null, ref: React.RefObject<HTMLElement | null>) {
   return target instanceof Node && ref.current?.contains(target);
 }
 
 function isSidebarPeekKeepOpenTarget(target: EventTarget | null) {
   return (
-    target instanceof Element &&
-    Boolean(target.closest(SIDEBAR_PEEK_KEEP_OPEN_TARGET_SELECTOR))
+    target instanceof Element && Boolean(target.closest(SIDEBAR_PEEK_KEEP_OPEN_TARGET_SELECTOR))
   );
 }

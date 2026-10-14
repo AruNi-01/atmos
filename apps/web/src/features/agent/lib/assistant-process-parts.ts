@@ -106,7 +106,9 @@ export function splitAssistantProcessParts(parts: AgentPart[]): {
   };
 }
 
-export function isAssistantTurnSettled(message: Pick<AgentMessage, "streaming" | "completed_at" | "worked_ms">): boolean {
+export function isAssistantTurnSettled(
+  message: Pick<AgentMessage, "streaming" | "completed_at" | "worked_ms">,
+): boolean {
   if (message.streaming) return false;
   // Live `worked_ms` is the in-flight elapsed clock. After tools close, every
   // text/thinking part can be closed while the host turn is still running —
@@ -136,18 +138,18 @@ function isVisibleProcessPart(part: AgentPart): boolean {
   if (part.type === "error") return Boolean(part.message);
   if (part.type === "tool_call") return true;
   return (
-    part.type === "session_lifecycle"
-    || part.type === "session_config_change"
-    || part.type === "session_hint"
+    part.type === "session_lifecycle" ||
+    part.type === "session_config_change" ||
+    part.type === "session_hint"
   );
 }
 
 export function hasCollapsibleAssistantProcess(message: AgentMessage): boolean {
   const hasRunningTool = message.parts.some(
     (part) =>
-      part.type === "tool_call"
-      && part.status?.toLowerCase() === "running"
-      && !isHiddenGrokChromePart(part, message.parts),
+      part.type === "tool_call" &&
+      part.status?.toLowerCase() === "running" &&
+      !isHiddenGrokChromePart(part, message.parts),
   );
   const { processParts, tailParts } = splitAssistantProcessParts(message.parts);
   return shouldCollapseAssistantProcess(

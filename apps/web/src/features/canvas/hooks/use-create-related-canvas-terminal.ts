@@ -35,7 +35,9 @@ export function useCreateRelatedCanvasTerminal(shape: CanvasTerminalShape) {
   const editor = useEditor();
   const router = useAppRouter();
   const projects = useProjects();
-  const createTerminalTabWithInitialPane = useTerminalStore((state) => state.createTerminalTabWithInitialPane);
+  const createTerminalTabWithInitialPane = useTerminalStore(
+    (state) => state.createTerminalTabWithInitialPane,
+  );
   const renderedShapeIds = useCanvasRuntimeStore((state) => state.renderedShapeIds);
   const setActiveShapeId = useCanvasRuntimeStore((state) => state.setActiveShapeId);
   const setRenderedShapeIds = useCanvasRuntimeStore((state) => state.setRenderedShapeIds);

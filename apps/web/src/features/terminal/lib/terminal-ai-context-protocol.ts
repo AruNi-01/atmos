@@ -6,7 +6,8 @@ export const SPAWN_PROTOCOL_PREFIX = "atmos://spawn/";
 export const TERMINAL_SELECTION_MAX_BYTES = 64 * 1024;
 
 const PROTOCOL_ID_PATTERN = /^[a-zA-Z0-9_.:-]+$/;
-const ANSI_ESCAPE_PATTERN = /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\)|[PX^_][\s\S]*?\x1b\\|[@-Z\\-_])/g;
+const ANSI_ESCAPE_PATTERN =
+  /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\)|[PX^_][\s\S]*?\x1b\\|[@-Z\\-_])/g;
 const CONTROL_CHAR_PATTERN = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
 const textEncoder = new TextEncoder();
 
@@ -154,11 +155,7 @@ export function expandPromptWithTerminalSelectionContexts({
 
   const contextBlocks = selectedContexts.map(formatSelectedContextBlock);
   if (!userPrompt) return contextBlocks.join("\n\n");
-  return [
-    ...contextBlocks,
-    "User prompt:",
-    userPrompt,
-  ].join("\n\n");
+  return [...contextBlocks, "User prompt:", userPrompt].join("\n\n");
 }
 
 export function resolveSelectionContextsForText(
@@ -191,18 +188,12 @@ export function formatSelectedContextBlock(
   ].join("\n");
 }
 
-export function hasKnownSideChatCommand(
-  text: string,
-  contexts: TerminalPromptContext[],
-): boolean {
+export function hasKnownSideChatCommand(text: string, contexts: TerminalPromptContext[]): boolean {
   const knownContextIds = new Set(contexts.map((context) => context.contextId));
   return extractSideChatContextIds(text).some((id) => knownContextIds.has(id));
 }
 
-export function hasKnownSpawnCommand(
-  text: string,
-  contexts: TerminalPromptContext[],
-): boolean {
+export function hasKnownSpawnCommand(text: string, contexts: TerminalPromptContext[]): boolean {
   const knownContextIds = new Set(contexts.map((context) => context.contextId));
   return extractSpawnContextIds(text).some((id) => knownContextIds.has(id));
 }

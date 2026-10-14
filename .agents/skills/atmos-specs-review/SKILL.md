@@ -19,11 +19,11 @@ This skill turns a post-implementation review into durable, actionable `REVIEW.m
 
 Pick the smallest review mode that answers the user's request.
 
-| User asks for... | Load |
-|------------------|------|
-| Functionality, completeness, spec coverage, PRD/TECH/TEST alignment, behavior, acceptance, regressions, user flows | [`references/functional-review.md`](./references/functional-review.md) |
-| Architecture, maintainability, code size, layering, duplication, testability, reliability, security, performance, "non-functional" quality | [`references/quality-review.md`](./references/quality-review.md) |
-| "review it", "is this done", "ready to ship", "functionality and code quality", or anything ambiguous after implementation | Both references |
+| User asks for...                                                                                                                           | Load                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| Functionality, completeness, spec coverage, PRD/TECH/TEST alignment, behavior, acceptance, regressions, user flows                         | [`references/functional-review.md`](./references/functional-review.md) |
+| Architecture, maintainability, code size, layering, duplication, testability, reliability, security, performance, "non-functional" quality | [`references/quality-review.md`](./references/quality-review.md)       |
+| "review it", "is this done", "ready to ship", "functionality and code quality", or anything ambiguous after implementation                 | Both references                                                        |
 
 If the user asks to fix existing `REVIEW.md` findings rather than review, read `REVIEW.md` first, update statuses as you work, and use the relevant reference only to validate that the fixes are complete.
 
@@ -62,12 +62,12 @@ For `QUALITY-*` specs, `TECH.md` and `TEST.md` are enough unless `PRD.md` / `BRA
 
 Report findings first, ordered by severity. Use this severity scale:
 
-| Severity | Meaning |
-|----------|---------|
-| P0 | Release blocker: data loss, security exposure, crash loop, migration corruption, or cannot start core workflow |
-| P1 | Must fix before merge/ship: required spec behavior missing, serious reliability hole, broken API contract, or high-maintenance architecture |
-| P2 | Should fix soon: maintainability, testability, edge-case, or UX issue with bounded impact |
-| P3 | Polish or follow-up: useful cleanup that should not block the current delivery |
+| Severity | Meaning                                                                                                                                     |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0       | Release blocker: data loss, security exposure, crash loop, migration corruption, or cannot start core workflow                              |
+| P1       | Must fix before merge/ship: required spec behavior missing, serious reliability hole, broken API contract, or high-maintenance architecture |
+| P2       | Should fix soon: maintainability, testability, edge-case, or UX issue with bounded impact                                                   |
+| P3       | Polish or follow-up: useful cleanup that should not block the current delivery                                                              |
 
 Do not pad the review. If there are no findings for a mode, say so and note any verification gaps.
 

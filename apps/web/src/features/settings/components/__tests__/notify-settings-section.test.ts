@@ -5,10 +5,7 @@ import { join } from "node:path";
 
 describe("NotifySettingsSection desktop test", () => {
   it("reports permission denials instead of a generic send failure", () => {
-    const src = readFileSync(
-      join(import.meta.dir, "../NotifySettingsSection.tsx"),
-      "utf8",
-    );
+    const src = readFileSync(join(import.meta.dir, "../NotifySettingsSection.tsx"), "utf8");
     expect(src).toContain("desktopPermissionRequired");
     expect(src).toContain("permission_denied");
     expect(src).not.toContain("shouldShowSystemNotification");

@@ -18,12 +18,10 @@ export function AppshotPermissionsWindow() {
   return (
     <main className="flex h-dvh flex-col bg-popover text-popover-foreground">
       <div className="desktop-drag-region h-11 shrink-0" />
-      <section className="desktop-no-drag flex min-h-0 flex-1 flex-col px-8 pb-8 pt-2">
+      <section className="desktop-no-drag flex min-h-0 flex-1 flex-col px-8 pt-2 pb-8">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold tracking-tight">
-              {t("permissions.title")}
-            </h1>
+            <h1 className="text-xl font-semibold tracking-tight">{t("permissions.title")}</h1>
             <p className="mt-1 max-w-xl text-sm text-muted-foreground">
               {t("permissions.unifiedHint")}
             </p>
@@ -32,7 +30,7 @@ export function AppshotPermissionsWindow() {
             type="button"
             size="sm"
             variant="outline"
-            className="cursor-pointer shrink-0"
+            className="shrink-0 cursor-pointer"
             onClick={() => openDesktopUseSettingsInApp()}
           >
             {t("title")}

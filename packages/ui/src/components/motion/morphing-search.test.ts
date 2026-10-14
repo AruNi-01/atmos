@@ -3,10 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 describe("MorphingSearch", () => {
-  const source = readFileSync(
-    join(import.meta.dir, "morphing-search.tsx"),
-    "utf8",
-  );
+  const source = readFileSync(join(import.meta.dir, "morphing-search.tsx"), "utf8");
 
   it("vendors beui morphing search with overlay results scroll", () => {
     expect(source).toContain("beui.dev/components/blocks/morphing-search");
@@ -24,7 +21,7 @@ describe("MorphingSearch", () => {
     expect(source).toContain("closeSearch({ clear: clearOnSelect })");
     expect(source).toContain('anchor.closest("[inert]")');
     expect(source).toContain("if (!wasOpenRef.current)");
-    expect(source).toContain("notifyQuery.current?.(\"\")");
+    expect(source).toContain('notifyQuery.current?.("")');
     expect(source).toContain("handleResultPointerDown");
     expect(source).toContain("onPointerDown={(event) =>");
     expect(source).toContain(

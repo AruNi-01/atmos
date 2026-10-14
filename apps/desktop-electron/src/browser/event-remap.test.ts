@@ -8,18 +8,14 @@ import {
 
 describe("browser runtime-events (shipped pure unit)", () => {
   it("maps atmos-browser:* to desktop-browser:* including open-tab", () => {
-    expect(remapRuntimeEventName("atmos-browser:selected")).toBe(
-      "desktop-browser:selected",
-    );
+    expect(remapRuntimeEventName("atmos-browser:selected")).toBe("desktop-browser:selected");
     expect(remapRuntimeEventName("atmos-browser:navigation-changed")).toBe(
       "desktop-browser:navigation-changed",
     );
     expect(remapRuntimeEventName("atmos-browser:toolbar-action")).toBe(
       "desktop-browser:toolbar-action",
     );
-    expect(remapRuntimeEventName("atmos-browser:open-tab")).toBe(
-      "desktop-browser:open-tab",
-    );
+    expect(remapRuntimeEventName("atmos-browser:open-tab")).toBe("desktop-browser:open-tab");
     expect(remapRuntimeEventName("atmos-browser:viewport-changed")).toBe(
       "desktop-browser:viewport-changed",
     );
@@ -27,12 +23,8 @@ describe("browser runtime-events (shipped pure unit)", () => {
   });
 
   it("openTabTargetFromWindowOpenUrl only accepts http(s)", () => {
-    expect(openTabTargetFromWindowOpenUrl("https://example.com/a")).toBe(
-      "https://example.com/a",
-    );
-    expect(openTabTargetFromWindowOpenUrl("http://localhost:3000/")).toBe(
-      "http://localhost:3000/",
-    );
+    expect(openTabTargetFromWindowOpenUrl("https://example.com/a")).toBe("https://example.com/a");
+    expect(openTabTargetFromWindowOpenUrl("http://localhost:3000/")).toBe("http://localhost:3000/");
     expect(openTabTargetFromWindowOpenUrl("about:blank")).toBeNull();
     expect(openTabTargetFromWindowOpenUrl("javascript:void(0)")).toBeNull();
     expect(openTabTargetFromWindowOpenUrl("")).toBeNull();
@@ -60,7 +52,6 @@ describe("browser runtime-events (shipped pure unit)", () => {
     expect(remapped?.channel).toBe("desktop-browser:open-tab");
     expect(remapped?.body.targetUrl).toBe("https://dest.example/path");
   });
-
 
   it("rejects unknown session and bad token via gateAndRemapRuntimeEvent", () => {
     const known = new Set(["s1"]);

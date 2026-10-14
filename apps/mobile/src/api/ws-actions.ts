@@ -134,7 +134,12 @@ export const wsActions = {
   gitGetStatus(client: MobileWsClient, path: string) {
     return client.request("git_get_status", { path });
   },
-  gitChangedFiles(client: MobileWsClient, path: string, baseBranch?: string | null, usePreferredCompare = false) {
+  gitChangedFiles(
+    client: MobileWsClient,
+    path: string,
+    baseBranch?: string | null,
+    usePreferredCompare = false,
+  ) {
     return client.request("git_changed_files", {
       path,
       base_branch: baseBranch ?? null,
@@ -284,13 +289,25 @@ export const wsActions = {
     });
   },
   quotaSetProviderSwitch(client: MobileWsClient, providerId: string, enabled: boolean) {
-    return client.request("quota_set_provider_switch", { provider_id: providerId, enabled }, { timeoutMs: QUOTA_ACTION_TIMEOUT_MS });
+    return client.request(
+      "quota_set_provider_switch",
+      { provider_id: providerId, enabled },
+      { timeoutMs: QUOTA_ACTION_TIMEOUT_MS },
+    );
   },
   quotaSetAllProvidersSwitch(client: MobileWsClient, enabled: boolean) {
-    return client.request("quota_set_all_providers_switch", { enabled }, { timeoutMs: QUOTA_ACTION_TIMEOUT_MS });
+    return client.request(
+      "quota_set_all_providers_switch",
+      { enabled },
+      { timeoutMs: QUOTA_ACTION_TIMEOUT_MS },
+    );
   },
   quotaSetAutoRefresh(client: MobileWsClient, intervalMinutes: number | null) {
-    return client.request("quota_set_auto_refresh", { interval_minutes: intervalMinutes }, { timeoutMs: QUOTA_ACTION_TIMEOUT_MS });
+    return client.request(
+      "quota_set_auto_refresh",
+      { interval_minutes: intervalMinutes },
+      { timeoutMs: QUOTA_ACTION_TIMEOUT_MS },
+    );
   },
   hostSessionKeysForChat(client: MobileWsClient, chatId: string) {
     return client.request("host_session_keys_for_chat", { chat_id: chatId });

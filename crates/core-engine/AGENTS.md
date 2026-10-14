@@ -34,9 +34,11 @@ crates/core-engine/
 ## Coding Conventions
 
 ### Decoupling
+
 - Engine should not know about business logic or specific user identities
 
 ### Error Handling
+
 - Map OS-level errors to domain-specific engine errors
 
 ---
@@ -44,10 +46,11 @@ crates/core-engine/
 ## Safety Rails
 
 ### NEVER
+
 - Put business logic or user-specific concepts here
 - Access database directly — use repositories from `infra`
 
 ### ALWAYS
+
 - Keep modules focused on technical capabilities
 - Map OS errors to domain errors for clean abstraction
-

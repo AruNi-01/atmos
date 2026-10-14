@@ -1,5 +1,5 @@
-import React from 'react';
-import { useLocale, useTranslations } from 'next-intl';
+import React from "react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Button,
   Avatar,
@@ -10,11 +10,19 @@ import {
   ScrollArea,
   cn,
   useDrawerCloseReserve,
-} from '@workspace/ui';
-import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/motion/tabs';
-import { GithubUserAvatar, GithubUserHoverCard } from '@/features/github/components/GithubUserHoverCard';
-import { useGithubPRDetail, useGithubPRDetailSidebar, useGithubPRTimeline, useGithubPRFiles } from '@/features/github/hooks/use-github';
-import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
+} from "@workspace/ui";
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/motion/tabs";
+import {
+  GithubUserAvatar,
+  GithubUserHoverCard,
+} from "@/features/github/components/GithubUserHoverCard";
+import {
+  useGithubPRDetail,
+  useGithubPRDetailSidebar,
+  useGithubPRTimeline,
+  useGithubPRFiles,
+} from "@/features/github/hooks/use-github";
+import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import {
   MessageSquare,
   GitPullRequest,
@@ -28,21 +36,24 @@ import {
 } from "lucide-react";
 import { panelFoldCursorClass } from "@/shared/lib/panel-fold";
 import { Github } from "@workspace/ui/components/icons/lucide-brand-icons";
-import { formatDistanceToNow } from 'date-fns';
-import { enUS, zhCN } from 'date-fns/locale';
-import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
-import { useAgentFixContext } from '@/features/agent-fix/hooks/use-agent-fix-context';
-import { AgentFixButton } from '@/features/agent-fix/components/AgentFixButton';
-import type { AgentFixPromptSource } from '@/features/agent-fix/types';
-import { buildPrReviewFixPrompt, buildPrReviewThreadFixPrompt } from '@/features/github/lib/agent-fix-prompts';
-import { useOpenGitCommitCenterTab } from '@/features/git/hooks/use-open-git-commit-center-tab';
-import { CommitList } from './CommitList';
-import { TimelineCommitsGroup } from './TimelineCommitsGroup';
-import { TimelineReferencesEvent } from './TimelineReferencesEvent';
-import { TimelineActivityEvent } from './TimelineActivityEvent';
-import { PRFilesTab } from './PRFilesTab';
-import { usePrContextHeader } from './use-pr-context-header';
-import { PRActionBar, type PRMergeStrategy } from '../lib/pr-detail-actions';
+import { formatDistanceToNow } from "date-fns";
+import { enUS, zhCN } from "date-fns/locale";
+import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
+import { useAgentFixContext } from "@/features/agent-fix/hooks/use-agent-fix-context";
+import { AgentFixButton } from "@/features/agent-fix/components/AgentFixButton";
+import type { AgentFixPromptSource } from "@/features/agent-fix/types";
+import {
+  buildPrReviewFixPrompt,
+  buildPrReviewThreadFixPrompt,
+} from "@/features/github/lib/agent-fix-prompts";
+import { useOpenGitCommitCenterTab } from "@/features/git/hooks/use-open-git-commit-center-tab";
+import { CommitList } from "./CommitList";
+import { TimelineCommitsGroup } from "./TimelineCommitsGroup";
+import { TimelineReferencesEvent } from "./TimelineReferencesEvent";
+import { TimelineActivityEvent } from "./TimelineActivityEvent";
+import { PRFilesTab } from "./PRFilesTab";
+import { usePrContextHeader } from "./use-pr-context-header";
+import { PRActionBar, type PRMergeStrategy } from "../lib/pr-detail-actions";
 import {
   CommentBox,
   PRDetailSkeleton,
@@ -54,15 +65,15 @@ import {
   type ReviewCommentThread,
   type StatusCheck,
   type TimelineItem,
-} from '../lib/pr-detail-parts';
-import { groupConsecutiveTimelineCommits } from '../lib/timeline-commits';
+} from "../lib/pr-detail-parts";
+import { groupConsecutiveTimelineCommits } from "../lib/timeline-commits";
 import {
   isReferenceTimelineClassification,
   mapTimelineEvent,
   retainVisibleTimelineItems,
-} from '../lib/timeline-event-map';
-import { PRMetadataSidebar } from '../lib/pr-detail-sidebar';
-import { PRChecksTab } from './PRChecksTab';
+} from "../lib/timeline-event-map";
+import { PRMetadataSidebar } from "../lib/pr-detail-sidebar";
+import { PRChecksTab } from "./PRChecksTab";
 
 interface PRDetailViewProps {
   owner: string;
@@ -77,50 +88,72 @@ interface PRDetailViewProps {
   headerTrailing?: React.ReactNode;
 }
 
-type PRMainTab = 'description' | 'checks' | 'discussion' | 'commits' | 'files';
+type PRMainTab = "description" | "checks" | "discussion" | "commits" | "files";
 
 // Persist PR tab selection across center tab switches (survives unmount/remount).
 const prMainTabCache = new Map<number, PRMainTab>();
 
-export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestClose, onMerged, onClosed, headerTrailing }: PRDetailViewProps) {
+export function PRDetailView({
+  owner,
+  repo,
+  branch,
+  prNumber,
+  active,
+  onRequestClose,
+  onMerged,
+  onClosed,
+  headerTrailing,
+}: PRDetailViewProps) {
   const locale = useLocale();
-  const t = useTranslations('github.prDetail');
+  const t = useTranslations("github.prDetail");
   const reserveClose = useDrawerCloseReserve();
-  const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
+  const relativeTimeLocale = locale.startsWith("zh") ? zhCN : enUS;
   const agentFixContext = useAgentFixContext();
   const { openCommitTab } = useOpenGitCommitCenterTab();
   const { data: pr, loading, fetch } = useGithubPRDetail(prNumber, owner, repo, active);
-  const { data: sidebarData, loading: sidebarLoading } = useGithubPRDetailSidebar(prNumber, owner, repo, active);
+  const { data: sidebarData, loading: sidebarLoading } = useGithubPRDetailSidebar(
+    prNumber,
+    owner,
+    repo,
+    active,
+  );
   const [activeMainTab, setActiveMainTab] = React.useState<PRMainTab>(
-    () => prMainTabCache.get(prNumber) ?? 'description',
+    () => prMainTabCache.get(prNumber) ?? "description",
   );
   const [hasVisitedDiscussion, setHasVisitedDiscussion] = React.useState(
-    () => prMainTabCache.get(prNumber) === 'discussion',
+    () => prMainTabCache.get(prNumber) === "discussion",
   );
   const [hasVisitedCommits, setHasVisitedCommits] = React.useState(
-    () => prMainTabCache.get(prNumber) === 'commits',
+    () => prMainTabCache.get(prNumber) === "commits",
   );
   const [hasVisitedFiles, setHasVisitedFiles] = React.useState(
-    () => prMainTabCache.get(prNumber) === 'files',
+    () => prMainTabCache.get(prNumber) === "files",
   );
-  const { items: timelineItems, isLoading: timelineLoading, hasMore: timelineHasMore, loadMore: loadMoreTimeline } = useGithubPRTimeline(
-    prNumber, owner, repo, hasVisitedDiscussion && active
-  );
+  const {
+    items: timelineItems,
+    isLoading: timelineLoading,
+    hasMore: timelineHasMore,
+    loadMore: loadMoreTimeline,
+  } = useGithubPRTimeline(prNumber, owner, repo, hasVisitedDiscussion && active);
   const { files: prFiles, loading: prFilesLoading } = useGithubPRFiles(
-    prNumber, owner, repo, hasVisitedFiles && active
+    prNumber,
+    owner,
+    repo,
+    hasVisitedFiles && active,
   );
-  const send = useWebSocketStore(s => s.send);
-  const [actionLoading, setActionLoading] = React.useState<'merge' | 'close' | 'reopen' | 'comment' | null>(null);
+  const send = useWebSocketStore((s) => s.send);
+  const [actionLoading, setActionLoading] = React.useState<
+    "merge" | "close" | "reopen" | "comment" | null
+  >(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
-  const [mergeStrategy, setMergeStrategy] = React.useState<PRMergeStrategy>('merge');
+  const [mergeStrategy, setMergeStrategy] = React.useState<PRMergeStrategy>("merge");
 
   const [branchCopied, setBranchCopied] = React.useState(false);
-  const [openReviewAgentFixSourceId, setOpenReviewAgentFixSourceId] = React.useState<string | null>(null);
-  const {
-    handleFilesCodeViewTopBoundaryWheel,
-    mainScrollRef,
-    resetPrContext,
-  } = usePrContextHeader();
+  const [openReviewAgentFixSourceId, setOpenReviewAgentFixSourceId] = React.useState<string | null>(
+    null,
+  );
+  const { handleFilesCodeViewTopBoundaryWheel, mainScrollRef, resetPrContext } =
+    usePrContextHeader();
   const titleRef = React.useRef<HTMLDivElement | null>(null);
   const handleFilesTabWheelCapture = React.useCallback(
     (event: React.WheelEvent<HTMLDivElement>) => {
@@ -129,10 +162,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
       const titleHeight = titleRef.current?.offsetHeight ?? 0;
       if (!scrollRoot || titleHeight <= 0) return;
       if (scrollRoot.scrollTop >= titleHeight) return;
-      scrollRoot.scrollTop = Math.min(
-        titleHeight,
-        scrollRoot.scrollTop + event.deltaY,
-      );
+      scrollRoot.scrollTop = Math.min(titleHeight, scrollRoot.scrollTop + event.deltaY);
       event.preventDefault();
       event.stopPropagation();
     },
@@ -141,13 +171,13 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
   const buildThreadAgentFixSource = React.useCallback(
     (thread: ReviewCommentThread): AgentFixPromptSource | undefined => {
       if (!pr || !prNumber) return undefined;
-      const fileName = thread.path.split('/').filter(Boolean).pop() || thread.path;
+      const fileName = thread.path.split("/").filter(Boolean).pop() || thread.path;
       return {
-        id: `pr-review:${owner}/${repo}#${prNumber}:${thread.path}:${thread.line ?? 'line'}`,
-        family: 'pr_review',
+        id: `pr-review:${owner}/${repo}#${prNumber}:${thread.path}:${thread.line ?? "line"}`,
+        family: "pr_review",
         context: agentFixContext,
-        label: t('agentFix.threadLabel', { fileName }),
-        disabledReason: agentFixContext ? null : t('agentFix.openWorkspace'),
+        label: t("agentFix.threadLabel", { fileName }),
+        disabledReason: agentFixContext ? null : t("agentFix.openWorkspace"),
         getPrompt: () => ({
           prompt: buildPrReviewThreadFixPrompt(
             {
@@ -161,8 +191,8 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
             },
             thread,
           ),
-          terminalTabTitle: t('agentFix.terminalTabTitle', { prNumber }),
-          terminalPaneLabel: t('agentFix.threadPaneLabel', { fileName }),
+          terminalTabTitle: t("agentFix.terminalTabTitle", { prNumber }),
+          terminalPaneLabel: t("agentFix.threadPaneLabel", { fileName }),
         }),
       };
     },
@@ -171,17 +201,17 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
 
   const buildReviewAgentFixSource = React.useCallback(
     (item: ConversationItem): AgentFixPromptSource | undefined => {
-      if (!pr || !prNumber || item.type !== 'review') return undefined;
+      if (!pr || !prNumber || item.type !== "review") return undefined;
       const threads = item.reviewCommentThreads ?? [];
       if (!item.body?.trim() && threads.length === 0) return undefined;
       const reviewId = (item as unknown as Record<string, unknown>).id;
-      const author = item.author?.login || t('agentFix.reviewerFallback');
+      const author = item.author?.login || t("agentFix.reviewerFallback");
       return {
         id: `pr-review:${owner}/${repo}#${prNumber}:review:${String(reviewId ?? item.createdAt)}`,
-        family: 'pr_review',
+        family: "pr_review",
         context: agentFixContext,
-        label: t('agentFix.reviewLabel', { author }),
-        disabledReason: agentFixContext ? null : t('agentFix.openWorkspace'),
+        label: t("agentFix.reviewLabel", { author }),
+        disabledReason: agentFixContext ? null : t("agentFix.openWorkspace"),
         getPrompt: () => ({
           prompt: buildPrReviewFixPrompt(
             {
@@ -201,8 +231,8 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
               threads,
             },
           ),
-          terminalTabTitle: t('agentFix.terminalTabTitle', { prNumber }),
-          terminalPaneLabel: t('agentFix.reviewPaneLabel', { author }),
+          terminalTabTitle: t("agentFix.terminalTabTitle", { prNumber }),
+          terminalPaneLabel: t("agentFix.reviewPaneLabel", { author }),
         }),
       };
     },
@@ -211,7 +241,8 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
 
   const reviewComments = sidebarData?.review_comments;
   const reviewCommentThreadsByReviewId = React.useMemo(() => {
-    if (!reviewComments || !Array.isArray(reviewComments)) return new Map<number, ReviewCommentThread[]>();
+    if (!reviewComments || !Array.isArray(reviewComments))
+      return new Map<number, ReviewCommentThread[]>();
 
     const threadMap = new Map<number, ReviewComment[]>();
     for (const comment of reviewComments as ReviewComment[]) {
@@ -222,13 +253,15 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
 
     const reviewGroups = new Map<number, ReviewCommentThread[]>();
     for (const [, comments] of threadMap) {
-      comments.sort((a, b) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime());
+      comments.sort(
+        (a, b) => new Date(a.created_at || "").getTime() - new Date(b.created_at || "").getTime(),
+      );
       const first = comments[0];
       const reviewId = first?.pull_request_review_id || 0;
       const thread: ReviewCommentThread = {
-        path: first?.path || '',
+        path: first?.path || "",
         line: first?.line ?? first?.original_line ?? null,
-        diffHunk: first?.diff_hunk || '',
+        diffHunk: first?.diff_hunk || "",
         comments,
       };
       if (!reviewGroups.has(reviewId)) reviewGroups.set(reviewId, []);
@@ -246,7 +279,11 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
     if (Array.isArray(pr.commits)) {
       for (const c of pr.commits) {
         const a = c.authors?.[0];
-        if (c.oid && a?.login) commitAuthorMap.set(c.oid, { login: a.login, avatarUrl: a.avatarUrl ?? `https://github.com/${a.login}.png?size=32` });
+        if (c.oid && a?.login)
+          commitAuthorMap.set(c.oid, {
+            login: a.login,
+            avatarUrl: a.avatarUrl ?? `https://github.com/${a.login}.png?size=32`,
+          });
       }
     }
 
@@ -256,27 +293,48 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
         // For 'committed' events, author has {name, email, date} but no login/avatar_url.
         const sha = (item as Record<string, unknown>).sha as string | undefined;
         const commitMeta = sha ? commitAuthorMap.get(sha) : undefined;
-        const author = item.event === 'committed' && item.author && !item.author.login
-          ? {
-              ...item.author,
-              login: commitMeta?.login ?? item.author.name,
-              avatar_url: commitMeta?.avatarUrl ?? `https://github.com/${encodeURIComponent(item.author.name ?? 'ghost')}.png?size=32`,
-            }
-          : rawAuthor;
+        const author =
+          item.event === "committed" && item.author && !item.author.login
+            ? {
+                ...item.author,
+                login: commitMeta?.login ?? item.author.name,
+                avatar_url:
+                  commitMeta?.avatarUrl ??
+                  `https://github.com/${encodeURIComponent(item.author.name ?? "ghost")}.png?size=32`,
+              }
+            : rawAuthor;
         const reviewId = (item as Record<string, unknown>).id as number | undefined;
-        const threads = (item.event === 'reviewed' && reviewId) ? reviewCommentThreadsByReviewId.get(reviewId) : undefined;
+        const threads =
+          item.event === "reviewed" && reviewId
+            ? reviewCommentThreadsByReviewId.get(reviewId)
+            : undefined;
 
-        const normalizedAuthor = author as ConversationItem['author'];
+        const normalizedAuthor = author as ConversationItem["author"];
         return {
           ...item,
-          type: item.event === 'commented' ? 'comment' : (item.event === 'committed' ? 'commit' : (item.event === 'reviewed' ? 'review' : 'activity')),
+          type:
+            item.event === "commented"
+              ? "comment"
+              : item.event === "committed"
+                ? "commit"
+                : item.event === "reviewed"
+                  ? "review"
+                  : "activity",
           author: normalizedAuthor,
-          createdAt: item.created_at || item.author?.date || item.submitted_at || item.authoredDate || pr.createdAt,
-          body: item.body || item.message || item.messageHeadline || '',
+          createdAt:
+            item.created_at ||
+            item.author?.date ||
+            item.submitted_at ||
+            item.authoredDate ||
+            pr.createdAt,
+          body: item.body || item.message || item.messageHeadline || "",
           reviewCommentThreads: threads,
         };
       })
-      .sort((a: ConversationItem, b: ConversationItem) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      .sort(
+        (a: ConversationItem, b: ConversationItem) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      );
   }, [pr, timelineItems, reviewCommentThreadsByReviewId]);
 
   // Drop GitHub-hidden events, then group commits / cross-references.
@@ -306,21 +364,23 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
       }
     };
     timerRef.current = setTimeout(tick, 32);
-    return () => { if (timerRef.current !== null) clearTimeout(timerRef.current); };
+    return () => {
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+    };
   }, [groupedConversation.length]);
 
   const displayedConversation = groupedConversation.slice(0, displayCount);
 
-  const handleMerge = async (body = '') => {
+  const handleMerge = async (body = "") => {
     if (!prNumber) return;
-    setActionLoading('merge');
+    setActionLoading("merge");
     try {
-      await send('github_pr_merge', {
+      await send("github_pr_merge", {
         owner,
         repo,
         pr_number: prNumber,
         strategy: mergeStrategy,
-        body: body.trim() || undefined
+        body: body.trim() || undefined,
       });
       fetch?.();
       onMerged?.();
@@ -332,11 +392,16 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
     }
   };
 
-  const handleClose = async (body = '') => {
+  const handleClose = async (body = "") => {
     if (!prNumber) return;
-    setActionLoading('close');
+    setActionLoading("close");
     try {
-      await send('github_pr_close', { owner, repo, pr_number: prNumber, comment: body.trim() || undefined });
+      await send("github_pr_close", {
+        owner,
+        repo,
+        pr_number: prNumber,
+        comment: body.trim() || undefined,
+      });
       fetch?.();
       onClosed?.();
       onRequestClose();
@@ -347,12 +412,12 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
     }
   };
 
-  const handleReopen = async (_body = '') => {
+  const handleReopen = async (_body = "") => {
     if (!prNumber) return;
     void _body;
-    setActionLoading('reopen');
+    setActionLoading("reopen");
     try {
-      await send('github_pr_reopen', { owner, repo, pr_number: prNumber });
+      await send("github_pr_reopen", { owner, repo, pr_number: prNumber });
       fetch?.();
     } catch (e) {
       console.error(e);
@@ -363,9 +428,9 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
 
   const handleReady = async () => {
     if (!prNumber) return;
-    setActionLoading('reopen'); // Using reopen state for now
+    setActionLoading("reopen"); // Using reopen state for now
     try {
-      await send('github_pr_ready', { owner, repo, pr_number: prNumber });
+      await send("github_pr_ready", { owner, repo, pr_number: prNumber });
       fetch?.();
     } catch (e) {
       console.error(e);
@@ -376,9 +441,9 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
 
   const handleDraft = async () => {
     if (!prNumber) return;
-    setActionLoading('reopen'); // Reuse or add custom
+    setActionLoading("reopen"); // Reuse or add custom
     try {
-      await send('github_pr_draft', { owner, repo, pr_number: prNumber });
+      await send("github_pr_draft", { owner, repo, pr_number: prNumber });
       fetch?.();
     } catch (e) {
       console.error(e);
@@ -389,14 +454,14 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
 
   const handleOpenGitHub = () => {
     if (!prNumber) return;
-    window.open(`https://github.com/${owner}/${repo}/pull/${prNumber}`, '_blank');
+    window.open(`https://github.com/${owner}/${repo}/pull/${prNumber}`, "_blank");
   };
 
   const handlePostComment = async (body: string) => {
     if (!prNumber || !body.trim()) return;
-    setActionLoading('comment');
+    setActionLoading("comment");
     try {
-      await send('github_pr_comment', { owner, repo, pr_number: prNumber, body });
+      await send("github_pr_comment", { owner, repo, pr_number: prNumber, body });
       fetch();
     } catch (e) {
       console.error(e);
@@ -405,209 +470,244 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
     }
   };
 
-  const handleMainTabChange = React.useCallback((value: string) => {
-    const tab = value as PRMainTab;
-    setActiveMainTab(tab);
-    prMainTabCache.set(prNumber, tab);
-    resetPrContext();
-    if (tab === 'discussion') setHasVisitedDiscussion(true);
-    if (tab === 'commits') setHasVisitedCommits(true);
-    if (tab === 'files') {
-      setHasVisitedFiles(true);
-      setIsSidebarCollapsed(true);
-    }
-  }, [prNumber, resetPrContext]);
+  const handleMainTabChange = React.useCallback(
+    (value: string) => {
+      const tab = value as PRMainTab;
+      setActiveMainTab(tab);
+      prMainTabCache.set(prNumber, tab);
+      resetPrContext();
+      if (tab === "discussion") setHasVisitedDiscussion(true);
+      if (tab === "commits") setHasVisitedCommits(true);
+      if (tab === "files") {
+        setHasVisitedFiles(true);
+        setIsSidebarCollapsed(true);
+      }
+    },
+    [prNumber, resetPrContext],
+  );
 
   const handleReviewerClick = React.useCallback(() => {
-    handleMainTabChange('files');
+    handleMainTabChange("files");
   }, [handleMainTabChange]);
 
   return (
     <div className="relative mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col gap-0 overflow-hidden px-6">
-        <div className="flex flex-col flex-1 min-h-0">
-          <header className={cn(
-            "relative flex shrink-0 flex-row items-center gap-3 pb-4 pt-6",
+      <div className="flex min-h-0 flex-1 flex-col">
+        <header
+          className={cn(
+            "relative flex shrink-0 flex-row items-center gap-3 pt-6 pb-4",
             headerTrailing || reserveClose ? "pr-14" : "pr-12",
-          )}>
-            <Github className="size-4.5 text-muted-foreground/60" />
-            <div className="flex items-center gap-2.5 min-w-0">
-              <h2 className="text-base font-bold whitespace-nowrap">{t('header.title', { prNumber })}</h2>
-              <span className="text-muted-foreground/30 font-light select-none">|</span>
-              <p className="text-[11px] text-muted-foreground/60 truncate pt-0.5 font-medium" title={`${owner}/${repo} • ${branch}`}>
-                {owner}/{repo} • {branch}
-              </p>
-            </div>
+          )}
+        >
+          <Github className="size-4.5 text-muted-foreground/60" />
+          <div className="flex min-w-0 items-center gap-2.5">
+            <h2 className="text-base font-bold whitespace-nowrap">
+              {t("header.title", { prNumber })}
+            </h2>
+            <span className="font-light text-muted-foreground/30 select-none">|</span>
+            <p
+              className="truncate pt-0.5 text-[11px] font-medium text-muted-foreground/60"
+              title={`${owner}/${repo} • ${branch}`}
+            >
+              {owner}/{repo} • {branch}
+            </p>
+          </div>
 
-            <div className={cn(
+          <div
+            className={cn(
               "absolute top-6 flex items-center gap-1.5",
               // Leave room for the Task drawer close control when present.
               headerTrailing || reserveClose ? "right-10" : "right-0",
-            )}>
-              {headerTrailing}
-              <button
-                className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 opacity-70 hover:opacity-100",
-                  panelFoldCursorClass("right", isSidebarCollapsed),
-                )}
-                onClick={() => setIsSidebarCollapsed(v => !v)}
-                title={isSidebarCollapsed ? t('header.showSidebar') : t('header.hideSidebar')}
+            )}
+          >
+            {headerTrailing}
+            <button
+              className={cn(
+                "flex h-7 w-7 items-center justify-center rounded-md opacity-70 hover:bg-muted/80 hover:opacity-100",
+                panelFoldCursorClass("right", isSidebarCollapsed),
+              )}
+              onClick={() => setIsSidebarCollapsed((v) => !v)}
+              title={isSidebarCollapsed ? t("header.showSidebar") : t("header.hideSidebar")}
+            >
+              <PanelRight className="size-3.5" />
+            </button>
+          </div>
+        </header>
+
+        {loading ? (
+          <ScrollArea scrollFade className="min-h-0 flex-1" viewportClassName="px-0.5 pt-2">
+            <PRDetailSkeleton />
+          </ScrollArea>
+        ) : pr ? (
+          <div className="flex min-h-0 flex-1 gap-3 text-sm">
+            {/* Left: main content */}
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <ScrollArea
+                scrollFade
+                className="h-full"
+                viewportRef={mainScrollRef}
+                viewportClassName="pr-1 pb-16"
+                viewportProps={{
+                  onWheelCapture: handleFilesTabWheelCapture,
+                }}
               >
-                <PanelRight className="size-3.5" />
-              </button>
-            </div>
-          </header>
-
-          {loading ? (
-            <ScrollArea scrollFade className="min-h-0 flex-1" viewportClassName="px-0.5 pt-2">
-              <PRDetailSkeleton />
-            </ScrollArea>
-          ) : pr ? (
-            <div className="flex gap-3 text-sm flex-1 min-h-0">
-              {/* Left: main content */}
-              <div className="flex-1 min-w-0 overflow-hidden">
-                <ScrollArea
-                  scrollFade
-                  className="h-full"
-                  viewportRef={mainScrollRef}
-                  viewportClassName="pr-1 pb-16"
-                  viewportProps={{
-                    onWheelCapture: handleFilesTabWheelCapture,
-                  }}
-                >
-                  <div ref={titleRef} className="min-w-0 pt-1 pb-4">
-                      {/* PR title + meta */}
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="truncate text-base font-semibold text-foreground">{pr.title}</h3>
-                          {pr.isDraft && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground uppercase shrink-0">
-                              {t('states.draft')}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground flex-wrap">
-                          <div className="flex items-center gap-1.5 bg-muted/50 px-1.5 py-0.5 rounded-md border border-border/50 shadow-sm shrink-0">
-                            <GithubUserAvatar
-                              username={pr.author?.login}
-                              avatarUrl={pr.author?.avatar_url || pr.author?.avatarUrl}
-                              className="size-3.5 border border-border/50 shadow-inner"
-                              fallbackClassName="text-[6px]"
-                              label={pr.author?.login}
-                              labelClassName="font-semibold text-foreground/90"
-                              disabled={pr.author?.is_bot || pr.author?.login === 'cursor' || pr.author?.login === 'vercel' || pr.author?.login?.endsWith('[bot]')}
-                            />
-                            {(pr.author?.is_bot || pr.author?.login === 'cursor' || pr.author?.login === 'vercel' || pr.author?.login?.endsWith('[bot]')) && (
-                              <span className="text-[9px] px-1 rounded-sm border border-border bg-muted/50 text-muted-foreground font-medium py-0 leading-none h-3.5 flex items-center shrink-0">
-                                {t('states.bot')}
-                              </span>
-                            )}
-                          </div>
-                          <span>{t('summary.wantsToMerge')}</span>
-                          <span className="bg-primary/10 text-primary px-1.5 py-px rounded font-mono truncate min-w-[30px] shadow-sm">
-                            {t('summary.commits', { count: pr.commits?.length || 0 })}
+                <div ref={titleRef} className="min-w-0 pt-1 pb-4">
+                  {/* PR title + meta */}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="truncate text-base font-semibold text-foreground">
+                        {pr.title}
+                      </h3>
+                      {pr.isDraft && (
+                        <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground uppercase">
+                          {t("states.draft")}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex shrink-0 items-center gap-1.5 rounded-md border border-border/50 bg-muted/50 px-1.5 py-0.5 shadow-sm">
+                        <GithubUserAvatar
+                          username={pr.author?.login}
+                          avatarUrl={pr.author?.avatar_url || pr.author?.avatarUrl}
+                          className="size-3.5 border border-border/50 shadow-inner"
+                          fallbackClassName="text-[6px]"
+                          label={pr.author?.login}
+                          labelClassName="font-semibold text-foreground/90"
+                          disabled={
+                            pr.author?.is_bot ||
+                            pr.author?.login === "cursor" ||
+                            pr.author?.login === "vercel" ||
+                            pr.author?.login?.endsWith("[bot]")
+                          }
+                        />
+                        {(pr.author?.is_bot ||
+                          pr.author?.login === "cursor" ||
+                          pr.author?.login === "vercel" ||
+                          pr.author?.login?.endsWith("[bot]")) && (
+                          <span className="flex h-3.5 shrink-0 items-center rounded-sm border border-border bg-muted/50 px-1 py-0 text-[9px] leading-none font-medium text-muted-foreground">
+                            {t("states.bot")}
                           </span>
-                          <span>{t('summary.into')}</span>
-                          <span className="bg-secondary px-1.5 py-px text-secondary-foreground rounded font-mono truncate shadow-sm">
-                            {pr.baseRefName || 'main'}
-                          </span>
-                          <span>{t('summary.from')}</span>
-                          <span className="bg-sidebar-accent px-1.5 py-px text-sidebar-foreground rounded font-mono truncate max-w-[200px] shadow-sm">
-                            {pr.headRefName || branch}
-                          </span>
-                          <button
-                            className="text-muted-foreground/50 hover:text-muted-foreground shrink-0"
-                            onClick={() => {
-                              navigator.clipboard.writeText(pr.headRefName || branch);
-                              setBranchCopied(true);
-                              setTimeout(() => setBranchCopied(false), 1500);
-                            }}
-                            title={t('summary.copyBranchName')}
-                          >
-                            {branchCopied ? <Check className="size-3 text-green-500" /> : <Copy className="size-3" />}
-                          </button>
-                        </div>
+                        )}
                       </div>
+                      <span>{t("summary.wantsToMerge")}</span>
+                      <span className="min-w-[30px] truncate rounded bg-primary/10 px-1.5 py-px font-mono text-primary shadow-sm">
+                        {t("summary.commits", { count: pr.commits?.length || 0 })}
+                      </span>
+                      <span>{t("summary.into")}</span>
+                      <span className="truncate rounded bg-secondary px-1.5 py-px font-mono text-secondary-foreground shadow-sm">
+                        {pr.baseRefName || "main"}
+                      </span>
+                      <span>{t("summary.from")}</span>
+                      <span className="max-w-[200px] truncate rounded bg-sidebar-accent px-1.5 py-px font-mono text-sidebar-foreground shadow-sm">
+                        {pr.headRefName || branch}
+                      </span>
+                      <button
+                        className="shrink-0 text-muted-foreground/50 hover:text-muted-foreground"
+                        onClick={() => {
+                          navigator.clipboard.writeText(pr.headRefName || branch);
+                          setBranchCopied(true);
+                          setTimeout(() => setBranchCopied(false), 1500);
+                        }}
+                        title={t("summary.copyBranchName")}
+                      >
+                        {branchCopied ? (
+                          <Check className="size-3 text-green-500" />
+                        ) : (
+                          <Copy className="size-3" />
+                        )}
+                      </button>
+                    </div>
                   </div>
+                </div>
 
-                      <div className="sticky top-0 z-20 border-t border-border/40 bg-background pb-3 pt-3">
-                        <Tabs
-                          className="min-w-0 max-w-full"
-                          value={activeMainTab}
-                          variant="pill"
-                          onValueChange={handleMainTabChange}
-                        >
-                          <TabsList className="h-8 max-w-full gap-0.5 overflow-x-auto p-0.5 scrollbar-hide">
-                            <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="description">
-                              <FileText className="size-3.5 shrink-0" />
-                              {t('tabs.description')}
-                            </TabsTrigger>
-                            <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="checks">
-                              <ListChecks className="size-3.5 shrink-0" />
-                              {(() => {
-                                const checks: StatusCheck[] = Array.isArray(pr.statusCheckRollup)
-                                  ? pr.statusCheckRollup
-                                  : [];
-                                const failing = checks.filter(
-                                  (c) =>
-                                    c.state === 'FAILURE' ||
-                                    c.state === 'ERROR' ||
-                                    c.conclusion === 'FAILURE' ||
-                                    c.conclusion === 'ERROR' ||
-                                    c.conclusion === 'ACTION_REQUIRED',
-                                ).length;
-                                return failing > 0
-                                  ? t('tabs.checksWithFailures', { count: failing })
-                                  : t('tabs.checks', { count: checks.length });
-                              })()}
-                            </TabsTrigger>
-                            <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="discussion">
-                              <MessageSquare className="size-3.5 shrink-0" />
-                              {sidebarData?.totalCommentsCount != null
-                                ? t('tabs.discussionWithCount', {
-                                    count: sidebarData.totalCommentsCount,
-                                  })
-                                : t('tabs.discussion')}
-                            </TabsTrigger>
-                            <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="commits">
-                              <GitCommit className="size-3.5 shrink-0" />
-                              {t('tabs.commits', { count: pr.commits?.length || 0 })}
-                            </TabsTrigger>
-                            <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="files">
-                              <FileCode className="size-3.5 shrink-0" />
-                              {t('tabs.filesChanged', { count: pr.changedFiles ?? 0 })}
-                            </TabsTrigger>
-                          </TabsList>
-                        </Tabs>
-                      </div>
+                <div className="sticky top-0 z-20 border-t border-border/40 bg-background pt-3 pb-3">
+                  <Tabs
+                    className="max-w-full min-w-0"
+                    value={activeMainTab}
+                    variant="pill"
+                    onValueChange={handleMainTabChange}
+                  >
+                    <TabsList className="scrollbar-hide h-8 max-w-full gap-0.5 overflow-x-auto p-0.5">
+                      <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="description">
+                        <FileText className="size-3.5 shrink-0" />
+                        {t("tabs.description")}
+                      </TabsTrigger>
+                      <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="checks">
+                        <ListChecks className="size-3.5 shrink-0" />
+                        {(() => {
+                          const checks: StatusCheck[] = Array.isArray(pr.statusCheckRollup)
+                            ? pr.statusCheckRollup
+                            : [];
+                          const failing = checks.filter(
+                            (c) =>
+                              c.state === "FAILURE" ||
+                              c.state === "ERROR" ||
+                              c.conclusion === "FAILURE" ||
+                              c.conclusion === "ERROR" ||
+                              c.conclusion === "ACTION_REQUIRED",
+                          ).length;
+                          return failing > 0
+                            ? t("tabs.checksWithFailures", { count: failing })
+                            : t("tabs.checks", { count: checks.length });
+                        })()}
+                      </TabsTrigger>
+                      <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="discussion">
+                        <MessageSquare className="size-3.5 shrink-0" />
+                        {sidebarData?.totalCommentsCount != null
+                          ? t("tabs.discussionWithCount", {
+                              count: sidebarData.totalCommentsCount,
+                            })
+                          : t("tabs.discussion")}
+                      </TabsTrigger>
+                      <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="commits">
+                        <GitCommit className="size-3.5 shrink-0" />
+                        {t("tabs.commits", { count: pr.commits?.length || 0 })}
+                      </TabsTrigger>
+                      <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="files">
+                        <FileCode className="size-3.5 shrink-0" />
+                        {t("tabs.filesChanged", { count: pr.changedFiles ?? 0 })}
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
 
                 {/* Description tab */}
-                <div className={cn("pt-4 flex flex-col gap-4", activeMainTab !== 'description' && "hidden")}>
+                <div
+                  className={cn(
+                    "flex flex-col gap-4 pt-4",
+                    activeMainTab !== "description" && "hidden",
+                  )}
+                >
                   {pr.body && (
-                    <div className="p-4 rounded-md border border-border/50 text-[13px] shrink-0">
-                      <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1">
+                    <div className="shrink-0 rounded-md border border-border/50 p-4 text-[13px]">
+                      <MarkdownRenderer className="prose prose-sm dark:prose-invert prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1 max-w-none text-[13px] leading-relaxed">
                         {pr.body}
                       </MarkdownRenderer>
                     </div>
                   )}
 
                   {pr.isDraft && (
-                    <div className="flex items-start gap-4 p-4 border rounded-xl bg-muted/40 border-border shadow-sm">
-                      <div className="mt-0.5 rounded-full p-1.5 bg-sidebar-accent text-sidebar-foreground shadow-sm">
+                    <div className="flex items-start gap-4 rounded-xl border border-border bg-muted/40 p-4 shadow-sm">
+                      <div className="mt-0.5 rounded-full bg-sidebar-accent p-1.5 text-sidebar-foreground shadow-sm">
                         <GitPullRequest className="size-4" />
                       </div>
-                      <div className="flex-1 flex items-center justify-between gap-4">
+                      <div className="flex flex-1 items-center justify-between gap-4">
                         <div className="min-w-0">
-                          <h5 className="text-sm font-bold text-foreground">{t('draftBanner.title')}</h5>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">{t('draftBanner.description')}</p>
+                          <h5 className="text-sm font-bold text-foreground">
+                            {t("draftBanner.title")}
+                          </h5>
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">
+                            {t("draftBanner.description")}
+                          </p>
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-8 text-xs bg-background hover:bg-muted shadow-sm whitespace-nowrap"
+                          className="h-8 bg-background text-xs whitespace-nowrap shadow-sm hover:bg-muted"
                           onClick={handleReady}
                           disabled={!!actionLoading}
                         >
-                          {t('draftBanner.readyForReview')}
+                          {t("draftBanner.readyForReview")}
                         </Button>
                       </div>
                     </div>
@@ -615,13 +715,13 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
 
                   {!pr.body && !pr.isDraft && (
                     <div className="rounded-md border border-dashed border-border/50 px-4 py-8 text-center text-[12px] text-muted-foreground">
-                      {t('emptyDescription')}
+                      {t("emptyDescription")}
                     </div>
                   )}
                 </div>
 
                 {/* Checks tab */}
-                <div className={cn(activeMainTab !== 'checks' && 'hidden')}>
+                <div className={cn(activeMainTab !== "checks" && "hidden")}>
                   <PRChecksTab
                     owner={owner}
                     repo={repo}
@@ -646,287 +746,333 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
 
                 {/* Discussion tab */}
                 {hasVisitedDiscussion && (
-                  <div className={cn("pt-4 flex flex-col gap-4", activeMainTab !== 'discussion' && "hidden")}>
-                  {(conversation.length > 0 || timelineLoading) && (
-                    <div className="flex flex-col gap-0 relative">
-                      {timelineLoading && conversation.length === 0 && (
-                        <div className="flex flex-col gap-6 pt-2">
-                          {[0, 1, 2, 3].map((i) => (
-                            <div key={i} className="flex gap-4 items-start">
-                              <Skeleton className="size-8 rounded-full shrink-0" />
-                              <div className="flex-1 space-y-2">
-                                <Skeleton className="h-3 w-1/3 rounded" />
-                                <Skeleton className="h-16 w-full rounded-lg" />
+                  <div
+                    className={cn(
+                      "flex flex-col gap-4 pt-4",
+                      activeMainTab !== "discussion" && "hidden",
+                    )}
+                  >
+                    {(conversation.length > 0 || timelineLoading) && (
+                      <div className="relative flex flex-col gap-0">
+                        {timelineLoading && conversation.length === 0 && (
+                          <div className="flex flex-col gap-6 pt-2">
+                            {[0, 1, 2, 3].map((i) => (
+                              <div key={i} className="flex items-start gap-4">
+                                <Skeleton className="size-8 shrink-0 rounded-full" />
+                                <div className="flex-1 space-y-2">
+                                  <Skeleton className="h-3 w-1/3 rounded" />
+                                  <Skeleton className="h-16 w-full rounded-lg" />
+                                </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                            ))}
+                          </div>
+                        )}
 
-                      {/* Vertical Timeline Line */}
-                      <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border/60 z-0" />
+                        {/* Vertical Timeline Line */}
+                        <div className="absolute top-0 bottom-0 left-4 z-0 w-0.5 bg-border/60" />
 
-                      <TooltipProvider delayDuration={300}>
-                        <div className="flex flex-col gap-6 relative z-10">
-                          {displayedConversation.map((entry, i: number) => {
-                            if (entry.kind === 'commits') {
-                              return (
-                                <TimelineCommitsGroup
-                                  key={`commits-${entry.startIndex}`}
-                                  commits={entry.commits}
-                                  locale={relativeTimeLocale}
-                                  onCommitClick={({ sha, subject, authorName }) => {
-                                    openCommitTab({
-                                      owner,
-                                      repo,
-                                      sha,
-                                      subject,
-                                      authorName,
-                                    });
-                                  }}
-                                />
-                              );
-                            }
+                        <TooltipProvider delayDuration={300}>
+                          <div className="relative z-10 flex flex-col gap-6">
+                            {displayedConversation.map((entry, i: number) => {
+                              if (entry.kind === "commits") {
+                                return (
+                                  <TimelineCommitsGroup
+                                    key={`commits-${entry.startIndex}`}
+                                    commits={entry.commits}
+                                    locale={relativeTimeLocale}
+                                    onCommitClick={({ sha, subject, authorName }) => {
+                                      openCommitTab({
+                                        owner,
+                                        repo,
+                                        sha,
+                                        subject,
+                                        authorName,
+                                      });
+                                    }}
+                                  />
+                                );
+                              }
 
-                            if (entry.kind === 'cross-referenced') {
-                              return (
-                                <TimelineReferencesEvent
-                                  key={`cross-ref-${entry.startIndex}`}
-                                  event="cross-referenced"
-                                  items={entry.items}
-                                  owner={owner}
-                                  repo={repo}
-                                  locale={relativeTimeLocale}
-                                />
-                              );
-                            }
+                              if (entry.kind === "cross-referenced") {
+                                return (
+                                  <TimelineReferencesEvent
+                                    key={`cross-ref-${entry.startIndex}`}
+                                    event="cross-referenced"
+                                    items={entry.items}
+                                    owner={owner}
+                                    repo={repo}
+                                    locale={relativeTimeLocale}
+                                  />
+                                );
+                              }
 
-                            const item = entry.item;
-                            const hasReviewThreads = item.reviewCommentThreads && item.reviewCommentThreads.length > 0;
-                            const isMainComment = item.type === 'comment' || (item.type === 'review' && (item.body || hasReviewThreads));
-                            const isBot = item.author?.is_bot || item.author?.login === 'cursor' || item.author?.login === 'vercel' || item.author?.login?.endsWith('[bot]');
-                            const reviewAgentFixSource = item.type === 'review'
-                              ? buildReviewAgentFixSource(item)
-                              : undefined;
-                            const reviewAgentFixSettingsOpen =
-                              !!reviewAgentFixSource && openReviewAgentFixSourceId === reviewAgentFixSource.id;
+                              const item = entry.item;
+                              const hasReviewThreads =
+                                item.reviewCommentThreads && item.reviewCommentThreads.length > 0;
+                              const isMainComment =
+                                item.type === "comment" ||
+                                (item.type === "review" && (item.body || hasReviewThreads));
+                              const isBot =
+                                item.author?.is_bot ||
+                                item.author?.login === "cursor" ||
+                                item.author?.login === "vercel" ||
+                                item.author?.login?.endsWith("[bot]");
+                              const reviewAgentFixSource =
+                                item.type === "review"
+                                  ? buildReviewAgentFixSource(item)
+                                  : undefined;
+                              const reviewAgentFixSettingsOpen =
+                                !!reviewAgentFixSource &&
+                                openReviewAgentFixSourceId === reviewAgentFixSource.id;
 
-                            if (isMainComment) {
-                              return (
-                                <div key={i} className="flex flex-col">
-                                  <div className="flex gap-4 items-start group/review">
-                                    <div className="relative z-10">
-                                      <GithubUserHoverCard
-                                        username={item.author?.login}
-                                        avatarUrl={item.author?.avatar_url || item.author?.avatarUrl}
-                                        disabled={isBot}
-                                      >
-                                        <Avatar className="size-8 shrink-0 border border-border/50 shadow-sm transition-transform duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/review:scale-105">
-                                          <AvatarImage src={item.author?.avatar_url || item.author?.avatarUrl || `https://github.com/${item.author?.login?.replace('[bot]', '')}.png?size=64`} />
-                                          <AvatarFallback className="text-[10px]">{item.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                        </Avatar>
-                                      </GithubUserHoverCard>
-                                    </div>
-                                    <div className="flex-1 min-w-0 flex flex-col border border-border/60 rounded-xl overflow-hidden bg-background shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] transition-shadow duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_4px_15px_-4px_rgba(0,0,0,0.12)]">
-                                      <div className="flex items-center gap-2 px-4 py-2 bg-muted/20 border-b border-border/40 text-xs text-muted-foreground">
-                                        <span className="font-bold text-foreground">{item.author?.login}</span>
-                                        {isBot && (
-                                          <span className="text-[9px] px-1 rounded-sm border border-border bg-muted/50 text-muted-foreground font-medium py-0 leading-none h-3.5 flex items-center shrink-0">
-                                            {t('states.bot')}
-                                          </span>
-                                        )}
-                                        <span className="opacity-80">
-                                          {item.type === 'review'
-                                            ? (item.state === 'APPROVED' ? t('conversation.approved') : t('conversation.reviewed'))
-                                            : t('conversation.commented')}
-                                        </span>
-                                        {item.reviewCommentThreads && item.reviewCommentThreads.length > 0 && (
-                                          <span className="flex items-center gap-1 bg-primary/10 text-primary px-1.5 py-px rounded text-[10px] font-medium">
-                                            <FileCode className="size-3" />
-                                            {t('conversation.filesCount', {
-                                              count: item.reviewCommentThreads.length,
-                                              suffix: item.reviewCommentThreads.length > 1 ? 's' : '',
-                                            })}
-                                          </span>
-                                        )}
-                                        <span
-                                          className={cn(
-                                            "relative ml-auto flex h-6 items-center justify-end",
-                                            reviewAgentFixSource ? "w-[132px]" : "w-auto",
-                                          )}
+                              if (isMainComment) {
+                                return (
+                                  <div key={i} className="flex flex-col">
+                                    <div className="group/review flex items-start gap-4">
+                                      <div className="relative z-10">
+                                        <GithubUserHoverCard
+                                          username={item.author?.login}
+                                          avatarUrl={
+                                            item.author?.avatar_url || item.author?.avatarUrl
+                                          }
+                                          disabled={isBot}
                                         >
+                                          <Avatar className="size-8 shrink-0 border border-border/50 shadow-sm transition-transform duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/review:scale-105">
+                                            <AvatarImage
+                                              src={
+                                                item.author?.avatar_url ||
+                                                item.author?.avatarUrl ||
+                                                `https://github.com/${item.author?.login?.replace("[bot]", "")}.png?size=64`
+                                              }
+                                            />
+                                            <AvatarFallback className="text-[10px]">
+                                              {item.author?.login?.substring(0, 2).toUpperCase()}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                        </GithubUserHoverCard>
+                                      </div>
+                                      <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/60 bg-background shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] transition-shadow duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_4px_15px_-4px_rgba(0,0,0,0.12)]">
+                                        <div className="flex items-center gap-2 border-b border-border/40 bg-muted/20 px-4 py-2 text-xs text-muted-foreground">
+                                          <span className="font-bold text-foreground">
+                                            {item.author?.login}
+                                          </span>
+                                          {isBot && (
+                                            <span className="flex h-3.5 shrink-0 items-center rounded-sm border border-border bg-muted/50 px-1 py-0 text-[9px] leading-none font-medium text-muted-foreground">
+                                              {t("states.bot")}
+                                            </span>
+                                          )}
+                                          <span className="opacity-80">
+                                            {item.type === "review"
+                                              ? item.state === "APPROVED"
+                                                ? t("conversation.approved")
+                                                : t("conversation.reviewed")
+                                              : t("conversation.commented")}
+                                          </span>
+                                          {item.reviewCommentThreads &&
+                                            item.reviewCommentThreads.length > 0 && (
+                                              <span className="flex items-center gap-1 rounded bg-primary/10 px-1.5 py-px text-[10px] font-medium text-primary">
+                                                <FileCode className="size-3" />
+                                                {t("conversation.filesCount", {
+                                                  count: item.reviewCommentThreads.length,
+                                                  suffix:
+                                                    item.reviewCommentThreads.length > 1 ? "s" : "",
+                                                })}
+                                              </span>
+                                            )}
                                           <span
                                             className={cn(
-                                              "opacity-60",
-                                              reviewAgentFixSource &&
-                                                "group-hover/review:opacity-0",
-                                              reviewAgentFixSettingsOpen && "opacity-0",
+                                              "relative ml-auto flex h-6 items-center justify-end",
+                                              reviewAgentFixSource ? "w-[132px]" : "w-auto",
                                             )}
                                           >
-                                            {formatDistanceToNow(new Date(item.createdAt), {
-                                              addSuffix: true,
-                                              locale: relativeTimeLocale,
-                                            })}
-                                          </span>
-                                          {reviewAgentFixSource ? (
                                             <span
                                               className={cn(
-                                                "invisible pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 opacity-0",
-                                                "group-hover/review:visible group-hover/review:pointer-events-auto group-hover/review:opacity-100",
-                                                reviewAgentFixSettingsOpen && "visible pointer-events-auto opacity-100",
+                                                "opacity-60",
+                                                reviewAgentFixSource &&
+                                                  "group-hover/review:opacity-0",
+                                                reviewAgentFixSettingsOpen && "opacity-0",
                                               )}
                                             >
-                                              <AgentFixButton
-                                                source={reviewAgentFixSource}
-                                                mode="label"
-                                                appearance="subtle"
-                                                onSettingsOpenChange={(open) => {
-                                                  setOpenReviewAgentFixSourceId(open ? reviewAgentFixSource.id : null);
-                                                }}
-                                              />
+                                              {formatDistanceToNow(new Date(item.createdAt), {
+                                                addSuffix: true,
+                                                locale: relativeTimeLocale,
+                                              })}
                                             </span>
-                                          ) : null}
-                                        </span>
-                                      </div>
-                                      {item.body ? (
-                                        <div className="p-4 bg-background">
-                                          <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1">
-                                            {item.body}
-                                          </MarkdownRenderer>
+                                            {reviewAgentFixSource ? (
+                                              <span
+                                                className={cn(
+                                                  "pointer-events-none invisible absolute top-1/2 right-0 -translate-y-1/2 opacity-0",
+                                                  "group-hover/review:pointer-events-auto group-hover/review:visible group-hover/review:opacity-100",
+                                                  reviewAgentFixSettingsOpen &&
+                                                    "pointer-events-auto visible opacity-100",
+                                                )}
+                                              >
+                                                <AgentFixButton
+                                                  source={reviewAgentFixSource}
+                                                  mode="label"
+                                                  appearance="subtle"
+                                                  onSettingsOpenChange={(open) => {
+                                                    setOpenReviewAgentFixSourceId(
+                                                      open ? reviewAgentFixSource.id : null,
+                                                    );
+                                                  }}
+                                                />
+                                              </span>
+                                            ) : null}
+                                          </span>
                                         </div>
-                                      ) : hasReviewThreads ? null : (
-                                        <div className="p-4 bg-background">
-                                          <span className="text-muted-foreground/60 italic text-[12px]">{t('conversation.noCommentBody')}</span>
+                                        {item.body ? (
+                                          <div className="bg-background p-4">
+                                            <MarkdownRenderer className="prose prose-sm dark:prose-invert prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1 max-w-none text-[13px] leading-relaxed">
+                                              {item.body}
+                                            </MarkdownRenderer>
+                                          </div>
+                                        ) : hasReviewThreads ? null : (
+                                          <div className="bg-background p-4">
+                                            <span className="text-[12px] text-muted-foreground/60 italic">
+                                              {t("conversation.noCommentBody")}
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {item.reviewCommentThreads &&
+                                      item.reviewCommentThreads.length > 0 && (
+                                        <div className="mt-1 flex flex-col gap-2">
+                                          {item.reviewCommentThreads.map(
+                                            (thread: ReviewCommentThread, threadIdx: number) => (
+                                              <ReviewCommentThreadView
+                                                key={threadIdx}
+                                                thread={thread}
+                                                agentFixSource={buildThreadAgentFixSource(thread)}
+                                              />
+                                            ),
+                                          )}
                                         </div>
                                       )}
-                                    </div>
                                   </div>
-                                  {item.reviewCommentThreads && item.reviewCommentThreads.length > 0 && (
-                                    <div className="flex flex-col gap-2 mt-1">
-                                      {item.reviewCommentThreads.map((thread: ReviewCommentThread, threadIdx: number) => (
-                                        <ReviewCommentThreadView
-                                          key={threadIdx}
-                                          thread={thread}
-                                          agentFixSource={buildThreadAgentFixSource(thread)}
-                                        />
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            }
+                                );
+                              }
 
-                            const mapped = mapTimelineEvent(item, { owner, repo });
-                            if (mapped.classification === 'omit') return null;
-                            if (isReferenceTimelineClassification(mapped.classification)) {
+                              const mapped = mapTimelineEvent(item, { owner, repo });
+                              if (mapped.classification === "omit") return null;
+                              if (isReferenceTimelineClassification(mapped.classification)) {
+                                return (
+                                  <TimelineReferencesEvent
+                                    key={i}
+                                    event={
+                                      mapped.classification === "cross-referenced"
+                                        ? "cross-referenced"
+                                        : mapped.canonicalEvent === "disconnected"
+                                          ? "disconnected"
+                                          : "connected"
+                                    }
+                                    items={[item]}
+                                    owner={owner}
+                                    repo={repo}
+                                    locale={relativeTimeLocale}
+                                    actorLogin={item.author?.login}
+                                    actorAvatarUrl={
+                                      item.author?.avatar_url || item.author?.avatarUrl
+                                    }
+                                  />
+                                );
+                              }
+
                               return (
-                                <TimelineReferencesEvent
+                                <TimelineActivityEvent
                                   key={i}
-                                  event={
-                                    mapped.classification === 'cross-referenced'
-                                      ? 'cross-referenced'
-                                      : mapped.canonicalEvent === 'disconnected'
-                                        ? 'disconnected'
-                                        : 'connected'
-                                  }
-                                  items={[item]}
-                                  owner={owner}
-                                  repo={repo}
-                                  locale={relativeTimeLocale}
+                                  mapped={mapped}
                                   actorLogin={item.author?.login}
                                   actorAvatarUrl={item.author?.avatar_url || item.author?.avatarUrl}
+                                  isBot={isBot}
+                                  locale={relativeTimeLocale}
+                                  createdAt={item.createdAt}
+                                  baseRefName={pr.baseRefName || "main"}
+                                  onCommitClick={({ sha, subject, authorName }) => {
+                                    openCommitTab({ owner, repo, sha, subject, authorName });
+                                  }}
+                                  footer={
+                                    <>
+                                      {item.event === "merged" &&
+                                        Array.isArray(pr.statusCheckRollup) &&
+                                        pr.statusCheckRollup.length > 0 && (
+                                          <TimelineMergedChecks
+                                            checks={pr.statusCheckRollup}
+                                            owner={owner}
+                                            repo={repo}
+                                          />
+                                        )}
+                                      {item.reviewCommentThreads &&
+                                        item.reviewCommentThreads.length > 0 && (
+                                          <div className="mt-1 flex flex-col gap-2">
+                                            {item.reviewCommentThreads.map(
+                                              (thread: ReviewCommentThread, threadIdx: number) => (
+                                                <ReviewCommentThreadView
+                                                  key={threadIdx}
+                                                  thread={thread}
+                                                  agentFixSource={buildThreadAgentFixSource(thread)}
+                                                />
+                                              ),
+                                            )}
+                                          </div>
+                                        )}
+                                    </>
+                                  }
                                 />
                               );
-                            }
+                            })}
+                          </div>
+                        </TooltipProvider>
 
-                            return (
-                              <TimelineActivityEvent
-                                key={i}
-                                mapped={mapped}
-                                actorLogin={item.author?.login}
-                                actorAvatarUrl={item.author?.avatar_url || item.author?.avatarUrl}
-                                isBot={isBot}
-                                locale={relativeTimeLocale}
-                                createdAt={item.createdAt}
-                                baseRefName={pr.baseRefName || 'main'}
-                                onCommitClick={({ sha, subject, authorName }) => {
-                                  openCommitTab({ owner, repo, sha, subject, authorName });
-                                }}
-                                footer={
-                                  <>
-                                    {item.event === 'merged' &&
-                                      Array.isArray(pr.statusCheckRollup) &&
-                                      pr.statusCheckRollup.length > 0 && (
-                                        <TimelineMergedChecks
-                                          checks={pr.statusCheckRollup}
-                                          owner={owner}
-                                          repo={repo}
-                                        />
-                                      )}
-                                    {item.reviewCommentThreads && item.reviewCommentThreads.length > 0 && (
-                                      <div className="mt-1 flex flex-col gap-2">
-                                        {item.reviewCommentThreads.map((thread: ReviewCommentThread, threadIdx: number) => (
-                                          <ReviewCommentThreadView
-                                            key={threadIdx}
-                                            thread={thread}
-                                            agentFixSource={buildThreadAgentFixSource(thread)}
-                                          />
-                                        ))}
-                                      </div>
-                                    )}
-                                  </>
-                                }
-                              />
-                            );
-                          })}
-                        </div>
-                      </TooltipProvider>
-
-                      {/* Timeline: loading skeleton */}
-                      {timelineLoading && (
-                        <div className="flex flex-col gap-4 mt-6 relative z-10">
-                          {[0, 1, 2].map((i) => (
-                            <div key={i} className="flex items-center gap-3">
-                              <div className="flex w-8 shrink-0 items-center justify-center">
-                                <Skeleton className="size-5 rounded-full" />
+                        {/* Timeline: loading skeleton */}
+                        {timelineLoading && (
+                          <div className="relative z-10 mt-6 flex flex-col gap-4">
+                            {[0, 1, 2].map((i) => (
+                              <div key={i} className="flex items-center gap-3">
+                                <div className="flex w-8 shrink-0 items-center justify-center">
+                                  <Skeleton className="size-5 rounded-full" />
+                                </div>
+                                <Skeleton
+                                  className="h-3 rounded"
+                                  style={{ width: `${48 + (i % 3) * 16}%` }}
+                                />
                               </div>
-                              <Skeleton className="h-3 rounded" style={{ width: `${48 + (i % 3) * 16}%` }} />
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                            ))}
+                          </div>
+                        )}
 
-                      {/* Timeline: Load More */}
-                      {timelineHasMore && !timelineLoading && (
-                        <div className="mt-6 flex justify-center relative z-10">
-                          <button
-                            onClick={loadMoreTimeline}
-                            className="flex items-center gap-2 px-4 py-2 rounded-md text-[12px] font-medium text-muted-foreground border border-border/60 bg-muted/30 hover:bg-muted/60 hover:text-foreground"
-                          >
-                            {t('activity.loadMore')}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        {/* Timeline: Load More */}
+                        {timelineHasMore && !timelineLoading && (
+                          <div className="relative z-10 mt-6 flex justify-center">
+                            <button
+                              onClick={loadMoreTimeline}
+                              className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-4 py-2 text-[12px] font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                            >
+                              {t("activity.loadMore")}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
-                  {/* Add a comment section */}
-                  <CommentBox
-                    prState={pr.state}
-                    isDraft={pr.isDraft}
-                    mergeable={pr.mergeable}
-                    actionLoading={actionLoading}
-                    onComment={handlePostComment}
-                    onClose={handleClose}
-                    onMerge={handleMerge}
-                    onReopen={handleReopen}
-                  />
+                    {/* Add a comment section */}
+                    <CommentBox
+                      prState={pr.state}
+                      isDraft={pr.isDraft}
+                      mergeable={pr.mergeable}
+                      actionLoading={actionLoading}
+                      onComment={handlePostComment}
+                      onClose={handleClose}
+                      onMerge={handleMerge}
+                      onReopen={handleReopen}
+                    />
                   </div>
                 )}
 
                 {/* Commits tab */}
                 {hasVisitedCommits && (
-                  <div className={cn("pt-2", activeMainTab !== 'commits' && "hidden")}>
+                  <div className={cn("pt-2", activeMainTab !== "commits" && "hidden")}>
                     <CommitList
                       commits={prCommitsToListItems(pr.commits ?? [], owner, repo)}
                       owner={owner}
@@ -946,7 +1092,13 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
 
                 {/* Files Changed tab */}
                 {hasVisitedFiles && (
-                  <div className={cn("min-h-[520px] overflow-hidden pt-2", activeMainTab !== 'files' && "hidden")} style={{ height: '100%' }}>
+                  <div
+                    className={cn(
+                      "min-h-[520px] overflow-hidden pt-2",
+                      activeMainTab !== "files" && "hidden",
+                    )}
+                    style={{ height: "100%" }}
+                  >
                     <PRFilesTab
                       files={prFiles}
                       loading={prFilesLoading}
@@ -963,39 +1115,39 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                     />
                   </div>
                 )}
-                </ScrollArea>
-              </div>
-
-              <PRMetadataSidebar
-                owner={owner}
-                repo={repo}
-                prNumber={prNumber}
-                pr={pr}
-                sidebarData={sidebarData}
-                sidebarLoading={sidebarLoading}
-                isSidebarCollapsed={isSidebarCollapsed}
-                onPrMetadataChanged={() => {
-                  void fetch?.();
-                }}
-                onReviewerClick={handleReviewerClick}
-              />
+              </ScrollArea>
             </div>
-          ) : (
-            <div className="text-sm text-muted-foreground">{t('notFound')}</div>
-          )}
-        </div>
 
-        <PRActionBar
-          loading={loading}
-          pr={pr}
-          actionLoading={actionLoading}
-          mergeStrategy={mergeStrategy}
-          onMergeStrategyChange={setMergeStrategy}
-          onOpenGitHub={handleOpenGitHub}
-          onClose={() => handleClose()}
-          onMerge={() => handleMerge()}
-          onReopen={() => handleReopen()}
-        />
+            <PRMetadataSidebar
+              owner={owner}
+              repo={repo}
+              prNumber={prNumber}
+              pr={pr}
+              sidebarData={sidebarData}
+              sidebarLoading={sidebarLoading}
+              isSidebarCollapsed={isSidebarCollapsed}
+              onPrMetadataChanged={() => {
+                void fetch?.();
+              }}
+              onReviewerClick={handleReviewerClick}
+            />
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">{t("notFound")}</div>
+        )}
+      </div>
+
+      <PRActionBar
+        loading={loading}
+        pr={pr}
+        actionLoading={actionLoading}
+        mergeStrategy={mergeStrategy}
+        onMergeStrategyChange={setMergeStrategy}
+        onOpenGitHub={handleOpenGitHub}
+        onClose={() => handleClose()}
+        onMerge={() => handleMerge()}
+        onReopen={() => handleReopen()}
+      />
     </div>
   );
 }

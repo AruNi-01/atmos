@@ -72,10 +72,10 @@ export function favoriteModelsEqual(
   return left.every((item, index) => {
     const other = right[index];
     return (
-      other != null
-      && item.agentId === other.agentId
-      && item.model === other.model
-      && item.label === other.label
+      other != null &&
+      item.agentId === other.agentId &&
+      item.model === other.model &&
+      item.label === other.label
     );
   });
 }

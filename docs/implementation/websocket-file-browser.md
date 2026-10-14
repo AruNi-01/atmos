@@ -17,15 +17,16 @@
 
 ### 方案对比
 
-| 方案 | 描述 | 优点 | 缺点 |
-|------|------|------|------|
-| 方案1 | 手动输入路径 | 简单直接 | 用户体验差，容易输错 |
-| 方案2 | Tauri/Electron | 原生文件选择器 | 需要桌面应用 |
+| 方案      | 描述             | 优点                | 缺点                  |
+| --------- | ---------------- | ------------------- | --------------------- |
+| 方案1     | 手动输入路径     | 简单直接            | 用户体验差，容易输错  |
+| 方案2     | Tauri/Electron   | 原生文件选择器      | 需要桌面应用          |
 | **方案3** | **后端辅助浏览** | **Web可用，体验好** | **需要WebSocket通信** |
 
 ### 最终方案
 
 采用 **方案3：后端辅助的文件浏览**：
+
 - 用户可以手动输入路径
 - 也可以点击 "Browse..." 通过 WebSocket 获取后端文件系统列表
 - 用户一步步选择目录，最终确认项目路径
@@ -58,6 +59,7 @@
 所有 WebSocket 通信使用统一的 JSON 格式：
 
 #### 请求格式
+
 ```json
 {
   "type": "request",
@@ -70,6 +72,7 @@
 ```
 
 #### 响应格式（成功）
+
 ```json
 {
   "type": "response",
@@ -82,6 +85,7 @@
 ```
 
 #### 响应格式（错误）
+
 ```json
 {
   "type": "error",
@@ -110,14 +114,14 @@ pub enum WsAction {
     FsGetHomeDir,
     FsListDir,
     FsValidateGitPath,
-    
+
     // Project CRUD
     ProjectList,
     ProjectCreate,
     ProjectUpdate,
     ProjectDelete,
     ProjectValidatePath,
-    
+
     // Workspace CRUD
     WorkspaceList,
     WorkspaceCreate,
@@ -138,18 +142,18 @@ pub struct FsEngine;
 impl FsEngine {
     /// 获取用户主目录
     pub fn get_home_dir(&self) -> Result<PathBuf>;
-    
+
     /// 列出目录内容
     pub fn list_dir(
-        &self, 
-        path: &Path, 
-        dirs_only: bool, 
+        &self,
+        path: &Path,
+        dirs_only: bool,
         show_hidden: bool
     ) -> Result<Vec<FsEntry>>;
-    
+
     /// 验证 Git 仓库路径
     pub fn validate_git_path(&self, path: &Path) -> GitValidationResult;
-    
+
     /// 扩展 ~ 路径
     pub fn expand_path(&self, path: &str) -> Result<PathBuf>;
 }
@@ -171,7 +175,7 @@ pub struct WsMessageService {
 impl WsMessageService {
     /// 处理 WebSocket 请求
     async fn process_request(&self, request: WsRequest) -> WsMessage;
-    
+
     /// 路由到具体处理器
     async fn handle_action(&self, request: WsRequest) -> Result<Value>;
 }
@@ -186,10 +190,10 @@ impl WsMessageService {
 export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
   connectionState: 'disconnected',
   socket: null,
-  
+
   // 自动连接
   connect: () => { ... },
-  
+
   // 发送请求（Promise 风格）
   send: <T>(action: WsAction, data?: unknown): Promise<T> => { ... },
 }));
@@ -202,6 +206,7 @@ export function useWebSocket() {
 ```
 
 **特性**：
+
 - ✅ 自动连接和重连
 - ✅ 心跳保持（15秒间隔）
 - ✅ 请求超时处理（30秒）
@@ -243,7 +248,7 @@ export function FileBrowser({
   open,
   onOpenChange,
   onSelect,
-  title = 'Browse Files',
+  title = "Browse Files",
   dirsOnly = true,
   showHidden = false,
 }: FileBrowserProps) {
@@ -252,7 +257,7 @@ export function FileBrowser({
     const result = await fsApi.listDir(path, { dirsOnly, showHidden });
     setEntries(result.entries);
   }, []);
-  
+
   return (
     <Dialog>
       {/* 路径输入 + 导航按钮 */}
@@ -264,6 +269,7 @@ export function FileBrowser({
 ```
 
 **功能**：
+
 - ✅ 显示目录列表
 - ✅ 标记 Git 仓库（橙色图标 + 标签）
 - ✅ 导航：上级目录、主目录、刷新
@@ -282,10 +288,10 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // 应用启动时建立连接
     connect();
-    
+
     // 页面可见性变化时重连
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('online', handleOnline);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleOnline);
   }, []);
 
   return (
@@ -305,6 +311,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 ### 文件系统操作
 
 #### 1. 获取主目录
+
 ```json
 // 请求
 { "action": "fs_get_home_dir", "data": {} }
@@ -314,6 +321,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 ```
 
 #### 2. 列出目录内容
+
 ```json
 // 请求
 {
@@ -347,6 +355,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 ```
 
 #### 3. 验证 Git 路径
+
 ```json
 // 请求
 {
@@ -368,15 +377,15 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
 所有原有的 HTTP API 功能均可通过 WebSocket 实现，action 名称对应：
 
-| HTTP 接口 | WebSocket Action |
-|-----------|------------------|
-| `GET /api/project` | `project_list` |
-| `POST /api/project` | `project_create` |
-| `PUT /api/project/{id}` | `project_update` |
-| `DELETE /api/project/{id}` | `project_delete` |
-| `GET /api/workspace/project/{id}` | `workspace_list` |
-| `POST /api/workspace` | `workspace_create` |
-| ... | ... |
+| HTTP 接口                         | WebSocket Action   |
+| --------------------------------- | ------------------ |
+| `GET /api/project`                | `project_list`     |
+| `POST /api/project`               | `project_create`   |
+| `PUT /api/project/{id}`           | `project_update`   |
+| `DELETE /api/project/{id}`        | `project_delete`   |
+| `GET /api/workspace/project/{id}` | `workspace_list`   |
+| `POST /api/workspace`             | `workspace_create` |
+| ...                               | ...                |
 
 ---
 
@@ -384,21 +393,21 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
 ### 后端
 
-| 层级 | 文件 | 描述 |
-|------|------|------|
-| infra | `crates/infra/src/websocket/message.rs` | 消息类型定义 |
-| core-engine | `crates/core-engine/src/fs/mod.rs` | 文件系统操作 |
+| 层级         | 文件                                            | 描述         |
+| ------------ | ----------------------------------------------- | ------------ |
+| infra        | `crates/infra/src/websocket/message.rs`         | 消息类型定义 |
+| core-engine  | `crates/core-engine/src/fs/mod.rs`              | 文件系统操作 |
 | core-service | `crates/core-service/src/ws_message_service.rs` | 消息处理服务 |
 
 ### 前端
 
-| 目录 | 文件 | 描述 |
-|------|------|------|
-| hooks | `use-websocket.ts` | WebSocket 状态管理 |
-| api | `ws-api.ts` | WebSocket API 封装 |
-| components/dialogs | `FileBrowser.tsx` | 文件浏览器组件 |
-| components/dialogs | `CreateProjectDialog.tsx` | 项目导入对话框 |
-| components/providers | `websocket-provider.tsx` | WebSocket 连接管理 |
+| 目录                 | 文件                      | 描述               |
+| -------------------- | ------------------------- | ------------------ |
+| hooks                | `use-websocket.ts`        | WebSocket 状态管理 |
+| api                  | `ws-api.ts`               | WebSocket API 封装 |
+| components/dialogs   | `FileBrowser.tsx`         | 文件浏览器组件     |
+| components/dialogs   | `CreateProjectDialog.tsx` | 项目导入对话框     |
+| components/providers | `websocket-provider.tsx`  | WebSocket 连接管理 |
 
 ---
 
@@ -436,16 +445,16 @@ just dev-web
 
 ## 📊 代码统计
 
-| 模块 | 新增/修改 | 代码行数 |
-|------|----------|---------|
-| 后端 WebSocket 消息 | 新增 | ~230 行 |
-| 后端文件系统引擎 | 新增 | ~150 行 |
-| 后端消息服务 | 重构 | ~230 行 |
-| 前端 WebSocket 管理 | 新增 | ~250 行 |
-| 前端 API 层 | 新增 | ~180 行 |
-| 前端文件浏览器 | 新增 | ~250 行 |
-| 前端对话框更新 | 修改 | ~150 行 |
-| **总计** | | **~1440 行** |
+| 模块                | 新增/修改 | 代码行数     |
+| ------------------- | --------- | ------------ |
+| 后端 WebSocket 消息 | 新增      | ~230 行      |
+| 后端文件系统引擎    | 新增      | ~150 行      |
+| 后端消息服务        | 重构      | ~230 行      |
+| 前端 WebSocket 管理 | 新增      | ~250 行      |
+| 前端 API 层         | 新增      | ~180 行      |
+| 前端文件浏览器      | 新增      | ~250 行      |
+| 前端对话框更新      | 修改      | ~150 行      |
+| **总计**            |           | **~1440 行** |
 
 ---
 
@@ -470,7 +479,7 @@ pending.resolve(response.data);
 
 ```typescript
 // 前端每 15 秒发送 ping
-setInterval(() => socket.send('ping'), 15000);
+setInterval(() => socket.send("ping"), 15000);
 
 // 后端响应 pong（在 infra 层处理）
 ```

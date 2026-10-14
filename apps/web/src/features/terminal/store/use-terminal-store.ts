@@ -101,812 +101,871 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
     });
   };
 
-  return ({
-  workspaceTerminalTabs: {},
-  workspaceActiveTerminalTabIds: {},
-  workspaceActivePaneIds: {},
-  workspacePanes: {},
-  workspaceLayouts: {},
-  workspaceMaximizedIds: {},
-  loadedWorkspaces: new Set(),
-  hydratedTerminalScopes: new Set(),
-  initializingWorkspaces: new Set(),
-  initializingTerminalScopes: new Set(),
-  saveTimeouts: {},
-  isHydrated: false,
-  tmuxWindowsCache: {},
-  persistedTerminalLayouts: {},
-  // Track whether each workspaceId is actually a project context
-  // (when on /project?id=xxx, workspaceId holds the project ID)
-  workspaceContexts: {},
-  projectWikiPanes: {},
-  projectWikiLayouts: {},
-  projectWikiMaximizedIds: {},
-  projectWikiLoadedWorkspaces: new Set(),
-  projectWikiInitializingWorkspaces: new Set(),
-  codeReviewPanes: {},
-  codeReviewLayouts: {},
-  codeReviewMaximizedIds: {},
-  codeReviewLoadedWorkspaces: new Set(),
-  codeReviewInitializingWorkspaces: new Set(),
+  return {
+    workspaceTerminalTabs: {},
+    workspaceActiveTerminalTabIds: {},
+    workspaceActivePaneIds: {},
+    workspacePanes: {},
+    workspaceLayouts: {},
+    workspaceMaximizedIds: {},
+    loadedWorkspaces: new Set(),
+    hydratedTerminalScopes: new Set(),
+    initializingWorkspaces: new Set(),
+    initializingTerminalScopes: new Set(),
+    saveTimeouts: {},
+    isHydrated: false,
+    tmuxWindowsCache: {},
+    persistedTerminalLayouts: {},
+    // Track whether each workspaceId is actually a project context
+    // (when on /project?id=xxx, workspaceId holds the project ID)
+    workspaceContexts: {},
+    projectWikiPanes: {},
+    projectWikiLayouts: {},
+    projectWikiMaximizedIds: {},
+    projectWikiLoadedWorkspaces: new Set(),
+    projectWikiInitializingWorkspaces: new Set(),
+    codeReviewPanes: {},
+    codeReviewLayouts: {},
+    codeReviewMaximizedIds: {},
+    codeReviewLoadedWorkspaces: new Set(),
+    codeReviewInitializingWorkspaces: new Set(),
 
-  getTerminalTabs: (workspaceId) => {
-    const state = get();
-    return getWorkspaceTerminalTabs(state, workspaceId);
-  },
+    getTerminalTabs: (workspaceId) => {
+      const state = get();
+      return getWorkspaceTerminalTabs(state, workspaceId);
+    },
 
-  getActiveTerminalTabId: (workspaceId) => {
-    const state = get();
-    const activeTabId = state.workspaceActiveTerminalTabIds[workspaceId];
-    const tabs = getWorkspaceTerminalTabs(state, workspaceId);
-    if (activeTabId && tabs.some((tab) => tab.id === activeTabId)) {
-      return activeTabId;
-    }
-    return tabs[0]?.id ?? "";
-  },
+    getActiveTerminalTabId: (workspaceId) => {
+      const state = get();
+      const activeTabId = state.workspaceActiveTerminalTabIds[workspaceId];
+      const tabs = getWorkspaceTerminalTabs(state, workspaceId);
+      if (activeTabId && tabs.some((tab) => tab.id === activeTabId)) {
+        return activeTabId;
+      }
+      return tabs[0]?.id ?? "";
+    },
 
-  setActiveTerminalTab: (workspaceId, terminalTabId) => {
-    if (get().workspaceActiveTerminalTabIds[workspaceId] === terminalTabId) return;
-    set((state) => ({
-      workspaceActiveTerminalTabIds: {
-        ...state.workspaceActiveTerminalTabIds,
-        [workspaceId]: terminalTabId,
-      },
-    }));
-    get().saveToBackend(workspaceId);
-  },
-
-  ensureFixedTerminalTab: (workspaceId) => {
-    const existingTabs = getWorkspaceTerminalTabs(get(), workspaceId);
-    const found =
-      existingTabs.find((tab) => tab.id === FIXED_TERMINAL_TAB_VALUE) ?? existingTabs[0];
-    if (found) return found;
-    const newTab = createFixedTerminalTab();
-    set((currentState) => {
-      const tabs = getWorkspaceTerminalTabs(currentState, workspaceId);
-      const currentActive = currentState.workspaceActiveTerminalTabIds[workspaceId];
-      const keepActive = currentActive && tabs.some((tab) => tab.id === currentActive);
-      return {
-        workspaceTerminalTabs: {
-          ...currentState.workspaceTerminalTabs,
-          [workspaceId]: [...tabs, newTab],
-        },
-        workspaceActiveTerminalTabIds: {
-          ...currentState.workspaceActiveTerminalTabIds,
-          [workspaceId]: keepActive ? currentActive : newTab.id,
-        },
-      };
-    });
-    return newTab;
-  },
-
-  ensureAutomationTerminalTab: (workspaceId, options) => {
-    const windowName = options.windowName.trim();
-    if (!workspaceId.trim() || !isAutomationTmuxWindowName(windowName)) {
-      return null;
-    }
-    const tabId = automationTerminalTabIdFromWindowName(windowName);
-    const existingTabs = getWorkspaceTerminalTabs(get(), workspaceId);
-    const existing = existingTabs.find((tab) => tab.id === tabId);
-    if (existing) return existing;
-
-    const owned = findWorkspacePaneIdsByTmuxWindowName(get(), workspaceId, windowName);
-    if (owned) {
-      const owner = existingTabs.find((tab) => tab.id === owned.terminalTabId);
-      if (owner) return owner;
-    }
-
-    const newTab: TerminalCenterTab = {
-      id: tabId,
-      title: getUniqueTerminalTabTitle(existingTabs, options.title ?? windowName),
-      closable: true,
-    };
-    const paneId = uuidv4();
-    const pane = createTerminalPane(workspaceId, windowName, {
-      id: paneId,
-      tmuxWindowName: windowName,
-      isNewPane: false,
-    });
-    const scopeKey = getScopeKey(workspaceId, newTab.id);
-
-    set((currentState) => ({
-      workspaceTerminalTabs: {
-        ...currentState.workspaceTerminalTabs,
-        [workspaceId]: [...getWorkspaceTerminalTabs(currentState, workspaceId), newTab],
-      },
-      workspacePanes: {
-        ...currentState.workspacePanes,
-        [scopeKey]: { [paneId]: pane },
-      },
-      workspaceLayouts: {
-        ...currentState.workspaceLayouts,
-        [scopeKey]: paneId,
-      },
-      workspaceMaximizedIds: {
-        ...currentState.workspaceMaximizedIds,
-        [scopeKey]: null,
-      },
-      hydratedTerminalScopes: new Set([...currentState.hydratedTerminalScopes, scopeKey]),
-    }));
-
-    get().saveToBackend(workspaceId);
-    return newTab;
-  },
-
-  createTerminalTab: (workspaceId, options) => {
-    const state = get();
-    const existingTabs = getWorkspaceTerminalTabs(state, workspaceId);
-    const newTab: TerminalCenterTab = existingTabs.length === 0
-      ? createFixedTerminalTab()
-      : {
-          id: `${TERMINAL_TAB_VALUE_PREFIX}${uuidv4()}`,
-          title: options?.title
-            ? getUniqueTerminalTabTitle(existingTabs, options.title)
-            : getNextTerminalTabTitle(existingTabs),
-          closable: true,
-        };
-    const allPanes = getAllDefaultPanesForWorkspace(state, workspaceId);
-    const { panes, layout } = createInitialLayout(workspaceId, allPanes);
-    const scopeKey = getScopeKey(workspaceId, newTab.id);
-
-    set((currentState) => ({
-      workspaceTerminalTabs: {
-        ...currentState.workspaceTerminalTabs,
-        [workspaceId]: [...getWorkspaceTerminalTabs(currentState, workspaceId), newTab],
-      },
-      workspaceActiveTerminalTabIds: {
-        ...currentState.workspaceActiveTerminalTabIds,
-        [workspaceId]: newTab.id,
-      },
-      workspacePanes: {
-        ...currentState.workspacePanes,
-        [scopeKey]: panes,
-      },
-      workspaceLayouts: {
-        ...currentState.workspaceLayouts,
-        [scopeKey]: layout,
-      },
-      workspaceMaximizedIds: {
-        ...currentState.workspaceMaximizedIds,
-        [scopeKey]: null,
-      },
-      hydratedTerminalScopes: new Set([...currentState.hydratedTerminalScopes, scopeKey]),
-    }));
-
-    get().saveToBackend(workspaceId);
-    return newTab;
-  },
-
-  createTerminalTabWithInitialPane: async (workspaceId, contextScope = "workspace", options) => {
-    const isProjectContext = contextScope === "project";
-    const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
-
-    ensureWorkspaceContext(workspaceId, isProjectContext);
-
-    if (!get().loadedWorkspaces.has(workspaceScopeKey)) {
-      await get().loadFromBackend(workspaceId, isProjectContext, null);
-    }
-
-    if (
-      (get().workspaceContexts[workspaceId] ?? false) !== isProjectContext ||
-      !get().loadedWorkspaces.has(workspaceScopeKey)
-    ) {
-      return null;
-    }
-
-    const tab = get().createTerminalTab(workspaceId, { title: options?.title });
-    const panes = get().getPanes(workspaceId, tab.id);
-    const [paneId, pane] = Object.entries(panes)[0] ?? [];
-    if (!paneId || !pane) {
-      return null;
-    }
-
-    if (options?.paneLabel || options?.paneAgent) {
-      const scopeKey = getScopeKey(workspaceId, tab.id);
-      const allPanes = getAllDefaultPanesForWorkspace(get(), workspaceId);
-      const nextLabel = options.paneLabel
-        ? getUniqueAgentName(options.paneLabel, allPanes)
-        : pane.label;
-      const nextPane: TerminalPaneProps = {
-        ...pane,
-        label: nextLabel,
-        tmuxWindowName: pane.isNewPane ? nextLabel : pane.tmuxWindowName,
-        agent: options.paneAgent ?? pane.agent,
-      };
-
+    setActiveTerminalTab: (workspaceId, terminalTabId) => {
+      if (get().workspaceActiveTerminalTabIds[workspaceId] === terminalTabId) return;
       set((state) => ({
-        workspacePanes: {
-          ...state.workspacePanes,
-          [scopeKey]: {
-            ...state.workspacePanes[scopeKey],
-            [paneId]: nextPane,
-          },
+        workspaceActiveTerminalTabIds: {
+          ...state.workspaceActiveTerminalTabIds,
+          [workspaceId]: terminalTabId,
         },
       }));
       get().saveToBackend(workspaceId);
+    },
 
-      return { tab, paneId, pane: nextPane };
-    }
+    ensureFixedTerminalTab: (workspaceId) => {
+      const existingTabs = getWorkspaceTerminalTabs(get(), workspaceId);
+      const found =
+        existingTabs.find((tab) => tab.id === FIXED_TERMINAL_TAB_VALUE) ?? existingTabs[0];
+      if (found) return found;
+      const newTab = createFixedTerminalTab();
+      set((currentState) => {
+        const tabs = getWorkspaceTerminalTabs(currentState, workspaceId);
+        const currentActive = currentState.workspaceActiveTerminalTabIds[workspaceId];
+        const keepActive = currentActive && tabs.some((tab) => tab.id === currentActive);
+        return {
+          workspaceTerminalTabs: {
+            ...currentState.workspaceTerminalTabs,
+            [workspaceId]: [...tabs, newTab],
+          },
+          workspaceActiveTerminalTabIds: {
+            ...currentState.workspaceActiveTerminalTabIds,
+            [workspaceId]: keepActive ? currentActive : newTab.id,
+          },
+        };
+      });
+      return newTab;
+    },
 
-    return { tab, paneId, pane };
-  },
+    ensureAutomationTerminalTab: (workspaceId, options) => {
+      const windowName = options.windowName.trim();
+      if (!workspaceId.trim() || !isAutomationTmuxWindowName(windowName)) {
+        return null;
+      }
+      const tabId = automationTerminalTabIdFromWindowName(windowName);
+      const existingTabs = getWorkspaceTerminalTabs(get(), workspaceId);
+      const existing = existingTabs.find((tab) => tab.id === tabId);
+      if (existing) return existing;
 
-  closeTerminalTab: (workspaceId, terminalTabId) => {
-    const scopeKey = getScopeKey(workspaceId, terminalTabId);
-    set((state) => {
-      const nextTabs = getWorkspaceTerminalTabs(state, workspaceId).filter((tab) => tab.id !== terminalTabId);
-      const restPanes = { ...state.workspacePanes };
-      const restLayouts = { ...state.workspaceLayouts };
-      const restMaximized = { ...state.workspaceMaximizedIds };
-      const restActivePanes = { ...state.workspaceActivePaneIds };
-      const nextHydratedScopes = new Set(state.hydratedTerminalScopes);
-      const nextInitializingScopes = new Set(state.initializingTerminalScopes);
-      const restTmuxCache = { ...state.tmuxWindowsCache };
-      delete restPanes[scopeKey];
-      delete restLayouts[scopeKey];
-      delete restMaximized[scopeKey];
-      delete restActivePanes[scopeKey];
-      nextHydratedScopes.delete(scopeKey);
-      nextInitializingScopes.delete(scopeKey);
-      delete restTmuxCache[getTerminalWorkspaceScopeKey(workspaceId, false)];
-      delete restTmuxCache[getTerminalWorkspaceScopeKey(workspaceId, true)];
+      const owned = findWorkspacePaneIdsByTmuxWindowName(get(), workspaceId, windowName);
+      if (owned) {
+        const owner = existingTabs.find((tab) => tab.id === owned.terminalTabId);
+        if (owner) return owner;
+      }
 
-      return {
+      const newTab: TerminalCenterTab = {
+        id: tabId,
+        title: getUniqueTerminalTabTitle(existingTabs, options.title ?? windowName),
+        closable: true,
+      };
+      const paneId = uuidv4();
+      const pane = createTerminalPane(workspaceId, windowName, {
+        id: paneId,
+        tmuxWindowName: windowName,
+        isNewPane: false,
+      });
+      const scopeKey = getScopeKey(workspaceId, newTab.id);
+
+      set((currentState) => ({
         workspaceTerminalTabs: {
-          ...state.workspaceTerminalTabs,
-          [workspaceId]: nextTabs,
+          ...currentState.workspaceTerminalTabs,
+          [workspaceId]: [...getWorkspaceTerminalTabs(currentState, workspaceId), newTab],
+        },
+        workspacePanes: {
+          ...currentState.workspacePanes,
+          [scopeKey]: { [paneId]: pane },
+        },
+        workspaceLayouts: {
+          ...currentState.workspaceLayouts,
+          [scopeKey]: paneId,
+        },
+        workspaceMaximizedIds: {
+          ...currentState.workspaceMaximizedIds,
+          [scopeKey]: null,
+        },
+        hydratedTerminalScopes: new Set([...currentState.hydratedTerminalScopes, scopeKey]),
+      }));
+
+      get().saveToBackend(workspaceId);
+      return newTab;
+    },
+
+    createTerminalTab: (workspaceId, options) => {
+      const state = get();
+      const existingTabs = getWorkspaceTerminalTabs(state, workspaceId);
+      const newTab: TerminalCenterTab =
+        existingTabs.length === 0
+          ? createFixedTerminalTab()
+          : {
+              id: `${TERMINAL_TAB_VALUE_PREFIX}${uuidv4()}`,
+              title: options?.title
+                ? getUniqueTerminalTabTitle(existingTabs, options.title)
+                : getNextTerminalTabTitle(existingTabs),
+              closable: true,
+            };
+      const allPanes = getAllDefaultPanesForWorkspace(state, workspaceId);
+      const { panes, layout } = createInitialLayout(workspaceId, allPanes);
+      const scopeKey = getScopeKey(workspaceId, newTab.id);
+
+      set((currentState) => ({
+        workspaceTerminalTabs: {
+          ...currentState.workspaceTerminalTabs,
+          [workspaceId]: [...getWorkspaceTerminalTabs(currentState, workspaceId), newTab],
         },
         workspaceActiveTerminalTabIds: {
-          ...state.workspaceActiveTerminalTabIds,
-          [workspaceId]: (() => {
-            const activeTabId = state.workspaceActiveTerminalTabIds[workspaceId];
-            if (activeTabId && activeTabId !== terminalTabId && nextTabs.some((tab) => tab.id === activeTabId)) {
-              return activeTabId;
-            }
-            return nextTabs[0]?.id ?? "";
-          })(),
+          ...currentState.workspaceActiveTerminalTabIds,
+          [workspaceId]: newTab.id,
         },
-        workspacePanes: restPanes,
-        workspaceLayouts: restLayouts,
-        workspaceMaximizedIds: restMaximized,
-        workspaceActivePaneIds: restActivePanes,
-        hydratedTerminalScopes: nextHydratedScopes,
-        initializingTerminalScopes: nextInitializingScopes,
-        tmuxWindowsCache: restTmuxCache,
-      };
-    });
+        workspacePanes: {
+          ...currentState.workspacePanes,
+          [scopeKey]: panes,
+        },
+        workspaceLayouts: {
+          ...currentState.workspaceLayouts,
+          [scopeKey]: layout,
+        },
+        workspaceMaximizedIds: {
+          ...currentState.workspaceMaximizedIds,
+          [scopeKey]: null,
+        },
+        hydratedTerminalScopes: new Set([...currentState.hydratedTerminalScopes, scopeKey]),
+      }));
 
-    get().saveToBackend(workspaceId);
-  },
+      get().saveToBackend(workspaceId);
+      return newTab;
+    },
 
-  getPanes: (workspaceId, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
-    const state = get();
-    return (
-      state.workspacePanes[getScopeKey(workspaceId, terminalTabId)] ||
-      EMPTY_TERMINAL_TAB_PANES
-    );
-  },
+    createTerminalTabWithInitialPane: async (workspaceId, contextScope = "workspace", options) => {
+      const isProjectContext = contextScope === "project";
+      const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
 
-  /** Find pane ID by tmux window name. Returns null if not found. */
-  getPaneIdByTmuxWindowName: (workspaceId, tmuxWindowName, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
-    const panes = get().workspacePanes[getScopeKey(workspaceId, terminalTabId)] || {};
-    const entry = Object.entries(panes).find(([, p]) => p.tmuxWindowName === tmuxWindowName);
-    return entry ? entry[0] : null;
-  },
+      ensureWorkspaceContext(workspaceId, isProjectContext);
 
-  getLayout: (workspaceId, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
-    const state = get();
-    return state.workspaceLayouts[getScopeKey(workspaceId, terminalTabId)] || null;
-  },
-
-  getMaximizedTerminalId: (workspaceId, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
-    const state = get();
-    return state.workspaceMaximizedIds[getScopeKey(workspaceId, terminalTabId)] || null;
-  },
-
-  isWorkspaceReady: (workspaceId, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
-    const state = get();
-    const scopeKey = getScopeKey(workspaceId, terminalTabId);
-    const workspaceScopeKey = getTerminalWorkspaceScopeKey(
-      workspaceId,
-      state.workspaceContexts[workspaceId] ?? false,
-    );
-    return (
-      state.loadedWorkspaces.has(workspaceScopeKey) &&
-      state.hydratedTerminalScopes.has(scopeKey) &&
-      !state.initializingWorkspaces.has(workspaceScopeKey) &&
-      !state.initializingTerminalScopes.has(scopeKey)
-    );
-  },
-
-  setLayout: (workspaceId, layout, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
-    const scopeKey = getScopeKey(workspaceId, terminalTabId);
-    set((state) => ({
-      workspaceLayouts: {
-        ...state.workspaceLayouts,
-        [scopeKey]: layout,
-      },
-    }));
-    
-    // Clean up panes that are no longer in the layout
-    const currentPanes = get().workspacePanes[scopeKey] || {};
-    const leaves = layout ? getLeaves(layout) : [];
-    const leafSet = new Set(leaves);
-    
-    const nextPanes: Record<string, TerminalPaneProps> = {};
-    let changed = false;
-    
-    Object.keys(currentPanes).forEach(id => {
-      if (leafSet.has(id)) {
-        nextPanes[id] = currentPanes[id];
-      } else {
-        changed = true;
+      if (!get().loadedWorkspaces.has(workspaceScopeKey)) {
+        await get().loadFromBackend(workspaceId, isProjectContext, null);
       }
-    });
 
-    if (changed) {
+      if (
+        (get().workspaceContexts[workspaceId] ?? false) !== isProjectContext ||
+        !get().loadedWorkspaces.has(workspaceScopeKey)
+      ) {
+        return null;
+      }
+
+      const tab = get().createTerminalTab(workspaceId, { title: options?.title });
+      const panes = get().getPanes(workspaceId, tab.id);
+      const [paneId, pane] = Object.entries(panes)[0] ?? [];
+      if (!paneId || !pane) {
+        return null;
+      }
+
+      if (options?.paneLabel || options?.paneAgent) {
+        const scopeKey = getScopeKey(workspaceId, tab.id);
+        const allPanes = getAllDefaultPanesForWorkspace(get(), workspaceId);
+        const nextLabel = options.paneLabel
+          ? getUniqueAgentName(options.paneLabel, allPanes)
+          : pane.label;
+        const nextPane: TerminalPaneProps = {
+          ...pane,
+          label: nextLabel,
+          tmuxWindowName: pane.isNewPane ? nextLabel : pane.tmuxWindowName,
+          agent: options.paneAgent ?? pane.agent,
+        };
+
+        set((state) => ({
+          workspacePanes: {
+            ...state.workspacePanes,
+            [scopeKey]: {
+              ...state.workspacePanes[scopeKey],
+              [paneId]: nextPane,
+            },
+          },
+        }));
+        get().saveToBackend(workspaceId);
+
+        return { tab, paneId, pane: nextPane };
+      }
+
+      return { tab, paneId, pane };
+    },
+
+    closeTerminalTab: (workspaceId, terminalTabId) => {
+      const scopeKey = getScopeKey(workspaceId, terminalTabId);
+      set((state) => {
+        const nextTabs = getWorkspaceTerminalTabs(state, workspaceId).filter(
+          (tab) => tab.id !== terminalTabId,
+        );
+        const restPanes = { ...state.workspacePanes };
+        const restLayouts = { ...state.workspaceLayouts };
+        const restMaximized = { ...state.workspaceMaximizedIds };
+        const restActivePanes = { ...state.workspaceActivePaneIds };
+        const nextHydratedScopes = new Set(state.hydratedTerminalScopes);
+        const nextInitializingScopes = new Set(state.initializingTerminalScopes);
+        const restTmuxCache = { ...state.tmuxWindowsCache };
+        delete restPanes[scopeKey];
+        delete restLayouts[scopeKey];
+        delete restMaximized[scopeKey];
+        delete restActivePanes[scopeKey];
+        nextHydratedScopes.delete(scopeKey);
+        nextInitializingScopes.delete(scopeKey);
+        delete restTmuxCache[getTerminalWorkspaceScopeKey(workspaceId, false)];
+        delete restTmuxCache[getTerminalWorkspaceScopeKey(workspaceId, true)];
+
+        return {
+          workspaceTerminalTabs: {
+            ...state.workspaceTerminalTabs,
+            [workspaceId]: nextTabs,
+          },
+          workspaceActiveTerminalTabIds: {
+            ...state.workspaceActiveTerminalTabIds,
+            [workspaceId]: (() => {
+              const activeTabId = state.workspaceActiveTerminalTabIds[workspaceId];
+              if (
+                activeTabId &&
+                activeTabId !== terminalTabId &&
+                nextTabs.some((tab) => tab.id === activeTabId)
+              ) {
+                return activeTabId;
+              }
+              return nextTabs[0]?.id ?? "";
+            })(),
+          },
+          workspacePanes: restPanes,
+          workspaceLayouts: restLayouts,
+          workspaceMaximizedIds: restMaximized,
+          workspaceActivePaneIds: restActivePanes,
+          hydratedTerminalScopes: nextHydratedScopes,
+          initializingTerminalScopes: nextInitializingScopes,
+          tmuxWindowsCache: restTmuxCache,
+        };
+      });
+
+      get().saveToBackend(workspaceId);
+    },
+
+    getPanes: (workspaceId, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+      const state = get();
+      return (
+        state.workspacePanes[getScopeKey(workspaceId, terminalTabId)] || EMPTY_TERMINAL_TAB_PANES
+      );
+    },
+
+    /** Find pane ID by tmux window name. Returns null if not found. */
+    getPaneIdByTmuxWindowName: (
+      workspaceId,
+      tmuxWindowName,
+      terminalTabId = FIXED_TERMINAL_TAB_VALUE,
+    ) => {
+      const panes = get().workspacePanes[getScopeKey(workspaceId, terminalTabId)] || {};
+      const entry = Object.entries(panes).find(([, p]) => p.tmuxWindowName === tmuxWindowName);
+      return entry ? entry[0] : null;
+    },
+
+    getLayout: (workspaceId, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+      const state = get();
+      return state.workspaceLayouts[getScopeKey(workspaceId, terminalTabId)] || null;
+    },
+
+    getMaximizedTerminalId: (workspaceId, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+      const state = get();
+      return state.workspaceMaximizedIds[getScopeKey(workspaceId, terminalTabId)] || null;
+    },
+
+    isWorkspaceReady: (workspaceId, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+      const state = get();
+      const scopeKey = getScopeKey(workspaceId, terminalTabId);
+      const workspaceScopeKey = getTerminalWorkspaceScopeKey(
+        workspaceId,
+        state.workspaceContexts[workspaceId] ?? false,
+      );
+      return (
+        state.loadedWorkspaces.has(workspaceScopeKey) &&
+        state.hydratedTerminalScopes.has(scopeKey) &&
+        !state.initializingWorkspaces.has(workspaceScopeKey) &&
+        !state.initializingTerminalScopes.has(scopeKey)
+      );
+    },
+
+    setLayout: (workspaceId, layout, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+      const scopeKey = getScopeKey(workspaceId, terminalTabId);
+      set((state) => ({
+        workspaceLayouts: {
+          ...state.workspaceLayouts,
+          [scopeKey]: layout,
+        },
+      }));
+
+      // Clean up panes that are no longer in the layout
+      const currentPanes = get().workspacePanes[scopeKey] || {};
+      const leaves = layout ? getLeaves(layout) : [];
+      const leafSet = new Set(leaves);
+
+      const nextPanes: Record<string, TerminalPaneProps> = {};
+      let changed = false;
+
+      Object.keys(currentPanes).forEach((id) => {
+        if (leafSet.has(id)) {
+          nextPanes[id] = currentPanes[id];
+        } else {
+          changed = true;
+        }
+      });
+
+      if (changed) {
+        set((state) => ({
+          workspacePanes: {
+            ...state.workspacePanes,
+            [scopeKey]: nextPanes,
+          },
+        }));
+      }
+
+      // Debounced save to backend
+      get().saveToBackend(workspaceId);
+    },
+
+    primeWorkspace: (workspaceId, isProjectContext = false) => {
+      ensureWorkspaceContext(workspaceId, isProjectContext);
+
+      const state = get();
+      const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
+
+      if (state.loadedWorkspaces.has(workspaceScopeKey)) {
+        return;
+      }
+
+      if (state.initializingWorkspaces.has(workspaceScopeKey)) {
+        return;
+      }
+
+      set((state) => ({
+        initializingWorkspaces: new Set([...state.initializingWorkspaces, workspaceScopeKey]),
+      }));
+
+      void get().loadFromBackend(workspaceId, isProjectContext, null);
+    },
+
+    initWorkspace: (
+      workspaceId,
+      isProjectContext = false,
+      terminalTabId = FIXED_TERMINAL_TAB_VALUE,
+    ) => {
+      ensureWorkspaceContext(workspaceId, isProjectContext);
+
+      const state = get();
+      const scopeKey = getScopeKey(workspaceId, terminalTabId);
+      const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
+
+      if (
+        state.hydratedTerminalScopes.has(scopeKey) ||
+        state.initializingTerminalScopes.has(scopeKey)
+      ) {
+        return;
+      }
+
+      if (
+        !state.loadedWorkspaces.has(workspaceScopeKey) &&
+        !state.initializingWorkspaces.has(workspaceScopeKey)
+      ) {
+        set((currentState) => ({
+          initializingWorkspaces: new Set([
+            ...currentState.initializingWorkspaces,
+            workspaceScopeKey,
+          ]),
+          initializingTerminalScopes: new Set([
+            ...currentState.initializingTerminalScopes,
+            scopeKey,
+          ]),
+        }));
+        void get().loadFromBackend(workspaceId, isProjectContext, terminalTabId);
+        return;
+      }
+
+      set((currentState) => ({
+        initializingTerminalScopes: new Set([...currentState.initializingTerminalScopes, scopeKey]),
+      }));
+      void get().loadFromBackend(workspaceId, isProjectContext, terminalTabId);
+    },
+
+    evictWorkspaceRuntime: (workspaceId) => {
+      clearWorkspaceSaveTimeouts(workspaceId);
+
+      set((currentState) => evictTerminalWorkspaceRuntimeState(currentState, workspaceId));
+    },
+
+    detachWorkspaceFrontend: (workspaceId) => {
+      clearWorkspaceSaveTimeouts(workspaceId);
+
+      set((currentState) => ({
+        ...detachTerminalWorkspaceFrontendState(currentState, workspaceId),
+      }));
+    },
+
+    addTerminal: (workspaceId, label, terminalTabId = FIXED_TERMINAL_TAB_VALUE, agent) => {
+      const scopeKey = getScopeKey(workspaceId, terminalTabId);
+      const panes = get().workspacePanes[scopeKey] || {};
+      const layout = get().workspaceLayouts[scopeKey];
+      const allPanes = getAllDefaultPanesForWorkspace(get(), workspaceId);
+      const newId = uuidv4();
+      // For agent names (non-numeric), use unique suffix logic; otherwise use numeric names
+      const windowName = label ? getUniqueAgentName(label, allPanes) : getNextWindowName(allPanes);
+
+      const newPane = createTerminalPane(workspaceId, windowName, {
+        id: newId,
+        tmuxWindowName: windowName,
+        isNewPane: true,
+        agent,
+      });
+
+      const nextPanes = { ...panes, [newId]: newPane };
+
+      let nextLayout: TerminalLayoutNode<string>;
+      if (!layout) {
+        nextLayout = newId;
+      } else {
+        // Add to the end (top-level split)
+        nextLayout = {
+          direction: "row",
+          first: layout,
+          second: newId,
+        };
+      }
+
       set((state) => ({
         workspacePanes: {
           ...state.workspacePanes,
           [scopeKey]: nextPanes,
         },
+        workspaceLayouts: {
+          ...state.workspaceLayouts,
+          [scopeKey]: nextLayout,
+        },
       }));
-    }
 
-    // Debounced save to backend
-    get().saveToBackend(workspaceId);
-  },
+      get().saveToBackend(workspaceId);
+      return newId;
+    },
 
-  primeWorkspace: (workspaceId, isProjectContext = false) => {
-    ensureWorkspaceContext(workspaceId, isProjectContext);
+    removeTerminal: (workspaceId, id, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+      const scopeKey = getScopeKey(workspaceId, terminalTabId);
+      const layout = get().workspaceLayouts[scopeKey];
+      if (!layout) return;
 
-    const state = get();
-    const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
+      const updatedLayout = removePaneFromLayout(layout, id);
 
-    if (state.loadedWorkspaces.has(workspaceScopeKey)) {
-      return;
-    }
+      if (!updatedLayout) {
+        // If no terminals left, create a fresh one
+        const allPanes = getAllDefaultPanesForWorkspace(get(), workspaceId);
+        const currentPanes = get().workspacePanes[scopeKey] || {};
+        const remainingPanes = Object.fromEntries(
+          Object.entries(allPanes).filter(([paneId]) => !currentPanes[paneId]),
+        );
+        const { panes, layout: initialLayout } = createInitialLayout(workspaceId, remainingPanes);
+        set((state) => ({
+          workspacePanes: {
+            ...state.workspacePanes,
+            [scopeKey]: panes,
+          },
+          workspaceLayouts: {
+            ...state.workspaceLayouts,
+            [scopeKey]: initialLayout,
+          },
+        }));
+        get().saveToBackend(workspaceId);
+      } else {
+        get().setLayout(workspaceId, updatedLayout, terminalTabId);
+      }
+    },
 
-    if (state.initializingWorkspaces.has(workspaceScopeKey)) {
-      return;
-    }
-
-    set((state) => ({
-      initializingWorkspaces: new Set([...state.initializingWorkspaces, workspaceScopeKey]),
-    }));
-
-    void get().loadFromBackend(workspaceId, isProjectContext, null);
-  },
-
-  initWorkspace: (workspaceId, isProjectContext = false, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
-    ensureWorkspaceContext(workspaceId, isProjectContext);
-
-    const state = get();
-    const scopeKey = getScopeKey(workspaceId, terminalTabId);
-    const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
-
-    if (state.hydratedTerminalScopes.has(scopeKey) || state.initializingTerminalScopes.has(scopeKey)) {
-      return;
-    }
-
-    if (!state.loadedWorkspaces.has(workspaceScopeKey) && !state.initializingWorkspaces.has(workspaceScopeKey)) {
-      set((currentState) => ({
-        initializingWorkspaces: new Set([...currentState.initializingWorkspaces, workspaceScopeKey]),
-        initializingTerminalScopes: new Set([...currentState.initializingTerminalScopes, scopeKey]),
-      }));
-      void get().loadFromBackend(workspaceId, isProjectContext, terminalTabId);
-      return;
-    }
-
-    set((currentState) => ({
-      initializingTerminalScopes: new Set([...currentState.initializingTerminalScopes, scopeKey]),
-    }));
-    void get().loadFromBackend(workspaceId, isProjectContext, terminalTabId);
-  },
-
-  evictWorkspaceRuntime: (workspaceId) => {
-    clearWorkspaceSaveTimeouts(workspaceId);
-
-    set((currentState) => evictTerminalWorkspaceRuntimeState(currentState, workspaceId));
-  },
-
-  detachWorkspaceFrontend: (workspaceId) => {
-    clearWorkspaceSaveTimeouts(workspaceId);
-
-    set((currentState) => ({
-      ...detachTerminalWorkspaceFrontendState(currentState, workspaceId),
-    }));
-  },
-
-  addTerminal: (workspaceId, label, terminalTabId = FIXED_TERMINAL_TAB_VALUE, agent) => {
-    const scopeKey = getScopeKey(workspaceId, terminalTabId);
-    const panes = get().workspacePanes[scopeKey] || {};
-    const layout = get().workspaceLayouts[scopeKey];
-    const allPanes = getAllDefaultPanesForWorkspace(get(), workspaceId);
-    const newId = uuidv4();
-    // For agent names (non-numeric), use unique suffix logic; otherwise use numeric names
-    const windowName = label
-      ? getUniqueAgentName(label, allPanes)
-      : getNextWindowName(allPanes);
-
-    const newPane = createTerminalPane(workspaceId, windowName, {
-      id: newId,
-      tmuxWindowName: windowName,
-      isNewPane: true,
+    splitTerminal: (
+      workspaceId,
+      id,
+      direction,
+      terminalTabId = FIXED_TERMINAL_TAB_VALUE,
       agent,
-    });
-
-    const nextPanes = { ...panes, [newId]: newPane };
-
-    let nextLayout: TerminalLayoutNode<string>;
-    if (!layout) {
-      nextLayout = newId;
-    } else {
-      // Add to the end (top-level split)
-      nextLayout = {
-        direction: 'row',
-        first: layout,
-        second: newId,
-      };
-    }
-
-    set((state) => ({
-      workspacePanes: {
-        ...state.workspacePanes,
-        [scopeKey]: nextPanes,
-      },
-      workspaceLayouts: {
-        ...state.workspaceLayouts,
-        [scopeKey]: nextLayout,
-      },
-    }));
-
-    get().saveToBackend(workspaceId);
-    return newId;
-  },
-
-  removeTerminal: (workspaceId, id, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
-    const scopeKey = getScopeKey(workspaceId, terminalTabId);
-    const layout = get().workspaceLayouts[scopeKey];
-    if (!layout) return;
-
-    const updatedLayout = removePaneFromLayout(layout, id);
-    
-    if (!updatedLayout) {
-      // If no terminals left, create a fresh one
+    ) => {
+      const scopeKey = getScopeKey(workspaceId, terminalTabId);
+      const layout = get().workspaceLayouts[scopeKey];
+      const panes = get().workspacePanes[scopeKey] || {};
       const allPanes = getAllDefaultPanesForWorkspace(get(), workspaceId);
-      const currentPanes = get().workspacePanes[scopeKey] || {};
-      const remainingPanes = Object.fromEntries(
-        Object.entries(allPanes).filter(([paneId]) => !currentPanes[paneId])
-      );
-      const { panes, layout: initialLayout } = createInitialLayout(workspaceId, remainingPanes);
+      if (!layout) return null;
+
+      const newId = uuidv4();
+      const windowName = agent
+        ? getUniqueAgentName(agent.label, allPanes)
+        : getNextWindowName(allPanes);
+
+      const newPane = createTerminalPane(workspaceId, windowName, {
+        id: newId,
+        tmuxWindowName: windowName,
+        isNewPane: true,
+        agent,
+      });
+
+      const nextPanes = { ...panes, [newId]: newPane };
+
+      const nextLayout = splitPaneInLayout(layout, id, newId, direction);
+
       set((state) => ({
         workspacePanes: {
           ...state.workspacePanes,
-          [scopeKey]: panes,
+          [scopeKey]: nextPanes,
         },
         workspaceLayouts: {
           ...state.workspaceLayouts,
-          [scopeKey]: initialLayout,
+          [scopeKey]: nextLayout,
         },
       }));
+
       get().saveToBackend(workspaceId);
-    } else {
-      get().setLayout(workspaceId, updatedLayout, terminalTabId);
-    }
-  },
+      return newId;
+    },
 
-  splitTerminal: (workspaceId, id, direction, terminalTabId = FIXED_TERMINAL_TAB_VALUE, agent) => {
-    const scopeKey = getScopeKey(workspaceId, terminalTabId);
-    const layout = get().workspaceLayouts[scopeKey];
-    const panes = get().workspacePanes[scopeKey] || {};
-    const allPanes = getAllDefaultPanesForWorkspace(get(), workspaceId);
-    if (!layout) return null;
-
-    const newId = uuidv4();
-    const windowName = agent
-      ? getUniqueAgentName(agent.label, allPanes)
-      : getNextWindowName(allPanes);
-    
-    const newPane = createTerminalPane(workspaceId, windowName, {
-      id: newId,
-      tmuxWindowName: windowName,
-      isNewPane: true,
-      agent,
-    });
-
-    const nextPanes = { ...panes, [newId]: newPane };
-
-    const nextLayout = splitPaneInLayout(layout, id, newId, direction);
-    
-    set((state) => ({
-      workspacePanes: {
-        ...state.workspacePanes,
-        [scopeKey]: nextPanes,
-      },
-      workspaceLayouts: {
-        ...state.workspaceLayouts,
-        [scopeKey]: nextLayout,
-      },
-    }));
-
-    get().saveToBackend(workspaceId);
-    return newId;
-  },
-
-  setActivePaneId: (workspaceId, paneId, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
-    const scopeKey = getScopeKey(workspaceId, terminalTabId);
-    const current = get().workspaceActivePaneIds[scopeKey] ?? null;
-    if (current === paneId) return;
-    set((state) => ({
-      workspaceActivePaneIds: {
-        ...state.workspaceActivePaneIds,
-        [scopeKey]: paneId,
-      },
-    }));
-  },
-
-  toggleMaximize: (workspaceId: string, id: string, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
-    const scopeKey = getScopeKey(workspaceId, terminalTabId);
-    set((state) => {
-      const currentMaximizedId = state.workspaceMaximizedIds[scopeKey];
-      const newMaximizedId = currentMaximizedId === id ? null : id;
-
-      return {
-        workspaceMaximizedIds: {
-          ...state.workspaceMaximizedIds,
-          [scopeKey]: newMaximizedId,
+    setActivePaneId: (workspaceId, paneId, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+      const scopeKey = getScopeKey(workspaceId, terminalTabId);
+      const current = get().workspaceActivePaneIds[scopeKey] ?? null;
+      if (current === paneId) return;
+      set((state) => ({
+        workspaceActivePaneIds: {
+          ...state.workspaceActivePaneIds,
+          [scopeKey]: paneId,
         },
-      };
-    });
+      }));
+    },
 
-    get().saveToBackend(workspaceId);
-  },
+    toggleMaximize: (workspaceId: string, id: string, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+      const scopeKey = getScopeKey(workspaceId, terminalTabId);
+      set((state) => {
+        const currentMaximizedId = state.workspaceMaximizedIds[scopeKey];
+        const newMaximizedId = currentMaximizedId === id ? null : id;
 
-  fetchTmuxWindows: async (workspaceId, isProjectContext) => {
-    try {
-      const response = await systemApi.listTmuxWindows(hostIdFromCenterKey(workspaceId));
-      const windows = tmuxWindowsForPaintContext(
-        workspaceId,
-        response.windows || [],
-      );
-      const resolvedIsProjectContext = isProjectContext ?? get().workspaceContexts[workspaceId] ?? false;
-      const workspaceScopeKey = getTerminalWorkspaceScopeKey(
-        workspaceId,
-        resolvedIsProjectContext,
-      );
+        return {
+          workspaceMaximizedIds: {
+            ...state.workspaceMaximizedIds,
+            [scopeKey]: newMaximizedId,
+          },
+        };
+      });
 
-      if ((get().workspaceContexts[workspaceId] ?? false) !== resolvedIsProjectContext) {
+      get().saveToBackend(workspaceId);
+    },
+
+    fetchTmuxWindows: async (workspaceId, isProjectContext) => {
+      try {
+        const response = await systemApi.listTmuxWindows(hostIdFromCenterKey(workspaceId));
+        const windows = tmuxWindowsForPaintContext(workspaceId, response.windows || []);
+        const resolvedIsProjectContext =
+          isProjectContext ?? get().workspaceContexts[workspaceId] ?? false;
+        const workspaceScopeKey = getTerminalWorkspaceScopeKey(
+          workspaceId,
+          resolvedIsProjectContext,
+        );
+
+        if ((get().workspaceContexts[workspaceId] ?? false) !== resolvedIsProjectContext) {
+          return windows;
+        }
+
+        // Cache the windows
+        set((state) => ({
+          tmuxWindowsCache: {
+            ...state.tmuxWindowsCache,
+            [workspaceScopeKey]: windows,
+          },
+        }));
+
         return windows;
+      } catch (error) {
+        console.debug("Failed to fetch tmux windows:", error);
+        return [];
       }
-      
-      // Cache the windows
-      set((state) => ({
-        tmuxWindowsCache: {
-          ...state.tmuxWindowsCache,
-          [workspaceScopeKey]: windows,
-        },
-      }));
-      
-      return windows;
-    } catch (error) {
-      console.debug('Failed to fetch tmux windows:', error);
-      return [];
-    }
-  },
+    },
 
-  loadFromBackend: async (workspaceId, isProjectContext = false, terminalTabId = null) => {
-    if (typeof window === "undefined") return;
+    loadFromBackend: async (workspaceId, isProjectContext = false, terminalTabId = null) => {
+      if (typeof window === "undefined") return;
 
-    ensureWorkspaceContext(workspaceId, isProjectContext);
+      ensureWorkspaceContext(workspaceId, isProjectContext);
 
-    const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
-    const targetTabId = terminalTabId ?? null;
-    const targetScopeKey = targetTabId ? getScopeKey(workspaceId, targetTabId) : null;
-    const isCurrentContext = () => (get().workspaceContexts[workspaceId] ?? false) === isProjectContext;
+      const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
+      const targetTabId = terminalTabId ?? null;
+      const targetScopeKey = targetTabId ? getScopeKey(workspaceId, targetTabId) : null;
+      const isCurrentContext = () =>
+        (get().workspaceContexts[workspaceId] ?? false) === isProjectContext;
 
-    const clearWorkspaceInitializing = () => {
-      set((state) => ({
-        initializingWorkspaces: new Set(
-          [...state.initializingWorkspaces].filter((id) => id !== workspaceScopeKey),
-        ),
-      }));
-    };
+      const clearWorkspaceInitializing = () => {
+        set((state) => ({
+          initializingWorkspaces: new Set(
+            [...state.initializingWorkspaces].filter((id) => id !== workspaceScopeKey),
+          ),
+        }));
+      };
 
-    const clearScopeInitializing = () => {
-      if (!targetScopeKey) return;
-      set((state) => ({
-        initializingTerminalScopes: new Set(
-          [...state.initializingTerminalScopes].filter((id) => id !== targetScopeKey),
-        ),
-      }));
-    };
+      const clearScopeInitializing = () => {
+        if (!targetScopeKey) return;
+        set((state) => ({
+          initializingTerminalScopes: new Set(
+            [...state.initializingTerminalScopes].filter((id) => id !== targetScopeKey),
+          ),
+        }));
+      };
 
-    try {
-      let state = get();
+      try {
+        let state = get();
 
-      let persistedLayout = state.persistedTerminalLayouts[workspaceScopeKey] ?? null;
-      let existingWindows = state.tmuxWindowsCache[workspaceScopeKey] ?? [];
-      let loadedMetadataThisCall = false;
+        let persistedLayout = state.persistedTerminalLayouts[workspaceScopeKey] ?? null;
+        let existingWindows = state.tmuxWindowsCache[workspaceScopeKey] ?? [];
+        let loadedMetadataThisCall = false;
 
-      if (!state.loadedWorkspaces.has(workspaceScopeKey)) {
-        const fetchedWindows = await get().fetchTmuxWindows(workspaceId, isProjectContext);
+        if (!state.loadedWorkspaces.has(workspaceScopeKey)) {
+          const fetchedWindows = await get().fetchTmuxWindows(workspaceId, isProjectContext);
 
-        existingWindows = fetchedWindows;
-        if (!isCurrentContext()) {
-          clearScopeInitializing();
-          clearWorkspaceInitializing();
-          return;
+          existingWindows = fetchedWindows;
+          if (!isCurrentContext()) {
+            clearScopeInitializing();
+            clearWorkspaceInitializing();
+            return;
+          }
+
+          persistedLayout =
+            get().persistedTerminalLayouts[workspaceScopeKey] ??
+            get().persistedTerminalLayouts[
+              getTerminalWorkspaceScopeKey(workspaceId, !isProjectContext)
+            ] ??
+            persistedLayout;
+          const migrated = persistedLayout ? migrateTerminalLayoutDocument(persistedLayout) : null;
+          if (migrated) {
+            persistedLayout = migrated.layout;
+            const availableTabs = migrated.layout.tabs.map((tab) => ({
+              id: tab.id,
+              title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
+              closable: true,
+              customTitle: tab.customTitle,
+            }));
+            const activeTabId =
+              migrated.layout.activeTabId &&
+              availableTabs.some((tab) => tab.id === migrated.layout.activeTabId)
+                ? migrated.layout.activeTabId
+                : (availableTabs[0]?.id ?? "");
+
+            set((currentState) => ({
+              workspaceTerminalTabs: {
+                ...currentState.workspaceTerminalTabs,
+                [workspaceId]: availableTabs,
+              },
+              workspaceActiveTerminalTabIds: {
+                ...currentState.workspaceActiveTerminalTabIds,
+                [workspaceId]: activeTabId,
+              },
+              persistedTerminalLayouts: {
+                ...currentState.persistedTerminalLayouts,
+                [getTerminalWorkspaceScopeKey(workspaceId, false)]: migrated.layout,
+                [getTerminalWorkspaceScopeKey(workspaceId, true)]: migrated.layout,
+              },
+              loadedWorkspaces: new Set([...currentState.loadedWorkspaces, workspaceScopeKey]),
+              initializingWorkspaces: new Set(
+                [...currentState.initializingWorkspaces].filter((id) => id !== workspaceScopeKey),
+              ),
+              isHydrated: true,
+            }));
+            loadedMetadataThisCall = true;
+          }
+
+          if (!persistedLayout) {
+            const nextTabs = terminalTabsAfterUnpersistedHydrate(
+              getWorkspaceTerminalTabs(get(), workspaceId),
+              existingWindows.some((win) => !isAutomationTmuxWindowName(win.name)),
+            );
+            const nextActive =
+              get().workspaceActiveTerminalTabIds[workspaceId] || nextTabs[0]?.id || "";
+            set((currentState) => ({
+              workspaceTerminalTabs: {
+                ...currentState.workspaceTerminalTabs,
+                [workspaceId]: nextTabs,
+              },
+              workspaceActiveTerminalTabIds: {
+                ...currentState.workspaceActiveTerminalTabIds,
+                [workspaceId]: nextActive,
+              },
+              persistedTerminalLayouts: {
+                ...currentState.persistedTerminalLayouts,
+                [workspaceScopeKey]: null,
+              },
+              loadedWorkspaces: new Set([...currentState.loadedWorkspaces, workspaceScopeKey]),
+              initializingWorkspaces: new Set(
+                [...currentState.initializingWorkspaces].filter((id) => id !== workspaceScopeKey),
+              ),
+              isHydrated: true,
+            }));
+            loadedMetadataThisCall = true;
+          }
+        } else if (existingWindows.length === 0) {
+          existingWindows = await get().fetchTmuxWindows(workspaceId, isProjectContext);
+          if (!isCurrentContext()) {
+            clearScopeInitializing();
+            clearWorkspaceInitializing();
+            return;
+          }
         }
 
-        persistedLayout =
-          get().persistedTerminalLayouts[workspaceScopeKey] ??
-          get().persistedTerminalLayouts[getTerminalWorkspaceScopeKey(workspaceId, !isProjectContext)] ??
-          persistedLayout;
-        const migrated = persistedLayout
-          ? migrateTerminalLayoutDocument(persistedLayout)
-          : null;
-        if (migrated) {
-          persistedLayout = migrated.layout;
-          const availableTabs = migrated.layout.tabs.map((tab) => ({
-            id: tab.id,
-            title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
-            closable: true,
-            customTitle: tab.customTitle,
-          }));
-          const activeTabId =
-            migrated.layout.activeTabId && availableTabs.some((tab) => tab.id === migrated.layout.activeTabId)
-              ? migrated.layout.activeTabId
-              : availableTabs[0]?.id ?? "";
-
-          set((currentState) => ({
-            workspaceTerminalTabs: {
-              ...currentState.workspaceTerminalTabs,
-              [workspaceId]: availableTabs,
-            },
-            workspaceActiveTerminalTabIds: {
-              ...currentState.workspaceActiveTerminalTabIds,
-              [workspaceId]: activeTabId,
-            },
-            persistedTerminalLayouts: {
-              ...currentState.persistedTerminalLayouts,
-              [getTerminalWorkspaceScopeKey(workspaceId, false)]: migrated.layout,
-              [getTerminalWorkspaceScopeKey(workspaceId, true)]: migrated.layout,
-            },
-            loadedWorkspaces: new Set([...currentState.loadedWorkspaces, workspaceScopeKey]),
-            initializingWorkspaces: new Set(
-              [...currentState.initializingWorkspaces].filter((id) => id !== workspaceScopeKey),
-            ),
-            isHydrated: true,
-          }));
-          loadedMetadataThisCall = true;
+        for (const win of existingWindows) {
+          if (isAutomationTmuxWindowName(win.name)) {
+            get().ensureAutomationTerminalTab(workspaceId, {
+              windowName: win.name,
+              title: win.current_command ?? undefined,
+            });
+          }
         }
 
-        if (!persistedLayout) {
-          const nextTabs = terminalTabsAfterUnpersistedHydrate(
-            getWorkspaceTerminalTabs(get(), workspaceId),
-            existingWindows.some((win) => !isAutomationTmuxWindowName(win.name)),
-          );
-          const nextActive =
-            get().workspaceActiveTerminalTabIds[workspaceId] ||
-            nextTabs[0]?.id ||
-            "";
-          set((currentState) => ({
-            workspaceTerminalTabs: {
-              ...currentState.workspaceTerminalTabs,
-              [workspaceId]: nextTabs,
-            },
-            workspaceActiveTerminalTabIds: {
-              ...currentState.workspaceActiveTerminalTabIds,
-              [workspaceId]: nextActive,
-            },
-            persistedTerminalLayouts: {
-              ...currentState.persistedTerminalLayouts,
-              [workspaceScopeKey]: null,
-            },
-            loadedWorkspaces: new Set([...currentState.loadedWorkspaces, workspaceScopeKey]),
-            initializingWorkspaces: new Set(
-              [...currentState.initializingWorkspaces].filter((id) => id !== workspaceScopeKey),
-            ),
-            isHydrated: true,
-          }));
-          loadedMetadataThisCall = true;
-        }
-      } else if (existingWindows.length === 0) {
-        existingWindows = await get().fetchTmuxWindows(workspaceId, isProjectContext);
-        if (!isCurrentContext()) {
-          clearScopeInitializing();
-          clearWorkspaceInitializing();
-          return;
-        }
-      }
+        state = get();
+        persistedLayout = state.persistedTerminalLayouts[workspaceScopeKey] ?? persistedLayout;
 
-      for (const win of existingWindows) {
-        if (isAutomationTmuxWindowName(win.name)) {
-          get().ensureAutomationTerminalTab(workspaceId, {
-            windowName: win.name,
-            title: win.current_command ?? undefined,
-          });
-        }
-      }
-
-      state = get();
-      persistedLayout = state.persistedTerminalLayouts[workspaceScopeKey] ?? persistedLayout;
-
-      if (loadedMetadataThisCall) {
-        const tabsToHydrate =
-          persistedLayout?.tabs ??
-          getWorkspaceTerminalTabs(get(), workspaceId).map((tab) => ({ id: tab.id }));
-        if (tabsToHydrate.length > 0) {
-          setTimeout(() => {
-            const currentState = get();
-            if ((currentState.workspaceContexts[workspaceId] ?? false) !== isProjectContext) {
-              return;
-            }
-            for (const tab of tabsToHydrate) {
-              const scopeKey = getScopeKey(workspaceId, tab.id);
-              if (currentState.initializingTerminalScopes.has(scopeKey)) {
-                continue;
+        if (loadedMetadataThisCall) {
+          const tabsToHydrate =
+            persistedLayout?.tabs ??
+            getWorkspaceTerminalTabs(get(), workspaceId).map((tab) => ({ id: tab.id }));
+          if (tabsToHydrate.length > 0) {
+            setTimeout(() => {
+              const currentState = get();
+              if ((currentState.workspaceContexts[workspaceId] ?? false) !== isProjectContext) {
+                return;
               }
+              for (const tab of tabsToHydrate) {
+                const scopeKey = getScopeKey(workspaceId, tab.id);
+                if (currentState.initializingTerminalScopes.has(scopeKey)) {
+                  continue;
+                }
 
-              set((nextState) => ({
-                initializingTerminalScopes: new Set([
-                  ...nextState.initializingTerminalScopes,
-                  scopeKey,
-                ]),
-              }));
-              void get().loadFromBackend(workspaceId, isProjectContext, tab.id);
-            }
-          }, 0);
+                set((nextState) => ({
+                  initializingTerminalScopes: new Set([
+                    ...nextState.initializingTerminalScopes,
+                    scopeKey,
+                  ]),
+                }));
+                void get().loadFromBackend(workspaceId, isProjectContext, tab.id);
+              }
+            }, 0);
+          }
         }
-      }
 
-      if (!targetTabId) {
-        clearWorkspaceInitializing();
-        return;
-      }
-
-      if (state.hydratedTerminalScopes.has(targetScopeKey!)) {
-        const shouldRehydrateTerm =
-          targetTabId === FIXED_TERMINAL_TAB_VALUE &&
-          panesMissingTmuxWindows(
-            get().workspacePanes[targetScopeKey!],
-            existingWindows,
-            workspaceId,
-          );
-        if (!shouldRehydrateTerm) {
-          clearScopeInitializing();
+        if (!targetTabId) {
+          clearWorkspaceInitializing();
           return;
         }
-      }
 
-      const existingWindowNames = new Set(existingWindows.map((window) => window.name));
-
-      if (persistedLayout) {
-        const persistedTab = persistedLayout.tabs.find((tab) => tab.id === targetTabId);
-        const livePanesForScope = get().workspacePanes[targetScopeKey!] ?? null;
-        const hydratedTab = persistedTab
-          ? hydratePersistedTab(
+        if (state.hydratedTerminalScopes.has(targetScopeKey!)) {
+          const shouldRehydrateTerm =
+            targetTabId === FIXED_TERMINAL_TAB_VALUE &&
+            panesMissingTmuxWindows(
+              get().workspacePanes[targetScopeKey!],
+              existingWindows,
               workspaceId,
-              persistedTab,
-              existingWindowNames,
-              livePanesForScope,
-            )
-          : null;
+            );
+          if (!shouldRehydrateTerm) {
+            clearScopeInitializing();
+            return;
+          }
+        }
 
-        if (hydratedTab) {
+        const existingWindowNames = new Set(existingWindows.map((window) => window.name));
+
+        if (persistedLayout) {
+          const persistedTab = persistedLayout.tabs.find((tab) => tab.id === targetTabId);
+          const livePanesForScope = get().workspacePanes[targetScopeKey!] ?? null;
+          const hydratedTab = persistedTab
+            ? hydratePersistedTab(workspaceId, persistedTab, existingWindowNames, livePanesForScope)
+            : null;
+
+          if (hydratedTab) {
+            set((currentState) => ({
+              workspacePanes: {
+                ...currentState.workspacePanes,
+                [targetScopeKey!]: hydratedTab.panes,
+              },
+              workspaceLayouts: {
+                ...currentState.workspaceLayouts,
+                [targetScopeKey!]: hydratedTab.layout,
+              },
+              workspaceMaximizedIds: {
+                ...currentState.workspaceMaximizedIds,
+                [targetScopeKey!]: hydratedTab.maximizedTerminalId,
+              },
+              hydratedTerminalScopes: new Set([
+                ...currentState.hydratedTerminalScopes,
+                targetScopeKey!,
+              ]),
+              initializingTerminalScopes: new Set(
+                [...currentState.initializingTerminalScopes].filter((id) => id !== targetScopeKey),
+              ),
+            }));
+            return;
+          }
+        }
+
+        if (
+          targetTabId === FIXED_TERMINAL_TAB_VALUE &&
+          existingWindows.length > 0 &&
+          shouldHydrateFixedTabFromTmuxWindows(persistedLayout)
+        ) {
+          const tmuxLayout = createLayoutFromTmuxWindows(workspaceId, existingWindows);
+          if (!tmuxLayout) {
+            clearScopeInitializing();
+            return;
+          }
+
           set((currentState) => ({
             workspacePanes: {
               ...currentState.workspacePanes,
-              [targetScopeKey!]: hydratedTab.panes,
+              [targetScopeKey!]: tmuxLayout.panes,
             },
             workspaceLayouts: {
               ...currentState.workspaceLayouts,
-              [targetScopeKey!]: hydratedTab.layout,
+              [targetScopeKey!]: tmuxLayout.layout,
             },
             workspaceMaximizedIds: {
               ...currentState.workspaceMaximizedIds,
-              [targetScopeKey!]: hydratedTab.maximizedTerminalId,
+              [targetScopeKey!]: null,
             },
             hydratedTerminalScopes: new Set([
               ...currentState.hydratedTerminalScopes,
@@ -918,27 +977,21 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
           }));
           return;
         }
-      }
 
-      if (
-        targetTabId === FIXED_TERMINAL_TAB_VALUE &&
-        existingWindows.length > 0 &&
-        shouldHydrateFixedTabFromTmuxWindows(persistedLayout)
-      ) {
-        const tmuxLayout = createLayoutFromTmuxWindows(workspaceId, existingWindows);
-        if (!tmuxLayout) {
-          clearScopeInitializing();
-          return;
-        }
+        const allPanes = getAllDefaultPanesForWorkspace(get(), workspaceId);
+        const { panes: initialPanes, layout: initialLayout } = createInitialLayout(
+          workspaceId,
+          allPanes,
+        );
 
         set((currentState) => ({
           workspacePanes: {
             ...currentState.workspacePanes,
-            [targetScopeKey!]: tmuxLayout.panes,
+            [targetScopeKey!]: initialPanes,
           },
           workspaceLayouts: {
             ...currentState.workspaceLayouts,
-            [targetScopeKey!]: tmuxLayout.layout,
+            [targetScopeKey!]: initialLayout,
           },
           workspaceMaximizedIds: {
             ...currentState.workspaceMaximizedIds,
@@ -952,266 +1005,245 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
             [...currentState.initializingTerminalScopes].filter((id) => id !== targetScopeKey),
           ),
         }));
+      } catch (error) {
+        console.debug("Failed to load terminal layout from backend:", error);
+        clearScopeInitializing();
+        clearWorkspaceInitializing();
+      }
+    },
+
+    saveToBackend: (workspaceId, isProjectContextOverride) => {
+      if (typeof window === "undefined") return;
+      const state = get();
+      const isProjectContext =
+        isProjectContextOverride ?? state.workspaceContexts[workspaceId] ?? false;
+      const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
+      if (
+        !state.loadedWorkspaces.has(workspaceScopeKey) ||
+        state.initializingWorkspaces.has(workspaceScopeKey)
+      ) {
         return;
       }
-
-      const allPanes = getAllDefaultPanesForWorkspace(get(), workspaceId);
-      const { panes: initialPanes, layout: initialLayout } = createInitialLayout(workspaceId, allPanes);
-
-      set((currentState) => ({
-        workspacePanes: {
-          ...currentState.workspacePanes,
-          [targetScopeKey!]: initialPanes,
+      const payload = buildPersistedTerminalWorkspaceLayout(state, workspaceId);
+      if (!payload) return;
+      set((current) => ({
+        persistedTerminalLayouts: {
+          ...current.persistedTerminalLayouts,
+          [getTerminalWorkspaceScopeKey(workspaceId, false)]: payload,
+          [getTerminalWorkspaceScopeKey(workspaceId, true)]: payload,
         },
-        workspaceLayouts: {
-          ...currentState.workspaceLayouts,
-          [targetScopeKey!]: initialLayout,
-        },
-        workspaceMaximizedIds: {
-          ...currentState.workspaceMaximizedIds,
-          [targetScopeKey!]: null,
-        },
-        hydratedTerminalScopes: new Set([
-          ...currentState.hydratedTerminalScopes,
-          targetScopeKey!,
-        ]),
-        initializingTerminalScopes: new Set(
-          [...currentState.initializingTerminalScopes].filter((id) => id !== targetScopeKey),
-        ),
       }));
-    } catch (error) {
-      console.debug("Failed to load terminal layout from backend:", error);
-      clearScopeInitializing();
-      clearWorkspaceInitializing();
-    }
-  },
+      void import("@/app-shell/center-layout/center-layout-persist").then((mod) => {
+        mod.markCenterLayoutDirty();
+      });
+    },
 
-  saveToBackend: (workspaceId, isProjectContextOverride) => {
-    if (typeof window === "undefined") return;
-    const state = get();
-    const isProjectContext =
-      isProjectContextOverride ?? state.workspaceContexts[workspaceId] ?? false;
-    const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
-    if (
-      !state.loadedWorkspaces.has(workspaceScopeKey) ||
-      state.initializingWorkspaces.has(workspaceScopeKey)
-    ) {
-      return;
-    }
-    const payload = buildPersistedTerminalWorkspaceLayout(state, workspaceId);
-    if (!payload) return;
-    set((current) => ({
-      persistedTerminalLayouts: {
-        ...current.persistedTerminalLayouts,
-        [getTerminalWorkspaceScopeKey(workspaceId, false)]: payload,
-        [getTerminalWorkspaceScopeKey(workspaceId, true)]: payload,
-      },
-    }));
-    void import("@/app-shell/center-layout/center-layout-persist").then((mod) => {
-      mod.markCenterLayoutDirty();
-    });
-  },
-
-  setTmuxWindowName: (workspaceId, paneId, tmuxWindowName, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
-    const scopeKey = getScopeKey(workspaceId, terminalTabId);
-    const panes = get().workspacePanes[scopeKey];
-    if (!panes || !panes[paneId]) return;
-
-    const updatedPanes = {
-      ...panes,
-      [paneId]: {
-        ...panes[paneId],
-        // Keep tmux identifiers in sync with the actual window name.
-        // Do NOT touch `label` — it is the immutable user-visible display name.
-        tmuxWindowName,
-      },
-    };
-
-    set((state) => ({
-      workspacePanes: {
-        ...state.workspacePanes,
-        [scopeKey]: updatedPanes,
-      },
-    }));
-
-    get().saveToBackend(workspaceId);
-  },
-
-  markPaneAttached: (workspaceId, paneId, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
-    const scopeKey = getScopeKey(workspaceId, terminalTabId);
-    const panes = get().workspacePanes[scopeKey];
-    const pane = panes?.[paneId];
-    if (!pane || !pane.isNewPane) return;
-
-    set((state) => ({
-      workspacePanes: {
-        ...state.workspacePanes,
-        [scopeKey]: {
-          ...state.workspacePanes[scopeKey],
-          [paneId]: {
-            ...pane,
-            isNewPane: false,
-          },
-        },
-      },
-    }));
-
-    get().saveToBackend(workspaceId);
-  },
-
-  setDynamicTitle: (workspaceId, paneId, dynamicTitle, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
-    const scopeKey = getScopeKey(workspaceId, terminalTabId);
-    const panes = get().workspacePanes[scopeKey];
-    if (!panes || !panes[paneId]) return;
-
-    const next = normalizeStoredDynamicTitle(dynamicTitle);
-    // Reject tmux indexes (`1`) so they cannot clobber a stored cwd/command.
-    if (next === undefined) return;
-    if (panes[paneId].dynamicTitle === next) return;
-
-    set((state) => ({
-      workspacePanes: {
-        ...state.workspacePanes,
-        [scopeKey]: {
-          ...panes,
-          [paneId]: {
-            ...panes[paneId],
-            dynamicTitle: next,
-          },
-        },
-      },
-    }));
-    // localStorage only — title changes must not dirty the center layout document.
-    writeCachedDynamicTitle(
+    setTmuxWindowName: (
       workspaceId,
-      panes[paneId].tmuxWindowName || panes[paneId].label,
-      next,
-    );
-  },
+      paneId,
+      tmuxWindowName,
+      terminalTabId = FIXED_TERMINAL_TAB_VALUE,
+    ) => {
+      const scopeKey = getScopeKey(workspaceId, terminalTabId);
+      const panes = get().workspacePanes[scopeKey];
+      if (!panes || !panes[paneId]) return;
 
-  setOscTitle: (workspaceId, paneId, oscTitle, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
-    const scopeKey = getScopeKey(workspaceId, terminalTabId);
-    const panes = get().workspacePanes[scopeKey];
-    if (!panes || !panes[paneId]) return;
-
-    // Shell path/host/`ls` noise must not wipe a real agent session topic.
-    const next = nextOscTitleFromIncoming(panes[paneId].oscTitle, oscTitle);
-    if (panes[paneId].oscTitle === next) return;
-
-    set((state) => ({
-      workspacePanes: {
-        ...state.workspacePanes,
-        [scopeKey]: {
-          ...panes,
-          [paneId]: {
-            ...panes[paneId],
-            oscTitle: next,
-          },
+      const updatedPanes = {
+        ...panes,
+        [paneId]: {
+          ...panes[paneId],
+          // Keep tmux identifiers in sync with the actual window name.
+          // Do NOT touch `label` — it is the immutable user-visible display name.
+          tmuxWindowName,
         },
-      },
-    }));
-    // localStorage only — live OSC (spinners/activity) must not dirty the center layout document.
-    writeCachedOscTitle(
-      workspaceId,
-      panes[paneId].tmuxWindowName || panes[paneId].label,
-      next,
-    );
-  },
+      };
 
-  setPaneAgent: (workspaceId, paneId, agent, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
-    const scopeKey = getScopeKey(workspaceId, terminalTabId);
-    const panes = get().workspacePanes[scopeKey];
-    if (!panes || !panes[paneId]) return;
-    if (samePaneAgent(panes[paneId].agent, agent)) return;
-
-    set((state) => ({
-      workspacePanes: {
-        ...state.workspacePanes,
-        [scopeKey]: {
-          ...panes,
-          [paneId]: {
-            ...panes[paneId],
-            agent,
-          },
+      set((state) => ({
+        workspacePanes: {
+          ...state.workspacePanes,
+          [scopeKey]: updatedPanes,
         },
-      },
-    }));
-    get().saveToBackend(workspaceId);
-  },
+      }));
 
-  setTabCustomTitle: (workspaceId, terminalTabId, title) => {
-    const nextCustomTitle = normalizeCustomName(title);
-    const tabs = getWorkspaceTerminalTabs(get(), workspaceId);
-    const target = tabs.find((tab) => tab.id === terminalTabId);
-    if (!target) return;
-    if (target.customTitle === nextCustomTitle) return;
+      get().saveToBackend(workspaceId);
+    },
 
-    set((state) => ({
-      workspaceTerminalTabs: {
-        ...state.workspaceTerminalTabs,
-        [workspaceId]: getWorkspaceTerminalTabs(state, workspaceId).map((tab) =>
-          tab.id === terminalTabId ? { ...tab, customTitle: nextCustomTitle } : tab,
-        ),
-      },
-    }));
-    get().saveToBackend(workspaceId);
-  },
+    markPaneAttached: (workspaceId, paneId, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+      const scopeKey = getScopeKey(workspaceId, terminalTabId);
+      const panes = get().workspacePanes[scopeKey];
+      const pane = panes?.[paneId];
+      if (!pane || !pane.isNewPane) return;
 
-  setPaneCustomLabel: (workspaceId, paneId, label, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
-    const scopeKey = getScopeKey(workspaceId, terminalTabId);
-    const panes = get().workspacePanes[scopeKey];
-    if (!panes || !panes[paneId]) return;
-
-    const nextCustomLabel = normalizeCustomName(label);
-    if (panes[paneId].customLabel === nextCustomLabel) return;
-
-    set((state) => {
-      const currentPanes = state.workspacePanes[scopeKey] ?? panes;
-      return {
+      set((state) => ({
         workspacePanes: {
           ...state.workspacePanes,
           [scopeKey]: {
-            ...currentPanes,
+            ...state.workspacePanes[scopeKey],
             [paneId]: {
-              ...currentPanes[paneId],
-              customLabel: nextCustomLabel,
+              ...pane,
+              isNewPane: false,
             },
           },
         },
-      };
-    });
-    get().saveToBackend(workspaceId);
-  },
+      }));
 
-  setPaneTitleFlags: (workspaceId, paneId, flags, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
-    const scopeKey = getScopeKey(workspaceId, terminalTabId);
-    const panes = get().workspacePanes[scopeKey];
-    if (!panes || !panes[paneId]) return;
+      get().saveToBackend(workspaceId);
+    },
 
-    const current = panes[paneId];
-    const nextKeepAgentName = flags.keepAgentName ?? current.keepAgentName;
-    const nextKeepCwd = flags.keepCwd ?? current.keepCwd;
-    if (current.keepAgentName === nextKeepAgentName && current.keepCwd === nextKeepCwd) return;
+    setDynamicTitle: (
+      workspaceId,
+      paneId,
+      dynamicTitle,
+      terminalTabId = FIXED_TERMINAL_TAB_VALUE,
+    ) => {
+      const scopeKey = getScopeKey(workspaceId, terminalTabId);
+      const panes = get().workspacePanes[scopeKey];
+      if (!panes || !panes[paneId]) return;
 
-    set((state) => {
-      const currentPanes = state.workspacePanes[scopeKey] ?? panes;
-      return {
+      const next = normalizeStoredDynamicTitle(dynamicTitle);
+      // Reject tmux indexes (`1`) so they cannot clobber a stored cwd/command.
+      if (next === undefined) return;
+      if (panes[paneId].dynamicTitle === next) return;
+
+      set((state) => ({
         workspacePanes: {
           ...state.workspacePanes,
           [scopeKey]: {
-            ...currentPanes,
+            ...panes,
             [paneId]: {
-              ...currentPanes[paneId],
-              keepAgentName: nextKeepAgentName,
-              keepCwd: nextKeepCwd,
+              ...panes[paneId],
+              dynamicTitle: next,
             },
           },
         },
-      };
-    });
-    get().saveToBackend(workspaceId);
-  },
+      }));
+      // localStorage only — title changes must not dirty the center layout document.
+      writeCachedDynamicTitle(
+        workspaceId,
+        panes[paneId].tmuxWindowName || panes[paneId].label,
+        next,
+      );
+    },
 
-  ...createTerminalAuxiliaryActions(set, get),
-  });
+    setOscTitle: (workspaceId, paneId, oscTitle, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+      const scopeKey = getScopeKey(workspaceId, terminalTabId);
+      const panes = get().workspacePanes[scopeKey];
+      if (!panes || !panes[paneId]) return;
+
+      // Shell path/host/`ls` noise must not wipe a real agent session topic.
+      const next = nextOscTitleFromIncoming(panes[paneId].oscTitle, oscTitle);
+      if (panes[paneId].oscTitle === next) return;
+
+      set((state) => ({
+        workspacePanes: {
+          ...state.workspacePanes,
+          [scopeKey]: {
+            ...panes,
+            [paneId]: {
+              ...panes[paneId],
+              oscTitle: next,
+            },
+          },
+        },
+      }));
+      // localStorage only — live OSC (spinners/activity) must not dirty the center layout document.
+      writeCachedOscTitle(workspaceId, panes[paneId].tmuxWindowName || panes[paneId].label, next);
+    },
+
+    setPaneAgent: (workspaceId, paneId, agent, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+      const scopeKey = getScopeKey(workspaceId, terminalTabId);
+      const panes = get().workspacePanes[scopeKey];
+      if (!panes || !panes[paneId]) return;
+      if (samePaneAgent(panes[paneId].agent, agent)) return;
+
+      set((state) => ({
+        workspacePanes: {
+          ...state.workspacePanes,
+          [scopeKey]: {
+            ...panes,
+            [paneId]: {
+              ...panes[paneId],
+              agent,
+            },
+          },
+        },
+      }));
+      get().saveToBackend(workspaceId);
+    },
+
+    setTabCustomTitle: (workspaceId, terminalTabId, title) => {
+      const nextCustomTitle = normalizeCustomName(title);
+      const tabs = getWorkspaceTerminalTabs(get(), workspaceId);
+      const target = tabs.find((tab) => tab.id === terminalTabId);
+      if (!target) return;
+      if (target.customTitle === nextCustomTitle) return;
+
+      set((state) => ({
+        workspaceTerminalTabs: {
+          ...state.workspaceTerminalTabs,
+          [workspaceId]: getWorkspaceTerminalTabs(state, workspaceId).map((tab) =>
+            tab.id === terminalTabId ? { ...tab, customTitle: nextCustomTitle } : tab,
+          ),
+        },
+      }));
+      get().saveToBackend(workspaceId);
+    },
+
+    setPaneCustomLabel: (workspaceId, paneId, label, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+      const scopeKey = getScopeKey(workspaceId, terminalTabId);
+      const panes = get().workspacePanes[scopeKey];
+      if (!panes || !panes[paneId]) return;
+
+      const nextCustomLabel = normalizeCustomName(label);
+      if (panes[paneId].customLabel === nextCustomLabel) return;
+
+      set((state) => {
+        const currentPanes = state.workspacePanes[scopeKey] ?? panes;
+        return {
+          workspacePanes: {
+            ...state.workspacePanes,
+            [scopeKey]: {
+              ...currentPanes,
+              [paneId]: {
+                ...currentPanes[paneId],
+                customLabel: nextCustomLabel,
+              },
+            },
+          },
+        };
+      });
+      get().saveToBackend(workspaceId);
+    },
+
+    setPaneTitleFlags: (workspaceId, paneId, flags, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+      const scopeKey = getScopeKey(workspaceId, terminalTabId);
+      const panes = get().workspacePanes[scopeKey];
+      if (!panes || !panes[paneId]) return;
+
+      const current = panes[paneId];
+      const nextKeepAgentName = flags.keepAgentName ?? current.keepAgentName;
+      const nextKeepCwd = flags.keepCwd ?? current.keepCwd;
+      if (current.keepAgentName === nextKeepAgentName && current.keepCwd === nextKeepCwd) return;
+
+      set((state) => {
+        const currentPanes = state.workspacePanes[scopeKey] ?? panes;
+        return {
+          workspacePanes: {
+            ...state.workspacePanes,
+            [scopeKey]: {
+              ...currentPanes,
+              [paneId]: {
+                ...currentPanes[paneId],
+                keepAgentName: nextKeepAgentName,
+                keepCwd: nextKeepCwd,
+              },
+            },
+          },
+        };
+      });
+      get().saveToBackend(workspaceId);
+    },
+
+    ...createTerminalAuxiliaryActions(set, get),
+  };
 });

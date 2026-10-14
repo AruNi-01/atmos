@@ -15,61 +15,61 @@ Rust owns catalogs, create/boot/shutdown/delete parsing and service policy (no s
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S2, S3 |
-| M2 | S4, S5 |
-| M3 | S6, S7, S8 |
-| M4 | S9, S10, S11, S12, S32, S33 |
-| M5 | S13, S14 |
-| M6 | S15, S16, S17, S30, S31 |
-| M7 | S18, S19, S33 |
-| M8 | S20, S21, S22, S34 |
-| M9 | S23, S24 |
-| M10 | S25, S26 |
-| M11 | S27 |
-| M12 | S28 |
-| M13 | S7, S10, S16, S19, S21, S24 |
-| N1–N5 | deferred |
+| PRD item | Scenario IDs                |
+| -------- | --------------------------- |
+| M1       | S1, S2, S3                  |
+| M2       | S4, S5                      |
+| M3       | S6, S7, S8                  |
+| M4       | S9, S10, S11, S12, S32, S33 |
+| M5       | S13, S14                    |
+| M6       | S15, S16, S17, S30, S31     |
+| M7       | S18, S19, S33               |
+| M8       | S20, S21, S22, S34          |
+| M9       | S23, S24                    |
+| M10      | S25, S26                    |
+| M11      | S27                         |
+| M12      | S28                         |
+| M13      | S7, S10, S16, S19, S21, S24 |
+| N1–N5    | deferred                    |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Structural / script | `cargo test` / pin read / pack dry-run | pin JSON + UPSTREAM + ATMOS-PATCHES | vendor tree | version `0.1.48-atmos.1`; patches list loopback, no `--kill`, postMessage stop | planned |
-| S2 | Structural | grep / pack script test | `scripts/serve-sim/pack.sh` | pack source | `simcam` still omitted | planned |
-| S3 | Rust | `cargo test` | DevicePreview start iOS fake helper | fake 0.1.48 hooks | iframe url + claim; argv has `127.0.0.1`; no `--kill` | planned |
-| S4 | Bun | `bun test` | SimulatorPanel chrome | mocked claim | appearance control rendered; sentence case keys in en+zh | planned |
-| S5 | Bun | `bun test` | i18n | en.json / zh.json | zh translated; no ALL CAPS; no `npx` | planned |
-| S6 | Rust | `cargo test` | appearance_set iOS + Android fakes | live claim, booted | engine called with light/dark; uimode yes/no mapping | planned |
-| S7 | Rust | `cargo test` | appearance without claim | no DeviceClaim | `no_claim`; no simctl/adb | planned |
-| S8 | Rust | `cargo test` | appearance while Shutdown | claim, boot=Shutdown | `device_not_booted` | planned |
-| S9 | Rust | `cargo test` | camera_inject Android | claim android, wired, PNG < 32 MiB | atomic write to `<serial>-front.png`; placeholder not used | planned |
-| S10 | Rust | `cargo test` | camera_inject iOS | claim ios | `unsupported_on_platform`; no inject | planned |
-| S11 | Rust | `cargo test` | camera PNG too large / not png | 32 MiB+ or jpeg | processing error; no inject | planned |
-| S12 | Bun | `bun test` | camera control visibility | ios vs android claim | control absent on iOS; present on Android | planned |
-| S13 | Rust | `cargo test` | inventory lists + claim annotation | two devices, one claimed | `claimed_by_workspace` set; physical adb absent | planned |
-| S14 | Bun | `bun test` | relay gate | `connectionMode=relay` | no inventory actions; needs-this-Mac card | planned |
-| S15 | Rust | `cargo test` | create iOS + Android | catalog fixtures | new Shutdown device; no helper spawn; no auto-claim | planned |
-| S16 | Rust | `cargo test` | create missing runtime/image | empty catalog | `runtime_missing` or `system_image_missing`; no process | planned |
-| S17 | Rust | `cargo test` | create name collision | existing AVD name | suffix or typed exists error; no `--force` clobber | planned |
-| S18 | Rust | `cargo test` | boot unclaimed Shutdown | fake engine | engine boot called; no helper | planned |
-| S19 | Rust | `cargo test` | boot device claimed by B | A’s workspace | `device_already_claimed`; B still owner | planned |
-| S20 | Rust | `cargo test` | shutdown our claimed device | live helper pid | helper SIGTERM; claim gone; engine shutdown; no `--kill` | planned |
-| S21 | Rust | `cargo test` | shutdown B’s claimed device from A | B owns udid | `device_already_claimed`; B helper alive | planned |
-| S22 | Rust | `cargo test` | simulator_stop does not shutdown VM | live claim | helper gone; engine shutdown **not** called | planned |
-| S23 | Rust | `cargo test` | delete unclaimed (even Booted) | fake engine | shutdown then delete called | planned |
-| S24 | Rust | `cargo test` | delete foreign claim | B owns udid | `device_already_claimed`; no delete | planned |
-| S25 | Rust | `cargo test` | start Shutdown Android | shutdown AVD | seed feeds; qemu argv has imagefile + `-no-window`; helper `-s serial`; one qemu | planned |
-| S26 | Bun structural | `bun test` | preview still iframe | feature sources | live preview is `iframe`; one `simulator` tab | planned |
-| S27 | Structural | grep / bun | no catalog in helpers | vendor serve-sim/emu UI | create/boot dialogs not added to helper pages; WS names on Atmos contract | planned |
-| S28 | Rust / CLI | `cargo test` | CLI parse invoke | `apps/cli` simulator tests | create/boot/shutdown/delete/appearance/camera map to `simulator_*` | planned |
-| S29 | agent-browser | `agent-browser` | Simulator tab chrome | local web, no real VM ok | inventory + appearance visible; camera hidden without Android claim; no clipped chrome | planned |
-| S30 | Rust | `cargo test` | parse catalogs | simctl runtimes JSON; avdmanager list device; sdkmanager --list_installed | iOS types nested under runtime; Android profile quoted id; system-images; only | planned |
-| S31 | Rust | `cargo test` | avdmanager create argv | create android | argv contains `--device`; no `--force`; no missing-device hang | planned |
-| S32 | Rust | `cargo test` | camera unwired | hardware-qemu.ini without imagefile | `camera_unavailable`; file may still write but verb fails | planned |
-| S33 | Rust | `cargo test` | Android boot argv | boot_android | `-camera-front imagefile:` and `-camera-back imagefile:`; `-no-window`; `-gpu host`; even port 5554–5682 | planned |
-| S34 | Rust | `cargo test` | already booted / shutdown | simctl error text | boot/shutdown treated as success | planned |
+| Scenario | Level               | Expected tool                          | Target command / method             | Fixture / data                                                            | Signals                                                                                                  | Status  |
+| -------- | ------------------- | -------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------- |
+| S1       | Structural / script | `cargo test` / pin read / pack dry-run | pin JSON + UPSTREAM + ATMOS-PATCHES | vendor tree                                                               | version `0.1.48-atmos.1`; patches list loopback, no `--kill`, postMessage stop                           | planned |
+| S2       | Structural          | grep / pack script test                | `scripts/serve-sim/pack.sh`         | pack source                                                               | `simcam` still omitted                                                                                   | planned |
+| S3       | Rust                | `cargo test`                           | DevicePreview start iOS fake helper | fake 0.1.48 hooks                                                         | iframe url + claim; argv has `127.0.0.1`; no `--kill`                                                    | planned |
+| S4       | Bun                 | `bun test`                             | SimulatorPanel chrome               | mocked claim                                                              | appearance control rendered; sentence case keys in en+zh                                                 | planned |
+| S5       | Bun                 | `bun test`                             | i18n                                | en.json / zh.json                                                         | zh translated; no ALL CAPS; no `npx`                                                                     | planned |
+| S6       | Rust                | `cargo test`                           | appearance_set iOS + Android fakes  | live claim, booted                                                        | engine called with light/dark; uimode yes/no mapping                                                     | planned |
+| S7       | Rust                | `cargo test`                           | appearance without claim            | no DeviceClaim                                                            | `no_claim`; no simctl/adb                                                                                | planned |
+| S8       | Rust                | `cargo test`                           | appearance while Shutdown           | claim, boot=Shutdown                                                      | `device_not_booted`                                                                                      | planned |
+| S9       | Rust                | `cargo test`                           | camera_inject Android               | claim android, wired, PNG < 32 MiB                                        | atomic write to `<serial>-front.png`; placeholder not used                                               | planned |
+| S10      | Rust                | `cargo test`                           | camera_inject iOS                   | claim ios                                                                 | `unsupported_on_platform`; no inject                                                                     | planned |
+| S11      | Rust                | `cargo test`                           | camera PNG too large / not png      | 32 MiB+ or jpeg                                                           | processing error; no inject                                                                              | planned |
+| S12      | Bun                 | `bun test`                             | camera control visibility           | ios vs android claim                                                      | control absent on iOS; present on Android                                                                | planned |
+| S13      | Rust                | `cargo test`                           | inventory lists + claim annotation  | two devices, one claimed                                                  | `claimed_by_workspace` set; physical adb absent                                                          | planned |
+| S14      | Bun                 | `bun test`                             | relay gate                          | `connectionMode=relay`                                                    | no inventory actions; needs-this-Mac card                                                                | planned |
+| S15      | Rust                | `cargo test`                           | create iOS + Android                | catalog fixtures                                                          | new Shutdown device; no helper spawn; no auto-claim                                                      | planned |
+| S16      | Rust                | `cargo test`                           | create missing runtime/image        | empty catalog                                                             | `runtime_missing` or `system_image_missing`; no process                                                  | planned |
+| S17      | Rust                | `cargo test`                           | create name collision               | existing AVD name                                                         | suffix or typed exists error; no `--force` clobber                                                       | planned |
+| S18      | Rust                | `cargo test`                           | boot unclaimed Shutdown             | fake engine                                                               | engine boot called; no helper                                                                            | planned |
+| S19      | Rust                | `cargo test`                           | boot device claimed by B            | A’s workspace                                                             | `device_already_claimed`; B still owner                                                                  | planned |
+| S20      | Rust                | `cargo test`                           | shutdown our claimed device         | live helper pid                                                           | helper SIGTERM; claim gone; engine shutdown; no `--kill`                                                 | planned |
+| S21      | Rust                | `cargo test`                           | shutdown B’s claimed device from A  | B owns udid                                                               | `device_already_claimed`; B helper alive                                                                 | planned |
+| S22      | Rust                | `cargo test`                           | simulator_stop does not shutdown VM | live claim                                                                | helper gone; engine shutdown **not** called                                                              | planned |
+| S23      | Rust                | `cargo test`                           | delete unclaimed (even Booted)      | fake engine                                                               | shutdown then delete called                                                                              | planned |
+| S24      | Rust                | `cargo test`                           | delete foreign claim                | B owns udid                                                               | `device_already_claimed`; no delete                                                                      | planned |
+| S25      | Rust                | `cargo test`                           | start Shutdown Android              | shutdown AVD                                                              | seed feeds; qemu argv has imagefile + `-no-window`; helper `-s serial`; one qemu                         | planned |
+| S26      | Bun structural      | `bun test`                             | preview still iframe                | feature sources                                                           | live preview is `iframe`; one `simulator` tab                                                            | planned |
+| S27      | Structural          | grep / bun                             | no catalog in helpers               | vendor serve-sim/emu UI                                                   | create/boot dialogs not added to helper pages; WS names on Atmos contract                                | planned |
+| S28      | Rust / CLI          | `cargo test`                           | CLI parse invoke                    | `apps/cli` simulator tests                                                | create/boot/shutdown/delete/appearance/camera map to `simulator_*`                                       | planned |
+| S29      | agent-browser       | `agent-browser`                        | Simulator tab chrome                | local web, no real VM ok                                                  | inventory + appearance visible; camera hidden without Android claim; no clipped chrome                   | planned |
+| S30      | Rust                | `cargo test`                           | parse catalogs                      | simctl runtimes JSON; avdmanager list device; sdkmanager --list_installed | iOS types nested under runtime; Android profile quoted id; system-images; only                           | planned |
+| S31      | Rust                | `cargo test`                           | avdmanager create argv              | create android                                                            | argv contains `--device`; no `--force`; no missing-device hang                                           | planned |
+| S32      | Rust                | `cargo test`                           | camera unwired                      | hardware-qemu.ini without imagefile                                       | `camera_unavailable`; file may still write but verb fails                                                | planned |
+| S33      | Rust                | `cargo test`                           | Android boot argv                   | boot_android                                                              | `-camera-front imagefile:` and `-camera-back imagefile:`; `-no-window`; `-gpu host`; even port 5554–5682 | planned |
+| S34      | Rust                | `cargo test`                           | already booted / shutdown           | simctl error text                                                         | boot/shutdown treated as success                                                                         | planned |
 
 ## Scenarios
 

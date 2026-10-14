@@ -22,10 +22,7 @@ export function localModelListQueryOptions(
 }
 
 /** Invalidate local model list on local_model_state_changed events. */
-export function invalidateLocalModelQueries(
-  client: QueryClient,
-  scope: ComputerQueryScope,
-): void {
+export function invalidateLocalModelQueries(client: QueryClient, scope: ComputerQueryScope): void {
   void client.invalidateQueries({
     queryKey: queryKeys.computer.localModelList(scope),
     refetchType: "active",

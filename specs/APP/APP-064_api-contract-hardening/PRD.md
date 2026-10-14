@@ -110,12 +110,12 @@ flowchart LR
 
 ## Milestones
 
-| Phase | Content |
-|-------|---------|
-| **0** | Decision freeze: no oRPC, no api-sdk, planes unchanged; AGENTS note |
-| **1** | `WsContract` type + typed `request` overloads + tests; map v1 domains (M4–M7, M9 attachments/git diff) |
-| **2** | Web `wsRequest` + mobile wrappers use inference (M5, M8) |
-| **3** | `WsEvent` extract/check (M10) |
+| Phase | Content                                                                                                                 |
+| ----- | ----------------------------------------------------------------------------------------------------------------------- |
+| **0** | Decision freeze: no oRPC, no api-sdk, planes unchanged; AGENTS note                                                     |
+| **1** | `WsContract` type + typed `request` overloads + tests; map v1 domains (M4–M7, M9 attachments/git diff)                  |
+| **2** | Web `wsRequest` + mobile wrappers use inference (M5, M8)                                                                |
+| **3** | `WsEvent` extract/check (M10)                                                                                           |
 | **4** | N1 remaining action map + N2 event payloads (landed). N3 catalog derivation, N4 REST inventory, N5 ts-rs still deferred |
 
 Phase 1 is the shippable core. Phases 2–3 may land in the same change set if small.

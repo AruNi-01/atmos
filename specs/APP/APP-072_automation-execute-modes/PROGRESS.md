@@ -4,17 +4,17 @@ Lead kanban. Implementing agent writes feature code in serial waves.
 
 ## Waves
 
-| Wave | Owns | Status |
-|------|------|--------|
-| 0 | `TECH.md` / `TEST.md` / PRD locks | done |
-| 1 | infra migration + entities + repo | done |
-| 2 | core-service execute modes, runner, complete/paths/stale | done |
-| 3 | core-engine tmux metadata + terminal/chat origin fields | done |
-| 4 | apps/api WsAction + handlers + agent_chat cwd | done |
-| 5 | `@atmos/api-types` extract + contract | done |
-| 6 | CLI + `atmos-automation` skill + registry | done |
-| 7 | apps/web setup, sidebar, landing, chips, banner, i18n | done |
-| 8 | TEST.md scenarios → cargo/bun until green | done |
+| Wave | Owns                                                     | Status |
+| ---- | -------------------------------------------------------- | ------ |
+| 0    | `TECH.md` / `TEST.md` / PRD locks                        | done   |
+| 1    | infra migration + entities + repo                        | done   |
+| 2    | core-service execute modes, runner, complete/paths/stale | done   |
+| 3    | core-engine tmux metadata + terminal/chat origin fields  | done   |
+| 4    | apps/api WsAction + handlers + agent_chat cwd            | done   |
+| 5    | `@atmos/api-types` extract + contract                    | done   |
+| 6    | CLI + `atmos-automation` skill + registry                | done   |
+| 7    | apps/web setup, sidebar, landing, chips, banner, i18n    | done   |
+| 8    | TEST.md scenarios → cargo/bun until green                | done   |
 
 ## Notes
 

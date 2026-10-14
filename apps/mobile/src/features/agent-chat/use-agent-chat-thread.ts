@@ -41,14 +41,17 @@ export function useAgentChatThread(chatId: string) {
       const key = backfillKey(request);
       if (inflight.has(key)) return;
       inflight.add(key);
-      void wsActions.agentChatBackfill(client, {
-        chat_id: chatId,
-        parts: [{ part_id: request.partId, from_offset: request.fromOffset }],
-      }).catch(() => {
-        if (!cancelled) setError("Could not catch up this chat.");
-      }).finally(() => {
-        inflight.delete(key);
-      });
+      void wsActions
+        .agentChatBackfill(client, {
+          chat_id: chatId,
+          parts: [{ part_id: request.partId, from_offset: request.fromOffset }],
+        })
+        .catch(() => {
+          if (!cancelled) setError("Could not catch up this chat.");
+        })
+        .finally(() => {
+          inflight.delete(key);
+        });
     };
 
     const publish = (next: ReturnType<typeof applyChatEvent>) => {
@@ -104,7 +107,8 @@ export function useAgentChatThread(chatId: string) {
             after_sequence: after,
           });
         } catch (err) {
-          liveError = err instanceof Error && err.message ? err.message : "Could not subscribe to this chat.";
+          liveError =
+            err instanceof Error && err.message ? err.message : "Could not subscribe to this chat.";
         }
         if (cancelled) return;
         setError(liveError);
@@ -125,55 +129,68 @@ export function useAgentChatThread(chatId: string) {
     };
   }, [chatId, client, wsState]);
 
-  const send = useCallback(async (text: string, attachmentPaths?: string[]) => {
-    if (!client) throw new Error("Atmos mobile WebSocket is not connected");
-    try {
-      await wsActions.agentChatSend(client, {
-        chat_id: chatId,
-        text,
-        ...(attachmentPaths && attachmentPaths.length > 0 ? { attachment_paths: attachmentPaths } : {}),
-      });
-      setError(null);
-    } catch (err) {
-      setError(copy.sendFailed);
-      throw err;
-    }
-  }, [chatId, client]);
+  const send = useCallback(
+    async (text: string, attachmentPaths?: string[]) => {
+      if (!client) throw new Error("Atmos mobile WebSocket is not connected");
+      try {
+        await wsActions.agentChatSend(client, {
+          chat_id: chatId,
+          text,
+          ...(attachmentPaths && attachmentPaths.length > 0
+            ? { attachment_paths: attachmentPaths }
+            : {}),
+        });
+        setError(null);
+      } catch (err) {
+        setError(copy.sendFailed);
+        throw err;
+      }
+    },
+    [chatId, client],
+  );
 
-  const steer = useCallback(async (text: string) => {
-    if (!client) throw new Error("Atmos mobile WebSocket is not connected");
-    const turnId = transcriptRef.current.runningTurnId;
-    if (!turnId) {
-      setError(copy.sendFailed);
-      throw new Error("No running turn");
-    }
-    try {
-      await wsActions.agentChatSteer(client, {
-        chat_id: chatId,
-        expected_turn_id: turnId,
-        text,
-      });
-      setError(null);
-    } catch (err) {
-      setError(copy.sendFailed);
-      throw err;
-    }
-  }, [chatId, client]);
+  const steer = useCallback(
+    async (text: string) => {
+      if (!client) throw new Error("Atmos mobile WebSocket is not connected");
+      const turnId = transcriptRef.current.runningTurnId;
+      if (!turnId) {
+        setError(copy.sendFailed);
+        throw new Error("No running turn");
+      }
+      try {
+        await wsActions.agentChatSteer(client, {
+          chat_id: chatId,
+          expected_turn_id: turnId,
+          text,
+        });
+        setError(null);
+      } catch (err) {
+        setError(copy.sendFailed);
+        throw err;
+      }
+    },
+    [chatId, client],
+  );
 
-  const queueAdd = useCallback(async (text: string, attachmentPaths?: string[]) => {
-    if (!client) throw new Error("Atmos mobile WebSocket is not connected");
-    try {
-      await wsActions.agentChatQueueAdd(client, {
-        chat_id: chatId,
-        text,
-        ...(attachmentPaths && attachmentPaths.length > 0 ? { attachment_paths: attachmentPaths } : {}),
-      });
-      setError(null);
-    } catch (err) {
-      setError(copy.sendFailed);
-      throw err;
-    }
-  }, [chatId, client]);
+  const queueAdd = useCallback(
+    async (text: string, attachmentPaths?: string[]) => {
+      if (!client) throw new Error("Atmos mobile WebSocket is not connected");
+      try {
+        await wsActions.agentChatQueueAdd(client, {
+          chat_id: chatId,
+          text,
+          ...(attachmentPaths && attachmentPaths.length > 0
+            ? { attachment_paths: attachmentPaths }
+            : {}),
+        });
+        setError(null);
+      } catch (err) {
+        setError(copy.sendFailed);
+        throw err;
+      }
+    },
+    [chatId, client],
+  );
 
   const cancel = useCallback(async () => {
     if (!client) throw new Error("Atmos mobile WebSocket is not connected");
@@ -186,40 +203,42 @@ export function useAgentChatThread(chatId: string) {
     }
   }, [chatId, client]);
 
-  const respondPermission = useCallback(async (input: {
-    requestId: string;
-    optionId?: string | null;
-    allowed?: boolean | null;
-  }) => {
-    if (!client) throw new Error("Atmos mobile WebSocket is not connected");
-    try {
-      await wsActions.agentChatPermissionRespond(client, {
-        chat_id: chatId,
-        request_id: input.requestId,
-        option_id: input.optionId,
-        allowed: input.allowed,
-      });
-      setError(null);
-    } catch (err) {
-      setError(copy.sendFailed);
-      throw err;
-    }
-  }, [chatId, client]);
+  const respondPermission = useCallback(
+    async (input: { requestId: string; optionId?: string | null; allowed?: boolean | null }) => {
+      if (!client) throw new Error("Atmos mobile WebSocket is not connected");
+      try {
+        await wsActions.agentChatPermissionRespond(client, {
+          chat_id: chatId,
+          request_id: input.requestId,
+          option_id: input.optionId,
+          allowed: input.allowed,
+        });
+        setError(null);
+      } catch (err) {
+        setError(copy.sendFailed);
+        throw err;
+      }
+    },
+    [chatId, client],
+  );
 
-  const respondSessionOp = useCallback(async (input: { requestId: string; optionId: string }) => {
-    if (!client) throw new Error("Atmos mobile WebSocket is not connected");
-    try {
-      await wsActions.agentChatSessionOpRespond(client, {
-        chat_id: chatId,
-        request_id: input.requestId,
-        option_id: input.optionId,
-      });
-      setError(null);
-    } catch (err) {
-      setError(copy.sendFailed);
-      throw err;
-    }
-  }, [chatId, client]);
+  const respondSessionOp = useCallback(
+    async (input: { requestId: string; optionId: string }) => {
+      if (!client) throw new Error("Atmos mobile WebSocket is not connected");
+      try {
+        await wsActions.agentChatSessionOpRespond(client, {
+          chat_id: chatId,
+          request_id: input.requestId,
+          option_id: input.optionId,
+        });
+        setError(null);
+      } catch (err) {
+        setError(copy.sendFailed);
+        throw err;
+      }
+    },
+    [chatId, client],
+  );
 
   return {
     messages: transcript.messages,

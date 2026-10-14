@@ -20,9 +20,7 @@ interface ReviewReportMetadataCardProps {
  * revision / skill identifiers and a single action to reopen the originating session
  * in the Review center tab (by setting `tab`, `reviewSession`, `reviewRevision`).
  */
-export const ReviewReportMetadataCard: React.FC<ReviewReportMetadataCardProps> = ({
-  metadata,
-}) => {
+export const ReviewReportMetadataCard: React.FC<ReviewReportMetadataCardProps> = ({ metadata }) => {
   const t = useTranslations("codeReview.reviewReportMetadataCard");
   const { openToolTab } = useOpenToolCenterTab();
   const navigationInterceptor = useAppNavigationInterceptor();
@@ -62,7 +60,7 @@ export const ReviewReportMetadataCard: React.FC<ReviewReportMetadataCardProps> =
   return (
     <div className="mb-6 rounded-lg border border-border/60 bg-muted/40 px-4 py-3 shadow-sm">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-2.5 min-w-0">
+        <div className="flex min-w-0 items-start gap-2.5">
           <div className="mt-0.5 shrink-0 rounded-md bg-primary/10 p-1.5 text-primary">
             <ClipboardCheck className="size-4" />
           </div>
@@ -120,13 +118,10 @@ interface MetadataRowProps {
 
 function MetadataRow({ label, value, suffix, icon }: MetadataRowProps) {
   return (
-    <div className="flex items-center gap-1.5 min-w-0">
+    <div className="flex min-w-0 items-center gap-1.5">
       <span className="w-16 shrink-0 text-muted-foreground/70">{label}</span>
       {icon ? <span className="shrink-0 text-muted-foreground/70">{icon}</span> : null}
-      <code
-        className="truncate font-mono text-[10.5px] text-foreground/80"
-        title={value}
-      >
+      <code className="truncate font-mono text-[10.5px] text-foreground/80" title={value}>
         {shortGuid(value)}
       </code>
       {suffix ? (

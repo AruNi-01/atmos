@@ -14,7 +14,10 @@ import {
   getTerminalShortcutInput,
   type TerminalShortcut,
 } from "@/features/terminal/terminal-shortcuts";
-import type { TerminalInsertHandler, TerminalKeyboardHandler } from "@/features/terminal/terminal-keyboard";
+import type {
+  TerminalInsertHandler,
+  TerminalKeyboardHandler,
+} from "@/features/terminal/terminal-keyboard";
 import { useTerminalCandidates } from "@/features/terminal/use-terminal-candidates";
 import { useTerminalConnection } from "@/features/terminal/use-terminal-connection";
 import { useMobileWs } from "@/providers/MobileWsProvider";
@@ -30,7 +33,10 @@ export type TerminalWorkspaceChoice = {
   name: string;
 };
 
-export type { TerminalInsertHandler, TerminalKeyboardHandler } from "@/features/terminal/terminal-keyboard";
+export type {
+  TerminalInsertHandler,
+  TerminalKeyboardHandler,
+} from "@/features/terminal/terminal-keyboard";
 export type TerminalShortcutHandler = (shortcut: TerminalShortcut) => void;
 export type TerminalHeaderActions = {
   createTerminal: () => void;
@@ -63,7 +69,9 @@ export function TerminalScreen({
   const theme = useMobileTheme();
   const router = useRouter();
   const { client: appWsClient, state: appWsState } = useMobileWs();
-  const entries = useTerminalStore((state) => state.entriesByWorkspaceId[workspaceId] ?? EMPTY_TERMINAL_ENTRIES);
+  const entries = useTerminalStore(
+    (state) => state.entriesByWorkspaceId[workspaceId] ?? EMPTY_TERMINAL_ENTRIES,
+  );
   const activeEntryId = useTerminalStore((state) => state.activeEntryIdByWorkspaceId[workspaceId]);
   const setEntries = useTerminalStore((state) => state.setEntries);
   const addEntry = useTerminalStore((state) => state.addEntry);
@@ -92,7 +100,7 @@ export function TerminalScreen({
 
   const activeEntry = resolveActiveTerminalEntry(ensuredEntries, activeEntryId);
   const activeEntryIdForTitle = activeEntry?.id;
-  const activeSessionId = activeEntry ? activeEntry.sessionId ?? activeEntry.id : null;
+  const activeSessionId = activeEntry ? (activeEntry.sessionId ?? activeEntry.id) : null;
   const activeDisplayMeta = activeEntry
     ? resolveMobileTerminalHeading({
         baseTitle: activeEntry.label,
@@ -147,14 +155,17 @@ export function TerminalScreen({
     return () => onHeaderActionsChange?.(null);
   }, [createTerminalEntry, onHeaderActionsChange]);
 
-  const controlSystemKeyboard = useCallback((action: "blur-terminal" | "dismiss" | "focus-terminal") => {
-    if (action === "focus-terminal") {
-      webViewRef.current?.focus();
-      return;
-    }
-    webViewRef.current?.blur();
-    if (action === "dismiss") Keyboard.dismiss();
-  }, []);
+  const controlSystemKeyboard = useCallback(
+    (action: "blur-terminal" | "dismiss" | "focus-terminal") => {
+      if (action === "focus-terminal") {
+        webViewRef.current?.focus();
+        return;
+      }
+      webViewRef.current?.blur();
+      if (action === "dismiss") Keyboard.dismiss();
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!onKeyboardHandlerChange) return undefined;
@@ -265,7 +276,9 @@ export function TerminalScreen({
           ]}
         >
           <Text selectable style={[styles.noticeText, { color: theme.colors.secondaryLabel }]}>
-            {candidates.error instanceof Error ? candidates.error.message : "Could not load this terminal."}
+            {candidates.error instanceof Error
+              ? candidates.error.message
+              : "Could not load this terminal."}
           </Text>
         </View>
       ) : null}
@@ -304,7 +317,12 @@ export function TerminalScreen({
           {showBootOverlay ? (
             <View style={[styles.bootOverlay, { backgroundColor: theme.colors.terminalBg }]}>
               {bootFailed ? null : <ActivityIndicator color={theme.colors.terminalFg} />}
-              <Text style={[styles.bootLabel, { color: bootFailed ? theme.colors.red : theme.colors.terminalMuted }]}>
+              <Text
+                style={[
+                  styles.bootLabel,
+                  { color: bootFailed ? theme.colors.red : theme.colors.terminalMuted },
+                ]}
+              >
                 {bootLabel}
               </Text>
             </View>

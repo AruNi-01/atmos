@@ -116,12 +116,12 @@ Write notes with same-base continuity (`Changes Since Beta.N`) per `release-note
 
 GitHub → Actions → **Desktop Electron CI & Release** → Run workflow:
 
-| Input | Value |
-|-------|--------|
-| `ref` | branch or SHA to test |
-| `platform` | `all` or a single runner |
-| `create_release` | **false** |
-| `prerelease` | omit (unused when not creating a release) |
+| Input            | Value                                     |
+| ---------------- | ----------------------------------------- |
+| `ref`            | branch or SHA to test                     |
+| `platform`       | `all` or a single runner                  |
+| `create_release` | **false**                                 |
+| `prerelease`     | omit (unused when not creating a release) |
 
 Or CLI (adjust inputs to match the workflow schema):
 
@@ -182,11 +182,11 @@ gh run view "$RUN_ID" --log-failed | tail -n 200
 
 ## Final rule
 
-| Goal | Action |
-|------|--------|
-| Same bits, flaky CI | Re-run failed jobs |
-| Same version, fixed code, safe prerelease | Same-version retag |
-| Already shipped / stable / users depend on it | New version |
-| Unknown packaging risk | Validate with `create_release=false` first |
+| Goal                                          | Action                                     |
+| --------------------------------------------- | ------------------------------------------ |
+| Same bits, flaky CI                           | Re-run failed jobs                         |
+| Same version, fixed code, safe prerelease     | Same-version retag                         |
+| Already shipped / stable / users depend on it | New version                                |
+| Unknown packaging risk                        | Validate with `create_release=false` first |
 
 Do not treat “CI failed” as automatic permission to mint `beta.N+1`.

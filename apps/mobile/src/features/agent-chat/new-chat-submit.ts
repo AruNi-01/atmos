@@ -15,9 +15,7 @@ export type MobileChatDraft = {
   hasAttachments?: boolean;
 };
 
-export type NewChatPlan =
-  | { create: AgentChatCreateRequest; sendText: string }
-  | { error: string };
+export type NewChatPlan = { create: AgentChatCreateRequest; sendText: string } | { error: string };
 
 function optionalField(value: string | null): string | undefined {
   const trimmed = value?.trim() ?? "";

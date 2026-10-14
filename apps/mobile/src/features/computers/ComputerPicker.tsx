@@ -81,9 +81,7 @@ function ComputerListItem({
           </Text>
         </View>
       </View>
-      {selected ? (
-        <CheckIcon color={theme.colors.label} size={18} strokeWidth={2.6} />
-      ) : null}
+      {selected ? <CheckIcon color={theme.colors.label} size={18} strokeWidth={2.6} /> : null}
       {onManage ? (
         <Pressable
           accessibilityLabel="Rename or revoke"

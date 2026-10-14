@@ -20,25 +20,18 @@ import { basename, join, resolve, sep } from "node:path";
 import { homedir } from "node:os";
 import type { Debugger, DownloadItem, WebContents } from "electron";
 import type { BrowserSurfaceManager } from "./surface-manager.js";
-import {
-  mapGuestRectToScreen,
-  showEmbeddedBrowserChrome,
-} from "./browser-use-chrome.js";
+import { mapGuestRectToScreen, showEmbeddedBrowserChrome } from "./browser-use-chrome.js";
 import { systemDownloadsDir } from "./system-downloads.js";
 
 // Re-export chrome helpers for existing callers.
 export { mapGuestRectToScreen, showEmbeddedBrowserChrome } from "./browser-use-chrome.js";
 
 const CONTROL_DIR = () =>
-  process.env.ATMOS_BROWSER_USE_HOME?.trim() ||
-  join(homedir(), ".atmos", "data", "browser-use");
+  process.env.ATMOS_BROWSER_USE_HOME?.trim() || join(homedir(), ".atmos", "data", "browser-use");
 
 function readBrowserAgentChromeEnabled(): boolean {
   try {
-    const raw = readFileSync(
-      join(homedir(), ".atmos", "config", "function_settings.json"),
-      "utf8",
-    );
+    const raw = readFileSync(join(homedir(), ".atmos", "config", "function_settings.json"), "utf8");
     const parsed = JSON.parse(raw) as {
       browser?: { show_agent_chrome?: boolean };
     };
@@ -104,11 +97,7 @@ function isExactLoopbackHost(hostHeader: string | undefined): boolean {
   const raw = hostHeader.trim().toLowerCase();
   try {
     const url = new URL(raw.includes("://") ? raw : `http://${raw}`);
-    return (
-      url.hostname === "127.0.0.1" ||
-      url.hostname === "localhost" ||
-      url.hostname === "[::1]"
-    );
+    return url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "[::1]";
   } catch {
     return false;
   }
@@ -119,9 +108,7 @@ function isLoopbackOrigin(origin: string | undefined): boolean {
   try {
     const url = new URL(origin);
     return (
-      (url.hostname === "127.0.0.1" ||
-        url.hostname === "localhost" ||
-        url.hostname === "[::1]") &&
+      (url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "[::1]") &&
       (url.protocol === "http:" || url.protocol === "https:")
     );
   } catch {
@@ -177,10 +164,7 @@ export class BrowserUseControlPlane {
   /** Per-target FIFO so concurrent agent calls cannot interleave CDP. */
   private readonly queues = new Map<string, Promise<unknown>>();
   /** Only intercept will-download while an agent download is armed. */
-  private readonly armedDownloads = new Map<
-    string,
-    { dir: string; deadline: number }
-  >();
+  private readonly armedDownloads = new Map<string, { dir: string; deadline: number }>();
   /** User pick / annotate payloads from the renderer (not clipboard). */
   private readonly userPicks = new Map<string, BrowserUseUserPick[]>();
   private readonly pendingAgentTabs = new Map<
@@ -227,9 +211,7 @@ export class BrowserUseControlPlane {
       if (addr && typeof addr === "object") {
         this.port = addr.port;
         this.writeMeta();
-        console.log(
-          `[browser-use] control plane http://127.0.0.1:${this.port}`,
-        );
+        console.log(`[browser-use] control plane http://127.0.0.1:${this.port}`);
       }
     });
     this.server = server;
@@ -420,8 +402,7 @@ export class BrowserUseControlPlane {
         resolve({
           requestId,
           ok: false,
-          error:
-            "renderer did not handle the tab command (open a Browser tab in Desktop first)",
+          error: "renderer did not handle the tab command (open a Browser tab in Desktop first)",
           error_code: "embedded_browser_host_unavailable",
         });
       }, AGENT_TAB_TIMEOUT_MS);
@@ -548,8 +529,7 @@ export class BrowserUseControlPlane {
     if (!guest) return null;
     const expected = opts?.expectedUrl?.trim() ?? "";
     const requireNonBlank =
-      opts?.requireNonBlank === true ||
-      (Boolean(expected) && !this.isBlankGuestUrl(expected));
+      opts?.requireNonBlank === true || (Boolean(expected) && !this.isBlankGuestUrl(expected));
     if (!requireNonBlank) return guest;
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
@@ -569,10 +549,7 @@ export class BrowserUseControlPlane {
     }
   }
 
-  private async snapshot(
-    sessionId: string,
-    query?: string,
-  ): Promise<SessionCache> {
+  private async snapshot(sessionId: string, query?: string): Promise<SessionCache> {
     const guest = this.guestFor(sessionId);
     if (!guest) {
       const err = new Error(
@@ -714,9 +691,7 @@ export class BrowserUseControlPlane {
         /* optional */
       }
     }
-    const screenshot = includeScreenshot
-      ? await this.captureScreenshot(targetId)
-      : null;
+    const screenshot = includeScreenshot ? await this.captureScreenshot(targetId) : null;
     const userPicks = snap.elements.filter((el) => el.source);
     this.send(res, 200, {
       ok: true,
@@ -745,11 +720,7 @@ export class BrowserUseControlPlane {
   }
 
   /** Guest-local cursor overlay (no focus steal) plus optional host chrome. */
-  private showChromeForRef(
-    sessionId: string,
-    el: SnapshotEl,
-    status: string,
-  ): void {
+  private showChromeForRef(sessionId: string, el: SnapshotEl, status: string): void {
     if (!readBrowserAgentChromeEnabled()) return;
     this.markActivity(sessionId, status);
     const guest = this.guestFor(sessionId);
@@ -818,8 +789,7 @@ export class BrowserUseControlPlane {
       }
       return await fn(dbg);
     } finally {
-      const hold =
-        sessionId != null && this.dialogCdpSessions.has(sessionId);
+      const hold = sessionId != null && this.dialogCdpSessions.has(sessionId);
       if (attachedHere && !hold) {
         try {
           dbg.detach();
@@ -838,16 +808,11 @@ export class BrowserUseControlPlane {
     status: string,
   ): Promise<{ x: number; y: number; ref: string | null }> {
     const hasXy =
-      typeof x === "number" &&
-      typeof y === "number" &&
-      Number.isFinite(x) &&
-      Number.isFinite(y);
+      typeof x === "number" && typeof y === "number" && Number.isFinite(x) && Number.isFinite(y);
     if (ref && String(ref).trim()) {
       const cache = this.snapshots.get(sessionId);
       if (!cache) {
-        throw new Error(
-          `unknown ref ${ref}; run state snapshot first (refs are snapshot-scoped)`,
-        );
+        throw new Error(`unknown ref ${ref}; run state snapshot first (refs are snapshot-scoped)`);
       }
       const el = cache.elements.find((e) => e.ref === ref);
       if (!el) {
@@ -1069,10 +1034,7 @@ export class BrowserUseControlPlane {
    * Keep a long-lived CDP attach so Page.javascriptDialogOpening can be observed.
    * Accept/dismiss uses the same attach via Page.handleJavaScriptDialog.
    */
-  private async armDialogListener(
-    sessionId: string,
-    guest: WebContents,
-  ): Promise<void> {
+  private async armDialogListener(sessionId: string, guest: WebContents): Promise<void> {
     if (this.dialogCdpSessions.has(sessionId) && guest.debugger.isAttached()) {
       return;
     }
@@ -1080,11 +1042,7 @@ export class BrowserUseControlPlane {
     if (!dbg.isAttached()) {
       dbg.attach("1.3");
     }
-    const onMessage = (
-      _event: unknown,
-      method: string,
-      params: unknown,
-    ) => {
+    const onMessage = (_event: unknown, method: string, params: unknown) => {
       if (method !== "Page.javascriptDialogOpening") return;
       const p = params as {
         type?: string;
@@ -1113,21 +1071,12 @@ export class BrowserUseControlPlane {
     const guest = this.guestFor(sessionId);
     if (!guest) throw new Error(`no guest for ${sessionId}`);
     const action = String(body.action || "").trim();
-    const ref =
-      typeof body.ref === "string" && body.ref.trim() ? body.ref.trim() : null;
+    const ref = typeof body.ref === "string" && body.ref.trim() ? body.ref.trim() : null;
     const x = typeof body.x === "number" ? body.x : null;
     const y = typeof body.y === "number" ? body.y : null;
-    const allowed = new Set([
-      "hover",
-      "right_click",
-      "double_click",
-      "scroll",
-      "drag",
-    ]);
+    const allowed = new Set(["hover", "right_click", "double_click", "scroll", "drag"]);
     if (!allowed.has(action)) {
-      throw new Error(
-        "pointer action must be hover|right_click|double_click|scroll|drag",
-      );
+      throw new Error("pointer action must be hover|right_click|double_click|scroll|drag");
     }
 
     if (action === "scroll") {
@@ -1157,13 +1106,7 @@ export class BrowserUseControlPlane {
     }
 
     if (action === "drag") {
-      const from = await this.resolvePoint(
-        sessionId,
-        ref,
-        x,
-        y,
-        "Dragging page",
-      );
+      const from = await this.resolvePoint(sessionId, ref, x, y, "Dragging page");
       let toX = typeof body.to_x === "number" ? body.to_x : null;
       let toY = typeof body.to_y === "number" ? body.to_y : null;
       const destRef =
@@ -1171,13 +1114,7 @@ export class BrowserUseControlPlane {
           ? body.destination_ref.trim()
           : null;
       if (destRef) {
-        const dest = await this.resolvePoint(
-          sessionId,
-          destRef,
-          null,
-          null,
-          "Dragging page",
-        );
+        const dest = await this.resolvePoint(sessionId, destRef, null, null, "Dragging page");
         toX = dest.x;
         toY = dest.y;
       }
@@ -1277,8 +1214,7 @@ export class BrowserUseControlPlane {
     if (action !== "accept" && action !== "dismiss") {
       throw new Error("dialog action must be inspect|accept|dismiss");
     }
-    const dialogId =
-      typeof body.dialog_id === "string" ? body.dialog_id.trim() : "";
+    const dialogId = typeof body.dialog_id === "string" ? body.dialog_id.trim() : "";
     const pending = this.pendingDialogs.get(sessionId);
     if (!pending) {
       throw new Error(
@@ -1286,12 +1222,9 @@ export class BrowserUseControlPlane {
       );
     }
     if (dialogId && dialogId !== pending.dialog_id) {
-      throw new Error(
-        `dialog_id mismatch (expected ${pending.dialog_id}, got ${dialogId})`,
-      );
+      throw new Error(`dialog_id mismatch (expected ${pending.dialog_id}, got ${dialogId})`);
     }
-    const promptText =
-      typeof body.prompt_text === "string" ? body.prompt_text : undefined;
+    const promptText = typeof body.prompt_text === "string" ? body.prompt_text : undefined;
     await this.armDialogListener(sessionId, guest);
     await this.withDebugger(guest, sessionId, async (dbg) => {
       await dbg.sendCommand("Page.enable");
@@ -1314,9 +1247,7 @@ export class BrowserUseControlPlane {
     if (!requested || !requested.trim()) return root;
     const candidate = resolve(expandUserPath(requested.trim()));
     if (!isPathInside(root, candidate)) {
-      const err = new Error(
-        `download dir must stay under ${root}`,
-      ) as Error & { code?: string };
+      const err = new Error(`download dir must stay under ${root}`) as Error & { code?: string };
       err.code = "browser_download_denied";
       throw err;
     }
@@ -1347,11 +1278,7 @@ export class BrowserUseControlPlane {
         cleanup();
         reject(new Error("download timed out (30s)"));
       }, 30_000);
-      const onWillDownload = (
-        _event: unknown,
-        item: DownloadItem,
-        wc?: WebContents,
-      ) => {
+      const onWillDownload = (_event: unknown, item: DownloadItem, wc?: WebContents) => {
         if (!wc || wc.id !== guest.id) return;
         const armed = this.armedDownloads.get(sessionId);
         if (!armed || Date.now() > armed.deadline) {
@@ -1451,10 +1378,7 @@ export class BrowserUseControlPlane {
     return null;
   }
 
-  private async handle(
-    req: IncomingMessage,
-    res: ServerResponse,
-  ): Promise<void> {
+  private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
       const url = new URL(req.url || "/", "http://127.0.0.1");
       const authError = this.authorize(req);
@@ -1505,8 +1429,7 @@ export class BrowserUseControlPlane {
       }
       const body = await this.readBody(req);
       const path = url.pathname;
-      const target =
-        typeof body.target_id === "string" ? body.target_id.trim() : "";
+      const target = typeof body.target_id === "string" ? body.target_id.trim() : "";
       const ensureLike =
         !target &&
         (path === "/v1/state" ||
@@ -1529,9 +1452,7 @@ export class BrowserUseControlPlane {
           ? "browser_download_denied"
           : msg.includes("navigate") && msg.includes("scheme")
             ? "browser_navigate_denied"
-            : msg.includes("no guest") ||
-                msg.includes("no bound") ||
-                msg.includes("unknown target")
+            : msg.includes("no guest") || msg.includes("no bound") || msg.includes("unknown target")
               ? "browser_route_unavailable"
               : msg.includes("requires") ||
                   msg.includes("timed out") ||
@@ -1552,12 +1473,7 @@ export class BrowserUseControlPlane {
       msg.includes("scheme")
         ? msg
         : "browser engine failed";
-    const status =
-      code === "invalid_args"
-        ? 400
-        : code === "browser_route_unavailable"
-          ? 200
-          : 500;
+    const status = code === "invalid_args" ? 400 : code === "browser_route_unavailable" ? 200 : 500;
     this.send(res, status, {
       ok: false,
       error: clientMsg,
@@ -1600,12 +1516,9 @@ export class BrowserUseControlPlane {
       }
 
       if (path === "/v1/state") {
-        let targetId =
-          typeof body.target_id === "string" ? body.target_id.trim() : "";
+        let targetId = typeof body.target_id === "string" ? body.target_id.trim() : "";
         const query =
-          typeof body.query === "string" && body.query.trim()
-            ? body.query.trim()
-            : undefined;
+          typeof body.query === "string" && body.query.trim() ? body.query.trim() : undefined;
         const includeScreenshot = body.include_screenshot === true;
         if (
           typeof body.snapshot_format === "string" &&
@@ -1640,24 +1553,19 @@ export class BrowserUseControlPlane {
             this.send(res, 200, {
               ok: false,
               sessions,
-              error:
-                "Browser chrome exists but no webview is bound yet; retry state",
+              error: "Browser chrome exists but no webview is bound yet; retry state",
               error_code: "browser_route_unavailable",
             });
             return;
           } else {
             const requestedUrl =
-              typeof body.url === "string" && body.url.trim()
-                ? body.url.trim()
-                : undefined;
+              typeof body.url === "string" && body.url.trim() ? body.url.trim() : undefined;
             const ack = await this.ensureBoundTarget(requestedUrl);
             if (!ack.ok || !ack.target_id) {
               this.send(res, 200, {
                 ok: false,
                 sessions,
-                error:
-                  ack.error ||
-                  "no bound Atmos Browser webview; open a Browser tab first",
+                error: ack.error || "no bound Atmos Browser webview; open a Browser tab first",
                 error_code: ack.error_code || "browser_route_unavailable",
               });
               return;
@@ -1671,8 +1579,7 @@ export class BrowserUseControlPlane {
               this.send(res, 200, {
                 ok: false,
                 sessions: this.listSessions(),
-                error:
-                  "Browser chrome opened but the webview is not ready; retry state",
+                error: "Browser chrome opened but the webview is not ready; retry state",
                 error_code: "browser_route_unavailable",
               });
               return;
@@ -1695,10 +1602,7 @@ export class BrowserUseControlPlane {
 
       if (path === "/v1/click") {
         const targetId = String(body.target_id || "").trim();
-        const ref =
-          typeof body.ref === "string" && body.ref.trim()
-            ? body.ref.trim()
-            : null;
+        const ref = typeof body.ref === "string" && body.ref.trim() ? body.ref.trim() : null;
         const x = typeof body.x === "number" ? body.x : null;
         const y = typeof body.y === "number" ? body.y : null;
         if (!targetId) {
@@ -1732,10 +1636,7 @@ export class BrowserUseControlPlane {
       if (path === "/v1/type") {
         const targetId = String(body.target_id || "").trim();
         const text = String(body.text ?? "");
-        const ref =
-          typeof body.ref === "string" && body.ref.trim()
-            ? body.ref.trim()
-            : null;
+        const ref = typeof body.ref === "string" && body.ref.trim() ? body.ref.trim() : null;
         if (!targetId) {
           this.send(res, 400, {
             ok: false,
@@ -1839,10 +1740,7 @@ export class BrowserUseControlPlane {
       if (path === "/v1/download") {
         const targetId = String(body.target_id || "").trim();
         const ref = String(body.ref || "").trim();
-        const dir =
-          typeof body.dir === "string" && body.dir.trim()
-            ? body.dir.trim()
-            : undefined;
+        const dir = typeof body.dir === "string" && body.dir.trim() ? body.dir.trim() : undefined;
         if (!targetId || !ref) {
           this.send(res, 400, {
             ok: false,
@@ -1859,10 +1757,7 @@ export class BrowserUseControlPlane {
       if (path === "/v1/press-key") {
         const targetId = String(body.target_id || "").trim();
         const key = String(body.key || "").trim();
-        const ref =
-          typeof body.ref === "string" && body.ref.trim()
-            ? body.ref.trim()
-            : null;
+        const ref = typeof body.ref === "string" && body.ref.trim() ? body.ref.trim() : null;
         if (!targetId || !key) {
           this.send(res, 400, {
             ok: false,
@@ -1890,8 +1785,7 @@ export class BrowserUseControlPlane {
 
       if (path === "/v1/tabs") {
         const action = String(body.action || "").trim();
-        const targetId =
-          typeof body.target_id === "string" ? body.target_id.trim() : "";
+        const targetId = typeof body.target_id === "string" ? body.target_id.trim() : "";
         if (action === "list") {
           this.send(res, 200, {
             ok: true,
@@ -1919,8 +1813,7 @@ export class BrowserUseControlPlane {
             return;
           }
           const sessions = this.listSessions();
-          const actionName =
-            !targetId && sessions.length === 0 ? "ensure-bind" : "open";
+          const actionName = !targetId && sessions.length === 0 ? "ensure-bind" : "open";
           const ack = await this.requestAgentTab({
             action: actionName,
             url: navUrl,

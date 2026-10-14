@@ -4,10 +4,7 @@ import { join } from "node:path";
 
 describe("workspace status popover size animation", () => {
   test("animates auto width and height instead of snapping class widths", () => {
-    const source = readFileSync(
-      join(import.meta.dir, "../WorkspaceStatusPopover.tsx"),
-      "utf8",
-    );
+    const source = readFileSync(join(import.meta.dir, "../WorkspaceStatusPopover.tsx"), "utf8");
 
     expect(source).toContain("SetupPopoverSizeFrame");
     expect(source).toContain("[interpolate-size:allow-keywords]");
@@ -21,10 +18,7 @@ describe("workspace status popover size animation", () => {
   });
 
   test("completed auto-close is owned by the setup view hover-aware countdown", () => {
-    const source = readFileSync(
-      join(import.meta.dir, "../WorkspaceStatusPopover.tsx"),
-      "utf8",
-    );
+    const source = readFileSync(join(import.meta.dir, "../WorkspaceStatusPopover.tsx"), "utf8");
 
     expect(source).not.toContain("setTimeout");
     expect(source).not.toContain("forceMount");
@@ -46,10 +40,7 @@ describe("workspace status popover size animation", () => {
 
 describe("workspace create overlay", () => {
   test("app layout no longer mounts a fullscreen creation overlay", () => {
-    const layout = readFileSync(
-      join(import.meta.dir, "../..", "app/(app)/layout.tsx"),
-      "utf8",
-    );
+    const layout = readFileSync(join(import.meta.dir, "../..", "app/(app)/layout.tsx"), "utf8");
     expect(layout).not.toContain("WorkspaceCreationOverlay");
 
     const header = readFileSync(join(import.meta.dir, "../Header.tsx"), "utf8");
@@ -83,10 +74,7 @@ describe("workspace create overlay", () => {
 
 describe("header workspace setup grouping", () => {
   test("collapses multiple setups into a nested popover instead of sibling chips", () => {
-    const source = readFileSync(
-      join(import.meta.dir, "../HeaderWorkspaceJobs.tsx"),
-      "utf8",
-    );
+    const source = readFileSync(join(import.meta.dir, "../HeaderWorkspaceJobs.tsx"), "utf8");
 
     expect(source).toContain("collectHeaderWorkspaceSetupItems");
     expect(source).toContain("isHeaderWorkspaceSetupReadyToOpen");
@@ -103,14 +91,8 @@ describe("header workspace setup grouping", () => {
   });
 
   test("delays auto-enter behind a hover-pausable countdown inside the setup chip", () => {
-    const source = readFileSync(
-      join(import.meta.dir, "../HeaderWorkspaceJobs.tsx"),
-      "utf8",
-    );
-    const chip = readFileSync(
-      join(import.meta.dir, "../header-setup-chip.tsx"),
-      "utf8",
-    );
+    const source = readFileSync(join(import.meta.dir, "../HeaderWorkspaceJobs.tsx"), "utf8");
+    const chip = readFileSync(join(import.meta.dir, "../header-setup-chip.tsx"), "utf8");
     const hook = readFileSync(
       join(import.meta.dir, "../use-workspace-create-auto-open.ts"),
       "utf8",

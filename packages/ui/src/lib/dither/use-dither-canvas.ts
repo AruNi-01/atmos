@@ -63,9 +63,7 @@ export function useDitherCanvas(
     const originMs = performance.now();
 
     const media =
-      typeof window !== "undefined"
-        ? window.matchMedia("(prefers-reduced-motion: reduce)")
-        : null;
+      typeof window !== "undefined" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
 
     const cancelSchedules = () => {
       cancelAnimationFrame(raf);

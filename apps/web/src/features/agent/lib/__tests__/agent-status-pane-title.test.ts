@@ -164,9 +164,7 @@ describe("terminalSessionIsCurrentAgent", () => {
   });
 
   it("keeps a catalog row until that host's terminals are loaded", () => {
-    expect(
-      terminalSessionIsCurrentAgent("ws-1:1", { workspacePanes: {} }),
-    ).toBe(true);
+    expect(terminalSessionIsCurrentAgent("ws-1:1", { workspacePanes: {} })).toBe(true);
   });
 });
 

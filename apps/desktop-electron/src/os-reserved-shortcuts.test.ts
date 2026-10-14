@@ -14,9 +14,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 describe("os-reserved shortcuts", () => {
   it("claims macOS screenshot chords 3-6 and nothing on other platforms", () => {
-    expect(osReservedShortcutChords("darwin").map((c) => c.digit)).toEqual([
-      3, 4, 5, 6,
-    ]);
+    expect(osReservedShortcutChords("darwin").map((c) => c.digit)).toEqual([3, 4, 5, 6]);
     expect(osReservedShortcutChords("win32")).toEqual([]);
     expect(osReservedShortcutChords("linux")).toEqual([]);
     expect(isOsReservedHostDigit(3, "darwin")).toBe(true);
@@ -83,10 +81,7 @@ describe("os-reserved shortcuts", () => {
   });
 
   it("native tap swallows the same ANSI keycodes as the JS catalog", () => {
-    const src = readFileSync(
-      join(here, "../native/host-shortcuts/host_shortcuts.c"),
-      "utf8",
-    );
+    const src = readFileSync(join(here, "../native/host-shortcuts/host_shortcuts.c"), "utf8");
     expect(src).toContain("VK_ANSI_3 = 0x14");
     expect(src).toContain("VK_ANSI_4 = 0x15");
     expect(src).toContain("VK_ANSI_5 = 0x17");
@@ -119,10 +114,7 @@ describe("os-reserved shortcuts", () => {
     expect(src).not.toContain("kAXTrustedCheckOptionPrompt");
     expect(src).not.toContain("cgs_claim");
     expect(src).not.toContain("atmos_host_shortcuts_skylight_ready");
-    const build = readFileSync(
-      join(here, "../scripts/build-appshot-shift-native.ts"),
-      "utf8",
-    );
+    const build = readFileSync(join(here, "../scripts/build-appshot-shift-native.ts"), "utf8");
     const hostLink = build.slice(
       build.indexOf("buildDylib(outHostShortcuts"),
       build.indexOf("buildDylib(outInject"),
@@ -130,10 +122,7 @@ describe("os-reserved shortcuts", () => {
     expect(hostLink).toContain("ApplicationServices");
     expect(hostLink).not.toContain('"AppKit"');
     expect(hostLink).not.toContain('"Foundation"');
-    const inject = readFileSync(
-      join(here, "../native/appshot-shift/appshot_shift.c"),
-      "utf8",
-    );
+    const inject = readFileSync(join(here, "../native/appshot-shift/appshot_shift.c"), "utf8");
     expect(inject).toContain("shot_frontmost_is_atmos");
     expect(inject).toContain('\\"digit\\":%d');
     expect(inject).toContain("shot_tap_callback");

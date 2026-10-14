@@ -82,9 +82,7 @@ export function SimulatorPanel({
         const source = event.source;
         if (!source) return;
         void loadDevicePreviewPrompt(workspaceId)
-          .then((prompt) =>
-            navigator.clipboard.writeText(formatDevicePreviewClipboard(prompt)),
-          )
+          .then((prompt) => navigator.clipboard.writeText(formatDevicePreviewClipboard(prompt)))
           .then(() => {
             source.postMessage({ type: SIMULATOR_AGENT_COPIED_MESSAGE }, "*");
           })
@@ -147,7 +145,9 @@ export function SimulatorPanel({
       <LoaderCircle className="size-5 animate-spin" />
       <p>
         {session.phase === "downloading"
-          ? t("downloading", { percent: downloadPercent(session.progress?.downloaded, session.progress?.total) })
+          ? t("downloading", {
+              percent: downloadPercent(session.progress?.downloaded, session.progress?.total),
+            })
           : session.phase === "probing"
             ? t("checking")
             : t("starting")}

@@ -31,8 +31,7 @@ export function GrokWorkflowPanel({
       count + section.agents.filter((agent) => subagentTaskStatus(agent) === "running").length,
     0,
   );
-  const countLabel =
-    runningCount > 0 ? t("runningCount", { count: runningCount }) : t("idleCount");
+  const countLabel = runningCount > 0 ? t("runningCount", { count: runningCount }) : t("idleCount");
   const title = workflow.objective?.trim() || workflow.name?.trim() || t("title");
 
   return (
@@ -43,7 +42,11 @@ export function GrokWorkflowPanel({
       data-agent-grok-workflow-panel=""
       className="flex min-h-0 w-full flex-col overflow-hidden rounded-3xl border border-border bg-background p-3 shadow-none"
     >
-      <Collapsible open={isOpen} onOpenChange={setIsOpen} className="flex min-h-0 flex-col overflow-hidden">
+      <Collapsible
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        className="flex min-h-0 flex-col overflow-hidden"
+      >
         <CollapsibleTrigger asChild>
           <button
             type="button"
@@ -66,9 +69,7 @@ export function GrokWorkflowPanel({
             fallbackType={t("fallbackType")}
             rowAria={(label) => t("rowAria", { label })}
             openPhases={openPhases}
-            onOpenPhase={(id, open) =>
-              setOpenPhases((current) => ({ ...current, [id]: open }))
-            }
+            onOpenPhase={(id, open) => setOpenPhases((current) => ({ ...current, [id]: open }))}
           />
         </CollapsibleContent>
       </Collapsible>

@@ -1,13 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-  cn,
-} from "@workspace/ui";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from "@workspace/ui";
 import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
 
 export type WorkspaceLinearLinkSummary = {
@@ -44,9 +38,7 @@ export function WorkspaceLinearSummary({
     <TooltipProvider delayDuration={250}>
       <div className={cn("flex min-w-0 flex-col gap-0.5", className)}>
         {links.slice(0, compact ? 1 : 3).map((link) => {
-          const text = compact
-            ? link.identifier
-            : `${link.identifier} ${link.title}`.trim();
+          const text = compact ? link.identifier : `${link.identifier} ${link.title}`.trim();
           return (
             <Tooltip key={link.externalId}>
               <TooltipTrigger asChild>
@@ -66,9 +58,7 @@ export function WorkspaceLinearSummary({
                   })}
                 >
                   <LinearIcon className="size-3.5 shrink-0 text-muted-foreground" size={14} />
-                  <span className="min-w-0 truncate font-medium text-foreground">
-                    {text}
-                  </span>
+                  <span className="min-w-0 truncate font-medium text-foreground">{text}</span>
                 </a>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-xs break-words">
@@ -78,14 +68,10 @@ export function WorkspaceLinearSummary({
           );
         })}
         {overflow > 0 && compact ? (
-          <span className="px-1.5 text-[10px] text-muted-foreground">
-            +{overflow}
-          </span>
+          <span className="px-1.5 text-[10px] text-muted-foreground">+{overflow}</span>
         ) : null}
         {!compact && overflow > 2 ? (
-          <span className="px-1.5 text-[10px] text-muted-foreground">
-            +{overflow - 2}
-          </span>
+          <span className="px-1.5 text-[10px] text-muted-foreground">+{overflow - 2}</span>
         ) : null}
       </div>
     </TooltipProvider>

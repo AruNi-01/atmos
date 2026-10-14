@@ -15,10 +15,7 @@ import {
   normalizeHttpUrl,
   type LinkPreviewPayload,
 } from "@/shared/lib/link-preview";
-import {
-  fetchLinkPreview,
-  peekLinkPreview,
-} from "@/shared/lib/link-preview-query";
+import { fetchLinkPreview, peekLinkPreview } from "@/shared/lib/link-preview-query";
 
 export function HttpTextLink({
   href,
@@ -86,13 +83,7 @@ export function ConversationHttpUrl({
   );
 }
 
-function UrlChipTrigger({
-  url,
-  onExpand,
-}: {
-  url: string;
-  onExpand: () => void;
-}) {
+function UrlChipTrigger({ url, onExpand }: { url: string; onExpand: () => void }) {
   const preview = useFetchedLinkPreview(url);
   const title = (preview.title || hostnameFromUrl(url)).trim();
   const favicon = preview.favicon_url || googleFaviconUrl(url);
@@ -122,7 +113,7 @@ function UrlChipTrigger({
         referrerPolicy="no-referrer"
         className="block size-3 shrink-0 rounded-full"
       />
-      <span className="min-w-0 max-w-[12rem] truncate">{title}</span>
+      <span className="max-w-[12rem] min-w-0 truncate">{title}</span>
     </span>
   );
 }

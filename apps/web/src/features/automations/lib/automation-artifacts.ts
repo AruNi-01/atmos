@@ -12,12 +12,8 @@ let cachedLocale: AutomationsLocale | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedTranslator: any = null;
 
-function automationsT(
-  key: string,
-  values?: Record<string, string | number>,
-): string {
-  const locale: AutomationsLocale =
-    currentAppLocale("en") === "zh" ? "zh" : "en";
+function automationsT(key: string, values?: Record<string, string | number>): string {
+  const locale: AutomationsLocale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedTranslator || cachedLocale !== locale) {
     cachedLocale = locale;
     cachedTranslator = createTranslator({
@@ -42,10 +38,7 @@ export async function openArtifactPath(path: string) {
   } catch (err) {
     toastManager.add({
       title: automationsT("artifacts.failedToOpenPathTitle"),
-      description:
-        err instanceof Error
-          ? err.message
-          : automationsT("artifacts.unknownError"),
+      description: err instanceof Error ? err.message : automationsT("artifacts.unknownError"),
       type: "error",
     });
   }

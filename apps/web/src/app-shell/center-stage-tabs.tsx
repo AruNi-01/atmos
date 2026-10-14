@@ -31,10 +31,7 @@ import {
   resolveAgentChatAttentionReason,
   shouldConfirmCloseAgentChat,
 } from "@/features/agent/lib/agent-chat-close-confirm";
-import {
-  getEditorDisplayPath,
-  type OpenFile,
-} from "@/features/editor/store/use-editor-store";
+import { getEditorDisplayPath, type OpenFile } from "@/features/editor/store/use-editor-store";
 import type { CenterStageUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import {
   FIXED_TERMINAL_TAB_VALUE,
@@ -51,10 +48,7 @@ import { cn } from "@/shared/lib/utils";
 /** Cap each group column so long labels truncate instead of stretching the popover. */
 const TAB_GROUP_COLUMN_MAX_WIDTH_CLASS = "max-w-[240px]";
 
-export {
-  FIXED_TABS,
-  shouldSkipLastTabRestoreForUrlTab,
-} from "@/app-shell/center-stage-fixed-tabs";
+export { FIXED_TABS, shouldSkipLastTabRestoreForUrlTab } from "@/app-shell/center-stage-fixed-tabs";
 export {
   CENTER_STRIP_POSITION_HOTKEYS,
   CENTER_STRIP_SHORTCUT_LIMIT,
@@ -197,16 +191,20 @@ function TerminalTabAgentIndicator({ stablePaneIds }: { stablePaneIds: string[] 
 }
 
 // Outer component keeps terminal and agent store subscriptions in separate render scopes.
-export function TerminalTabAgentIndicatorWithPanes({ contextId, tabId }: { contextId: string; tabId: string }) {
+export function TerminalTabAgentIndicatorWithPanes({
+  contextId,
+  tabId,
+}: {
+  contextId: string;
+  tabId: string;
+}) {
   const panesRecord = useTerminalStore(
     (s) => s.workspacePanes[getScopeKey(contextId, tabId)] ?? EMPTY_TERMINAL_TAB_PANES,
   );
   const stablePaneIds = React.useMemo(
     () =>
       Object.values(panesRecord)
-        .map((p) =>
-          p.tmuxWindowName ? stableAgentPaneId(contextId, p.tmuxWindowName) : null,
-        )
+        .map((p) => (p.tmuxWindowName ? stableAgentPaneId(contextId, p.tmuxWindowName) : null))
         .filter((id): id is string => id !== null),
     [contextId, panesRecord],
   );
@@ -253,14 +251,7 @@ export function SortableTabGroupItem({
   children: React.ReactNode;
   onSelect: () => void;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: tab.id,
     data: {
       groupKey,
@@ -272,9 +263,7 @@ export function SortableTabGroupItem({
   const contentRef = React.useRef<HTMLDivElement>(null);
   const [isLabelTruncated, setIsLabelTruncated] = React.useState(false);
   const [tooltipOpen, setTooltipOpen] = React.useState(false);
-  const tooltipLabel = tab.file
-    ? getEditorDisplayPath(tab.file.path)
-    : tab.label;
+  const tooltipLabel = tab.file ? getEditorDisplayPath(tab.file.path) : tab.label;
 
   React.useLayoutEffect(() => {
     const root = contentRef.current;
@@ -334,7 +323,7 @@ export function SortableTabGroupItem({
             transition,
           }}
           className={cn(
-            "group group/tab-item relative flex h-10 w-full min-w-0 cursor-pointer items-center gap-1 rounded-md pl-2 pr-2 text-left text-muted-foreground",
+            "group group/tab-item relative flex h-10 w-full min-w-0 cursor-pointer items-center gap-1 rounded-md pr-2 pl-2 text-left text-muted-foreground",
             "hover:bg-accent hover:text-accent-foreground",
             isActive && "bg-accent text-accent-foreground",
             isDragging && "z-10 cursor-grabbing opacity-70 shadow-md",
@@ -344,10 +333,7 @@ export function SortableTabGroupItem({
           role="button"
           tabIndex={0}
         >
-          <div
-            ref={contentRef}
-            className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden"
-          >
+          <div ref={contentRef} className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
             {children}
           </div>
         </div>
@@ -421,7 +407,7 @@ export function CenterStageTabGroupPopover({
           // Keep columns at their natural width (capped per column). When the
           // combined groups exceed the popover max width, scroll horizontally.
           <div className="scrollbar-on-hover max-h-[420px] max-w-full overflow-x-auto overflow-y-auto">
-            <div className="grid w-max min-w-max grid-flow-col auto-cols-max gap-2">
+            <div className="grid w-max min-w-max auto-cols-max grid-flow-col gap-2">
               {groups.map((group) => (
                 <section
                   key={group.key}
@@ -439,10 +425,7 @@ export function CenterStageTabGroupPopover({
                     {splitTabGroupSections(group).map((section, sectionIndex) => (
                       <React.Fragment key={section.key}>
                         {sectionIndex > 0 ? (
-                          <div
-                            aria-hidden
-                            className="my-1.5 border-t border-border/60"
-                          />
+                          <div aria-hidden className="my-1.5 border-t border-border/60" />
                         ) : null}
                         {/*
                           Each section (browser instance / terminal family) gets

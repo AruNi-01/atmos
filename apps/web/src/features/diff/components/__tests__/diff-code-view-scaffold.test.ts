@@ -3,18 +3,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 describe("DiffCodeViewScaffold file tree gate", () => {
-  const scaffold = readFileSync(
-    join(import.meta.dir, "../DiffCodeViewScaffold.tsx"),
-    "utf8",
-  );
-  const changes = readFileSync(
-    join(import.meta.dir, "../ChangesCodeView.tsx"),
-    "utf8",
-  );
-  const review = readFileSync(
-    join(import.meta.dir, "../ReviewCodeView.tsx"),
-    "utf8",
-  );
+  const scaffold = readFileSync(join(import.meta.dir, "../DiffCodeViewScaffold.tsx"), "utf8");
+  const changes = readFileSync(join(import.meta.dir, "../ChangesCodeView.tsx"), "utf8");
+  const review = readFileSync(join(import.meta.dir, "../ReviewCodeView.tsx"), "utf8");
   const prFiles = readFileSync(
     join(import.meta.dir, "../../../github/components/PRFilesTab.tsx"),
     "utf8",

@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  resolveStreamdownAnimated,
-  STREAMDOWN_STREAM_ANIMATION,
-} from "./streamdown-animation";
+import { resolveStreamdownAnimated, STREAMDOWN_STREAM_ANIMATION } from "./streamdown-animation";
 
 describe("resolveStreamdownAnimated", () => {
   test("uses character-level defaults only when explicitly enabled", () => {

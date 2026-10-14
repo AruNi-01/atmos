@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useState } from 'react';
-import type { SettingsSectionId } from '@/features/settings/components/settings-modal-data';
+import { useCallback, useEffect, useState } from "react";
+import type { SettingsSectionId } from "@/features/settings/components/settings-modal-data";
 import {
   getSettingsSectionGroupTabs,
   peekLastSettingsGroupTab,
@@ -11,12 +11,9 @@ import {
   resolveSettingsGroupTab,
   resolveSettingsGroupTabFromSearch,
   type SettingsGroupTabId,
-} from '@/features/settings/lib/settings-section-group-tabs';
+} from "@/features/settings/lib/settings-section-group-tabs";
 
-export function useSettingsGroupTab(
-  sectionId: SettingsSectionId,
-  searchQuery: string,
-) {
+export function useSettingsGroupTab(sectionId: SettingsSectionId, searchQuery: string) {
   const groupTabs = getSettingsSectionGroupTabs(sectionId);
   const [groupTab, setGroupTab] = useState<SettingsGroupTabId | null>(() =>
     resolveSettingsGroupTab(sectionId, readSettingsHash(), peekLastSettingsGroupTab(sectionId)),
@@ -25,21 +22,17 @@ export function useSettingsGroupTab(
   useEffect(() => {
     const syncFromLocation = () => {
       const hash = readSettingsHash();
-      const next = resolveSettingsGroupTab(
-        sectionId,
-        hash,
-        peekLastSettingsGroupTab(sectionId),
-      );
+      const next = resolveSettingsGroupTab(sectionId, hash, peekLastSettingsGroupTab(sectionId));
       setGroupTab(next);
       if (next) rememberSettingsGroupTab(sectionId, next);
     };
 
     syncFromLocation();
-    window.addEventListener('hashchange', syncFromLocation);
-    window.addEventListener('popstate', syncFromLocation);
+    window.addEventListener("hashchange", syncFromLocation);
+    window.addEventListener("popstate", syncFromLocation);
     return () => {
-      window.removeEventListener('hashchange', syncFromLocation);
-      window.removeEventListener('popstate', syncFromLocation);
+      window.removeEventListener("hashchange", syncFromLocation);
+      window.removeEventListener("popstate", syncFromLocation);
     };
   }, [sectionId]);
 
@@ -65,7 +58,7 @@ export function useSettingsGroupTab(
 
   return {
     groupTabs,
-    groupTab: groupTab && groupTabs?.includes(groupTab) ? groupTab : groupTabs?.[0] ?? null,
+    groupTab: groupTab && groupTabs?.includes(groupTab) ? groupTab : (groupTabs?.[0] ?? null),
     selectGroupTab,
   };
 }

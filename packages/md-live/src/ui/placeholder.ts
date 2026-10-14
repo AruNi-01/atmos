@@ -122,10 +122,7 @@ function placeholderAt(view: MdLiveEditorView): {
   return { pos, key, nodeDOM };
 }
 
-function createPlaceholderLayer(
-  view: MdLiveEditorView,
-  getCopy: () => MdLiveCopyFn | undefined,
-) {
+function createPlaceholderLayer(view: MdLiveEditorView, getCopy: () => MdLiveCopyFn | undefined) {
   const layer = document.createElement("div");
   layer.className = "md-live-placeholder-layer";
   layer.setAttribute("aria-hidden", "true");
@@ -199,7 +196,8 @@ function createPlaceholderLayer(
       if (info.nodeDOM) {
         const cs = getComputedStyle(info.nodeDOM);
         const paddingLeft = parsePx(cs.paddingLeft);
-        x = info.nodeDOM.getBoundingClientRect().left + paddingLeft - hostBox.left + host.scrollLeft;
+        x =
+          info.nodeDOM.getBoundingClientRect().left + paddingLeft - hostBox.left + host.scrollLeft;
         fontSize = cs.fontSize || fontSize;
         fontWeight = cs.fontWeight || fontWeight;
         fontFamily = cs.fontFamily || fontFamily;
@@ -274,10 +272,10 @@ function createPlaceholderLayer(
     }
     const reduced = prefersReducedMotion();
     const sameSpot =
-      visible
-      && currentKey === pose.key
-      && Math.abs(pose.x - lastX) < 0.5
-      && Math.abs(pose.y - lastY) < 0.5;
+      visible &&
+      currentKey === pose.key &&
+      Math.abs(pose.x - lastX) < 0.5 &&
+      Math.abs(pose.y - lastY) < 0.5;
     if (sameSpot) {
       applyType(pose);
       return;
@@ -349,9 +347,7 @@ function createPlaceholderLayer(
   window.addEventListener("scroll", onScroll, true);
   window.addEventListener("resize", onScroll);
   const resizeObserver =
-    typeof ResizeObserver === "undefined"
-      ? null
-      : new ResizeObserver(() => schedule(false));
+    typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => schedule(false));
   resizeObserver?.observe(host);
   if (view.dom !== host) resizeObserver?.observe(view.dom);
 

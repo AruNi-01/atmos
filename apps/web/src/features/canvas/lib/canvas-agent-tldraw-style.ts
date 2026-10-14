@@ -91,28 +91,19 @@ export function sanitizeTldrawSize(raw: string, label = "size"): TldrawSize {
   );
 }
 
-export function applyOptionalColor(
-  props: Record<string, unknown>,
-  raw: string | undefined,
-): void {
+export function applyOptionalColor(props: Record<string, unknown>, raw: string | undefined): void {
   if (!raw) return;
   const { value } = sanitizeTldrawColor(raw);
   props.color = value;
 }
 
-export function applyOptionalFill(
-  props: Record<string, unknown>,
-  raw: string | undefined,
-): void {
+export function applyOptionalFill(props: Record<string, unknown>, raw: string | undefined): void {
   if (!raw) return;
   const { value } = sanitizeTldrawFill(raw);
   props.fill = value;
 }
 
-export function applyOptionalSize(
-  props: Record<string, unknown>,
-  raw: string | undefined,
-): void {
+export function applyOptionalSize(props: Record<string, unknown>, raw: string | undefined): void {
   if (!raw) return;
   props.size = sanitizeTldrawSize(raw);
 }

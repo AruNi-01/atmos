@@ -57,10 +57,11 @@ describe("buildFooterAgentOverview", () => {
       permission: 1,
     });
     expect(footerAgentOverviewTotal(overview.counts)).toBe(5);
-    expect(overview.rows.filter((row) => row.bucket === "attention").map((row) => row.session.session_id)).toEqual([
-      "ws-1:done",
-      "ws-1:orphan",
-    ]);
+    expect(
+      overview.rows
+        .filter((row) => row.bucket === "attention")
+        .map((row) => row.session.session_id),
+    ).toEqual(["ws-1:done", "ws-1:orphan"]);
   });
 
   it("groups popover rows by workspace context and keeps orphan attention rows", () => {

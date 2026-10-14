@@ -1,10 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  HISTORY_COLUMN_DEFAULTS,
-  HISTORY_COLUMN_MINS,
-} from "../git-history-columns";
+import { HISTORY_COLUMN_DEFAULTS, HISTORY_COLUMN_MINS } from "../git-history-columns";
 
 const root = join(import.meta.dir, "../../../../../../..");
 
@@ -26,17 +23,11 @@ describe("git history panel structural", () => {
     const src = read("apps/web/src/features/git/components/GitHistoryPanel.tsx");
     expect(src).toContain("InputGroup");
     expect(src).toContain("InputGroupButton");
-    expect(src).not.toMatch(
-      /InputGroup className="[^"]*overflow-hidden/,
-    );
-    expect(src).toContain(
-      "mr-1 size-5 h-5 w-5 shrink-0 rounded-md sm:size-5 sm:h-5 sm:w-5",
-    );
+    expect(src).not.toMatch(/InputGroup className="[^"]*overflow-hidden/);
+    expect(src).toContain("mr-1 size-5 h-5 w-5 shrink-0 rounded-md sm:size-5 sm:h-5 sm:w-5");
     expect(src).not.toContain("InputGroupAddon");
     expect(src).toContain("CaseSensitive");
-    expect(src).not.toMatch(
-      /flex h-10 shrink-0 items-center gap-1\.5 border-b/,
-    );
+    expect(src).not.toMatch(/flex h-10 shrink-0 items-center gap-1\.5 border-b/);
   });
 
   it("reverses the refresh icon spin while loading", () => {
@@ -93,7 +84,9 @@ describe("git history panel structural", () => {
     const drawer = read(
       "apps/web/src/features/task/components/task-github-drawer/TaskGithubDrawerHost.tsx",
     );
-    expect(drawer).toContain("openCommit: (entry: Extract<TaskGithubDrawerEntry, { kind: \"commit\" }>) => void");
+    expect(drawer).toContain(
+      'openCommit: (entry: Extract<TaskGithubDrawerEntry, { kind: "commit" }>) => void',
+    );
     expect(drawer).toContain("GitCommitDiffView");
   });
 

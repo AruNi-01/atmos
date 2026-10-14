@@ -67,9 +67,7 @@ export function isTerminalLayoutBranch<T>(
 }
 
 /** Leaf ids in reading order (left-to-right / top-to-bottom). */
-export function getLeaves<T extends string>(
-  node: TerminalLayoutNode<T> | null | undefined,
-): T[] {
+export function getLeaves<T extends string>(node: TerminalLayoutNode<T> | null | undefined): T[] {
   if (node == null) return [];
   if (!isTerminalLayoutBranch(node)) return [node];
   return [...getLeaves(node.first), ...getLeaves(node.second)];
@@ -209,8 +207,7 @@ function wrapWithDock(
   sourceId: string,
   edge: TerminalDockEdge,
 ): TerminalLayoutBranch<string> {
-  const direction: TerminalLayoutDirection =
-    edge === "left" || edge === "right" ? "row" : "column";
+  const direction: TerminalLayoutDirection = edge === "left" || edge === "right" ? "row" : "column";
   const sourceFirst = edge === "left" || edge === "top";
   return {
     direction,

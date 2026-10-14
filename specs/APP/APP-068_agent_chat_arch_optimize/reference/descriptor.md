@@ -19,12 +19,12 @@ Out of this slice: `AgentAction` dispatch (runtime.md), events/tools, native spa
 
 Today Chat has no descriptor. Ability and config are split across four leaks:
 
-| Leak | Path | Problem |
-|------|------|---------|
-| Thinking on capabilities | `crates/agent/src/domain/session.rs` `AgentCapabilities { supports_steer, supports_resume, thinking }` | Mixes a product verb with a config option. |
-| Bool steer on meta | `crates/core-service/src/service/agent_chat/types.rs` `supports_steer`; copied in `service.rs` from `session.capabilities()` | Parallel SOT. Wire: `packages/api-types/src/ws/dto/agent-chat.ts`. |
-| ACP option bag on meta | `session_config_options: Vec<SessionAdvertisedOption>` filled in `apply_event.rs` from `AgentEvent::ConfigChanged` | Composer prefers this bag over catalog (`use-agent-chat-session.ts` `configOptions`). |
-| Selected fields on meta | `selected_model` / `selected_thinking` / `selected_mode` | Implicit “current” inferred beside the bag. |
+| Leak                     | Path                                                                                                                         | Problem                                                                               |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Thinking on capabilities | `crates/agent/src/domain/session.rs` `AgentCapabilities { supports_steer, supports_resume, thinking }`                       | Mixes a product verb with a config option.                                            |
+| Bool steer on meta       | `crates/core-service/src/service/agent_chat/types.rs` `supports_steer`; copied in `service.rs` from `session.capabilities()` | Parallel SOT. Wire: `packages/api-types/src/ws/dto/agent-chat.ts`.                    |
+| ACP option bag on meta   | `session_config_options: Vec<SessionAdvertisedOption>` filled in `apply_event.rs` from `AgentEvent::ConfigChanged`           | Composer prefers this bag over catalog (`use-agent-chat-session.ts` `configOptions`). |
+| Selected fields on meta  | `selected_model` / `selected_thinking` / `selected_mode`                                                                     | Implicit “current” inferred beside the bag.                                           |
 
 Catalog already knows models / thinking / modes (`crates/agent/src/catalog/{engine,merge,acp_probe,spec}.rs`, `domain/model.rs`). ACP initialize still produces `AgentCapabilitiesSnapshot` (`session_list`, `session_resume`, `logout`, …) in `crates/agent/src/acp_client/{types,runner}.rs`. Web Chat **synthesizes** that snapshot in `use-agent-chat-session.ts` (`config_options.supported: configOptions.length > 0`). Composer (`AgentPromptComposer.tsx`) sniffs `configOptions` by id alias and still renders **extra** ACP selects (`extraConfigOptions`).
 
@@ -182,13 +182,13 @@ ACP `SessionAdvertisedOption` remains an **adapter parse helper** inside `apply_
 
 `pub fn capabilities_for_provider(provider_id: &str) -> AgentCapabilities` in `descriptor.rs`:
 
-| id | steer | resume | permission | configure |
-|----|-------|--------|------------|-----------|
-| `claude` | Unsupported | Supported | Supported | Supported |
-| `codex` | Supported | Supported | Supported | Supported |
-| `opencode` | Unsupported | Supported | Supported | Supported |
-| `pi` | Supported | Supported | Supported | Supported |
-| other (ACP) | Unsupported | Supported (pre-spawn default) | Supported | Supported |
+| id          | steer       | resume                        | permission | configure |
+| ----------- | ----------- | ----------------------------- | ---------- | --------- |
+| `claude`    | Unsupported | Supported                     | Supported  | Supported |
+| `codex`     | Supported   | Supported                     | Supported  | Supported |
+| `opencode`  | Unsupported | Supported                     | Supported  | Supported |
+| `pi`        | Supported   | Supported                     | Supported  | Supported |
+| other (ACP) | Unsupported | Supported (pre-spawn default) | Supported  | Supported |
 
 `configure` means the adapter implements `SetConfig`, not “has options right now”. Empty pickers are M3.
 
@@ -219,12 +219,12 @@ Input: parsed known ACP/native options (model / models, mode / modes, thinking a
 
 `LiveOptionsPatch` is complete when any known option has a non-empty `options` list or boolean type (same trigger as today’s `merge_advertised_options`).
 
-| Incoming | Models / modes | Thinking |
-|----------|----------------|----------|
-| Complete snapshot | replace that group from live | if thinking option **absent**, set `None` (omit control) even if catalog had it |
-| Incomplete (`current_value` only) | keep lists; update `current_config` | keep thinking support |
-| Live thinking `None` on a **complete** snapshot | — | omit (session advertised the truth) |
-| Catalog-only, no live yet | keep phase A | keep phase A |
+| Incoming                                        | Models / modes                      | Thinking                                                                        |
+| ----------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------- |
+| Complete snapshot                               | replace that group from live        | if thinking option **absent**, set `None` (omit control) even if catalog had it |
+| Incomplete (`current_value` only)               | keep lists; update `current_config` | keep thinking support                                                           |
+| Live thinking `None` on a **complete** snapshot | —                                   | omit (session advertised the truth)                                             |
+| Catalog-only, no live yet                       | keep phase A                        | keep phase A                                                                    |
 
 Pending user selection: if `current_config.model != applied_model` and live reports `applied`, **keep** `current_config` (today’s `keep_pending_session_selection`). Same for thinking / mode.
 
@@ -250,17 +250,17 @@ Delete `advertisedOptionsToConfigOptions` as SOT. Delete `extraConfigOptions`. S
 
 ## MUST / MUST NOT
 
-| MUST | MUST NOT |
-|------|----------|
-| Closed four-field `AgentCapabilities` | `Vec<String>`, ACP snapshot on descriptor/meta, `capabilities.cancel` |
-| Omit thinking key when `is_none()` | Fake `low/medium/high` or a thinking slider |
-| Catalog before spawn; live may refresh | Dual-write `supports_steer` + `capabilities.steer` |
-| Map ACP `session_resume` → `resume` only | Map logout / session_list / load_session onto Chat capabilities |
-| Native steer: Codex + Pi only | Fake Claude Code / OpenCode steer with queue or interrupt |
-| Composer reads descriptor (or catalog pre-create) | Client classifies ACP `configOptions` / extra vendor ids |
-| `ConfigUpdated { descriptor }` | `config_options` bag on the Chat wire |
-| Unknown ACP option ids stay adapter-private | Extra composer selects for those ids |
-| Send/cancel always on the runtime trait | Capability flags for send/cancel |
+| MUST                                              | MUST NOT                                                              |
+| ------------------------------------------------- | --------------------------------------------------------------------- |
+| Closed four-field `AgentCapabilities`             | `Vec<String>`, ACP snapshot on descriptor/meta, `capabilities.cancel` |
+| Omit thinking key when `is_none()`                | Fake `low/medium/high` or a thinking slider                           |
+| Catalog before spawn; live may refresh            | Dual-write `supports_steer` + `capabilities.steer`                    |
+| Map ACP `session_resume` → `resume` only          | Map logout / session_list / load_session onto Chat capabilities       |
+| Native steer: Codex + Pi only                     | Fake Claude Code / OpenCode steer with queue or interrupt             |
+| Composer reads descriptor (or catalog pre-create) | Client classifies ACP `configOptions` / extra vendor ids              |
+| `ConfigUpdated { descriptor }`                    | `config_options` bag on the Chat wire                                 |
+| Unknown ACP option ids stay adapter-private       | Extra composer selects for those ids                                  |
+| Send/cancel always on the runtime trait           | Capability flags for send/cancel                                      |
 
 Adding a capability field is a PRD change (N4), not a silent struct grow.
 
@@ -268,17 +268,17 @@ Adding a capability field is a PRD change (N4), not a silent struct grow.
 
 No vendor CLI spawn in this slice. Recorded ACP option JSON is enough.
 
-| Id | Command | Assert |
-|----|---------|--------|
-| S1 | `cargo test -p agent descriptor` | Catalog + live patch → one `AgentDescriptor`; serde has no `session_list`; thinking omitted when None |
-| S4 | same | Field list is exactly steer/resume/permission/configure (explicit assertion) |
-| S5 | same | Models without thinking → `thinking.is_none()` |
-| honesty | same | `capabilities_for_provider` matches the matrix (claude/opencode steer unsupported) |
-| merge | same | Complete live snapshot without thinking **clears** catalog thinking; incomplete current_value keeps it |
-| S6 | `cargo test -p core-service --lib agent_chat` | `agent_chat_configure` sets `meta.descriptor.current_config.model`; meta.json has no `session_config_options` / `supports_steer` |
-| steer gate | same | `steer == Unsupported` → service error; queue/cancel still work (full `AgentAction` in runtime.md; this slice at least keeps the meta gate) |
-| S2 | `bun test` `agent-chat-thread` + composer | Enum thinking shows; `none` + empty modes hide thinking and mode; no extra ACP selects |
-| wire | `bun run --filter @atmos/api-types extract-actions` + dto test | `AgentChatMeta.descriptor`; no `supports_steer` / `session_config_options` / `selected_*` |
+| Id         | Command                                                        | Assert                                                                                                                                      |
+| ---------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| S1         | `cargo test -p agent descriptor`                               | Catalog + live patch → one `AgentDescriptor`; serde has no `session_list`; thinking omitted when None                                       |
+| S4         | same                                                           | Field list is exactly steer/resume/permission/configure (explicit assertion)                                                                |
+| S5         | same                                                           | Models without thinking → `thinking.is_none()`                                                                                              |
+| honesty    | same                                                           | `capabilities_for_provider` matches the matrix (claude/opencode steer unsupported)                                                          |
+| merge      | same                                                           | Complete live snapshot without thinking **clears** catalog thinking; incomplete current_value keeps it                                      |
+| S6         | `cargo test -p core-service --lib agent_chat`                  | `agent_chat_configure` sets `meta.descriptor.current_config.model`; meta.json has no `session_config_options` / `supports_steer`            |
+| steer gate | same                                                           | `steer == Unsupported` → service error; queue/cancel still work (full `AgentAction` in runtime.md; this slice at least keeps the meta gate) |
+| S2         | `bun test` `agent-chat-thread` + composer                      | Enum thinking shows; `none` + empty modes hide thinking and mode; no extra ACP selects                                                      |
+| wire       | `bun run --filter @atmos/api-types extract-actions` + dto test | `AgentChatMeta.descriptor`; no `supports_steer` / `session_config_options` / `selected_*`                                                   |
 
 Put unit tests in `descriptor.rs` `#[cfg(test)]`. Do not add `testdata/` until a native adapter slice records frames.
 

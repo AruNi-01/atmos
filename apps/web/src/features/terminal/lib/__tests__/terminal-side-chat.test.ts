@@ -15,7 +15,8 @@ import {
 } from "../terminal-side-chat";
 
 function sideChatRecord(
-  overrides: Partial<LocalSideChatRecord> & Pick<LocalSideChatRecord, "side_chat_id" | "workspace_id">,
+  overrides: Partial<LocalSideChatRecord> &
+    Pick<LocalSideChatRecord, "side_chat_id" | "workspace_id">,
 ): LocalSideChatRecord {
   return {
     side_chat_id: overrides.side_chat_id,
@@ -131,7 +132,8 @@ describe("minimizedSideChatHasAttentionSummary", () => {
       status: "open",
       side_tmux_window_name: "side-open",
     });
-    const hasSummary = (paneId: string) => paneId === "ws-1:side-hidden" || paneId === "ws-1:side-open";
+    const hasSummary = (paneId: string) =>
+      paneId === "ws-1:side-hidden" || paneId === "ws-1:side-open";
 
     expect(minimizedSideChatHasAttentionSummary([hidden], hasSummary)).toBe(true);
     expect(minimizedSideChatHasAttentionSummary([open], hasSummary)).toBe(false);

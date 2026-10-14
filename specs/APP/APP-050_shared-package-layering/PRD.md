@@ -42,7 +42,7 @@
   - `@atmos/config`
   - `packages/relay` (deployable)
   - `apps/*` (incl. desktop-electron IPC)
-  Use **actual** `package.json` names (`@atmos/i18n`, `@atmos/config`—not stale `@workspace/i18n` for those packages).
+    Use **actual** `package.json` names (`@atmos/i18n`, `@atmos/config`—not stale `@workspace/i18n` for those packages).
 - **M2 — Ownership rules**:
   - **api-types**: main `/ws` frames, `WsAction`, multi-client DTOs; optional relay REST DTOs.
   - **api-client**: non-UI main `/ws` session lifecycle + platform adapter types.
@@ -102,11 +102,11 @@
 
 ## Milestones
 
-| Phase | Content |
-|-------|---------|
+| Phase | Content                                                                                                         |
+| ----- | --------------------------------------------------------------------------------------------------------------- |
 | **1** | TECH matrix + packages/AGENTS rewrite + root Agents rows + shared AGENTS NEVER + minimal check (or script stub) |
-| **2** | When 048/049 packages exist: their AGENTS link here; T-SYNC |
-| **3** | N1/N3 if drift returns |
+| **2** | When 048/049 packages exist: their AGENTS link here; T-SYNC                                                     |
+| **3** | N1/N3 if drift returns                                                                                          |
 
 ## Global implementation order (with 048/049)
 

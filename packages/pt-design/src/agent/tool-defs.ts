@@ -26,7 +26,8 @@ export const PT_DESIGN_TOOL_DEFS: ToolDef[] = [
     name: "pt_tools_list",
     cli: ["tools", "list"],
     title: "List tools",
-    description: "List PT Design tools with argument summaries. Call this if a tool name is unknown.",
+    description:
+      "List PT Design tools with argument summaries. Call this if a tool name is unknown.",
     args: "",
     readOnly: true,
     idempotent: true,
@@ -56,7 +57,8 @@ export const PT_DESIGN_TOOL_DEFS: ToolDef[] = [
     name: "pt_ptx_apply",
     cli: ["ptx", "apply"],
     title: "Apply PTX",
-    description: "Replace the document from a complete PTX string. Invalid PTX leaves the document unchanged.",
+    description:
+      "Replace the document from a complete PTX string. Invalid PTX leaves the document unchanged.",
     args: "ptx",
     live: true,
   },
@@ -64,7 +66,8 @@ export const PT_DESIGN_TOOL_DEFS: ToolDef[] = [
     name: "pt_screenshot",
     cli: ["screenshot"],
     title: "Screenshot",
-    description: "Capture a PNG of nodes or the whole live board. Only works on the open Prototype Design tab.",
+    description:
+      "Capture a PNG of nodes or the whole live board. Only works on the open Prototype Design tab.",
     args: "nodeIds?, maxEdge?: 1024",
     readOnly: true,
     idempotent: true,

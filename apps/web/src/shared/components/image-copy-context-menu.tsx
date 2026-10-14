@@ -16,9 +16,7 @@ const CONTEXT_MENU_WIDTH = 180;
 const CONTEXT_MENU_HEIGHT = 76;
 const CONTEXT_MENU_PAD = 8;
 
-export function imageCopyMenuPosition(
-  event: React.MouseEvent,
-): ImageCopyMenuPosition {
+export function imageCopyMenuPosition(event: React.MouseEvent): ImageCopyMenuPosition {
   const maxX = Math.max(
     CONTEXT_MENU_PAD,
     window.innerWidth - CONTEXT_MENU_WIDTH - CONTEXT_MENU_PAD,
@@ -136,7 +134,7 @@ export function ImageCopyContextMenu({
       role="menu"
       data-image-preview-context-menu=""
       aria-label={t("menu")}
-      className="fixed z-[2147483647] min-w-36 cursor-default overflow-hidden rounded-xl border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
+      className="fixed z-[2147483647] min-w-36 animate-in cursor-default overflow-hidden rounded-xl border bg-popover p-1 text-popover-foreground shadow-md fade-in-0 zoom-in-95"
       style={{ left: position.x, top: position.y }}
       onClick={(event) => event.stopPropagation()}
       onContextMenu={(event) => {
@@ -172,25 +170,14 @@ export function ImageCopyContextMenu({
   );
 }
 
-export function ImageCopyMenuHost({
-  src,
-  children,
-}: {
-  src: string;
-  children: React.ReactNode;
-}) {
+export function ImageCopyMenuHost({ src, children }: { src: string; children: React.ReactNode }) {
   const { menu, onContextMenu, closeMenu, imgRef } = useImageCopyMenu();
 
   return (
     <span className="contents" onContextMenu={onContextMenu}>
       {children}
       {menu ? (
-        <ImageCopyContextMenu
-          src={src}
-          imgRef={imgRef}
-          position={menu}
-          onClose={closeMenu}
-        />
+        <ImageCopyContextMenu src={src} imgRef={imgRef} position={menu} onClose={closeMenu} />
       ) : null}
     </span>
   );

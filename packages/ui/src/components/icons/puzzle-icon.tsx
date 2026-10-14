@@ -37,7 +37,7 @@ const PuzzleIcon = forwardRef<PuzzleIconHandle, PuzzleIconProps>(
           controls.start("animate");
         }
       },
-      [controls, onMouseEnter]
+      [controls, onMouseEnter],
     );
 
     const handleMouseLeave = useCallback(
@@ -48,7 +48,7 @@ const PuzzleIcon = forwardRef<PuzzleIconHandle, PuzzleIconProps>(
           controls.start("normal");
         }
       },
-      [controls, onMouseLeave]
+      [controls, onMouseLeave],
     );
 
     return (
@@ -82,7 +82,7 @@ const PuzzleIcon = forwardRef<PuzzleIconHandle, PuzzleIconProps>(
         </motion.svg>
       </div>
     );
-  }
+  },
 );
 
 PuzzleIcon.displayName = "PuzzleIcon";

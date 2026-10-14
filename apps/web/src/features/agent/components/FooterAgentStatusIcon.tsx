@@ -12,19 +12,11 @@ import {
 import { AGENT_STATE } from "@/features/agent/store/agent-status-store";
 
 /** Icon used by the footer Agent status overview and session rows. */
-export function FooterAgentStatusIcon({
-  bucket,
-}: {
-  bucket: FooterAgentOverviewBucket;
-}) {
+export function FooterAgentStatusIcon({ bucket }: { bucket: FooterAgentOverviewBucket }) {
   if (bucket === "running") {
     return (
       <span className="inline-flex size-5 shrink-0 items-center justify-center">
-        <AgentStatusIndicator
-          state={AGENT_STATE.RUNNING}
-          variant="compact"
-          placement="footer"
-        />
+        <AgentStatusIndicator state={AGENT_STATE.RUNNING} variant="compact" placement="footer" />
       </span>
     );
   }
@@ -38,11 +30,7 @@ export function FooterAgentStatusIcon({
 }
 
 /** Footer Agent status icon plus the footer label. */
-export function FooterAgentStatusMark({
-  bucket,
-}: {
-  bucket: FooterAgentOverviewBucket;
-}) {
+export function FooterAgentStatusMark({ bucket }: { bucket: FooterAgentOverviewBucket }) {
   const t = useTranslations("appShell");
   return (
     <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap">

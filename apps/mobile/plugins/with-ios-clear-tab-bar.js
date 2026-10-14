@@ -45,7 +45,9 @@ function ensureClearHomeTabBar(contents) {
   if (contents.includes(MARKER)) return contents;
   const start = contents.indexOf("didFinishLaunchingWithOptions launchOptions:");
   if (start < 0) {
-    throw new Error("AppDelegate is missing didFinishLaunchingWithOptions, so clear tab bar glass cannot be installed.");
+    throw new Error(
+      "AppDelegate is missing didFinishLaunchingWithOptions, so clear tab bar glass cannot be installed.",
+    );
   }
   const brace = contents.indexOf("{", start);
   if (brace < 0) {

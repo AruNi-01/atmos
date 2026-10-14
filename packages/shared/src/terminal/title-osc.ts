@@ -22,17 +22,11 @@ export function shouldClearNativeOscOnCmdEnd(oscCode: number): boolean {
 }
 
 /** Build OSC payload body `TYPE:payload` without ESC framing. */
-export function formatAtmosTitleOscBody(
-  kind: "CMD_START" | "CMD_END",
-  payload: string,
-): string {
+export function formatAtmosTitleOscBody(kind: "CMD_START" | "CMD_END", payload: string): string {
   return `${kind}:${payload}`;
 }
 
 /** Full OSC string for reattach inject (title only on the client). */
-export function formatReattachTitleOsc(
-  kind: "CMD_START" | "CMD_END",
-  payload: string,
-): string {
+export function formatReattachTitleOsc(kind: "CMD_START" | "CMD_END", payload: string): string {
   return `\x1b]${ATMOS_REATTACH_TITLE_OSC};${formatAtmosTitleOscBody(kind, payload)}\x07`;
 }

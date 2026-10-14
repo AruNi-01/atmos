@@ -68,8 +68,7 @@ export function getTerminalCloseConfirmName(
     // Absolute executable paths (esp. under bin/) or commands with args still
     // shorten to a basename so we never dump a long binary path into the modal.
     const looksLikeExecutablePath =
-      /(?:^|[\\/])(?:s?bin)[\\/]/i.test(dynamic.replace(/\\/g, "/")) ||
-      /\s/.test(dynamic);
+      /(?:^|[\\/])(?:s?bin)[\\/]/i.test(dynamic.replace(/\\/g, "/")) || /\s/.test(dynamic);
     if (!isPathLikeTitle(dynamic) || looksLikeExecutablePath) {
       return basenameCommand(dynamic);
     }

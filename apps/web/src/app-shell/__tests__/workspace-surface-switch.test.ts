@@ -44,17 +44,13 @@ describe("parseWorkspaceContextHref", () => {
     expect(parseWorkspaceContextHref("/project/?id=p-1").view).toBe("project");
     expect(parseWorkspaceContextHref("/agents").contextId).toBeNull();
     expect(parseWorkspaceContextHref("/automation?id=job-1").view).toBe("workspace");
-    expect(parseWorkspaceContextHref("/automation?id=job-1").contextId).toBe(
-      "automation:job-1",
-    );
+    expect(parseWorkspaceContextHref("/automation?id=job-1").contextId).toBe("automation:job-1");
   });
 
   it("detects explicit tab param", () => {
     expect(parseWorkspaceContextHref("/workspace?id=ws-1").hasTabParam).toBe(false);
     expect(parseWorkspaceContextHref("/workspace?id=ws-1&tab=overview").hasTabParam).toBe(true);
-    expect(parseWorkspaceContextHref("/workspace?id=ws-1&tab=overview").tabParam).toBe(
-      "overview",
-    );
+    expect(parseWorkspaceContextHref("/workspace?id=ws-1&tab=overview").tabParam).toBe("overview");
   });
 });
 
@@ -63,12 +59,10 @@ describe("injectLastCenterTabIfMissing", () => {
     expect(injectLastCenterTabIfMissing("/workspace?id=ws-1", "overview")).toContain(
       "tab=overview",
     );
-    expect(
-      injectLastCenterTabIfMissing("/workspace?id=ws-1&tab=terminal", "overview"),
-    ).toBe("/workspace?id=ws-1&tab=terminal");
-    expect(injectLastCenterTabIfMissing("/workspace?id=ws-1", null)).toBe(
-      "/workspace?id=ws-1",
+    expect(injectLastCenterTabIfMissing("/workspace?id=ws-1&tab=terminal", "overview")).toBe(
+      "/workspace?id=ws-1&tab=terminal",
     );
+    expect(injectLastCenterTabIfMissing("/workspace?id=ws-1", null)).toBe("/workspace?id=ws-1");
   });
 });
 
@@ -108,10 +102,7 @@ describe("promoteWorkspaceSurfaceSwitch + prepareWorkspaceContextNavigation", ()
   });
 
   it("prepare keeps caller-provided tab", () => {
-    const href = prepareWorkspaceContextNavigation(
-      "/workspace?id=ws-b&tab=terminal",
-      null,
-    );
+    const href = prepareWorkspaceContextNavigation("/workspace?id=ws-b&tab=terminal", null);
     expect(href).toBe("/workspace?id=ws-b&tab=terminal");
   });
 
@@ -284,9 +275,7 @@ describe("promoteWorkspaceSurfaceSwitch + prepareWorkspaceContextNavigation", ()
     // First promote is quiet → immediate.
     schedulePromoteWorkspaceSurfaceSwitch("ws-b", "ws-a");
     expect(useWorkspaceSurfaceCacheStore.getState().activeContextId).toBe("ws-b");
-    expect(useWorkspaceSurfaceCacheStore.getState().warm.map((w) => w.contextId)).toContain(
-      "ws-a",
-    );
+    expect(useWorkspaceSurfaceCacheStore.getState().warm.map((w) => w.contextId)).toContain("ws-a");
 
     // Rapid B→C then C→D: only final should apply after coalesce, with intermediates warmed.
     schedulePromoteWorkspaceSurfaceSwitch("ws-c", "ws-b");

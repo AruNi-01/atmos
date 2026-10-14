@@ -22,19 +22,10 @@ function sha256(path: string): string {
 describe("macos Liquid Glass icon packaging helpers", () => {
   it("keeps Icon Composer package in resources/icons", () => {
     expect(hasIconComposerPackage(appRoot)).toBe(true);
-    expect(existsSync(join(appRoot, ICON_COMPOSER_REL, "icon.json"))).toBe(
-      true,
-    );
-    expect(
-      existsSync(join(appRoot, ICON_COMPOSER_REL, "Assets", "Logo.png")),
-    ).toBe(true);
-    expect(
-      existsSync(join(appRoot, ICON_COMPOSER_REL, "Assets", "Rim.png")),
-    ).toBe(true);
-    const iconJson = readFileSync(
-      join(appRoot, ICON_COMPOSER_REL, "icon.json"),
-      "utf8",
-    );
+    expect(existsSync(join(appRoot, ICON_COMPOSER_REL, "icon.json"))).toBe(true);
+    expect(existsSync(join(appRoot, ICON_COMPOSER_REL, "Assets", "Logo.png"))).toBe(true);
+    expect(existsSync(join(appRoot, ICON_COMPOSER_REL, "Assets", "Rim.png"))).toBe(true);
+    const iconJson = readFileSync(join(appRoot, ICON_COMPOSER_REL, "icon.json"), "utf8");
     expect(iconJson).toContain("Rim.png");
   });
 
@@ -176,14 +167,8 @@ print("ok", app, dmg)
 
   it("keeps Desktop Use host + notification icons in lockstep with app icns", () => {
     const appIcns = join(appRoot, ICON_ICNS_REL);
-    const hostIcns = join(
-      repoRoot,
-      "crates/desktop-use/assets/host-app-icon.icns",
-    );
-    const notificationPng = join(
-      repoRoot,
-      "apps/web/public/notification-icon.png",
-    );
+    const hostIcns = join(repoRoot, "crates/desktop-use/assets/host-app-icon.icns");
+    const notificationPng = join(repoRoot, "apps/web/public/notification-icon.png");
     const docsIconPng = join(repoRoot, "apps/docs/src/app/icon.png");
     const docsAppleIconPng = join(repoRoot, "apps/docs/src/app/apple-icon.png");
     const docsFaviconIco = join(repoRoot, "apps/docs/public/favicon.ico");

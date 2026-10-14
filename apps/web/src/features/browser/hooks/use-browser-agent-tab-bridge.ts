@@ -10,10 +10,7 @@ import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
 
 import { useBrowserSessionMapStore } from "../store/use-browser-session-map";
 import { useBrowserTabCommandsStore } from "../store/use-browser-tab-commands";
-import {
-  currentBrowserHostContextId,
-  ensureSurface,
-} from "../lib/ensure-browser-surface";
+import { currentBrowserHostContextId, ensureSurface } from "../lib/ensure-browser-surface";
 
 type AgentTabPayload = {
   requestId?: string;

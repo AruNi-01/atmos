@@ -97,10 +97,7 @@ export function useSearchDirsQuery(
 export async function invalidateFileTree(rootPath: string, showHidden: boolean): Promise<void> {
   const client = getAtmosWebQueryClient();
   const scope = getComputerQueryScope();
-  await forceRefetchActiveQueries(
-    queryKeys.computer.fileTree(scope, rootPath, showHidden),
-    client,
-  );
+  await forceRefetchActiveQueries(queryKeys.computer.fileTree(scope, rootPath, showHidden), client);
 }
 
 /**

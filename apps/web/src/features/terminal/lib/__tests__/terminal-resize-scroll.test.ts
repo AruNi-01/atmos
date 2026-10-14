@@ -31,7 +31,13 @@ describe("xterm resize scroll snapshot", () => {
   });
 
   it("pins a marker for a scrolled-up viewport and restores that line", () => {
-    const marker = { line: 8, isDisposed: false, dispose() { this.isDisposed = true; } };
+    const marker = {
+      line: 8,
+      isDisposed: false,
+      dispose() {
+        this.isDisposed = true;
+      },
+    };
     const snapshot = captureXtermResizeScroll({
       buffer: { active: { viewportY: 10, baseY: 40, cursorY: 20 } },
       registerMarker: (offset) => {

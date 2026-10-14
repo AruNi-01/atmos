@@ -53,10 +53,7 @@ function DefaultPreview({ item }: { item: PreviewRailItem }) {
       data-slot="preview-rail-card"
       className="rounded-2xl border border-border bg-card p-4 shadow-sm"
     >
-      <p
-        data-slot="preview-rail-title"
-        className="font-medium text-card-foreground"
-      >
+      <p data-slot="preview-rail-title" className="font-medium text-card-foreground">
         {item.label}
       </p>
       {item.description ? (
@@ -93,9 +90,7 @@ export function PreviewRail({
   const uid = useId();
   const reduce = useReducedMotion();
   const rootRef = useRef<HTMLDivElement>(null);
-  const [internalActiveId, setInternalActiveId] = useState(
-    defaultActiveId ?? items[0]?.id ?? "",
-  );
+  const [internalActiveId, setInternalActiveId] = useState(defaultActiveId ?? items[0]?.id ?? "");
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   // A finger cannot hover, so a tap lights the tick instead. Kept apart from
   // the hovered one: they end in different ways, and a stray mouse move must
@@ -120,9 +115,7 @@ export function PreviewRail({
   const displayedId = hoveredId ?? pinnedId ?? focusedId ?? "";
   const highlightedId = displayedId || (highlightActive ? selectedId : "");
   const hoverIndex = items.findIndex((item) => item.id === displayedId);
-  const rowTemplate = items.length
-    ? `repeat(${items.length}, ${itemSize}px)`
-    : undefined;
+  const rowTemplate = items.length ? `repeat(${items.length}, ${itemSize}px)` : undefined;
   const isHorizontal = orientation === "horizontal";
 
   const selectItem = (id: string) => {
@@ -143,10 +136,8 @@ export function PreviewRail({
         }
       }}
       className={cn(
-        "isolate relative flex w-full overflow-visible",
-        isHorizontal
-          ? "min-h-64 flex-col items-center justify-center"
-          : "min-h-80",
+        "relative isolate flex w-full overflow-visible",
+        isHorizontal ? "min-h-64 flex-col items-center justify-center" : "min-h-80",
         className,
       )}
     >
@@ -158,23 +149,18 @@ export function PreviewRail({
           if (hover.leave(event)) setHoveredId(null);
         }}
         style={
-          isHorizontal
-            ? { gridTemplateColumns: rowTemplate }
-            : { gridTemplateRows: rowTemplate }
+          isHorizontal ? { gridTemplateColumns: rowTemplate } : { gridTemplateRows: rowTemplate }
         }
         className={cn(
           "relative z-10 grid shrink-0",
-          isHorizontal
-            ? "h-12 w-fit max-w-full self-center justify-center"
-            : "w-12 content-center",
+          isHorizontal ? "h-12 w-fit max-w-full justify-center self-center" : "w-12 content-center",
           railClassName,
         )}
       >
         {items.map((item, index) => {
           const selected = item.id === selectedId;
           const highlighted = item.id === highlightedId;
-          const distance =
-            hoverIndex < 0 ? Number.POSITIVE_INFINITY : Math.abs(index - hoverIndex);
+          const distance = hoverIndex < 0 ? Number.POSITIVE_INFINITY : Math.abs(index - hoverIndex);
           const scale =
             hoverIndex < 0
               ? 1
@@ -195,9 +181,7 @@ export function PreviewRail({
                 transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
                 className={cn(
                   "block bg-current",
-                  isHorizontal
-                    ? "h-12 w-0.5 origin-bottom"
-                    : "h-0.5 w-12 origin-left",
+                  isHorizontal ? "h-12 w-0.5 origin-bottom" : "h-0.5 w-12 origin-left",
                   highlighted ? "text-foreground" : undefined,
                 )}
               />
@@ -205,14 +189,10 @@ export function PreviewRail({
           );
 
           const sharedClassName = cn(
-            "relative flex text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            isHorizontal
-              ? "h-12 w-6 items-end justify-center"
-              : "h-6 w-12 items-center",
+            "relative flex text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
+            isHorizontal ? "h-12 w-6 items-end justify-center" : "h-6 w-12 items-center",
           );
-          const sharedStyle = isHorizontal
-            ? { width: itemSize }
-            : { height: itemSize };
+          const sharedStyle = isHorizontal ? { width: itemSize } : { height: itemSize };
           const handlePointerEnter = (event: PointerEvent<HTMLElement>) => {
             if (hover.enter(event)) setHoveredId(item.id);
           };
@@ -231,8 +211,7 @@ export function PreviewRail({
           };
           const handleSelect = (event: MouseEvent<HTMLElement>) => {
             const gesture = tap.take();
-            const tapped =
-              gesture !== null && gesture.pointerType !== "mouse";
+            const tapped = gesture !== null && gesture.pointerType !== "mouse";
 
             if (tapped) {
               // A link would otherwise show its preview and leave the page in
@@ -256,10 +235,7 @@ export function PreviewRail({
               data-slot="preview-rail-item"
               href={item.href}
               target={item.target}
-              rel={
-                item.rel ??
-                (item.target === "_blank" ? "noreferrer noopener" : undefined)
-              }
+              rel={item.rel ?? (item.target === "_blank" ? "noreferrer noopener" : undefined)}
               aria-label={item.ariaLabel ?? item.label}
               aria-current={selected ? "page" : undefined}
               onPointerEnter={handlePointerEnter}
@@ -299,9 +275,7 @@ export function PreviewRail({
         <div
           aria-hidden="true"
           style={
-            isHorizontal
-              ? { gridTemplateColumns: rowTemplate }
-              : { gridTemplateRows: rowTemplate }
+            isHorizontal ? { gridTemplateColumns: rowTemplate } : { gridTemplateRows: rowTemplate }
           }
           className={cn(
             "pointer-events-none absolute z-50 grid",
@@ -316,9 +290,7 @@ export function PreviewRail({
           {items.map((item) => (
             <div
               key={item.id}
-              style={
-                isHorizontal ? { width: itemSize } : { height: itemSize }
-              }
+              style={isHorizontal ? { width: itemSize } : { height: itemSize }}
               className={cn(
                 "relative flex items-center",
                 isHorizontal ? "justify-center" : undefined,
@@ -329,10 +301,7 @@ export function PreviewRail({
                   className={cn(
                     isHorizontal
                       ? "absolute bottom-12 left-1/2 w-72 -translate-x-1/2"
-                      : cn(
-                          "w-full max-w-sm",
-                          previewSide === "before" && "ml-auto",
-                        ),
+                      : cn("w-full max-w-sm", previewSide === "before" && "ml-auto"),
                     previewClassName,
                   )}
                 >
@@ -344,14 +313,10 @@ export function PreviewRail({
                       <motion.div
                         key={item.id}
                         initial={
-                          reduce
-                            ? { opacity: 0 }
-                            : { opacity: 0, y: 4, filter: "blur(6px)" }
+                          reduce ? { opacity: 0 } : { opacity: 0, y: 4, filter: "blur(6px)" }
                         }
                         animate={
-                          reduce
-                            ? { opacity: 1 }
-                            : { opacity: 1, y: 0, filter: "blur(0px)" }
+                          reduce ? { opacity: 1 } : { opacity: 1, y: 0, filter: "blur(0px)" }
                         }
                         exit={
                           reduce
@@ -371,11 +336,7 @@ export function PreviewRail({
                           ease: EASE_OUT,
                         }}
                       >
-                        {renderPreview ? (
-                          renderPreview(item)
-                        ) : (
-                          <DefaultPreview item={item} />
-                        )}
+                        {renderPreview ? renderPreview(item) : <DefaultPreview item={item} />}
                       </motion.div>
                     </AnimatePresence>
                   </motion.div>
@@ -386,9 +347,7 @@ export function PreviewRail({
         </div>
       ) : null}
 
-      {children ? (
-        <div className="min-h-0 min-w-0 flex-1">{children}</div>
-      ) : null}
+      {children ? <div className="min-h-0 min-w-0 flex-1">{children}</div> : null}
     </motion.div>
   );
 }

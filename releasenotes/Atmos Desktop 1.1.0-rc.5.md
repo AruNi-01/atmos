@@ -3,6 +3,7 @@
 ## Changes Since 1.1.0-rc.4
 
 ### New Features
+
 - **Settings Shortcuts Section**: Added a dedicated Shortcuts section in Settings with keyboard icon and categorized keybindings
 - **Terminal Context Menu**: Added right-click context menu to terminal with Previous Panel, Next Panel, and additional shortcuts
 - **PR Files Changed Tab**: Added Files Changed tab with file tree, virtualized diff rendering, and inline review comments
@@ -14,12 +15,14 @@
 - **Disk Cache Utility**: Added generic disk cache at ~/.atmos/cache/ for improved performance
 
 ### Performance
+
 - **Skills Disk Cache**: Skills directory now uses disk caching with SWR pattern and proactive invalidation
 - **Skills Lazy Loading**: Added ScanMode::Lazy to skip non-main file content reads for skills
 - **Diff Rendering**: Offloaded diff rendering to Web Worker and added render chunk yielding for smoother UI
 - **Web Request Reduction**: Reduced redundant requests on page refresh
 
 ### Bug Fixes
+
 - **Terminal Polish**: Removed border-radius artifacts, fixed toolbar corner issues, and stabilized title restoration
 - **PR Comment Fixes**: Fixed comment annotation overflow, word wrap, alignment, and scroll behavior
 - **PR Diff Fixes**: Fixed initial diff layout measurement, horizontal scroll, and theme issues
@@ -28,6 +31,7 @@
 - **File Tree Fixes**: Repaired show-hidden toggle and related tree bugs
 
 ### Other Changes
+
 - Refactored release skills to unified naming (atmos-desktop-release, atmos-local-web-release)
 - Standardized local runtime tag prefixes to use -v&lt;version&gt; suffix
 - Simplified desktop installer to macOS only with Cloudflare R2 custom domain support

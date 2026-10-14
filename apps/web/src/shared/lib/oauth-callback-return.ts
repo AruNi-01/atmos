@@ -80,8 +80,7 @@ export function currentOAuthReturnToPath(): string {
 
 function isDesktopStaticBuild(): boolean {
   return (
-    process.env.NEXT_PUBLIC_BUILD_TARGET === "desktop" ||
-    process.env.BUILD_TARGET === "desktop"
+    process.env.NEXT_PUBLIC_BUILD_TARGET === "desktop" || process.env.BUILD_TARGET === "desktop"
   );
 }
 
@@ -178,10 +177,7 @@ function storageKey(state: string): string {
 }
 
 /** Persist return context for providers that cannot put extra query params on redirect_uri. */
-export function storeOAuthReturnContext(
-  state: string,
-  ctx: OAuthReturnContext,
-): void {
+export function storeOAuthReturnContext(state: string, ctx: OAuthReturnContext): void {
   const trimmed = state.trim();
   if (!trimmed) return;
   returnContextMemory.set(trimmed, ctx);
@@ -196,10 +192,8 @@ export function resolveOAuthCallbackReturnFromWindow(
   params: { get: (key: string) => string | null },
   opts?: { state?: string | null },
 ): OAuthReturnContext {
-  const origin =
-    typeof window !== "undefined" ? window.location.origin : "http://local.invalid";
-  const pathname =
-    typeof window !== "undefined" ? window.location.pathname : "/";
+  const origin = typeof window !== "undefined" ? window.location.origin : "http://local.invalid";
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "/";
   return resolveOAuthCallbackReturn({
     clientParam: params.get(OAUTH_CALLBACK_CLIENT_PARAM),
     returnToParam: params.get(OAUTH_CALLBACK_RETURN_TO_PARAM),

@@ -1,19 +1,19 @@
-'use client';
-import type { ComponentProps } from 'react';
-import { Search } from 'lucide-react';
-import { useSearchContext } from 'fumadocs-ui/contexts/search';
-import { useI18n } from 'fumadocs-ui/contexts/i18n';
-import { cn } from '../../../lib/cn';
-import { type ButtonProps, buttonVariants } from '../../../components/ui/button';
+"use client";
+import type { ComponentProps } from "react";
+import { Search } from "lucide-react";
+import { useSearchContext } from "fumadocs-ui/contexts/search";
+import { useI18n } from "fumadocs-ui/contexts/i18n";
+import { cn } from "../../../lib/cn";
+import { type ButtonProps, buttonVariants } from "../../../components/ui/button";
 
-export interface SearchTriggerProps extends Omit<ComponentProps<'button'>, 'color'>, ButtonProps {
+export interface SearchTriggerProps extends Omit<ComponentProps<"button">, "color">, ButtonProps {
   hideIfDisabled?: boolean;
 }
 
 export function SearchTrigger({
   hideIfDisabled,
-  size = 'icon-sm',
-  color = 'ghost',
+  size = "icon-sm",
+  color = "ghost",
   className,
   onClick,
   disabled,
@@ -35,7 +35,7 @@ export function SearchTrigger({
         className,
       )}
       data-search=""
-      aria-label={props['aria-label'] ?? 'Open Search'}
+      aria-label={props["aria-label"] ?? "Open Search"}
       onClick={(e) => {
         onClick?.(e);
         if (e.defaultPrevented || disabled) return;
@@ -47,7 +47,7 @@ export function SearchTrigger({
   );
 }
 
-export interface FullSearchTriggerProps extends ComponentProps<'button'> {
+export interface FullSearchTriggerProps extends ComponentProps<"button"> {
   hideIfDisabled?: boolean;
 }
 
@@ -69,7 +69,7 @@ export function FullSearchTrigger({
       data-search-full=""
       {...props}
       className={cn(
-        'inline-flex items-center gap-2 rounded-lg border bg-fd-secondary/50 p-1.5 ps-2 text-sm text-fd-muted-foreground hover:bg-fd-accent hover:text-fd-accent-foreground',
+        "bg-fd-secondary/50 text-fd-muted-foreground hover:bg-fd-accent hover:text-fd-accent-foreground inline-flex items-center gap-2 rounded-lg border p-1.5 ps-2 text-sm",
         className,
       )}
       onClick={(e) => {
@@ -82,7 +82,7 @@ export function FullSearchTrigger({
       {text.search}
       <div className="ms-auto inline-flex gap-0.5">
         {hotKey.map((k, i) => (
-          <kbd key={i} className="rounded-md border bg-fd-background px-1.5">
+          <kbd key={i} className="bg-fd-background rounded-md border px-1.5">
             {k.display}
           </kbd>
         ))}

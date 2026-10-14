@@ -202,9 +202,7 @@ describe("normalizeSharePayload", () => {
     );
     expect(out.ok).toBe(true);
     if (!out.ok) return;
-    expect(
-      (out.snapshot.summary as { computer_count?: number }).computer_count,
-    ).toBe(4);
+    expect((out.snapshot.summary as { computer_count?: number }).computer_count).toBe(4);
   });
 
   test("strips cost unless included", () => {
@@ -234,9 +232,7 @@ describe("normalizeSharePayload", () => {
     );
     expect(withCost.ok).toBe(true);
     if (withCost.ok) {
-      expect(
-        (withCost.snapshot.summary as { total_cost_usd?: number }).total_cost_usd,
-      ).toBe(12.5);
+      expect((withCost.snapshot.summary as { total_cost_usd?: number }).total_cost_usd).toBe(12.5);
     }
   });
 
@@ -472,10 +468,7 @@ describe("usage page owner + public handlers", () => {
     const pub = await getPublicTok(db, "keep", null);
     expect((pub?.snapshot as { generated_at: number }).generated_at).toBe(2);
 
-    const rows = await db
-      .select()
-      .from(userProfiles)
-      .where(eq(userProfiles.userId, "u1"));
+    const rows = await db.select().from(userProfiles).where(eq(userProfiles.userId, "u1"));
     expect(rows).toHaveLength(1);
   });
 
@@ -491,9 +484,7 @@ describe("usage page owner + public handlers", () => {
     expect(await getPublicTok(db, "gone", null)).toBeNull();
     const owner = await getOwnerUsagePage(db, "u1");
     expect(owner.visibility).toBe("off");
-    const row = (
-      await db.select().from(userProfiles).where(eq(userProfiles.userId, "u1"))
-    )[0];
+    const row = (await db.select().from(userProfiles).where(eq(userProfiles.userId, "u1")))[0];
     expect(row?.snapshotJson).toBeNull();
   });
 
@@ -569,9 +560,7 @@ describe("usage page owner + public handlers", () => {
 
   test("usagePageUrl is atmos.land", () => {
     expect(usagePageUrl("builder")).toBe("https://atmos.land/tok/@builder");
-    expect(usagePageUrl("builder", "k_abc")).toBe(
-      "https://atmos.land/tok/@builder?k=k_abc",
-    );
+    expect(usagePageUrl("builder", "k_abc")).toBe("https://atmos.land/tok/@builder?k=k_abc");
     expect(mintUnlistedSecretPlaintext().startsWith("k_")).toBe(true);
   });
 });

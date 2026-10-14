@@ -6,16 +6,11 @@ import {
   publicXUserCardQueryOptions,
 } from "@/features/x/lib/public-x-user-card";
 
-export function useXUserCardQuery(params: {
-  username?: string | null;
-  enabled?: boolean;
-}) {
+export function useXUserCardQuery(params: { username?: string | null; enabled?: boolean }) {
   const username = normalizeXUsername(params.username) ?? "";
   const enabled = (params.enabled ?? true) && Boolean(username);
 
-  const query = useQuery(
-    publicXUserCardQueryOptions({ username }, { enabled }),
-  );
+  const query = useQuery(publicXUserCardQueryOptions({ username }, { enabled }));
 
   return {
     data: query.data,

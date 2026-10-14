@@ -126,7 +126,9 @@ export function LocalServiceList({
     services.length === 0 ? (
       <div className="flex min-h-24 flex-col items-center justify-center rounded-lg border border-dashed border-border/70 px-4 py-5 text-center">
         <Server className="size-5 text-muted-foreground" />
-        <div className="mt-2 text-sm font-medium text-foreground">{emptyLabel ?? t("list.emptyLabel")}</div>
+        <div className="mt-2 text-sm font-medium text-foreground">
+          {emptyLabel ?? t("list.emptyLabel")}
+        </div>
         <div className="mt-1 max-w-xs text-xs leading-relaxed text-muted-foreground">
           {t("list.emptyDescription")}
         </div>
@@ -141,9 +143,7 @@ export function LocalServiceList({
               showOwner={showOwner}
               // Serialize escalations: disable every stop control while a dialog
               // or tree-stop is in flight so concurrent clicks are not silent no-ops.
-              stopPending={
-                stoppingId === service.id || escalation !== null || treePending
-              }
+              stopPending={stoppingId === service.id || escalation !== null || treePending}
               onOpen={onOpen}
               onStop={handleStop}
             />
@@ -159,16 +159,16 @@ export function LocalServiceList({
                 <div className="truncate text-xs font-semibold text-foreground">{group.label}</div>
                 <div className="truncate text-[10px] text-muted-foreground">{group.rootPath}</div>
               </div>
-              <span className="shrink-0 text-[10px] text-muted-foreground">{group.services.length}</span>
+              <span className="shrink-0 text-[10px] text-muted-foreground">
+                {group.services.length}
+              </span>
             </div>
             {group.services.map((service) => (
               <div key={service.id} className={cn(stoppingId === service.id && "opacity-60")}>
                 <LocalServiceRow
                   service={service}
                   compact={compact}
-                  stopPending={
-                    stoppingId === service.id || escalation !== null || treePending
-                  }
+                  stopPending={stoppingId === service.id || escalation !== null || treePending}
                   onOpen={onOpen}
                   onStop={handleStop}
                 />
@@ -195,10 +195,14 @@ export function LocalServiceList({
 }
 
 function groupServices(services: LocalService[]) {
-  const map = new Map<string, { key: string; label: string; rootPath: string; services: LocalService[] }>();
+  const map = new Map<
+    string,
+    { key: string; label: string; rootPath: string; services: LocalService[] }
+  >();
   for (const service of services) {
     const key = service.owner.workspace_id || service.owner.project_id || service.owner.root_path;
-    const label = service.owner.workspace_name || service.owner.project_name || service.owner.root_path;
+    const label =
+      service.owner.workspace_name || service.owner.project_name || service.owner.root_path;
     const group = map.get(key) ?? {
       key,
       label,

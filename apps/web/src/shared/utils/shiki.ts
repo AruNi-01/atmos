@@ -1,6 +1,4 @@
-import {
-  createJavaScriptRegexEngine,
-} from "shiki/engine/javascript";
+import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 import {
   type HighlighterCore,
   type LanguageRegistration,

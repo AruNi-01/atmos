@@ -2,11 +2,11 @@
 
 This directory contains helper scripts to build and deploy static Next.js apps to Cloudflare Pages.
 
-| App | Project name | Build | Deploy |
-|-----|--------------|-------|--------|
-| `apps/web` | `app-atmos-land` | `bun run build:web:pages` | `bun run deploy:web:pages` |
-| `apps/docs` | `docs-atmos-land` | `bun run build:docs:pages` | `bun run deploy:docs:pages` |
-| `apps/landing` | `www-atmos-land` | `bun run build:landing:pages` | `bun run deploy:landing:pages` |
+| App            | Project name      | Build                         | Deploy                         |
+| -------------- | ----------------- | ----------------------------- | ------------------------------ |
+| `apps/web`     | `app-atmos-land`  | `bun run build:web:pages`     | `bun run deploy:web:pages`     |
+| `apps/docs`    | `docs-atmos-land` | `bun run build:docs:pages`    | `bun run deploy:docs:pages`    |
+| `apps/landing` | `www-atmos-land`  | `bun run build:landing:pages` | `bun run deploy:landing:pages` |
 
 ## Web (`apps/web`)
 

@@ -22,7 +22,7 @@ describe("agent chat stream wiring", () => {
     expect(list).toContain("inlineSubagentTools.get(message.id) ? messages : undefined");
     expect(list).toContain("measureElement");
     expect(list).toContain("useAnimationFrameWithResizeObserver: true");
-    expect(list).toContain("anchorTo: \"end\"");
+    expect(list).toContain('anchorTo: "end"');
     expect(list).toContain("shouldAdjustTranscriptScrollOnItemSizeChange");
   });
 
@@ -41,7 +41,9 @@ describe("agent chat stream wiring", () => {
   it("timeline jump falls back to virtualizer.scrollToIndex for unmounted rows", () => {
     const list = read("components/AgentChatTranscriptList.tsx");
     expect(list).toContain("const measurement = virtualizer.measurementsCache[index]");
-    expect(list).toContain("virtualizer.scrollToIndex(index, { align: \"start\", behavior: \"smooth\" })");
+    expect(list).toContain(
+      'virtualizer.scrollToIndex(index, { align: "start", behavior: "smooth" })',
+    );
   });
 
   it("clears the expand store when the bound chat changes or the session unmounts", () => {

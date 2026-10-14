@@ -72,15 +72,10 @@ await esbuild.build({
 
 // Guest element-select runtime is read at runtime via executeJavaScript inject.
 // Ship next to main.js so packaged apps resolve dist/browser-runtime.js (not monorepo).
-const browserRuntimeSrc = join(
-  repoRoot,
-  "packages/shared/browser/browser-runtime.js",
-);
+const browserRuntimeSrc = join(repoRoot, "packages/shared/browser/browser-runtime.js");
 const browserRuntimeDest = join(dist, "browser-runtime.js");
 if (!existsSync(browserRuntimeSrc)) {
-  throw new Error(
-    `[build] missing browser runtime source: ${browserRuntimeSrc}`,
-  );
+  throw new Error(`[build] missing browser runtime source: ${browserRuntimeSrc}`);
 }
 copyFileSync(browserRuntimeSrc, browserRuntimeDest);
 
@@ -91,9 +86,7 @@ if (process.platform === "darwin") {
     { cwd: root, stdio: "inherit" },
   );
   if (native.status !== 0) {
-    throw new Error(
-      `[build] native helpers failed status=${native.status ?? "null"}`,
-    );
+    throw new Error(`[build] native helpers failed status=${native.status ?? "null"}`);
   }
 }
 

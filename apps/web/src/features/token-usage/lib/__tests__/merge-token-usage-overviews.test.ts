@@ -1,9 +1,6 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it } from "bun:test";
-import type {
-  TokenBreakdownResponse,
-  TokenUsageOverviewResponse,
-} from "@/api/ws/token-usage-api";
+import type { TokenBreakdownResponse, TokenUsageOverviewResponse } from "@/api/ws/token-usage-api";
 import { mergeTokenUsageOverviews } from "@/features/token-usage/lib/merge-token-usage-overviews";
 
 const zero: TokenBreakdownResponse = {
@@ -67,11 +64,7 @@ describe("mergeTokenUsageOverviews", () => {
       }),
     ]);
     expect(merged.summary.total_tokens).toBe(40);
-    expect(merged.by_day.map((d) => d.date)).toEqual([
-      "2026-01-01",
-      "2026-01-02",
-      "2026-01-03",
-    ]);
+    expect(merged.by_day.map((d) => d.date)).toEqual(["2026-01-01", "2026-01-02", "2026-01-03"]);
     expect(merged.summary.active_days).toBe(3);
   });
 

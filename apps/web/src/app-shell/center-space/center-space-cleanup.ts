@@ -25,10 +25,7 @@ import { useAgentChatCenterTabsStore } from "@/features/agent/store/use-agent-ch
 import { useGitCommitCenterTabsStore } from "@/features/git/store/use-git-commit-center-tabs";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
 
-function omitContextKey<T>(
-  record: Record<string, T>,
-  contextId: string,
-): Record<string, T> {
+function omitContextKey<T>(record: Record<string, T>, contextId: string): Record<string, T> {
   if (!(contextId in record)) return record;
   const next = { ...record };
   delete next[contextId];

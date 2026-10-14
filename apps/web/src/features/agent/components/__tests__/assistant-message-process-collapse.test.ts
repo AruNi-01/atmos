@@ -2,22 +2,10 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const view = readFileSync(
-  join(import.meta.dir, "../AssistantMessageView.tsx"),
-  "utf8",
-);
-const messageView = readFileSync(
-  join(import.meta.dir, "../AgentChatMessageView.tsx"),
-  "utf8",
-);
-const toolGroup = readFileSync(
-  join(import.meta.dir, "../AgentToolGroupView.tsx"),
-  "utf8",
-);
-const toolCard = readFileSync(
-  join(import.meta.dir, "../tool-results/AgentToolCard.tsx"),
-  "utf8",
-);
+const view = readFileSync(join(import.meta.dir, "../AssistantMessageView.tsx"), "utf8");
+const messageView = readFileSync(join(import.meta.dir, "../AgentChatMessageView.tsx"), "utf8");
+const toolGroup = readFileSync(join(import.meta.dir, "../AgentToolGroupView.tsx"), "utf8");
+const toolCard = readFileSync(join(import.meta.dir, "../tool-results/AgentToolCard.tsx"), "utf8");
 
 describe("assistant process collapse chrome", () => {
   it("uses Worked for above a rail that moves below the process when expanded", () => {
@@ -31,7 +19,7 @@ describe("assistant process collapse chrome", () => {
     expect(view).toContain("segmentAssistantParts(parts, density)");
     expect(view).toContain("isDetailExpandedTool(part)");
     expect(view).toContain("autoOpen={false}");
-    expect(view).toContain("toolResultOpen={density === \"detailed\" && isDetailExpandedTool(part)}");
+    expect(view).toContain('toolResultOpen={density === "detailed" && isDetailExpandedTool(part)}');
     const contentAt = view.indexOf("<CollapsibleContent");
     const railAt = view.indexOf("<ProcessCollapseRail");
     expect(contentAt).toBeGreaterThan(-1);
@@ -82,7 +70,9 @@ describe("assistant process collapse chrome", () => {
     expect(view).toContain("processSegments.map((segment) => renderSegment(segment, false))");
     expect(view).toContain("tailSegments.map((segment) => renderSegment(segment, true))");
     expect(view).not.toContain("segments.map((segment) =>");
-    expect(view).not.toContain("return <React.Fragment key={segment.origIndex}>{content}</React.Fragment>");
+    expect(view).not.toContain(
+      "return <React.Fragment key={segment.origIndex}>{content}</React.Fragment>",
+    );
     expect(view).not.toContain('parts.find((part) => part.type === "text")');
     expect(view).not.toContain("assistant_message_delta");
     expect(view).not.toContain("thinking_delta");
@@ -108,13 +98,8 @@ describe("assistant process collapse chrome", () => {
     expect(messageView).toContain("user-message-meta-clip");
     expect(messageView).toContain("user-message-meta-item");
     expect(messageView).toContain('className="gap-0"');
-    expect(messageView).not.toContain(
-      "opacity-0 transition-opacity group-hover:opacity-100",
-    );
-    const css = readFileSync(
-      join(import.meta.dir, "../user-message-meta.css"),
-      "utf8",
-    );
+    expect(messageView).not.toContain("opacity-0 transition-opacity group-hover:opacity-100");
+    const css = readFileSync(join(import.meta.dir, "../user-message-meta.css"), "utf8");
     expect(css).toContain("grid-template-rows: 0fr");
     expect(css).toContain("grid-template-rows: 1fr");
     expect(css).toContain(

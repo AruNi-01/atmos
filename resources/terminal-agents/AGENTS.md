@@ -33,9 +33,9 @@ No bump needed for: comments/docs only, typo fixes in `label` that do not affect
 
 On settings / code-agent read, Atmos compares:
 
-| | |
-|--|--|
-| Shipped version | `builtin_agents.meta.json` → `version` (baked into Server) |
+|                    |                                                                          |
+| ------------------ | ------------------------------------------------------------------------ |
+| Shipped version    | `builtin_agents.meta.json` → `version` (baked into Server)               |
 | Applied on machine | `~/.atmos/function_settings.json` → `agent_cli.builtin_manifest_version` |
 
 If shipped > applied:

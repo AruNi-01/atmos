@@ -33,10 +33,7 @@ function processRow(
   return { name, usage: usage(cpu, memory), ports, leaked: false };
 }
 
-function session(
-  id: string,
-  name: string | null = id,
-): ResourceSessionMetrics {
+function session(id: string, name: string | null = id): ResourceSessionMetrics {
   return {
     session_id: id,
     name,
@@ -61,9 +58,7 @@ function workspace(
   };
 }
 
-function project(
-  overrides: Partial<ResourceProjectMetrics> = {},
-): ResourceProjectMetrics {
+function project(overrides: Partial<ResourceProjectMetrics> = {}): ResourceProjectMetrics {
   return {
     project_id: "p1",
     name: "Atmos",
@@ -84,11 +79,7 @@ describe("projectChildKinds", () => {
       sessions: [session("s-direct")],
       workspaces: [workspace("w-z"), workspace("w-a")],
     });
-    expect(projectChildKinds(tree)).toEqual([
-      "project-resources",
-      "workspace",
-      "workspace",
-    ]);
+    expect(projectChildKinds(tree)).toEqual(["project-resources", "workspace", "workspace"]);
     expect(shouldShowProjectResources(tree)).toBe(true);
     expect(projectResourcesDefaultOpen(tree)).toBe(true);
     expect(workspaceDefaultOpen()).toBe(false);
@@ -118,11 +109,9 @@ describe("projectChildKinds", () => {
 describe("buildResourceMonitorScopeSections", () => {
   test("keeps Sessions before Other processes and uses an empty copy when both are absent", () => {
     expect(
-      buildResourceMonitorScopeSections(
-        [session("s1"), session("s2")],
-        usage(2, 20),
-        [processRow("node")],
-      ).map((section) => section.kind),
+      buildResourceMonitorScopeSections([session("s1"), session("s2")], usage(2, 20), [
+        processRow("node"),
+      ]).map((section) => section.kind),
     ).toEqual(["sessions", "other-processes"]);
     expect(
       buildResourceMonitorScopeSections([], EMPTY_RESOURCE_USAGE, []).map(
@@ -144,8 +133,6 @@ describe("buildResourceMonitorScopeSections", () => {
       },
     ]);
     expect(shouldShowOtherProcessesResidual(EMPTY_RESOURCE_USAGE, [])).toBe(false);
-    expect(
-      shouldShowOtherProcessesResidual(otherUsage, [processRow("vite")]),
-    ).toBe(false);
+    expect(shouldShowOtherProcessesResidual(otherUsage, [processRow("vite")])).toBe(false);
   });
 });

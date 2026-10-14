@@ -2,11 +2,7 @@ import { forwardRef, type ComponentProps } from "react";
 import { cn } from "@workspace/ui";
 import { FileIcon } from "@react-symbols/icons/utils";
 
-const CodeBlock = ({
-  children,
-  className,
-  ...props
-}: ComponentProps<"div">) => {
+const CodeBlock = ({ children, className, ...props }: ComponentProps<"div">) => {
   return (
     <div
       className={cn(
@@ -26,11 +22,7 @@ const CodeBlock = ({
 
 type CodeBlockHeaderProps = ComponentProps<"div">;
 
-const CodeBlockHeader = ({
-  children,
-  className,
-  ...props
-}: CodeBlockHeaderProps) => {
+const CodeBlockHeader = ({ children, className, ...props }: CodeBlockHeaderProps) => {
   return (
     <div
       className={cn(
@@ -64,11 +56,7 @@ const CodeBlockIcon = ({ language, className }: CodeBlockIconProps) => {
 
 type CodeBlockGroupProps = ComponentProps<"div">;
 
-const CodeBlockGroup = ({
-  children,
-  className,
-  ...props
-}: CodeBlockGroupProps) => {
+const CodeBlockGroup = ({ children, className, ...props }: CodeBlockGroupProps) => {
   return (
     <div
       className={cn(
@@ -107,10 +95,4 @@ const CodeBlockContent = forwardRef<HTMLDivElement, CodeBlockContentProps>(
 );
 CodeBlockContent.displayName = "CodeBlockContent";
 
-export {
-  CodeBlock,
-  CodeBlockHeader,
-  CodeBlockIcon,
-  CodeBlockGroup,
-  CodeBlockContent,
-};
+export { CodeBlock, CodeBlockHeader, CodeBlockIcon, CodeBlockGroup, CodeBlockContent };

@@ -29,7 +29,9 @@ const grokAgent = {
   iconType: "built-in" as const,
 };
 
-function pane(partial: Partial<TerminalPaneProps> & Pick<TerminalPaneProps, "id" | "label">): TerminalPaneProps {
+function pane(
+  partial: Partial<TerminalPaneProps> & Pick<TerminalPaneProps, "id" | "label">,
+): TerminalPaneProps {
   return {
     sessionId: partial.sessionId ?? `session-${partial.id}`,
     workspaceId: partial.workspaceId ?? "ws",
@@ -383,9 +385,7 @@ describe("resolveTerminalCenterTabPresentation", () => {
         dynamicTitle: "claude",
       }),
     };
-    expect(
-      resolvePaneTitleForCenterTab(panes.a, { configuredAgents: [claudeAgent] }),
-    ).toEqual({
+    expect(resolvePaneTitleForCenterTab(panes.a, { configuredAgents: [claudeAgent] })).toEqual({
       displayTitle: "Review · Claude Code",
       toolbarAgent: expect.objectContaining({ id: "claude" }),
       sessionOscTitle: undefined,

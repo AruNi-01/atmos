@@ -121,7 +121,11 @@ export function SelectionPropsRail({
         const current = group.options.find((opt) => opt.id === group.value);
         const title = current ? `${group.label}: ${current.label}` : group.label;
         return (
-          <div key={group.id} className="pt-design-prop-row" data-testid={`pt-design-prop-group-${group.id}`}>
+          <div
+            key={group.id}
+            className="pt-design-prop-row"
+            data-testid={`pt-design-prop-group-${group.id}`}
+          >
             <motion.button
               type="button"
               className="pt-design-prop-trigger"
@@ -132,7 +136,9 @@ export function SelectionPropsRail({
               aria-haspopup="listbox"
               whileTap={reduceMotion ? undefined : PRESS}
               transition={{ duration: reduceMotion ? 0 : 0.12, ease: EASE }}
-              onClick={() => setOpenId((currentOpen) => (currentOpen === group.id ? null : group.id))}
+              onClick={() =>
+                setOpenId((currentOpen) => (currentOpen === group.id ? null : group.id))
+              }
             >
               <PropGlyph group={group} />
             </motion.button>
@@ -147,7 +153,9 @@ export function SelectionPropsRail({
                   animate={{ opacity: 1, x: 0, y: 0 }}
                   exit={reduceMotion ? { opacity: 0 } : leave}
                   transition={{ duration, ease: EASE }}
-                  style={{ transformOrigin: placement === "bottom" ? "center bottom" : "left center" }}
+                  style={{
+                    transformOrigin: placement === "bottom" ? "center bottom" : "left center",
+                  }}
                 >
                   {group.options.map((option) => {
                     const selected = option.id === group.value;
@@ -245,7 +253,8 @@ function visibleCompactButton(host: HTMLElement): HTMLElement | null {
     if (node.getBoundingClientRect().width < 8) continue;
     sized ??= node;
     const background = getComputedStyle(node).backgroundColor;
-    if (background && background !== "transparent" && background !== "rgba(0, 0, 0, 0)") return node;
+    if (background && background !== "transparent" && background !== "rgba(0, 0, 0, 0)")
+      return node;
   }
   return sized;
 }

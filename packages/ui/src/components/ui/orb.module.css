@@ -98,7 +98,6 @@
   --orb-dim: 0.1;
 }
 
-
 .cell {
   position: absolute;
   width: 3px;
@@ -566,7 +565,6 @@
   --orb-ring-rest: 0.3;
 }
 
-
 .ringDot {
   position: absolute;
   left: 50%;
@@ -585,10 +583,12 @@
 }
 
 @keyframes orb-ring-chase {
-  0%, 11% {
+  0%,
+  11% {
     opacity: 1;
   }
-  12.5%, 100% {
+  12.5%,
+  100% {
     opacity: var(--orb-ring-rest);
   }
 }
@@ -598,7 +598,8 @@
 }
 
 @keyframes orb-ring-pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.18;
     transform: translate(var(--orb-rx), var(--orb-ry)) scale(0.7);
   }
@@ -613,7 +614,8 @@
 }
 
 @keyframes orb-ring-comet {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.08;
     transform: translate(var(--orb-rx), var(--orb-ry));
   }
@@ -637,7 +639,8 @@
 }
 
 @keyframes orb-ring-stagger {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: translate(var(--orb-rx), var(--orb-ry));
   }
@@ -687,7 +690,8 @@
 }
 
 @keyframes orb-globe-spin {
-  0%, 100% {
+  0%,
+  100% {
     transform: translate(var(--g0x), var(--g0y));
     opacity: var(--g0o);
   }
@@ -722,37 +726,140 @@
 }
 
 @keyframes orb-globe-ringturn {
-  0% { transform: translate(var(--g0x), var(--g0y)); opacity: var(--g0o); }
-  2.5% { transform: translate(var(--g1x), var(--g1y)); opacity: var(--g1o); }
-  5% { transform: translate(var(--g2x), var(--g2y)); opacity: var(--g2o); }
-  7.5%, 10% { transform: translate(var(--g3x), var(--g3y)); opacity: var(--g3o); }
-  12.5% { transform: translate(var(--g4x), var(--g4y)); opacity: var(--g4o); }
-  15% { transform: translate(var(--g5x), var(--g5y)); opacity: var(--g5o); }
-  17.5%, 20% { transform: translate(var(--g6x), var(--g6y)); opacity: var(--g6o); }
-  22.5% { transform: translate(var(--g7x), var(--g7y)); opacity: var(--g7o); }
-  25% { transform: translate(var(--g8x), var(--g8y)); opacity: var(--g8o); }
-  27.5%, 30% { transform: translate(var(--g9x), var(--g9y)); opacity: var(--g9o); }
-  32.5% { transform: translate(var(--g10x), var(--g10y)); opacity: var(--g10o); }
-  35% { transform: translate(var(--g11x), var(--g11y)); opacity: var(--g11o); }
-  37.5%, 40% { transform: translate(var(--g12x), var(--g12y)); opacity: var(--g12o); }
-  42.5% { transform: translate(var(--g13x), var(--g13y)); opacity: var(--g13o); }
-  45% { transform: translate(var(--g14x), var(--g14y)); opacity: var(--g14o); }
-  47.5%, 50% { transform: translate(var(--g15x), var(--g15y)); opacity: var(--g15o); }
-  52.5% { transform: translate(var(--g16x), var(--g16y)); opacity: var(--g16o); }
-  55% { transform: translate(var(--g17x), var(--g17y)); opacity: var(--g17o); }
-  57.5%, 60% { transform: translate(var(--g18x), var(--g18y)); opacity: var(--g18o); }
-  62.5% { transform: translate(var(--g19x), var(--g19y)); opacity: var(--g19o); }
-  65% { transform: translate(var(--g20x), var(--g20y)); opacity: var(--g20o); }
-  67.5%, 70% { transform: translate(var(--g21x), var(--g21y)); opacity: var(--g21o); }
-  72.5% { transform: translate(var(--g22x), var(--g22y)); opacity: var(--g22o); }
-  75% { transform: translate(var(--g23x), var(--g23y)); opacity: var(--g23o); }
-  77.5%, 80% { transform: translate(var(--g24x), var(--g24y)); opacity: var(--g24o); }
-  82.5% { transform: translate(var(--g25x), var(--g25y)); opacity: var(--g25o); }
-  85% { transform: translate(var(--g26x), var(--g26y)); opacity: var(--g26o); }
-  87.5%, 90% { transform: translate(var(--g27x), var(--g27y)); opacity: var(--g27o); }
-  92.5% { transform: translate(var(--g28x), var(--g28y)); opacity: var(--g28o); }
-  95% { transform: translate(var(--g29x), var(--g29y)); opacity: var(--g29o); }
-  97.5%, 100% { transform: translate(var(--g30x), var(--g30y)); opacity: var(--g30o); }
+  0% {
+    transform: translate(var(--g0x), var(--g0y));
+    opacity: var(--g0o);
+  }
+  2.5% {
+    transform: translate(var(--g1x), var(--g1y));
+    opacity: var(--g1o);
+  }
+  5% {
+    transform: translate(var(--g2x), var(--g2y));
+    opacity: var(--g2o);
+  }
+  7.5%,
+  10% {
+    transform: translate(var(--g3x), var(--g3y));
+    opacity: var(--g3o);
+  }
+  12.5% {
+    transform: translate(var(--g4x), var(--g4y));
+    opacity: var(--g4o);
+  }
+  15% {
+    transform: translate(var(--g5x), var(--g5y));
+    opacity: var(--g5o);
+  }
+  17.5%,
+  20% {
+    transform: translate(var(--g6x), var(--g6y));
+    opacity: var(--g6o);
+  }
+  22.5% {
+    transform: translate(var(--g7x), var(--g7y));
+    opacity: var(--g7o);
+  }
+  25% {
+    transform: translate(var(--g8x), var(--g8y));
+    opacity: var(--g8o);
+  }
+  27.5%,
+  30% {
+    transform: translate(var(--g9x), var(--g9y));
+    opacity: var(--g9o);
+  }
+  32.5% {
+    transform: translate(var(--g10x), var(--g10y));
+    opacity: var(--g10o);
+  }
+  35% {
+    transform: translate(var(--g11x), var(--g11y));
+    opacity: var(--g11o);
+  }
+  37.5%,
+  40% {
+    transform: translate(var(--g12x), var(--g12y));
+    opacity: var(--g12o);
+  }
+  42.5% {
+    transform: translate(var(--g13x), var(--g13y));
+    opacity: var(--g13o);
+  }
+  45% {
+    transform: translate(var(--g14x), var(--g14y));
+    opacity: var(--g14o);
+  }
+  47.5%,
+  50% {
+    transform: translate(var(--g15x), var(--g15y));
+    opacity: var(--g15o);
+  }
+  52.5% {
+    transform: translate(var(--g16x), var(--g16y));
+    opacity: var(--g16o);
+  }
+  55% {
+    transform: translate(var(--g17x), var(--g17y));
+    opacity: var(--g17o);
+  }
+  57.5%,
+  60% {
+    transform: translate(var(--g18x), var(--g18y));
+    opacity: var(--g18o);
+  }
+  62.5% {
+    transform: translate(var(--g19x), var(--g19y));
+    opacity: var(--g19o);
+  }
+  65% {
+    transform: translate(var(--g20x), var(--g20y));
+    opacity: var(--g20o);
+  }
+  67.5%,
+  70% {
+    transform: translate(var(--g21x), var(--g21y));
+    opacity: var(--g21o);
+  }
+  72.5% {
+    transform: translate(var(--g22x), var(--g22y));
+    opacity: var(--g22o);
+  }
+  75% {
+    transform: translate(var(--g23x), var(--g23y));
+    opacity: var(--g23o);
+  }
+  77.5%,
+  80% {
+    transform: translate(var(--g24x), var(--g24y));
+    opacity: var(--g24o);
+  }
+  82.5% {
+    transform: translate(var(--g25x), var(--g25y));
+    opacity: var(--g25o);
+  }
+  85% {
+    transform: translate(var(--g26x), var(--g26y));
+    opacity: var(--g26o);
+  }
+  87.5%,
+  90% {
+    transform: translate(var(--g27x), var(--g27y));
+    opacity: var(--g27o);
+  }
+  92.5% {
+    transform: translate(var(--g28x), var(--g28y));
+    opacity: var(--g28o);
+  }
+  95% {
+    transform: translate(var(--g29x), var(--g29y));
+    opacity: var(--g29o);
+  }
+  97.5%,
+  100% {
+    transform: translate(var(--g30x), var(--g30y));
+    opacity: var(--g30o);
+  }
 }
 
 @keyframes orb-globe-breathe {
@@ -814,11 +921,25 @@
 }
 
 @keyframes orb-morph {
-  0%, 5%   { transform: translate(var(--m-1)); }
-  25%, 30% { transform: translate(var(--m-2)); }
-  50%, 55% { transform: translate(var(--m-3)); }
-  75%, 80% { transform: translate(var(--m-4)); }
-  100%     { transform: translate(var(--m-1)); }
+  0%,
+  5% {
+    transform: translate(var(--m-1));
+  }
+  25%,
+  30% {
+    transform: translate(var(--m-2));
+  }
+  50%,
+  55% {
+    transform: translate(var(--m-3));
+  }
+  75%,
+  80% {
+    transform: translate(var(--m-4));
+  }
+  100% {
+    transform: translate(var(--m-1));
+  }
 }
 
 .morph[data-variant="M2"] {
@@ -834,14 +955,30 @@
 }
 
 @keyframes orb-morph-scatter {
-  0%, 12% { transform: translate(var(--m-1)); opacity: 1; }
-  38%, 62% { transform: translate(var(--m-2)); opacity: calc(1 - 0.6 * var(--m-depth, 0)); }
-  88%, 100% { transform: translate(var(--m-1)); opacity: 1; }
+  0%,
+  12% {
+    transform: translate(var(--m-1));
+    opacity: 1;
+  }
+  38%,
+  62% {
+    transform: translate(var(--m-2));
+    opacity: calc(1 - 0.6 * var(--m-depth, 0));
+  }
+  88%,
+  100% {
+    transform: translate(var(--m-1));
+    opacity: 1;
+  }
 }
 
 @keyframes orb-morph-twist {
-  from { transform: scale(var(--orb-k, 1)) rotate(0deg); }
-  to   { transform: scale(var(--orb-k, 1)) rotate(360deg); }
+  from {
+    transform: scale(var(--orb-k, 1)) rotate(0deg);
+  }
+  to {
+    transform: scale(var(--orb-k, 1)) rotate(360deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

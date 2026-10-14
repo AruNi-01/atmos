@@ -64,8 +64,7 @@ export const skillsApi = {
     path: string;
     message: string;
   }> => {
-    return wsRequest("wiki_skill_install",
-    );
+    return wsRequest("wiki_skill_install");
   },
 
   /**
@@ -73,8 +72,7 @@ export const skillsApi = {
    * in ~/.atmos/skills/.system/
    */
   isProjectWikiInstalledInSystem: async (): Promise<boolean> => {
-    const res = await wsRequest("wiki_skill_system_status",
-    );
+    const res = await wsRequest("wiki_skill_system_status");
     return res.installed;
   },
 
@@ -83,8 +81,7 @@ export const skillsApi = {
    * are installed in ~/.atmos/skills/.system/
    */
   isCodeReviewSkillsInstalledInSystem: async (): Promise<boolean> => {
-    const res = await wsRequest("code_review_skill_system_status",
-    );
+    const res = await wsRequest("code_review_skill_system_status");
     return res.installed;
   },
 
@@ -92,17 +89,14 @@ export const skillsApi = {
    * Check if git-commit skill is installed in ~/.atmos/skills/.system/git-commit/
    */
   isGitCommitSkillInstalledInSystem: async (): Promise<boolean> => {
-    const res = await wsRequest("git_commit_skill_system_status",
-    );
+    const res = await wsRequest("git_commit_skill_system_status");
     return res.installed;
   },
 
   /**
    * Sync a single system skill by name
    */
-  syncSingleSystemSkill: async (
-    skillName: string,
-  ): Promise<{ success: boolean }> => {
+  syncSingleSystemSkill: async (skillName: string): Promise<{ success: boolean }> => {
     return wsRequest("sync_single_system_skill", {
       skill_name: skillName,
     });

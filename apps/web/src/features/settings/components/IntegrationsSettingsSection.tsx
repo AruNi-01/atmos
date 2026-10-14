@@ -1,32 +1,26 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { useTranslations } from 'next-intl';
-import { Button, Skeleton, cn } from '@workspace/ui';
-import {
-  CircleCheck,
-  CircleMinus,
-  CircleX,
-  ExternalLink,
-  RefreshCw,
-} from 'lucide-react';
+import React from "react";
+import { useTranslations } from "next-intl";
+import { Button, Skeleton, cn } from "@workspace/ui";
+import { CircleCheck, CircleMinus, CircleX, ExternalLink, RefreshCw } from "lucide-react";
 import {
   useGhCliStatusQuery,
   useTmuxStatusQuery,
   useGitStatusQuery,
-} from '@/features/system/hooks/use-system-status-queries';
-import { useGithubRateLimitQuery } from '@/features/github/hooks/use-github-pr-query';
-import { InstallToolPopover } from '@/features/welcome/components/InstallToolPopover';
-import type { GithubRateLimitResourcePayload } from '@atmos/api-types/ws/dto/github';
-import type { LinearRateLimitResourcePayload } from '@atmos/api-types/ws/dto/linear';
-import { wsLinearApi } from '@/api/ws/linear-api';
+} from "@/features/system/hooks/use-system-status-queries";
+import { useGithubRateLimitQuery } from "@/features/github/hooks/use-github-pr-query";
+import { InstallToolPopover } from "@/features/welcome/components/InstallToolPopover";
+import type { GithubRateLimitResourcePayload } from "@atmos/api-types/ws/dto/github";
+import type { LinearRateLimitResourcePayload } from "@atmos/api-types/ws/dto/linear";
+import { wsLinearApi } from "@/api/ws/linear-api";
 import {
   getStoredDeviceCredential,
   hubConfigured,
   hubLinearDisconnect,
   hubLinearStatus,
   hubMe,
-} from '@/api/hub-client';
+} from "@/api/hub-client";
 import {
   LINEAR_API_KEYS_CREATE_URL,
   clearLinearAuthSelection,
@@ -41,43 +35,37 @@ import {
   selectLinearLocalKey,
   selectLinearOauth,
   upsertLinearLocalKey,
-} from '@/features/settings/lib/linear-local-keys';
-import { useQuery } from '@tanstack/react-query';
-import { useQueryState } from 'nuqs';
-import { isDesktopAuthSurface } from '@/shared/lib/desktop-runtime';
+} from "@/features/settings/lib/linear-local-keys";
+import { useQuery } from "@tanstack/react-query";
+import { useQueryState } from "nuqs";
+import { isDesktopAuthSurface } from "@/shared/lib/desktop-runtime";
 import {
   currentOAuthReturnToPath,
   storeOAuthReturnContext,
-} from '@/shared/lib/oauth-callback-return';
-import { useComputerQueryScope } from '@/api/query/query-scope';
-import { queryKeys } from '@/api/query/query-keys';
-import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
+} from "@/shared/lib/oauth-callback-return";
+import { useComputerQueryScope } from "@/api/query/query-scope";
+import { queryKeys } from "@/api/query/query-keys";
+import { settingsModalParams } from "@/shared/lib/nuqs/searchParams";
 import {
   SettingsGroupCard,
   SettingsGroupRow,
   SettingsPageStack,
-} from '@/features/settings/components/settings/SettingsGroupCard';
+} from "@/features/settings/components/settings/SettingsGroupCard";
 
-type RateLimitKey = 'core' | 'search' | 'graphql';
-type IntegrationStatusTone = 'ok' | 'warn' | 'muted';
+type RateLimitKey = "core" | "search" | "graphql";
+type IntegrationStatusTone = "ok" | "warn" | "muted";
 
-function IntegrationStatusMark({
-  tone,
-  label,
-}: {
-  tone: IntegrationStatusTone;
-  label: string;
-}) {
-  const Icon = tone === 'ok' ? CircleCheck : tone === 'warn' ? CircleX : CircleMinus;
+function IntegrationStatusMark({ tone, label }: { tone: IntegrationStatusTone; label: string }) {
+  const Icon = tone === "ok" ? CircleCheck : tone === "warn" ? CircleX : CircleMinus;
   const color =
-    tone === 'ok'
-      ? 'text-emerald-500'
-      : tone === 'warn'
-        ? 'text-amber-500'
-        : 'text-muted-foreground';
+    tone === "ok"
+      ? "text-emerald-500"
+      : tone === "warn"
+        ? "text-amber-500"
+        : "text-muted-foreground";
 
   return (
-    <div className={cn('flex items-center gap-2 text-sm', color)}>
+    <div className={cn("flex items-center gap-2 text-sm", color)}>
       <Icon className="size-4 shrink-0" />
       <span className="whitespace-nowrap">{label}</span>
     </div>
@@ -145,17 +133,13 @@ function RateLimitBar({
 }) {
   const percent = usagePercent(resource);
   const barTone =
-    percent >= 90
-      ? 'bg-destructive'
-      : percent >= 70
-        ? 'bg-amber-500'
-        : 'bg-foreground';
+    percent >= 90 ? "bg-destructive" : percent >= 70 ? "bg-amber-500" : "bg-foreground";
 
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-sm font-medium text-foreground">{label}</p>
-        <p className="text-xs tabular-nums text-muted-foreground">
+        <p className="text-xs text-muted-foreground tabular-nums">
           {formatCount(resource.used)} / {formatCount(resource.limit)}
         </p>
       </div>
@@ -168,7 +152,7 @@ function RateLimitBar({
         aria-label={label}
       >
         <div
-          className={cn('h-full rounded-full transition-all duration-300', barTone)}
+          className={cn("h-full rounded-full transition-all duration-300", barTone)}
           style={{ width: `${percent}%` }}
         />
       </div>
@@ -178,7 +162,7 @@ function RateLimitBar({
 }
 
 function GithubRateLimitPanel({ enabled }: { enabled: boolean }) {
-  const t = useTranslations('settings.integrationsSection');
+  const t = useTranslations("settings.integrationsSection");
   const query = useGithubRateLimitQuery({ enabled });
   const data = query.data;
   const isInitialLoading = enabled && query.isLoading && !data;
@@ -187,12 +171,12 @@ function GithubRateLimitPanel({ enabled }: { enabled: boolean }) {
   const resourceLabel = React.useCallback(
     (key: RateLimitKey) => {
       switch (key) {
-        case 'core':
-          return t('githubCli.rateLimit.resources.core');
-        case 'search':
-          return t('githubCli.rateLimit.resources.search');
-        case 'graphql':
-          return t('githubCli.rateLimit.resources.graphql');
+        case "core":
+          return t("githubCli.rateLimit.resources.core");
+        case "search":
+          return t("githubCli.rateLimit.resources.search");
+        case "graphql":
+          return t("githubCli.rateLimit.resources.graphql");
       }
     },
     [t],
@@ -204,8 +188,10 @@ function GithubRateLimitPanel({ enabled }: { enabled: boolean }) {
     <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground">{t('githubCli.rateLimit.title')}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{t('githubCli.rateLimit.description')}</p>
+          <p className="text-sm font-medium text-foreground">{t("githubCli.rateLimit.title")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t("githubCli.rateLimit.description")}
+          </p>
         </div>
         <Button
           type="button"
@@ -217,8 +203,8 @@ function GithubRateLimitPanel({ enabled }: { enabled: boolean }) {
           }}
           disabled={query.isFetching}
         >
-          <RefreshCw className={cn('size-3.5', isRefreshing && 'animate-spin')} />
-          {t('githubCli.rateLimit.refresh')}
+          <RefreshCw className={cn("size-3.5", isRefreshing && "animate-spin")} />
+          {t("githubCli.rateLimit.refresh")}
         </Button>
       </div>
 
@@ -229,26 +215,24 @@ function GithubRateLimitPanel({ enabled }: { enabled: boolean }) {
           <Skeleton className="h-12 w-full rounded-lg" />
         </div>
       ) : query.isError ? (
-        <p className="mt-3 text-xs text-destructive">
-          {t('githubCli.rateLimit.loadError')}
-        </p>
+        <p className="mt-3 text-xs text-destructive">{t("githubCli.rateLimit.loadError")}</p>
       ) : data ? (
         <div className="mt-3 space-y-3">
-          {(['core', 'search', 'graphql'] as const).map((key) => {
+          {(["core", "search", "graphql"] as const).map((key) => {
             const resource = data[key];
             const reset = formatResetRelative(resource.reset, {
-              soon: t('githubCli.rateLimit.resetSoon'),
-              minutes: (minutes) => t('githubCli.rateLimit.resetInMinutes', { minutes }),
-              hours: (hours) => t('githubCli.rateLimit.resetInHours', { hours }),
+              soon: t("githubCli.rateLimit.resetSoon"),
+              minutes: (minutes) => t("githubCli.rateLimit.resetInMinutes", { minutes }),
+              hours: (hours) => t("githubCli.rateLimit.resetInHours", { hours }),
               hoursMinutes: (hours, minutes) =>
-                t('githubCli.rateLimit.resetInHoursMinutes', { hours, minutes }),
+                t("githubCli.rateLimit.resetInHoursMinutes", { hours, minutes }),
             });
             return (
               <RateLimitBar
                 key={key}
                 label={resourceLabel(key)}
                 resource={resource}
-                footer={t('githubCli.rateLimit.footer', {
+                footer={t("githubCli.rateLimit.footer", {
                   remaining: formatCount(resource.remaining),
                   reset,
                 })}
@@ -272,15 +256,10 @@ function LinearRateLimitPanel({
   authKey: string;
   linearApiKey?: string | null;
 }) {
-  const t = useTranslations('settings.integrationsSection');
+  const t = useTranslations("settings.integrationsSection");
   const scope = useComputerQueryScope();
   const query = useQuery({
-    queryKey: [
-      ...queryKeys.computer.root(scope),
-      'linear',
-      'rateLimit',
-      authKey,
-    ] as const,
+    queryKey: [...queryKeys.computer.root(scope), "linear", "rateLimit", authKey] as const,
     queryFn: () =>
       wsLinearApi.rateLimit({
         linearApiKey: linearApiKey ?? undefined,
@@ -309,26 +288,26 @@ function LinearRateLimitPanel({
 
   const rows = (
     [
-      ['requests', data?.requests],
-      ['complexity', data?.complexity],
+      ["requests", data?.requests],
+      ["complexity", data?.complexity],
     ] as const
   )
     .map(([key, resource]) => {
       const shaped = toGithubShape(resource);
       if (!shaped) return null;
       const reset = formatResetRelative(shaped.reset, {
-        soon: t('linear.rateLimit.resetSoon'),
-        minutes: (minutes) => t('linear.rateLimit.resetInMinutes', { minutes }),
-        hours: (hours) => t('linear.rateLimit.resetInHours', { hours }),
+        soon: t("linear.rateLimit.resetSoon"),
+        minutes: (minutes) => t("linear.rateLimit.resetInMinutes", { minutes }),
+        hours: (hours) => t("linear.rateLimit.resetInHours", { hours }),
         hoursMinutes: (hours, minutes) =>
-          t('linear.rateLimit.resetInHoursMinutes', { hours, minutes }),
+          t("linear.rateLimit.resetInHoursMinutes", { hours, minutes }),
       });
       return (
         <RateLimitBar
           key={key}
           label={t(`linear.rateLimit.resources.${key}`)}
           resource={shaped}
-          footer={t('linear.rateLimit.footer', {
+          footer={t("linear.rateLimit.footer", {
             remaining: formatCount(shaped.remaining),
             reset,
           })}
@@ -341,8 +320,8 @@ function LinearRateLimitPanel({
     <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground">{t('linear.rateLimit.title')}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{t('linear.rateLimit.description')}</p>
+          <p className="text-sm font-medium text-foreground">{t("linear.rateLimit.title")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("linear.rateLimit.description")}</p>
         </div>
         <Button
           type="button"
@@ -354,8 +333,8 @@ function LinearRateLimitPanel({
           }}
           disabled={query.isFetching}
         >
-          <RefreshCw className={cn('size-3.5', isRefreshing && 'animate-spin')} />
-          {t('linear.rateLimit.refresh')}
+          <RefreshCw className={cn("size-3.5", isRefreshing && "animate-spin")} />
+          {t("linear.rateLimit.refresh")}
         </Button>
       </div>
       {isInitialLoading ? (
@@ -364,28 +343,28 @@ function LinearRateLimitPanel({
           <Skeleton className="h-12 w-full rounded-lg" />
         </div>
       ) : query.isError ? (
-        <p className="mt-3 text-xs text-destructive">{t('linear.rateLimit.loadError')}</p>
+        <p className="mt-3 text-xs text-destructive">{t("linear.rateLimit.loadError")}</p>
       ) : rows.length > 0 ? (
         <div className="mt-3 space-y-3">{rows}</div>
       ) : data ? (
-        <p className="mt-3 text-xs text-muted-foreground">{t('linear.rateLimit.empty')}</p>
+        <p className="mt-3 text-xs text-muted-foreground">{t("linear.rateLimit.empty")}</p>
       ) : null}
     </div>
   );
 }
 
 function LinearIntegrationCard() {
-  const t = useTranslations('settings.integrationsSection');
+  const t = useTranslations("settings.integrationsSection");
   const scope = useComputerQueryScope();
   const [, setActiveSettingTab] = useQueryState(
-    'activeSettingTab',
+    "activeSettingTab",
     settingsModalParams.activeSettingTab,
   );
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [keysVersion, setKeysVersion] = React.useState(0);
   const [draftName, setDraftName] = React.useState(() => defaultLinearKeyName());
-  const [draftKey, setDraftKey] = React.useState('');
+  const [draftKey, setDraftKey] = React.useState("");
   const [hydrating, setHydrating] = React.useState(true);
   const hubReady = hubConfigured();
   const hasDevice = Boolean(getStoredDeviceCredential());
@@ -409,7 +388,7 @@ function LinearIntegrationCard() {
   const storeMeta = React.useMemo(() => getLinearLocalStoreSnapshot(), [keysVersion]);
 
   const oauthStatusQuery = useQuery({
-    queryKey: [...queryKeys.computer.root(scope), 'linear', 'oauthStatus', hubReady] as const,
+    queryKey: [...queryKeys.computer.root(scope), "linear", "oauthStatus", hubReady] as const,
     queryFn: async () => {
       if (hubReady) {
         try {
@@ -423,7 +402,7 @@ function LinearIntegrationCard() {
           const hub = await hubLinearStatus();
           return {
             connected: hub.connected,
-            auth_method: hub.auth_method ?? 'oauth',
+            auth_method: hub.auth_method ?? "oauth",
             viewer_name: hub.viewer_name ?? null,
             viewer_email: hub.viewer_email ?? null,
             needs_hub_login: false,
@@ -446,7 +425,7 @@ function LinearIntegrationCard() {
     oauthConnected,
     hasLocalKey: Boolean(activeLocal),
   });
-  const connected = source === 'oauth' || source === 'local';
+  const connected = source === "oauth" || source === "local";
   const canConnectOauth = !needsHubLogin && hasDevice && !busy;
 
   const bumpKeys = () => setKeysVersion((v) => v + 1);
@@ -455,8 +434,8 @@ function LinearIntegrationCard() {
   // "none"; adopt OAuth when Hub already has it and this machine has no local key.
   React.useEffect(() => {
     if (!oauthConnected) return;
-    if (selection.mode === 'oauth') return;
-    if (selection.mode === 'local') return;
+    if (selection.mode === "oauth") return;
+    if (selection.mode === "local") return;
     if (activeLocal) return;
     void selectLinearOauth().then(bumpKeys);
   }, [oauthConnected, selection.mode, activeLocal]);
@@ -466,26 +445,25 @@ function LinearIntegrationCard() {
     setError(null);
     try {
       if (needsHubLogin) {
-        setError(t('linear.needsHubLogin'));
+        setError(t("linear.needsHubLogin"));
         return;
       }
       if (!hasDevice) {
-        setError(t('linear.needsDevice'));
+        setError(t("linear.needsDevice"));
         return;
       }
-      const origin = typeof window !== 'undefined' ? window.location.origin : undefined;
-      const shell =
-        origin && !origin.includes('127.0.0.1:39217') ? 'web' : 'desktop';
+      const origin = typeof window !== "undefined" ? window.location.origin : undefined;
+      const shell = origin && !origin.includes("127.0.0.1:39217") ? "web" : "desktop";
       const { authorize_url, state } = await wsLinearApi.oauthStart(shell, origin);
       storeOAuthReturnContext(state, {
-        client: isDesktopAuthSurface() ? 'desktop' : 'web',
+        client: isDesktopAuthSurface() ? "desktop" : "web",
         returnTo: currentOAuthReturnToPath(),
       });
       await selectLinearOauth();
       bumpKeys();
-      window.open(authorize_url, '_blank', 'noopener,noreferrer');
+      window.open(authorize_url, "_blank", "noopener,noreferrer");
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('linear.connectFailed'));
+      setError(e instanceof Error ? e.message : t("linear.connectFailed"));
     } finally {
       setBusy(false);
     }
@@ -504,13 +482,13 @@ function LinearIntegrationCard() {
       } else {
         await wsLinearApi.disconnect();
       }
-      if (selection.mode === 'oauth') {
+      if (selection.mode === "oauth") {
         await clearLinearAuthSelection();
       }
       bumpKeys();
       await oauthStatusQuery.refetch();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('linear.disconnectFailed'));
+      setError(e instanceof Error ? e.message : t("linear.disconnectFailed"));
     } finally {
       setBusy(false);
     }
@@ -522,7 +500,7 @@ function LinearIntegrationCard() {
     try {
       const apiKey = draftKey.trim();
       if (!apiKey) {
-        setError(t('linear.local.apiKeyRequired'));
+        setError(t("linear.local.apiKeyRequired"));
         return;
       }
       const status = await wsLinearApi.connectApiKey(apiKey);
@@ -532,32 +510,27 @@ function LinearIntegrationCard() {
         viewer_name: status.viewer_name,
         viewer_email: status.viewer_email,
       });
-      setDraftKey('');
+      setDraftKey("");
       setDraftName(defaultLinearKeyName());
       bumpKeys();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('linear.local.saveFailed'));
+      setError(e instanceof Error ? e.message : t("linear.local.saveFailed"));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <SettingsGroupCard
-      title={t('linear.title')}
-      description={t('linear.description')}
-    >
+    <SettingsGroupCard title={t("linear.title")} description={t("linear.description")}>
       <div className="px-2 py-3">
         <LinearRateLimitPanel
           enabled={connected}
           authKey={
-            source === 'local'
-              ? `local:${activeLocal?.id ?? 'none'}`
-              : `oauth:${oauthConnected ? '1' : '0'}`
+            source === "local"
+              ? `local:${activeLocal?.id ?? "none"}`
+              : `oauth:${oauthConnected ? "1" : "0"}`
           }
-          linearApiKey={
-            source === 'local' ? activeLocal?.api_key ?? null : null
-          }
+          linearApiKey={source === "local" ? (activeLocal?.api_key ?? null) : null}
         />
       </div>
 
@@ -565,20 +538,18 @@ function LinearIntegrationCard() {
         wide
         title={
           <span className="inline-flex items-center gap-2">
-            {t('linear.oauth.title')}
+            {t("linear.oauth.title")}
             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-              {t('linear.oauth.recommended')}
+              {t("linear.oauth.recommended")}
             </span>
           </span>
         }
-        description={t('linear.oauth.hint')}
+        description={t("linear.oauth.hint")}
         footer={
           needsHubLogin || !hasDevice ? (
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span>
-                {needsHubLogin
-                  ? t('linear.needsHubLoginHint')
-                  : t('linear.needsDeviceHint')}
+                {needsHubLogin ? t("linear.needsHubLoginHint") : t("linear.needsDeviceHint")}
               </span>
               <Button
                 type="button"
@@ -586,10 +557,10 @@ function LinearIntegrationCard() {
                 variant="outline"
                 className="h-7"
                 onClick={() => {
-                  void setActiveSettingTab('account');
+                  void setActiveSettingTab("account");
                 }}
               >
-                {t('linear.openAccount')}
+                {t("linear.openAccount")}
               </Button>
             </div>
           ) : null
@@ -598,9 +569,9 @@ function LinearIntegrationCard() {
         <div className="flex flex-wrap items-center justify-end gap-2">
           {oauthConnected ? (
             <>
-              {selection.mode === 'oauth' ? (
+              {selection.mode === "oauth" ? (
                 <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-foreground">
-                  {t('linear.usingThis')}
+                  {t("linear.usingThis")}
                 </span>
               ) : (
                 <Button
@@ -612,7 +583,7 @@ function LinearIntegrationCard() {
                     void selectLinearOauth().then(bumpKeys);
                   }}
                 >
-                  {t('linear.useThis')}
+                  {t("linear.useThis")}
                 </Button>
               )}
               <Button
@@ -623,7 +594,7 @@ function LinearIntegrationCard() {
                 disabled={busy}
                 onClick={() => void disconnectOauth()}
               >
-                {t('linear.disconnect')}
+                {t("linear.disconnect")}
               </Button>
             </>
           ) : (
@@ -634,23 +605,21 @@ function LinearIntegrationCard() {
               disabled={!canConnectOauth}
               onClick={() => void connectOauth()}
             >
-              {busy ? t('linear.connecting') : t('linear.connectOauth')}
+              {busy ? t("linear.connecting") : t("linear.connectOauth")}
             </Button>
           )}
         </div>
       </SettingsGroupRow>
 
       <div className="border-b border-border/60 px-2 py-3 last:border-b-0">
-        <p className="text-sm font-medium text-foreground">{t('linear.local.title')}</p>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          {t('linear.local.hint')}
-        </p>
+        <p className="text-sm font-medium text-foreground">{t("linear.local.title")}</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">{t("linear.local.hint")}</p>
         <p className="mt-1 text-[11px] text-muted-foreground">
           {hydrating
-            ? t('linear.local.storageLoading')
+            ? t("linear.local.storageLoading")
             : storeMeta.onDisk
-              ? t('linear.local.storageDisk')
-              : t('linear.local.storageBrowserFallback')}
+              ? t("linear.local.storageDisk")
+              : t("linear.local.storageBrowserFallback")}
         </p>
         <a
           href={LINEAR_API_KEYS_CREATE_URL}
@@ -658,15 +627,14 @@ function LinearIntegrationCard() {
           rel="noreferrer"
           className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
         >
-          {t('linear.local.createKeyLink')}
+          {t("linear.local.createKeyLink")}
           <ExternalLink className="size-3" />
         </a>
 
         {localKeys.length > 0 ? (
           <ul className="mt-3 divide-y divide-border/60">
             {localKeys.map((key) => {
-              const selected =
-                selection.mode === 'local' && selection.keyId === key.id;
+              const selected = selection.mode === "local" && selection.keyId === key.id;
               return (
                 <li
                   key={key.id}
@@ -675,13 +643,13 @@ function LinearIntegrationCard() {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">{key.name}</p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {key.viewer_name || key.viewer_email || t('linear.local.unnamedViewer')}
+                      {key.viewer_name || key.viewer_email || t("linear.local.unnamedViewer")}
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5">
                     {selected ? (
                       <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-foreground">
-                        {t('linear.usingThis')}
+                        {t("linear.usingThis")}
                       </span>
                     ) : (
                       <Button
@@ -693,7 +661,7 @@ function LinearIntegrationCard() {
                           void selectLinearLocalKey(key.id).then(bumpKeys);
                         }}
                       >
-                        {t('linear.useThis')}
+                        {t("linear.useThis")}
                       </Button>
                     )}
                     <Button
@@ -705,7 +673,7 @@ function LinearIntegrationCard() {
                         void removeLinearLocalKey(key.id).then(bumpKeys);
                       }}
                     >
-                      {t('linear.local.remove')}
+                      {t("linear.local.remove")}
                     </Button>
                   </div>
                 </li>
@@ -719,14 +687,14 @@ function LinearIntegrationCard() {
             type="text"
             value={draftName}
             onChange={(e) => setDraftName(e.target.value)}
-            placeholder={t('linear.local.namePlaceholder')}
+            placeholder={t("linear.local.namePlaceholder")}
             className="h-9 rounded-lg border border-border bg-background px-3 text-sm"
           />
           <input
             type="password"
             value={draftKey}
             onChange={(e) => setDraftKey(e.target.value)}
-            placeholder={t('linear.local.apiKeyPlaceholder')}
+            placeholder={t("linear.local.apiKeyPlaceholder")}
             autoComplete="off"
             className="h-9 rounded-lg border border-border bg-background px-3 text-sm"
           />
@@ -737,7 +705,7 @@ function LinearIntegrationCard() {
             disabled={busy || !draftKey.trim()}
             onClick={() => void saveLocalKey()}
           >
-            {t('linear.local.save')}
+            {t("linear.local.save")}
           </Button>
         </div>
       </div>
@@ -748,7 +716,7 @@ function LinearIntegrationCard() {
 }
 
 export function IntegrationsSettingsSection() {
-  const t = useTranslations('settings.integrationsSection');
+  const t = useTranslations("settings.integrationsSection");
   const ghCliQuery = useGhCliStatusQuery();
   const tmuxQuery = useTmuxStatusQuery();
   const gitQuery = useGitStatusQuery();
@@ -770,10 +738,7 @@ export function IntegrationsSettingsSection() {
 
   return (
     <SettingsPageStack>
-      <SettingsGroupCard
-        title={t('githubCli.title')}
-        description={t('githubCli.description')}
-      >
+      <SettingsGroupCard title={t("githubCli.title")} description={t("githubCli.description")}>
         {isLoading ? (
           <div className="px-2 py-3">
             <Skeleton className="h-14 w-full rounded-xl" />
@@ -782,21 +747,21 @@ export function IntegrationsSettingsSection() {
           <>
             <SettingsGroupRow
               wide
-              title={t('shared.installationStatusTitle')}
+              title={t("shared.installationStatusTitle")}
               description={
                 ghCliStatus?.installed
-                  ? t('githubCli.installation.installed', { version: ghCliStatus.version || '' })
-                  : t('githubCli.installation.notInstalled')
+                  ? t("githubCli.installation.installed", { version: ghCliStatus.version || "" })
+                  : t("githubCli.installation.notInstalled")
               }
             >
               <IntegrationStatusControl
                 mark={
                   <IntegrationStatusMark
-                    tone={ghCliStatus?.installed ? 'ok' : 'muted'}
+                    tone={ghCliStatus?.installed ? "ok" : "muted"}
                     label={
                       ghCliStatus?.installed
-                        ? t('githubCli.status.installed', { version: ghCliStatus.version || '' })
-                        : t('shared.status.notInstalled')
+                        ? t("githubCli.status.installed", { version: ghCliStatus.version || "" })
+                        : t("shared.status.notInstalled")
                     }
                   />
                 }
@@ -815,23 +780,23 @@ export function IntegrationsSettingsSection() {
             {ghCliStatus?.installed ? (
               <SettingsGroupRow
                 wide
-                title={t('shared.authenticationStatusTitle')}
+                title={t("shared.authenticationStatusTitle")}
                 description={
                   ghCliStatus.authenticated
-                    ? `${t('githubCli.authentication.authenticatedAsLabel')} ${ghCliStatus.username || t('shared.userFallback')}`
-                    : t('githubCli.authentication.notAuthenticated')
+                    ? `${t("githubCli.authentication.authenticatedAsLabel")} ${ghCliStatus.username || t("shared.userFallback")}`
+                    : t("githubCli.authentication.notAuthenticated")
                 }
               >
                 <IntegrationStatusControl
                   mark={
                     <IntegrationStatusMark
-                      tone={ghCliStatus.authenticated ? 'ok' : 'warn'}
+                      tone={ghCliStatus.authenticated ? "ok" : "warn"}
                       label={
                         ghCliStatus.authenticated
-                          ? t('githubCli.status.authenticatedAs', {
-                              username: ghCliStatus.username || t('shared.userFallback'),
+                          ? t("githubCli.status.authenticatedAs", {
+                              username: ghCliStatus.username || t("shared.userFallback"),
                             })
-                          : t('shared.status.notAuthenticated')
+                          : t("shared.status.notAuthenticated")
                       }
                     />
                   }
@@ -840,11 +805,17 @@ export function IntegrationsSettingsSection() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open('https://cli.github.com/manual/gh_auth_login', '_blank', 'noopener,noreferrer')}
+                        onClick={() =>
+                          window.open(
+                            "https://cli.github.com/manual/gh_auth_login",
+                            "_blank",
+                            "noopener,noreferrer",
+                          )
+                        }
                         className="cursor-pointer"
                       >
                         <ExternalLink className="mr-2 size-4" />
-                        {t('githubCli.actions.authenticate')}
+                        {t("githubCli.actions.authenticate")}
                       </Button>
                     )
                   }
@@ -860,10 +831,7 @@ export function IntegrationsSettingsSection() {
 
       <LinearIntegrationCard />
 
-      <SettingsGroupCard
-        title={t('git.title')}
-        description={t('git.description')}
-      >
+      <SettingsGroupCard title={t("git.title")} description={t("git.description")}>
         {isLoading ? (
           <div className="px-2 py-3">
             <Skeleton className="h-14 w-full rounded-xl" />
@@ -872,21 +840,21 @@ export function IntegrationsSettingsSection() {
           <>
             <SettingsGroupRow
               wide
-              title={t('shared.installationStatusTitle')}
+              title={t("shared.installationStatusTitle")}
               description={
                 gitStatus?.installed
-                  ? t('git.installation.installed', { version: gitStatus.version || '' })
-                  : t('git.installation.notInstalled')
+                  ? t("git.installation.installed", { version: gitStatus.version || "" })
+                  : t("git.installation.notInstalled")
               }
             >
               <IntegrationStatusControl
                 mark={
                   <IntegrationStatusMark
-                    tone={gitStatus?.installed ? 'ok' : 'muted'}
+                    tone={gitStatus?.installed ? "ok" : "muted"}
                     label={
                       gitStatus?.installed
-                        ? t('git.status.installed', { version: gitStatus.version || '' })
-                        : t('shared.status.notInstalled')
+                        ? t("git.status.installed", { version: gitStatus.version || "" })
+                        : t("shared.status.notInstalled")
                     }
                   />
                 }
@@ -904,10 +872,10 @@ export function IntegrationsSettingsSection() {
             </SettingsGroupRow>
             {gitStatus?.installed && (gitStatus.username || gitStatus.email) ? (
               <SettingsGroupRow
-                title={t('git.configuration.title')}
-                description={t('git.configuration.description', {
-                  username: gitStatus.username || t('shared.userFallback'),
-                  email: gitStatus.email || t('shared.userFallback'),
+                title={t("git.configuration.title")}
+                description={t("git.configuration.description", {
+                  username: gitStatus.username || t("shared.userFallback"),
+                  email: gitStatus.email || t("shared.userFallback"),
                 })}
               >
                 {null}
@@ -917,10 +885,7 @@ export function IntegrationsSettingsSection() {
         )}
       </SettingsGroupCard>
 
-      <SettingsGroupCard
-        title={t('tmux.title')}
-        description={t('tmux.description')}
-      >
+      <SettingsGroupCard title={t("tmux.title")} description={t("tmux.description")}>
         {isLoading ? (
           <div className="px-2 py-3">
             <Skeleton className="h-14 w-full rounded-xl" />
@@ -929,21 +894,21 @@ export function IntegrationsSettingsSection() {
           <>
             <SettingsGroupRow
               wide
-              title={t('shared.installationStatusTitle')}
+              title={t("shared.installationStatusTitle")}
               description={
                 tmuxStatus?.installed
-                  ? t('tmux.installation.installed', { version: tmuxStatus.version || '' })
-                  : t('tmux.installation.notInstalled')
+                  ? t("tmux.installation.installed", { version: tmuxStatus.version || "" })
+                  : t("tmux.installation.notInstalled")
               }
             >
               <IntegrationStatusControl
                 mark={
                   <IntegrationStatusMark
-                    tone={tmuxStatus?.installed ? 'ok' : 'muted'}
+                    tone={tmuxStatus?.installed ? "ok" : "muted"}
                     label={
                       tmuxStatus?.installed
-                        ? t('tmux.status.installed', { version: tmuxStatus.version || '' })
-                        : t('shared.status.notInstalled')
+                        ? t("tmux.status.installed", { version: tmuxStatus.version || "" })
+                        : t("shared.status.notInstalled")
                     }
                   />
                 }
@@ -961,16 +926,21 @@ export function IntegrationsSettingsSection() {
             </SettingsGroupRow>
             {tmuxStatus?.installed ? (
               <SettingsGroupRow
-                title={t('tmux.configuration.title')}
+                title={t("tmux.configuration.title")}
                 description={
                   <>
-                    {t('tmux.configuration.description', {
-                      socketPath: '~/.atmos/atmos.sock',
-                    }).split('~/.atmos/atmos.sock')[0]}
+                    {
+                      t("tmux.configuration.description", {
+                        socketPath: "~/.atmos/atmos.sock",
+                      }).split("~/.atmos/atmos.sock")[0]
+                    }
                     <code className="rounded bg-background px-1 py-0.5">~/.atmos/atmos.sock</code>
-                    {t('tmux.configuration.description', {
-                      socketPath: '~/.atmos/atmos.sock',
-                    }).split('~/.atmos/atmos.sock').slice(1).join('~/.atmos/atmos.sock')}
+                    {t("tmux.configuration.description", {
+                      socketPath: "~/.atmos/atmos.sock",
+                    })
+                      .split("~/.atmos/atmos.sock")
+                      .slice(1)
+                      .join("~/.atmos/atmos.sock")}
                   </>
                 }
               >

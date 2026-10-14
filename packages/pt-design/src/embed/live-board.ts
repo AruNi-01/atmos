@@ -146,7 +146,8 @@ export function editModeHandlesKeyboardGlobally(viewModeEnabled: boolean): boole
 }
 
 function isExcalidrawWritableUndoTarget(target: EventTarget | null): boolean {
-  if (typeof HTMLTextAreaElement !== "undefined" && target instanceof HTMLTextAreaElement) return true;
+  if (typeof HTMLTextAreaElement !== "undefined" && target instanceof HTMLTextAreaElement)
+    return true;
   if (typeof HTMLInputElement !== "undefined" && target instanceof HTMLInputElement) {
     return target.type === "text" || target.type === "number" || target.type === "password";
   }
@@ -234,7 +235,9 @@ export function applySceneCameraNever(
  * `theme: "dark"` turns Excalidraw's JS invert back on, and a stored paper
  * color fights the live Atmos canvas color.
  */
-function persistedCamera(appState: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+function persistedCamera(
+  appState: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
   if (!appState) return undefined;
   const next = { ...appState };
   delete next.theme;
@@ -373,7 +376,11 @@ export function createLiveBoard(host: ExcalidrawHost): LiveBoard {
     recoverEmptyLoad = Boolean(loaded?.ptx);
     const canvas = loaded?.canvas;
     if (canvas && typeof canvas === "object") {
-      const rec = canvas as { elements?: unknown[]; appState?: Record<string, unknown>; files?: unknown };
+      const rec = canvas as {
+        elements?: unknown[];
+        appState?: Record<string, unknown>;
+        files?: unknown;
+      };
       if (Array.isArray(rec.elements)) {
         pushScene({
           elements: rec.elements as HandleElement[],

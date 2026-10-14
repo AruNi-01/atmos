@@ -35,13 +35,13 @@ File path:     document.ptx in a .ptd directory (CLI/MCP --file only)
 
 ## Decision tree (load references on demand)
 
-| User intent | What to do | Load reference |
-|-------------|------------|----------------|
-| Build or change the board | Workflow below | *(this file only)* |
-| Which tags/attrs a type uses | `pt_catalog_list` (copy `xmlExample`) | [`references/catalog.md`](references/catalog.md) |
-| Dashboard, metrics, or a chart | `pt_catalog_list` — copy a `chart.*` `xmlExample` | [`references/catalog.md`](references/catalog.md) |
-| Screenshot / live vs file | Workflow below | [`references/board.md`](references/board.md) |
-| Full tool args / error codes / offline `.ptd` | — | [`references/command-reference.md`](references/command-reference.md) |
+| User intent                                   | What to do                                        | Load reference                                                       |
+| --------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------- |
+| Build or change the board                     | Workflow below                                    | _(this file only)_                                                   |
+| Which tags/attrs a type uses                  | `pt_catalog_list` (copy `xmlExample`)             | [`references/catalog.md`](references/catalog.md)                     |
+| Dashboard, metrics, or a chart                | `pt_catalog_list` — copy a `chart.*` `xmlExample` | [`references/catalog.md`](references/catalog.md)                     |
+| Screenshot / live vs file                     | Workflow below                                    | [`references/board.md`](references/board.md)                         |
+| Full tool args / error codes / offline `.ptd` | —                                                 | [`references/command-reference.md`](references/command-reference.md) |
 
 **Do not** invent Excalidraw JSON. **Do not** call APP-062 names (`pt_ir_get`, `pt_place`, `pt_layout_*`, `pt_batch`, …). They are unknown tools.
 
@@ -61,14 +61,14 @@ This is **not** Atmos Canvas (`atmos canvas`).
 
 ## Quick tools
 
-| Tool | Notes |
-|------|--------|
-| `pt_ptx_get` | Pretty PTX string |
-| `pt_ptx_apply` | Complete PTX source; parse/validate/project |
-| `pt_catalog_list` | Tag names, attrs, XML snippets |
-| `pt_screenshot` | PNG of the **open tab** |
-| `pt_doc_open` / `pt_doc_save` / `pt_doc_init` | `.ptd` / `document.ptx` (offline CLI/MCP) |
-| `pt_tools_list` | |
+| Tool                                          | Notes                                       |
+| --------------------------------------------- | ------------------------------------------- |
+| `pt_ptx_get`                                  | Pretty PTX string                           |
+| `pt_ptx_apply`                                | Complete PTX source; parse/validate/project |
+| `pt_catalog_list`                             | Tag names, attrs, XML snippets              |
+| `pt_screenshot`                               | PNG of the **open tab**                     |
+| `pt_doc_open` / `pt_doc_save` / `pt_doc_init` | `.ptd` / `document.ptx` (offline CLI/MCP)   |
+| `pt_tools_list`                               |                                             |
 
 ---
 
@@ -84,13 +84,13 @@ This is **not** Atmos Canvas (`atmos canvas`).
 
 ## Errors (short)
 
-| Code | Recovery |
-|------|----------|
-| `PT_DESIGN_BRIDGE_OFFLINE` | Open Prototype Design |
-| `unknown_tool` | `pt_tools_list` — old names are not aliased |
-| `unknown_type` | `pt_catalog_list` |
-| `invalid_ptx` / `invalid_option` | Previous document unchanged |
-| `missing_file` | `.ptd` / `document.ptx` on CLI/MCP |
+| Code                             | Recovery                                    |
+| -------------------------------- | ------------------------------------------- |
+| `PT_DESIGN_BRIDGE_OFFLINE`       | Open Prototype Design                       |
+| `unknown_tool`                   | `pt_tools_list` — old names are not aliased |
+| `unknown_type`                   | `pt_catalog_list`                           |
+| `invalid_ptx` / `invalid_option` | Previous document unchanged                 |
+| `missing_file`                   | `.ptd` / `document.ptx` on CLI/MCP          |
 
 More codes: [`references/command-reference.md`](references/command-reference.md).
 
@@ -105,10 +105,10 @@ More codes: [`references/command-reference.md`](references/command-reference.md)
 
 ## References (on-demand)
 
-| File | Load when |
-|------|-----------|
-| [`references/catalog.md`](references/catalog.md) | XML tags, examples |
-| [`references/board.md`](references/board.md) | Live vs file, screenshot |
+| File                                                                 | Load when                                |
+| -------------------------------------------------------------------- | ---------------------------------------- |
+| [`references/catalog.md`](references/catalog.md)                     | XML tags, examples                       |
+| [`references/board.md`](references/board.md)                         | Live vs file, screenshot                 |
 | [`references/command-reference.md`](references/command-reference.md) | Full tool args, errors, offline `--file` |
 
 Skill directory after sync: `~/.atmos/skills/.system/atmos-pt-design-agent/`

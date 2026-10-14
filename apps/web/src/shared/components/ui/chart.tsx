@@ -46,7 +46,7 @@ export function ChartContainer({
         data-chart={id ?? chartId}
         className={cn(
           "flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/70 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-default-legend]:flex [&_.recharts-default-legend]:flex-wrap [&_.recharts-default-legend]:gap-4 [&_.recharts-layer:focus-visible]:outline-none [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-text]:fill-foreground [&_.recharts-tooltip-label]:text-muted-foreground",
-          className
+          className,
         )}
         {...props}
       >
@@ -90,7 +90,7 @@ export function ChartTooltipContent({
   return (
     <div className="min-w-44 rounded-xl border border-border/70 bg-popover/95 px-3 py-2.5 text-popover-foreground shadow-xl backdrop-blur">
       {!hideLabel && label !== undefined ? (
-        <div className="mb-2 text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
+        <div className="mb-2 text-[11px] font-medium tracking-[0.24em] text-muted-foreground uppercase">
           {labelFormatter ? labelFormatter(label) : label}
         </div>
       ) : null}
@@ -103,16 +103,11 @@ export function ChartTooltipContent({
           return (
             <div key={key} className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
-                <span
-                  className="size-2.5 rounded-full"
-                  style={{ backgroundColor: color }}
-                />
+                <span className="size-2.5 rounded-full" style={{ backgroundColor: color }} />
                 <span className="text-xs text-muted-foreground">{labelText}</span>
               </div>
               <div className="text-sm font-semibold tabular-nums">
-                {formatter
-                  ? formatter(item.value ?? 0, String(labelText), item)
-                  : item.value}
+                {formatter ? formatter(item.value ?? 0, String(labelText), item) : item.value}
               </div>
             </div>
           );
@@ -122,11 +117,7 @@ export function ChartTooltipContent({
   );
 }
 
-export function ChartLegendContent({
-  payload,
-}: {
-  payload?: ChartPayloadItem[];
-}) {
+export function ChartLegendContent({ payload }: { payload?: ChartPayloadItem[] }) {
   const { config } = useChart();
 
   if (!payload?.length) {
@@ -142,10 +133,7 @@ export function ChartLegendContent({
 
         return (
           <div key={key} className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span
-              className="size-2.5 rounded-full"
-              style={{ backgroundColor: color }}
-            />
+            <span className="size-2.5 rounded-full" style={{ backgroundColor: color }} />
             <span>{label}</span>
           </div>
         );

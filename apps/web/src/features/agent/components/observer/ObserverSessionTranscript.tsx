@@ -21,9 +21,10 @@ export function ObserverSessionTranscript({
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const scrollToIndexRef = useRef<((index: number) => void) | null>(null);
   const userMessageIndices = useMemo(
-    () => messages
-      .map((message, index) => (message.role === "user" ? index : -1))
-      .filter((index) => index >= 0),
+    () =>
+      messages
+        .map((message, index) => (message.role === "user" ? index : -1))
+        .filter((index) => index >= 0),
     [messages],
   );
 

@@ -68,9 +68,7 @@ export function ColumnResizeHandle({
       className={cn(
         "absolute top-0 w-2.5 -translate-x-1/2 cursor-col-resize touch-none select-none",
         "after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2",
-        active
-          ? "after:bg-foreground/45"
-          : "after:bg-transparent hover:after:bg-foreground/35",
+        active ? "after:bg-foreground/45" : "after:bg-transparent hover:after:bg-foreground/35",
       )}
       onPointerDown={(event) => {
         event.preventDefault();
@@ -106,4 +104,3 @@ export function ColumnResizeHandle({
     />
   );
 }
-

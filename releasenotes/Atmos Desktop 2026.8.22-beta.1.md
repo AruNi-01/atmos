@@ -39,6 +39,7 @@ Atmos Desktop 2026.8.22-beta.1 adds named independent center spaces, a fullscree
 - Full comparison: https://github.com/AruNi-01/atmos/compare/desktop-electron-2026.8.18-beta.1...desktop-electron-2026.8.22-beta.1
 
 <!-- atmos-desktop-contributors -->
+
 Thanks to @AruNi-01.
 
 <!-- atmos-desktop-download -->

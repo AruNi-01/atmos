@@ -153,12 +153,16 @@ function resolveRepo(explicit) {
 
 function resolvePreviousElectronTag(currentTag, explicit) {
   if (explicit) return explicit;
-  const tags = sh("git", [
-    "for-each-ref",
-    "--sort=-creatordate",
-    "--format=%(refname:strip=2)",
-    "refs/tags/desktop-electron-*",
-  ], { allowFail: true })
+  const tags = sh(
+    "git",
+    [
+      "for-each-ref",
+      "--sort=-creatordate",
+      "--format=%(refname:strip=2)",
+      "refs/tags/desktop-electron-*",
+    ],
+    { allowFail: true },
+  )
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
@@ -209,16 +213,12 @@ export function collectReleaseContributorLogins({ repo, previousTag, currentTag 
 function parseExplicitContributors(value) {
   if (!value) return [];
   // Explicit list has no volume signal — rank as one each (alpha after equal counts).
-  return rankContributorLogins(
-    value.split(/[,\s]+/).map((part) => part.trim()),
-  );
+  return rankContributorLogins(value.split(/[,\s]+/).map((part) => part.trim()));
 }
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const body = args.notes
-    ? readFileSync(resolve(args.notes), "utf8")
-    : readFileSync(0, "utf8");
+  const body = args.notes ? readFileSync(resolve(args.notes), "utf8") : readFileSync(0, "utf8");
 
   const tag = args.tag || `desktop-electron-${args.version}`;
   const repo = resolveRepo(args.repo);
@@ -248,9 +248,7 @@ function main() {
         contributors = auto;
       } else {
         const autoSet = new Set(auto.map((l) => l.toLowerCase()));
-        const extras = contributors.filter(
-          (l) => !autoSet.has(l.toLowerCase()),
-        );
+        const extras = contributors.filter((l) => !autoSet.has(l.toLowerCase()));
         contributors = [...auto, ...extras];
       }
     }

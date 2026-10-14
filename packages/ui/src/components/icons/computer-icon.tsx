@@ -3,16 +3,7 @@ import { motion, useAnimate } from "motion/react";
 import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
 
 const ComputerIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
-  (
-    {
-      size = 24,
-      color = "currentColor",
-      strokeWidth = 2,
-      className = "",
-      ...props
-    },
-    ref,
-  ) => {
+  ({ size = 24, color = "currentColor", strokeWidth = 2, className = "", ...props }, ref) => {
     const [scope, animate] = useAnimate();
 
     const start = useCallback(async () => {
@@ -32,11 +23,7 @@ const ComputerIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           { opacity: [0.3, 1, 0.6, 1] },
           { duration: 0.5, ease: "easeInOut" },
         ),
-        animate(
-          ".computer-stand",
-          { y: [0, 0.5, 0] },
-          { duration: 0.35, ease: "easeInOut" },
-        ),
+        animate(".computer-stand", { y: [0, 0.5, 0] }, { duration: 0.35, ease: "easeInOut" }),
       ]);
     }, [animate]);
 
@@ -75,14 +62,7 @@ const ComputerIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
         {...props}
       >
         <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-        <motion.rect
-          className="computer-screen"
-          x="3"
-          y="4"
-          width="18"
-          height="12"
-          rx="2"
-        />
+        <motion.rect className="computer-screen" x="3" y="4" width="18" height="12" rx="2" />
         <motion.path className="computer-line-1" d="M7 8h10" />
         <motion.path className="computer-line-2" d="M7 11h7" />
         <motion.circle

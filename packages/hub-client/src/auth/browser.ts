@@ -96,16 +96,12 @@ export async function hubCreateLinkTicket(): Promise<{
   return res.json() as Promise<{ ticket: string; expires_in: number }>;
 }
 
-export async function hubSignInSocial(
-  provider: HubSocialProvider,
-  callbackURL?: string,
-) {
+export async function hubSignInSocial(provider: HubSocialProvider, callbackURL?: string) {
   const c = getHubAuthClient();
   return c.signIn.social({
     provider,
     callbackURL:
-      callbackURL ??
-      (typeof window !== "undefined" ? window.location.origin : undefined),
+      callbackURL ?? (typeof window !== "undefined" ? window.location.origin : undefined),
   });
 }
 
@@ -122,8 +118,7 @@ export async function hubSignInSocialUrl(
   const { data, error } = await c.signIn.social({
     provider,
     callbackURL:
-      callbackURL ??
-      (typeof window !== "undefined" ? window.location.origin : undefined),
+      callbackURL ?? (typeof window !== "undefined" ? window.location.origin : undefined),
     disableRedirect: true,
   });
   if (error) {

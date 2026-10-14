@@ -8,7 +8,7 @@ APP-067 shipped Agent Chat as an Atmos-owned workspace: `chat_id`, file history,
 
 What is still not Atmos-shaped:
 
-- **Capabilities are a grab bag.** `AgentCapabilities` is three booleans. Model lists live in `AgentOptionsSnapshot`. Thinking lives in catalog *and* capabilities *and* builtin JSON. Live ACP `configOptions` leak onto `AgentChatMeta.session_config_options`. ACP `AgentCapabilitiesSnapshot` is a third dialect.
+- **Capabilities are a grab bag.** `AgentCapabilities` is three booleans. Model lists live in `AgentOptionsSnapshot`. Thinking lives in catalog _and_ capabilities _and_ builtin JSON. Live ACP `configOptions` leak onto `AgentChatMeta.session_config_options`. ACP `AgentCapabilitiesSnapshot` is a third dialect.
 - **Tools are vendor JSON plus name heuristics.** The ACP adapter copies `raw_input` / `raw_output`. Rust `classify_tool` and web `classifyTool` duplicate alias tables. `parse-tool-result.ts` and `background-command/` adapters sniff Claude vs Grok vs fallback on the client.
 - **Runtime grew by union.** `AgentRuntimeCommands` already has `prompt` / `steer` / `cancel` / `close` / `set_config` / `respond_permission`. Adding Codex fork, Pi compact, etc. the same way would recreate the 45-method interface the IDEA rejected.
 - **Turn / Message / Part** are still easy to treat as a second SOT even though APP-067 TECH called them projections of `AgentEvent[]`.
@@ -63,12 +63,12 @@ Today these are mixed (`AgentCapabilities.thinking`, catalog models, leaked ACP 
 
 **Preferred split (from IDEA, kept):**
 
-| Slot | Meaning |
-|------|---------|
-| `identity` | who this agent is |
-| `capabilities` | what Atmos can *do* to it (steer, resume, configure, …) |
-| `supported_options` | how the user may *configure* it (models, thinking, modes) |
-| `current_config` | what is selected now |
+| Slot                | Meaning                                                   |
+| ------------------- | --------------------------------------------------------- |
+| `identity`          | who this agent is                                         |
+| `capabilities`      | what Atmos can _do_ to it (steer, resume, configure, …)   |
+| `supported_options` | how the user may _configure_ it (models, thinking, modes) |
+| `current_config`    | what is selected now                                      |
 
 Composer reads options + current config. Action chrome reads capabilities. Catalog prefetch fills `supported_options` before spawn.
 
@@ -118,18 +118,18 @@ IDEA sketched SQLite `agent_sessions` / `agent_events`. APP-067 already ships `~
 
 ## Key forks
 
-| Fork | Preferred |
-|------|-----------|
-| Runtime width | Core ∩ + closed product actions + native |
-| Capability encoding | Closed struct, not string list, not method union |
-| Descriptor | identity / capabilities / supported_options / current_config |
-| Events | Tagged Atmos kinds; no native sidecar on mapped events |
-| Tools | Adapter-normalized params/result; other = vendor params/result once; web_search/fetch first-class |
-| Old jsonl | None; new envelope only |
-| Turn | Control epoch; event log is SOT |
-| Storage | Keep APP-067 files |
-| Action dispatch | Typed `AgentAction` enum, not `execute(name, json)` |
-| Providers in this spec | Native Claude / Codex / OpenCode / Pi; ACP for others |
+| Fork                   | Preferred                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------------- |
+| Runtime width          | Core ∩ + closed product actions + native                                                          |
+| Capability encoding    | Closed struct, not string list, not method union                                                  |
+| Descriptor             | identity / capabilities / supported_options / current_config                                      |
+| Events                 | Tagged Atmos kinds; no native sidecar on mapped events                                            |
+| Tools                  | Adapter-normalized params/result; other = vendor params/result once; web_search/fetch first-class |
+| Old jsonl              | None; new envelope only                                                                           |
+| Turn                   | Control epoch; event log is SOT                                                                   |
+| Storage                | Keep APP-067 files                                                                                |
+| Action dispatch        | Typed `AgentAction` enum, not `execute(name, json)`                                               |
+| Providers in this spec | Native Claude / Codex / OpenCode / Pi; ACP for others                                             |
 
 ## Open questions
 
@@ -141,7 +141,7 @@ Resolved in PRD/TECH unless the product owner overrides:
 - [x] Non-ACP providers in v1? **Yes for Claude Code, Codex, OpenCode, Pi (native wire).** Other agents stay ACP. Further natives are N3.
 - [x] Web search / web fetch structured results in v1? **Yes** — first-class kinds + params/result (query + links, url + body). File-search hit lists and trees stay N1.
 - [x] Old jsonl compatibility? **None.** New envelope only; no migrator, no remap-on-read.
-- [x] Keep untyped `input`/`output` on the Atmos tool? **Only for `other`.** Mapped tools store typed params/result. `other` params/result *are* the vendor values. No parallel `native` bag.
+- [x] Keep untyped `input`/`output` on the Atmos tool? **Only for `other`.** Mapped tools store typed params/result. `other` params/result _are_ the vendor values. No parallel `native` bag.
 
 ## Ready to promote
 

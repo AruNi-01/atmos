@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { fsApi, type FileTreeNode } from '@/api/ws-api';
+import { useEffect } from "react";
+import { fsApi, type FileTreeNode } from "@/api/ws-api";
 import {
   clearProjectLanguagesPrewarmed,
   detectCodeLanguage,
   markProjectLanguagesPrewarmed,
   normalizeCodeLanguage,
   preloadCodeLanguages,
-} from '@/shared/lib/code-language';
-import { useEditorStore, type OpenFile } from '@/features/editor/store/use-editor-store';
+} from "@/shared/lib/code-language";
+import { useEditorStore, type OpenFile } from "@/features/editor/store/use-editor-store";
 
 const MAX_PREWARM_LANGUAGES = 8;
 const MIN_LANGUAGE_FILE_COUNT = 2;
@@ -25,7 +25,7 @@ function collectLanguageCounts(nodes: FileTreeNode[], counts: Map<string, number
     }
 
     const language = detectCodeLanguage(node.path);
-    if (language === 'plaintext') continue;
+    if (language === "plaintext") continue;
 
     counts.set(language, (counts.get(language) || 0) + 1);
   }
@@ -33,7 +33,7 @@ function collectLanguageCounts(nodes: FileTreeNode[], counts: Map<string, number
 
 function getRecentWorkspaceLanguages(
   openFiles: OpenFile[],
-  activeFilePath: string | null
+  activeFilePath: string | null,
 ): string[] {
   const prioritizedFiles = [...openFiles].sort((left, right) => {
     if (left.path === activeFilePath) return -1;
@@ -54,7 +54,7 @@ function getRecentWorkspaceLanguages(
 
   for (const file of prioritizedFiles) {
     const language = normalizeCodeLanguage(file.language || detectCodeLanguage(file.path));
-    if (language === 'plaintext' || seen.has(language)) continue;
+    if (language === "plaintext" || seen.has(language)) continue;
 
     seen.add(language);
     recentLanguages.push(language);
@@ -71,13 +71,13 @@ export function usePrewarmCodeLanguages() {
   const currentProjectPath = useEditorStore((state) => state.currentProjectPath);
   const currentWorkspaceId = useEditorStore((state) => state.currentWorkspaceId);
   const currentWorkspace = useEditorStore((state) =>
-    currentWorkspaceId ? state.workspaceStates[currentWorkspaceId] : undefined
+    currentWorkspaceId ? state.workspaceStates[currentWorkspaceId] : undefined,
   );
 
   useEffect(() => {
     const recentLanguages = getRecentWorkspaceLanguages(
       currentWorkspace?.openFiles || [],
-      currentWorkspace?.activeFilePath || null
+      currentWorkspace?.activeFilePath || null,
     );
 
     if (recentLanguages.length === 0) return;
@@ -106,7 +106,7 @@ export function usePrewarmCodeLanguages() {
           : undefined;
         const recentLanguages = getRecentWorkspaceLanguages(
           activeWorkspace?.openFiles || [],
-          activeWorkspace?.activeFilePath || null
+          activeWorkspace?.activeFilePath || null,
         );
 
         const projectLanguages = [...counts.entries()]

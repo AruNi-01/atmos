@@ -1,11 +1,5 @@
-import type {
-  GitChangedFile,
-  GitChangedFilesResponse,
-} from "@/api/ws-api-types";
-import {
-  EMPTY_CHANGED_FILES,
-  selectCompareChangedFiles,
-} from "./git-changed-files-selection";
+import type { GitChangedFile, GitChangedFilesResponse } from "@/api/ws-api-types";
+import { EMPTY_CHANGED_FILES, selectCompareChangedFiles } from "./git-changed-files-selection";
 
 function changedFile(path: string): GitChangedFile {
   return {
@@ -17,9 +11,7 @@ function changedFile(path: string): GitChangedFile {
   };
 }
 
-function changedFilesResponse(
-  compareRef: string | null,
-): GitChangedFilesResponse {
+function changedFilesResponse(compareRef: string | null): GitChangedFilesResponse {
   return {
     staged_files: [changedFile("staged.ts")],
     unstaged_files: [changedFile("unstaged.ts")],
@@ -49,9 +41,7 @@ describe("selectCompareChangedFiles", () => {
 
   test("reuses the empty selection when compare mode is inactive", () => {
     const firstSelection = selectCompareChangedFiles(undefined);
-    const secondSelection = selectCompareChangedFiles(
-      changedFilesResponse(null),
-    );
+    const secondSelection = selectCompareChangedFiles(changedFilesResponse(null));
 
     expect(secondSelection).toBe(firstSelection);
     expect(secondSelection.files).toBe(EMPTY_CHANGED_FILES);

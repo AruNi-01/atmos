@@ -15,48 +15,48 @@ Deterministic Rust tests own inventory parsing, per-platform probe, and claim po
 ## Coverage map
 
 | PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1 |
-| M2 | S2, S3, S4 |
-| M3 | S5, S6, S7 |
-| M4 | S8, S9, S10 |
-| M5 | S11, S12 |
-| M6 | S9, S13 |
-| M7 | S10, S14 |
-| M8 | S15, S16 |
-| M9 | S17 |
-| M10 | S2, S6, S10 |
-| M11 | S5, S18 |
-| M12 | S19 |
-| M13 | S20 (manual) |
-| M14 | S12, S21 |
-| N1–N4 | deferred |
+| -------- | ------------ |
+| M1       | S1           |
+| M2       | S2, S3, S4   |
+| M3       | S5, S6, S7   |
+| M4       | S8, S9, S10  |
+| M5       | S11, S12     |
+| M6       | S9, S13      |
+| M7       | S10, S14     |
+| M8       | S15, S16     |
+| M9       | S17          |
+| M10      | S2, S6, S10  |
+| M11      | S5, S18      |
+| M12      | S19          |
+| M13      | S20 (manual) |
+| M14      | S12, S21     |
+| N1–N4    | deferred     |
 
 ## Execution map
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Bun | `bun test` | web simulator tab tests | workspace id | tab value `simulator`; one per workspace | planned |
-| S2 | Rust | `cargo test` | DevicePreview probe | Xcode missing, AVD present | `ios.ready=false`, `android.ready=true`; Start allowed | planned |
-| S3 | Rust | `cargo test` | DevicePreview probe | Android SDK missing, iPhone available | `android` env reason; `ios.ready=true` | planned |
-| S4 | Rust | `cargo test` | host gate | linux or x86_64 | host `unsupported_*`; no platform ready | planned |
-| S5 | Bun / script | `bun test` or pack dry-run | serve-emu pin + argv | pin JSON | path `runtime/serve-emu/<version>`; argv has `--host 127.0.0.1`; no `npx` | planned |
-| S6 | Rust | `cargo test` | checksum | mutated tarball | `checksum_mismatch`; dest absent | planned |
-| S7 | Structural | `bun test` / grep | NOTICE + vendor | `vendor/serve-emu`, NOTICE | Apache-2.0; no serve-avd runtime | planned |
-| S8 | Rust | `cargo test` | auto-claim | two free devices, no prefs | start picks a free id; claim persisted | planned |
-| S9 | Rust | `cargo test` | no steal | A claimed udid U | B start with U → `device_already_claimed`; A still owns U | planned |
-| S10 | Rust | `cargo test` | no free device | all claimed | `no_device`; no eviction | planned |
-| S11 | Rust | `cargo test` | restore | live claim for A | status returns url; second start reuses pid | planned |
-| S12 | Rust | `cargo test` | stop scoped | A and B running | stop A kills A pid only; B claim remains | planned |
-| S13 | Rust | `cargo test` | two claims | iOS + Android free | two entries in claims.json | planned |
-| S14 | Bun | `bun test` | setup mapping | `no_device` | card action id; no iframe | planned |
-| S15 | Bun | `bun test` | iframe URL | port + udid | loopback + `device=` query | planned |
-| S16 | Bun structural | `bun test` | feature sources | `features/simulator` | live preview is `iframe`; no Atmos DeviceScreen canvas | planned |
-| S17 | Bun structural | `bun test` | serve-emu client | vendor preview | device title/picker, below-device actions, right tools panel (selectors/classes as implemented) | planned |
-| S18 | Bun | `bun test` | i18n | en.json / zh.json | sentence case; no `npx`; zh translated | planned |
-| S19 | Bun | `bun test` | loopback vs relay | `connectionMode` | local/hosted loopback can start; relay → `not_desktop` retry, no Desktop-only CTA | planned |
-| S20 | Manual | human | Mac + Xcode + AVD | real devices | iOS hide Simulator.app; Android iframe; two workspaces | planned |
-| S21 | Rust | `cargo test` | argv | stop/start builders | no `--kill` | planned |
+| Scenario | Level          | Expected tool              | Target command / method | Fixture / data                        | Signals                                                                                         | Status  |
+| -------- | -------------- | -------------------------- | ----------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------- | ------- |
+| S1       | Bun            | `bun test`                 | web simulator tab tests | workspace id                          | tab value `simulator`; one per workspace                                                        | planned |
+| S2       | Rust           | `cargo test`               | DevicePreview probe     | Xcode missing, AVD present            | `ios.ready=false`, `android.ready=true`; Start allowed                                          | planned |
+| S3       | Rust           | `cargo test`               | DevicePreview probe     | Android SDK missing, iPhone available | `android` env reason; `ios.ready=true`                                                          | planned |
+| S4       | Rust           | `cargo test`               | host gate               | linux or x86_64                       | host `unsupported_*`; no platform ready                                                         | planned |
+| S5       | Bun / script   | `bun test` or pack dry-run | serve-emu pin + argv    | pin JSON                              | path `runtime/serve-emu/<version>`; argv has `--host 127.0.0.1`; no `npx`                       | planned |
+| S6       | Rust           | `cargo test`               | checksum                | mutated tarball                       | `checksum_mismatch`; dest absent                                                                | planned |
+| S7       | Structural     | `bun test` / grep          | NOTICE + vendor         | `vendor/serve-emu`, NOTICE            | Apache-2.0; no serve-avd runtime                                                                | planned |
+| S8       | Rust           | `cargo test`               | auto-claim              | two free devices, no prefs            | start picks a free id; claim persisted                                                          | planned |
+| S9       | Rust           | `cargo test`               | no steal                | A claimed udid U                      | B start with U → `device_already_claimed`; A still owns U                                       | planned |
+| S10      | Rust           | `cargo test`               | no free device          | all claimed                           | `no_device`; no eviction                                                                        | planned |
+| S11      | Rust           | `cargo test`               | restore                 | live claim for A                      | status returns url; second start reuses pid                                                     | planned |
+| S12      | Rust           | `cargo test`               | stop scoped             | A and B running                       | stop A kills A pid only; B claim remains                                                        | planned |
+| S13      | Rust           | `cargo test`               | two claims              | iOS + Android free                    | two entries in claims.json                                                                      | planned |
+| S14      | Bun            | `bun test`                 | setup mapping           | `no_device`                           | card action id; no iframe                                                                       | planned |
+| S15      | Bun            | `bun test`                 | iframe URL              | port + udid                           | loopback + `device=` query                                                                      | planned |
+| S16      | Bun structural | `bun test`                 | feature sources         | `features/simulator`                  | live preview is `iframe`; no Atmos DeviceScreen canvas                                          | planned |
+| S17      | Bun structural | `bun test`                 | serve-emu client        | vendor preview                        | device title/picker, below-device actions, right tools panel (selectors/classes as implemented) | planned |
+| S18      | Bun            | `bun test`                 | i18n                    | en.json / zh.json                     | sentence case; no `npx`; zh translated                                                          | planned |
+| S19      | Bun            | `bun test`                 | loopback vs relay       | `connectionMode`                      | local/hosted loopback can start; relay → `not_desktop` retry, no Desktop-only CTA               | planned |
+| S20      | Manual         | human                      | Mac + Xcode + AVD       | real devices                          | iOS hide Simulator.app; Android iframe; two workspaces                                          | planned |
+| S21      | Rust           | `cargo test`               | argv                    | stop/start builders                   | no `--kill`                                                                                     | planned |
 
 ## Scenarios
 
@@ -309,4 +309,3 @@ _Last run: 2026-09-07 · `bun test apps/web/src/features/simulator/__tests__/sim
 - S20 — ⏸ manual Mac + live AVD/Simulator.app (not CI)
 - S21 — ✅ `helper_argv_is_loopback_without_kill` + spawn refuses `--kill`; `parse_helper_line` exact argv token (Pixel_8 vs Pixel_8_Pro) and booted `-s emulator-5554` via `helper_process_ids`; vendor `useSimStream` posts `atmos:simulator-stop` instead of `serve-sim --kill`; `isGlobalServeSimKill` rejects global `-k`/`--kill`
 - Exploratory agent-browser — ⏸ `not_run`: no Desktop/dev server in this session; live emulator is out of CI.
-

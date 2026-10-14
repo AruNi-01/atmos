@@ -59,7 +59,10 @@ function newHandle(node: PtNode): HandleElement {
   };
 }
 
-export function projectDocument(doc: PtDocument, existing: readonly HandleElement[]): HandleElement[] {
+export function projectDocument(
+  doc: PtDocument,
+  existing: readonly HandleElement[],
+): HandleElement[] {
   const byPtId = new Map<string, HandleElement>();
   for (const el of existing) {
     if (el.isDeleted) continue;

@@ -39,19 +39,14 @@ const MAX_EDGE: Record<ScreenshotSize, number> = {
   large: 2048,
 };
 
-const ATMOS_CHROME_TYPES = new Set<string>([
-  CANVAS_TERMINAL_SHAPE_TYPE,
-  CANVAS_WIDGET_SHAPE_TYPE,
-]);
+const ATMOS_CHROME_TYPES = new Set<string>([CANVAS_TERMINAL_SHAPE_TYPE, CANVAS_WIDGET_SHAPE_TYPE]);
 
 function parseSize(value: unknown): ScreenshotSize {
-  const s = String(value ?? "medium").trim().toLowerCase();
+  const s = String(value ?? "medium")
+    .trim()
+    .toLowerCase();
   if (s === "small" || s === "medium" || s === "large") return s;
-  throw new CanvasAgentError(
-    "VALIDATION_ARG",
-    'size must be "small", "medium", or "large"',
-    false,
-  );
+  throw new CanvasAgentError("VALIDATION_ARG", 'size must be "small", "medium", or "large"', false);
 }
 
 function rectsIntersectArea(
@@ -86,10 +81,7 @@ function shapeQualifiesForRegion(
     maxY: region.y + region.h,
   };
   const centerInside =
-    bb.midX >= r.minX &&
-    bb.midX <= r.maxX &&
-    bb.midY >= r.minY &&
-    bb.midY <= r.maxY;
+    bb.midX >= r.minX && bb.midX <= r.maxX && bb.midY >= r.minY && bb.midY <= r.maxY;
   if (centerInside) return true;
   const area = Math.max(1, bb.width * bb.height);
   const overlap = rectsIntersectArea(bb, r);
@@ -98,9 +90,7 @@ function shapeQualifiesForRegion(
 
 /** Require every id to exist and live on the current page (screenshotable). */
 function requireScreenshotableIds(editor: Editor, ids: readonly string[]): TLShape[] {
-  const pageShapeIds = new Set(
-    editor.getCurrentPageShapes().map((s) => s.id as string),
-  );
+  const pageShapeIds = new Set(editor.getCurrentPageShapes().map((s) => s.id as string));
   return ids.map((id) => {
     const shape = editor.getShape(id as TLShapeId);
     if (!shape) {
@@ -132,10 +122,8 @@ function resolveRegion(
   const y = optionalNumber(args.y);
   const w = optionalNumber(args.w);
   const h = optionalNumber(args.h);
-  const anyBoundField =
-    x !== undefined || y !== undefined || w !== undefined || h !== undefined;
-  const hasCompleteBox =
-    x !== undefined && y !== undefined && w !== undefined && h !== undefined;
+  const anyBoundField = x !== undefined || y !== undefined || w !== undefined || h !== undefined;
+  const hasCompleteBox = x !== undefined && y !== undefined && w !== undefined && h !== undefined;
 
   if (anyBoundField && !hasCompleteBox) {
     throw new CanvasAgentError(
@@ -251,27 +239,14 @@ export async function runCanvasAgentScreenshot(
 ): Promise<Record<string, unknown>> {
   const size = parseSize(args.size);
   const includeChrome =
-    args.include_widgets === true ||
-    args.includeWidgets === true ||
-    args.include_chrome === true;
+    args.include_widgets === true || args.includeWidgets === true || args.include_chrome === true;
 
-  const region = resolveRegion(
-    editor,
-    args,
-    options?.getAgentViewBounds,
-    includeChrome,
-  );
+  const region = resolveRegion(editor, args, options?.getAgentViewBounds, includeChrome);
 
   const idsRaw = args.ids ?? args.center_ids;
-  const explicitIds =
-    idsRaw !== undefined && idsRaw !== null ? requireIds(idsRaw) : undefined;
+  const explicitIds = idsRaw !== undefined && idsRaw !== null ? requireIds(idsRaw) : undefined;
 
-  const selected = selectShapesForRegion(
-    editor,
-    region,
-    includeChrome,
-    explicitIds,
-  );
+  const selected = selectShapesForRegion(editor, region, includeChrome, explicitIds);
   if (selected.length === 0) {
     throw new CanvasAgentError(
       "VALIDATION_ARG",
@@ -308,11 +283,7 @@ export async function runCanvasAgentScreenshot(
   }
 
   if (!result?.url?.startsWith("data:")) {
-    throw new CanvasAgentError(
-      "INTERNAL_ERROR",
-      "Screenshot export returned an empty image",
-      true,
-    );
+    throw new CanvasAgentError("INTERNAL_ERROR", "Screenshot export returned an empty image", true);
   }
 
   // Optional size-reduction pass — keep the first valid image if it fails.

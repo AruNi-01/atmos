@@ -3,11 +3,7 @@
 import React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
-import {
-  DitherGrowth,
-  type DitherTooltipLine,
-  type DitherTooltipSliding,
-} from "@workspace/ui";
+import { DitherGrowth, type DitherTooltipLine, type DitherTooltipSliding } from "@workspace/ui";
 import {
   formatHostHistoryLocalTime,
   hostHistoryAgeSeconds,
@@ -93,9 +89,7 @@ export function ResourceMonitorHostChart({
     () =>
       history.map((point) => {
         const localTime = formatHostHistoryLocalTime(point.received_at_ms);
-        const relative = hostHistoryRelative(
-          hostHistoryAgeSeconds(point.received_at_ms, nowMs),
-        );
+        const relative = hostHistoryRelative(hostHistoryAgeSeconds(point.received_at_ms, nowMs));
         const relativeLabel =
           relative.kind === "now"
             ? t("chartJustNow")
@@ -142,12 +136,7 @@ export function ResourceMonitorHostChart({
             {
               label: t("used"),
               value: formatted,
-              sliding: slidingPartsFromFormatted(
-                formatted,
-                usedCores,
-                1,
-                locale,
-              ),
+              sliding: slidingPartsFromFormatted(formatted, usedCores, 1, locale),
             },
           ];
         }}
@@ -167,11 +156,7 @@ export function ResourceMonitorHostChart({
             {
               label: t("used"),
               value: formatMemoryPair(usedBytes, memoryTotalBytes),
-              sliding: memoryPairSlidingParts(
-                usedBytes,
-                memoryTotalBytes,
-                locale,
-              ),
+              sliding: memoryPairSlidingParts(usedBytes, memoryTotalBytes, locale),
             },
             {
               label: t("available"),

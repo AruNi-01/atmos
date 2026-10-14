@@ -2,7 +2,15 @@ import type { CSSProperties, ReactElement } from "react";
 import type { PtNode, PtOption } from "../../../protocol";
 import type { PtComponentModule, PtRendererProps } from "./contract";
 import { FILL, FONT, T, TITLE_FIELDS, ptNode } from "./node";
-import { ControlRoot, DisplayChild, emit, InsetSurface, patchChild, propText, renderTreeChildren } from "./runtime";
+import {
+  ControlRoot,
+  DisplayChild,
+  emit,
+  InsetSurface,
+  patchChild,
+  propText,
+  renderTreeChildren,
+} from "./runtime";
 
 const cardBBox = { width: 360, height: 200 };
 const tableBBox = { width: 360, height: 160 };
@@ -21,7 +29,9 @@ function CardRenderer({ node, mode, onCommit, onAction }: PtRendererProps): Reac
         <div style={{ padding: "14px 16px 8px" }}>
           <div style={{ fontSize: 15, fontWeight: 600 }}>{propText(node, "title", "Card")}</div>
           {propText(node, "description") ? (
-            <div style={{ fontSize: 12, color: T.muted, marginTop: 4 }}>{propText(node, "description")}</div>
+            <div style={{ fontSize: 12, color: T.muted, marginTop: 4 }}>
+              {propText(node, "description")}
+            </div>
           ) : null}
         </div>
         <div style={{ position: "relative", width: "100%", height: "calc(100% - 56px)" }}>
@@ -39,11 +49,16 @@ export const cardModule: PtComponentModule = {
     ptNode(id, "card", cardBBox, {
       props: { title: "Sign in", description: "Use your work email." },
       children: [
-        ptNode(`${id}-body`, "typography", { width: 328, height: 72 }, {
-          x: 16,
-          y: 72,
-          props: { title: "Welcome back", description: "Continue to your workspace." },
-        }),
+        ptNode(
+          `${id}-body`,
+          "typography",
+          { width: 328, height: 72 },
+          {
+            x: 16,
+            y: 72,
+            props: { title: "Welcome back", description: "Continue to your workspace." },
+          },
+        ),
       ],
     }),
   Renderer: CardRenderer,
@@ -65,8 +80,18 @@ function tableColumns(node: PtNode): PtOption[] {
 function tableRows(node: PtNode): PtNode[] {
   if ((node.children ?? []).length >= 2) return node.children ?? [];
   return [
-    ptNode(`${node.id}-r1`, "item", { width: 1, height: 1 }, { props: { label: "Ada Lovelace", description: "Admin" } }),
-    ptNode(`${node.id}-r2`, "item", { width: 1, height: 1 }, { props: { label: "Grace Hopper", description: "Editor" } }),
+    ptNode(
+      `${node.id}-r1`,
+      "item",
+      { width: 1, height: 1 },
+      { props: { label: "Ada Lovelace", description: "Admin" } },
+    ),
+    ptNode(
+      `${node.id}-r2`,
+      "item",
+      { width: 1, height: 1 },
+      { props: { label: "Grace Hopper", description: "Editor" } },
+    ),
   ];
 }
 
@@ -127,16 +152,36 @@ function tableDefault(id: string, type: "table" | "data-table") {
       { value: "role", label: "Role" },
     ],
     children: [
-      ptNode(`${id}-r1`, "item", { width: 328, height: 1 }, {
-        x: 16,
-        y: 40,
-        props: { label: "Ada Lovelace", description: "Admin", name: "Ada Lovelace", role: "Admin" },
-      }),
-      ptNode(`${id}-r2`, "item", { width: 328, height: 1 }, {
-        x: 16,
-        y: 80,
-        props: { label: "Grace Hopper", description: "Editor", name: "Grace Hopper", role: "Editor" },
-      }),
+      ptNode(
+        `${id}-r1`,
+        "item",
+        { width: 328, height: 1 },
+        {
+          x: 16,
+          y: 40,
+          props: {
+            label: "Ada Lovelace",
+            description: "Admin",
+            name: "Ada Lovelace",
+            role: "Admin",
+          },
+        },
+      ),
+      ptNode(
+        `${id}-r2`,
+        "item",
+        { width: 328, height: 1 },
+        {
+          x: 16,
+          y: 80,
+          props: {
+            label: "Grace Hopper",
+            description: "Editor",
+            name: "Grace Hopper",
+            role: "Editor",
+          },
+        },
+      ),
     ],
   });
 }
@@ -195,7 +240,9 @@ function QuestionnaireRenderer({ node, mode, onCommit, onAction }: PtRendererPro
         }}
       >
         <legend style={{ fontSize: 11, color: T.muted }}>Question</legend>
-        <div style={{ fontSize: 15, fontWeight: 600 }}>{propText(node, "title", "What are you building?")}</div>
+        <div style={{ fontSize: 15, fontWeight: 600 }}>
+          {propText(node, "title", "What are you building?")}
+        </div>
         {propText(node, "description") ? (
           <div style={{ fontSize: 12, color: T.muted }}>{propText(node, "description")}</div>
         ) : null}
@@ -256,14 +303,24 @@ function ResizableRenderer({ node, mode, onCommit, onAction }: PtRendererProps):
   const kids = node.children ?? [];
   return (
     <ControlRoot node={node} mode={mode}>
-      <div style={{ ...FILL, display: "flex", border: `1px solid ${T.border}`, borderRadius: T.radius, overflow: "hidden" }}>
+      <div
+        style={{
+          ...FILL,
+          display: "flex",
+          border: `1px solid ${T.border}`,
+          borderRadius: T.radius,
+          overflow: "hidden",
+        }}
+      >
         <div style={{ width: `${split}%`, background: T.mutedBg, padding: 12, overflow: "auto" }}>
           {kids[0] ? (
             <div data-pt-child={kids[0].id} style={{ height: "100%" }}>
               <DisplayChild
                 node={kids[0]}
                 mode={mode}
-                onCommit={(patch) => onCommit({ children: patchChild(node.children, kids[0]!.id, patch) })}
+                onCommit={(patch) =>
+                  onCommit({ children: patchChild(node.children, kids[0]!.id, patch) })
+                }
                 onAction={onAction}
               />
             </div>
@@ -278,9 +335,24 @@ function ResizableRenderer({ node, mode, onCommit, onAction }: PtRendererProps):
           value={split}
           aria-label="Resize"
           onChange={(event) =>
-            emit(node, { value: event.target.value, props: { ...node.props, split: Number(event.target.value) } }, onCommit, onAction, "change")
+            emit(
+              node,
+              {
+                value: event.target.value,
+                props: { ...node.props, split: Number(event.target.value) },
+              },
+              onCommit,
+              onAction,
+              "change",
+            )
           }
-          style={{ width: 8, writingMode: "vertical-lr", cursor: "col-resize", padding: 0, margin: 0 }}
+          style={{
+            width: 8,
+            writingMode: "vertical-lr",
+            cursor: "col-resize",
+            padding: 0,
+            margin: 0,
+          }}
         />
         <div style={{ flex: 1, padding: 12, overflow: "auto" }}>
           {kids[1] ? (
@@ -288,7 +360,9 @@ function ResizableRenderer({ node, mode, onCommit, onAction }: PtRendererProps):
               <DisplayChild
                 node={kids[1]}
                 mode={mode}
-                onCommit={(patch) => onCommit({ children: patchChild(node.children, kids[1]!.id, patch) })}
+                onCommit={(patch) =>
+                  onCommit({ children: patchChild(node.children, kids[1]!.id, patch) })
+                }
                 onAction={onAction}
               />
             </div>
@@ -309,16 +383,26 @@ export const resizableModule: PtComponentModule = {
       props: { split: 40 },
       value: "40",
       children: [
-        ptNode(`${id}-left`, "typography", { width: 120, height: 80 }, {
-          x: 8,
-          y: 8,
-          props: { title: "Sidebar", description: "Left pane" },
-        }),
-        ptNode(`${id}-right`, "typography", { width: 160, height: 80 }, {
-          x: 148,
-          y: 8,
-          props: { title: "Content", description: "Right pane" },
-        }),
+        ptNode(
+          `${id}-left`,
+          "typography",
+          { width: 120, height: 80 },
+          {
+            x: 8,
+            y: 8,
+            props: { title: "Sidebar", description: "Left pane" },
+          },
+        ),
+        ptNode(
+          `${id}-right`,
+          "typography",
+          { width: 160, height: 80 },
+          {
+            x: 148,
+            y: 8,
+            props: { title: "Content", description: "Right pane" },
+          },
+        ),
       ],
     }),
   Renderer: ResizableRenderer,
@@ -362,14 +446,19 @@ export const scrollAreaModule: PtComponentModule = {
   defaultNode: (id) =>
     ptNode(id, "scroll-area", scrollBBox, {
       children: [
-        ptNode(`${id}-copy`, "typography", { width: 168, height: 220 }, {
-          x: 8,
-          y: 8,
-          props: {
-            title: "Tags",
-            description: "Alpha\nBeta\nGamma\nDelta\nEpsilon\nZeta\nEta\nTheta",
+        ptNode(
+          `${id}-copy`,
+          "typography",
+          { width: 168, height: 220 },
+          {
+            x: 8,
+            y: 8,
+            props: {
+              title: "Tags",
+              description: "Alpha\nBeta\nGamma\nDelta\nEpsilon\nZeta\nEta\nTheta",
+            },
           },
-        }),
+        ),
       ],
     }),
   Renderer: ScrollAreaRenderer,

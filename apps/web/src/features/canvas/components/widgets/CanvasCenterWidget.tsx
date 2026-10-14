@@ -121,8 +121,7 @@ function CanvasCenterWidgetBody({
   );
   const tabs = React.useMemo(() => ensureCanvasCenterOverviewTab(source.tabs), [source.tabs]);
   const overviewTitle =
-    tabs.find((tab) => tab.kind === "overview")?.title ??
-    createCanvasCenterOverviewTab().title;
+    tabs.find((tab) => tab.kind === "overview")?.title ?? createCanvasCenterOverviewTab().title;
   const activeTabId = React.useMemo(() => {
     if (source.activeTabId && tabs.some((tab) => tab.id === source.activeTabId)) {
       return source.activeTabId;
@@ -131,14 +130,16 @@ function CanvasCenterWidgetBody({
   }, [source.activeTabId, tabs]);
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
   const fileTabs = React.useMemo(
-    () => tabs.filter((tab): tab is Extract<CanvasCenterTab, { kind: "file" }> => tab.kind === "file"),
+    () =>
+      tabs.filter((tab): tab is Extract<CanvasCenterTab, { kind: "file" }> => tab.kind === "file"),
     [tabs],
   );
   const tabContextMenuFiles = React.useMemo(
     () =>
-      fileTabs.map((tab) =>
-        workspaceOpenFiles.find((file) => file.path === tab.path) ??
-        createCanvasCenterMenuOpenFile(tab),
+      fileTabs.map(
+        (tab) =>
+          workspaceOpenFiles.find((file) => file.path === tab.path) ??
+          createCanvasCenterMenuOpenFile(tab),
       ),
     [fileTabs, workspaceOpenFiles],
   );
@@ -373,36 +374,34 @@ function CanvasCenterWidgetBody({
         >
           <CenterStageOverviewTab label={overviewTitle} shortcutDigit={null} />
           <CenterStageScrollableTabs>
-            {tabs
-              .filter(isClosableCanvasCenterTab)
-              .map((tab) => (
-                <CenterStageOpenFileTab
-                  key={tab.id}
-                  tabValue={tab.id}
-                  file={createCanvasCenterTabOpenFile(tab, workspaceOpenFiles)}
-                  displayPath={getCanvasCenterTabSubtitle(tab)}
-                  variant={getCanvasCenterSurfaceTabVariant(tab)}
-                  sessionDisplay={null}
-                  closeLabel={t("centerWidget.closeTab", { title: tab.title })}
-                  onClose={() => closeTab(tab)}
-                  onPreviewPin={() => pinCanvasPreviewFileTab(tab)}
-                  onContextMenuRequest={(event) => {
-                    if (tab.kind !== "file") {
-                      return;
-                    }
-                    event.preventDefault();
-                    event.stopPropagation();
-                    editor.markEventAsHandled(event);
-                    // Do not switch tabs on right-click — only open the menu.
-                    // Viewport coords: menu is portaled to body with position:fixed.
-                    setTabContextMenu({
-                      x: event.clientX,
-                      y: event.clientY,
-                      filePath: tab.path,
-                    });
-                  }}
-                />
-              ))}
+            {tabs.filter(isClosableCanvasCenterTab).map((tab) => (
+              <CenterStageOpenFileTab
+                key={tab.id}
+                tabValue={tab.id}
+                file={createCanvasCenterTabOpenFile(tab, workspaceOpenFiles)}
+                displayPath={getCanvasCenterTabSubtitle(tab)}
+                variant={getCanvasCenterSurfaceTabVariant(tab)}
+                sessionDisplay={null}
+                closeLabel={t("centerWidget.closeTab", { title: tab.title })}
+                onClose={() => closeTab(tab)}
+                onPreviewPin={() => pinCanvasPreviewFileTab(tab)}
+                onContextMenuRequest={(event) => {
+                  if (tab.kind !== "file") {
+                    return;
+                  }
+                  event.preventDefault();
+                  event.stopPropagation();
+                  editor.markEventAsHandled(event);
+                  // Do not switch tabs on right-click — only open the menu.
+                  // Viewport coords: menu is portaled to body with position:fixed.
+                  setTabContextMenu({
+                    x: event.clientX,
+                    y: event.clientY,
+                    filePath: tab.path,
+                  });
+                }}
+              />
+            ))}
           </CenterStageScrollableTabs>
         </CenterStageTabList>
         <div className="min-h-0 flex-1 overflow-hidden">
@@ -501,9 +500,7 @@ function createCanvasCenterTabGroupItem(tab: ClosableCanvasCenterTab): TabGroupI
   };
 }
 
-function createCanvasCenterMenuOpenFile(
-  tab: Extract<CanvasCenterTab, { kind: "file" }>,
-): OpenFile {
+function createCanvasCenterMenuOpenFile(tab: Extract<CanvasCenterTab, { kind: "file" }>): OpenFile {
   return createCanvasCenterTabOpenFile(tab, []);
 }
 
@@ -705,7 +702,11 @@ function CanvasCenterReviewFileTab({
     <ReviewContextProvider
       target={reviewTargetFromContext(context)}
       filePath={tab.filePath}
-      fileSnapshotGuid={tab.originalPath.startsWith("review-diff://") ? tab.originalPath.slice("review-diff://".length).split("/")[0] : undefined}
+      fileSnapshotGuid={
+        tab.originalPath.startsWith("review-diff://")
+          ? tab.originalPath.slice("review-diff://".length).split("/")[0]
+          : undefined
+      }
       revisionGuid={tab.revisionGuid}
       selectionMode="local"
       initialSessionGuid={tab.reviewSessionGuid ?? null}
@@ -772,7 +773,12 @@ function CanvasCenterGithubActionTab({
 
 function BrokenCenterTab({ message, muted }: { message: string; muted?: boolean }) {
   return (
-    <div className={cn("flex h-full items-center justify-center px-6 text-sm", muted ? "text-muted-foreground" : "text-destructive")}>
+    <div
+      className={cn(
+        "flex h-full items-center justify-center px-6 text-sm",
+        muted ? "text-muted-foreground" : "text-destructive",
+      )}
+    >
       {message}
     </div>
   );

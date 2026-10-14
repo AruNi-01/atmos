@@ -12,13 +12,13 @@ const COMMAND_ITEMS: PtOption[] = [
 
 function CommandPanel(props: PtRendererProps): ReactElement {
   const [query, setQuery] = useState(props.node.value ?? "");
-  const items = (props.node.options && props.node.options.length > 0 ? props.node.options : COMMAND_ITEMS).filter(
-    (option) => {
-      const q = query.trim().toLowerCase();
-      if (!q) return true;
-      return option.label.toLowerCase().includes(q) || option.value.toLowerCase().includes(q);
-    },
-  );
+  const items = (
+    props.node.options && props.node.options.length > 0 ? props.node.options : COMMAND_ITEMS
+  ).filter((option) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return option.label.toLowerCase().includes(q) || option.value.toLowerCase().includes(q);
+  });
   const placeholder = propString(props.node, "label", "Search commands");
 
   return (
@@ -48,7 +48,17 @@ function CommandPanel(props: PtRendererProps): ReactElement {
             outline: "none",
           }}
         />
-        <div role="listbox" style={{ padding: 8, display: "flex", flexDirection: "column", gap: 2, overflow: "auto", flex: 1 }}>
+        <div
+          role="listbox"
+          style={{
+            padding: 8,
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            overflow: "auto",
+            flex: 1,
+          }}
+        >
           {items.map((option) => (
             <button
               key={option.value}
@@ -59,7 +69,8 @@ function CommandPanel(props: PtRendererProps): ReactElement {
                 appearance: "none",
                 textAlign: "left",
                 border: "none",
-                background: option.value === props.node.value ? overlayTokens.mutedBg : "transparent",
+                background:
+                  option.value === props.node.value ? overlayTokens.mutedBg : "transparent",
                 color: overlayTokens.fg,
                 cursor: "pointer",
                 borderRadius: overlayTokens.radius,
@@ -93,7 +104,8 @@ export const commandModule: PtComponentModule = {
       },
       { options: COMMAND_ITEMS },
     ),
-  agentDescription: "In-place command palette with a search field and result list inside the overlay box. Never a document portal.",
+  agentDescription:
+    "In-place command palette with a search field and result list inside the overlay box. Never a document portal.",
   xmlExample: `<command id="palette" title="Command" description="Search and run a command in-place." label="Search commands" x="24" y="24" width="320" height="280">
   <option value="open-file">Open file</option>
   <option value="save">Save</option>

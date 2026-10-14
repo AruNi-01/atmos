@@ -95,11 +95,7 @@ export function PublicTokPage({
               </XUserHoverCard>
             ) : null}
             {githubUsername ? (
-              <GithubUserHoverCard
-                username={githubUsername}
-                avatarUrl={avatarUrl}
-                source="public"
-              >
+              <GithubUserHoverCard username={githubUsername} avatarUrl={avatarUrl} source="public">
                 <a
                   href={`https://github.com/${githubUsername}`}
                   target="_blank"

@@ -18,7 +18,11 @@ export function NativeTextInput({
 }: NativeTextInputProps) {
   const theme = useMobileTheme();
   const nativeValue = useNativeState(value ?? defaultValue ?? "");
-  const inputStyle = StyleSheet.flatten([styles.textInput, { height: minHeight }, style]) as ExpoTextInputProps["style"];
+  const inputStyle = StyleSheet.flatten([
+    styles.textInput,
+    { height: minHeight },
+    style,
+  ]) as ExpoTextInputProps["style"];
   const inputTextStyle = StyleSheet.flatten([
     styles.textInputText,
     { color: theme.colors.label },

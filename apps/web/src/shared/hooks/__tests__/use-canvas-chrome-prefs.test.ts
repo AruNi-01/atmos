@@ -68,8 +68,6 @@ describe("canvas chrome prefs storage", () => {
   it("defaults when key is missing", () => {
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
     writeCanvasChromePrefs(DEFAULT_CANVAS_CHROME_PREFS);
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!)).toEqual(
-      DEFAULT_CANVAS_CHROME_PREFS,
-    );
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!)).toEqual(DEFAULT_CANVAS_CHROME_PREFS);
   });
 });

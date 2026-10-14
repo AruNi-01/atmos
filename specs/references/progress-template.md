@@ -18,6 +18,7 @@ Use this template only when creating or substantially refreshing a spec-level `P
 ## Snapshot
 
 Short current-state summary:
+
 - what is done
 - what is next
 - what is blocked
@@ -43,17 +44,17 @@ Short current-state summary:
 
 ## Decisions Since TECH
 
-| ID | Decision | Why | Source update |
-|----|----------|-----|---------------|
-| D1 | ... | ... | Updated TECH.md section ... |
+| ID  | Decision | Why | Source update               |
+| --- | -------- | --- | --------------------------- |
+| D1  | ...      | ... | Updated TECH.md section ... |
 
 ## Verification Status
 
-| Area | Command / Method | Last result | Notes |
-|------|------------------|-------------|-------|
-| Rust tests | `cargo test ...` | not_run | ... |
-| Web tests | `bun test ...` | not_run | ... |
-| E2E / manual | Playwright/manual | not_run | ... |
+| Area         | Command / Method  | Last result | Notes |
+| ------------ | ----------------- | ----------- | ----- |
+| Rust tests   | `cargo test ...`  | not_run     | ...   |
+| Web tests    | `bun test ...`    | not_run     | ...   |
+| E2E / manual | Playwright/manual | not_run     | ...   |
 
 ## Known Blockers
 

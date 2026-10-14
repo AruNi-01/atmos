@@ -27,7 +27,12 @@ export function AgentWorkedForLabel({
   if (!hasDuration) {
     if (reveal === "timestamp" && clock) {
       return (
-        <span className={cn("inline-grid min-h-6 items-center text-xs text-muted-foreground", className)}>
+        <span
+          className={cn(
+            "inline-grid min-h-6 items-center text-xs text-muted-foreground",
+            className,
+          )}
+        >
           <span className="whitespace-nowrap">{clock}</span>
         </span>
       );

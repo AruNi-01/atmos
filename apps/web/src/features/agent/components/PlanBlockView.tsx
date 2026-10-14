@@ -3,12 +3,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "motion/react";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  TextShimmer,
-} from "@workspace/ui";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger, TextShimmer } from "@workspace/ui";
 import { CircleCheck, CircleDashed, ListTodo } from "lucide-react";
 import type { AgentPlan } from "@/features/agent/lib/agent-chat-types";
 import { ComposerCollapseGlyph } from "./composer-collapse-glyph";
@@ -73,12 +68,7 @@ function PlanEntryScrollableText({
   }, []);
 
   return (
-    <span
-      ref={textRef}
-      className={className}
-      onMouseEnter={startScroll}
-      onMouseLeave={stopScroll}
-    >
+    <span ref={textRef} className={className} onMouseEnter={startScroll} onMouseLeave={stopScroll}>
       {shimmer ? (
         <TextShimmer as="span" className="inline" duration={1.5}>
           {text}
@@ -116,7 +106,9 @@ export function PlanBlockView({
   const isControlled = openControlled !== undefined;
   const isOpen = isControlled
     ? openControlled
-    : (expandKey ? storedOpen ?? defaultOpen : uncontrolledOpen);
+    : expandKey
+      ? (storedOpen ?? defaultOpen)
+      : uncontrolledOpen;
   const setIsOpen = useCallback(
     (next: boolean | ((prev: boolean) => boolean)) => {
       const resolved = typeof next === "function" ? next(isOpen) : next;
@@ -131,11 +123,11 @@ export function PlanBlockView({
   const totalCount = planEntries.length;
   const allCompleted = totalCount > 0 && completedCount === totalCount;
   const currentIndex = planEntries.findIndex(
-    (e) => e.status === "in_progress" || e.status === "running"
+    (e) => e.status === "in_progress" || e.status === "running",
   );
   const currentRunningEntry = currentIndex >= 0 ? planEntries[currentIndex] : undefined;
   const nextPendingIndex = planEntries.findIndex(
-    (e) => e.status !== "completed" && e.status !== "in_progress" && e.status !== "running"
+    (e) => e.status !== "completed" && e.status !== "in_progress" && e.status !== "running",
   );
   const collapsedEntry =
     currentRunningEntry ??
@@ -156,7 +148,7 @@ export function PlanBlockView({
 
   return (
     <div
-      className={`w-full flex-col flex overflow-hidden ${
+      className={`flex w-full flex-col overflow-hidden ${
         embedded
           ? ""
           : `border border-dashed border-border bg-background shadow-sm ${docked ? "rounded-t-xl rounded-b-none border-b-0" : "rounded-md"}`
@@ -169,7 +161,7 @@ export function PlanBlockView({
               <ComposerCollapseGlyph icon={ListTodo} />
               <span className="text-sm font-medium text-foreground/90">{t("plan.title")}</span>
               <div className="flex-1" />
-              <span className="text-sm text-muted-foreground mr-1">
+              <span className="mr-1 text-sm text-muted-foreground">
                 {allCompleted
                   ? t("plan.allDone")
                   : t("plan.progressCount", { completed: completedCount, total: totalCount })}
@@ -180,7 +172,7 @@ export function PlanBlockView({
         <CollapsibleContent>
           <div
             className={`flex flex-col ${
-              shouldScrollEntries ? "max-h-[216px] overflow-y-auto scrollbar-on-hover" : ""
+              shouldScrollEntries ? "scrollbar-on-hover max-h-[216px] overflow-y-auto" : ""
             }`}
           >
             {planEntries.map((entry, idx) => {
@@ -188,31 +180,29 @@ export function PlanBlockView({
               const isRunning = entry.status === "in_progress" || entry.status === "running";
 
               return (
-                <div
-                  key={idx}
-                  className="flex items-center gap-2 px-3 py-1.5"
-                >
-                  <div className="shrink-0 flex items-center justify-center w-4 h-4">
+                <div key={idx} className="flex items-center gap-2 px-3 py-1.5">
+                  <div className="flex h-4 w-4 shrink-0 items-center justify-center">
                     {isCompleted ? (
-                      <CircleCheck className="w-4 h-4 text-green-500" />
+                      <CircleCheck className="h-4 w-4 text-green-500" />
                     ) : isRunning ? (
                       <div className="relative flex items-center justify-center">
-                        <CircleDashed className="w-4 h-4 text-[#3b82f6] animate-[spin_3s_linear_infinite]" />
-                        <div className="absolute w-1.5 h-1.5 bg-[#3b82f6] rounded-full" />
+                        <CircleDashed className="h-4 w-4 animate-[spin_3s_linear_infinite] text-[#3b82f6]" />
+                        <div className="absolute h-1.5 w-1.5 rounded-full bg-[#3b82f6]" />
                       </div>
                     ) : (
-                      <CircleDashed className="w-4 h-4 text-muted-foreground/40" />
+                      <CircleDashed className="h-4 w-4 text-muted-foreground/40" />
                     )}
                   </div>
                   <PlanEntryScrollableText
                     text={entry.content}
                     shimmer={isRunning}
-                    className={`text-sm flex-1 overflow-hidden whitespace-nowrap ${isCompleted
-                      ? "line-through text-muted-foreground/60"
-                      : isRunning
-                        ? "text-foreground font-medium"
-                        : "text-muted-foreground/80"
-                      }`}
+                    className={`flex-1 overflow-hidden text-sm whitespace-nowrap ${
+                      isCompleted
+                        ? "text-muted-foreground/60 line-through"
+                        : isRunning
+                          ? "font-medium text-foreground"
+                          : "text-muted-foreground/80"
+                    }`}
                   />
                 </div>
               );
@@ -225,21 +215,23 @@ export function PlanBlockView({
               className={`group flex cursor-pointer items-center gap-2 overflow-hidden px-3 py-1.5 hover:bg-muted/10 ${embedded || docked ? "rounded-none" : "rounded-b-md bg-background"}`}
             >
               <ComposerCollapseGlyph icon={ListTodo} collapsed />
-              <div className="shrink-0 flex items-center justify-center w-4 h-4">
+              <div className="flex h-4 w-4 shrink-0 items-center justify-center">
                 {allCompleted ? (
-                  <CircleCheck className="w-4 h-4 text-green-500" />
+                  <CircleCheck className="h-4 w-4 text-green-500" />
                 ) : currentRunningEntry ? (
                   <div className="relative flex items-center justify-center">
-                    <CircleDashed className="w-4 h-4 text-[#3b82f6] animate-[spin_3s_linear_infinite]" />
-                    <div className="absolute w-1.5 h-1.5 bg-[#3b82f6] rounded-full" />
+                    <CircleDashed className="h-4 w-4 animate-[spin_3s_linear_infinite] text-[#3b82f6]" />
+                    <div className="absolute h-1.5 w-1.5 rounded-full bg-[#3b82f6]" />
                   </div>
                 ) : (
-                  <CircleDashed className="w-4 h-4 text-muted-foreground/40" />
+                  <CircleDashed className="h-4 w-4 text-muted-foreground/40" />
                 )}
               </div>
-              <div className="flex flex-1 items-center h-5 relative overflow-hidden">
-                <span className="text-sm text-muted-foreground mr-1 font-normal shrink-0">{collapsedLabel}</span>
-                <div className="flex-1 relative h-full overflow-hidden">
+              <div className="relative flex h-5 flex-1 items-center overflow-hidden">
+                <span className="mr-1 shrink-0 text-sm font-normal text-muted-foreground">
+                  {collapsedLabel}
+                </span>
+                <div className="relative h-full flex-1 overflow-hidden">
                   <AnimatePresence mode="popLayout">
                     <motion.div
                       key={`${currentIndex}-${nextPendingIndex}-${isOpen ? "open" : "collapsed"}-${collapsedEntry.content}`}
@@ -247,16 +239,21 @@ export function PlanBlockView({
                       animate={{ y: 0, opacity: 1 }}
                       exit={{ y: -20, opacity: 0 }}
                       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                      className={`absolute inset-0 text-sm truncate ${
+                      className={`absolute inset-0 truncate text-sm ${
                         allCompleted
-                          ? "font-normal line-through text-muted-foreground/70"
+                          ? "font-normal text-muted-foreground/70 line-through"
                           : currentRunningEntry
                             ? "font-medium text-foreground"
                             : "font-normal text-muted-foreground/80"
                       }`}
                     >
                       {currentRunningEntry ? (
-                        <TextShimmer key={`${currentIndex}-${isOpen ? "open" : "collapsed"}-${collapsedEntry.content}`} as="span" className="inline" duration={1.5}>
+                        <TextShimmer
+                          key={`${currentIndex}-${isOpen ? "open" : "collapsed"}-${collapsedEntry.content}`}
+                          as="span"
+                          className="inline"
+                          duration={1.5}
+                        >
                           {collapsedEntry.content}
                         </TextShimmer>
                       ) : (
@@ -266,14 +263,13 @@ export function PlanBlockView({
                   </AnimatePresence>
                 </div>
               </div>
-              <span className="text-sm text-muted-foreground ml-2 shrink-0">
+              <span className="ml-2 shrink-0 text-sm text-muted-foreground">
                 {collapsedCountLabel}
               </span>
             </div>
           </CollapsibleTrigger>
         )}
       </Collapsible>
-
     </div>
   );
 }

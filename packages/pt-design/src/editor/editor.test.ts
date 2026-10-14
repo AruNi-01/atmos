@@ -34,12 +34,12 @@ describe("ModeToggle", () => {
     const html = renderToStaticMarkup(
       createElement(ModeToggle, { mode: "edit", onModeChange: () => {} }),
     );
-    expect(html).toContain("data-testid=\"pt-design-mode\"");
+    expect(html).toContain('data-testid="pt-design-mode"');
     expect(html).toContain("pt-design-mode-toggle");
-    expect(html).toContain("aria-label=\"Edit\"");
-    expect(html).toContain("aria-label=\"Interact\"");
-    expect(html).toContain("title=\"Edit\"");
-    expect(html).toContain("title=\"Interact\"");
+    expect(html).toContain('aria-label="Edit"');
+    expect(html).toContain('aria-label="Interact"');
+    expect(html).toContain('title="Edit"');
+    expect(html).toContain('title="Interact"');
     expect(html).not.toContain(">Edit<");
     expect(html).not.toContain(">Interact<");
     expect(html).not.toContain("EDIT");
@@ -61,9 +61,9 @@ describe("ModeToggle", () => {
         labels: { edit: "编辑", interact: "交互" },
       }),
     );
-    expect(html).toContain("aria-label=\"编辑\"");
-    expect(html).toContain("aria-label=\"交互\"");
-    expect(html).toContain("aria-pressed=\"true\"");
+    expect(html).toContain('aria-label="编辑"');
+    expect(html).toContain('aria-label="交互"');
+    expect(html).toContain('aria-pressed="true"');
   });
 });
 
@@ -76,7 +76,7 @@ describe("Palette", () => {
   });
   test("lists listComponentTypes and does not use the old wireframe catalog", () => {
     const html = renderToStaticMarkup(createElement(Palette, { onInsert: () => {} }));
-    expect(html).toContain("data-testid=\"motion-slide-menu\"");
+    expect(html).toContain('data-testid="motion-slide-menu"');
     expect(html).toContain("pt-design-catalog-search");
     for (const type of listComponentTypes()) {
       expect(html).toContain(`data-menu-id="${type}"`);
@@ -90,7 +90,7 @@ describe("Palette", () => {
 
   test("renders a labeled row per type instead of concatenated ids", () => {
     const html = renderToStaticMarkup(createElement(Palette, { onInsert: () => {} }));
-    expect(html).toContain("data-testid=\"pt-design-catalog\"");
+    expect(html).toContain('data-testid="pt-design-catalog"');
     expect(html).toContain("Alert dialog");
     expect(html).toContain("Auth form");
     expect(html).not.toContain("accordionalert");
@@ -130,16 +130,23 @@ describe("Palette", () => {
       (group) => group.type === "button",
     );
     expect(button?.parentMatched).toBe(true);
-    expect(button?.variants).toEqual(["default", "secondary", "outline", "ghost", "destructive", "link"]);
+    expect(button?.variants).toEqual([
+      "default",
+      "secondary",
+      "outline",
+      "ghost",
+      "destructive",
+      "link",
+    ]);
   });
 
   test("catalog search finds second-level variants without opening the parent name", () => {
     const hits = searchPaletteEntries(listComponentTypes(), "outline");
     expect(hits.every((group) => group.parentMatched === false)).toBe(true);
     expect(hits.map((group) => group.type).sort()).toEqual(["badge", "button", "toggle"]);
-    expect(hits.every((group) => group.variants.includes("outline") && group.variants.length === 1)).toBe(
-      true,
-    );
+    expect(
+      hits.every((group) => group.variants.includes("outline") && group.variants.length === 1),
+    ).toBe(true);
   });
 
   test("catalog search is empty when nothing matches", () => {
@@ -184,10 +191,10 @@ describe("Palette", () => {
     const html = renderToStaticMarkup(
       createElement(Palette, { onInsert: () => {}, groups, rootLabel: "Charts" }),
     );
-    expect(html).toContain("data-menu-id=\"area\"");
+    expect(html).toContain('data-menu-id="area"');
     expect(html).toContain("Area Charts");
-    expect(html).toContain("aria-label=\"Charts\"");
-    expect(html).not.toContain("data-menu-id=\"chart.area-linear\"");
+    expect(html).toContain('aria-label="Charts"');
+    expect(html).not.toContain('data-menu-id="chart.area-linear"');
   });
 
   test("Component palette does not list the chart stub or gallery charts", () => {
@@ -212,10 +219,11 @@ describe("Palette", () => {
       "chart.pie-donut-active",
       "chart.pie-donut-text",
     ]);
-    expect(searchGroupedPaletteEntries(groups, "linear").map((hit) => hit.type).sort()).toEqual([
-      "chart.area-linear",
-      "chart.line-linear",
-    ]);
+    expect(
+      searchGroupedPaletteEntries(groups, "linear")
+        .map((hit) => hit.type)
+        .sort(),
+    ).toEqual(["chart.area-linear", "chart.line-linear"]);
   });
 });
 

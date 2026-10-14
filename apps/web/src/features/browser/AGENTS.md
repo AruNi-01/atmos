@@ -4,11 +4,11 @@ Product domain name is **browser** (not preview). Feature path: `apps/web/src/fe
 
 ## Transports
 
-| Mode | Where | Carrier |
-|------|-------|---------|
-| `same-origin` | Web | iframe |
-| `extension` | Web | Atmos Inspector extension |
-| `desktop` | Electron desktop | in-DOM `<webview>` (APP-053) |
+| Mode          | Where            | Carrier                      |
+| ------------- | ---------------- | ---------------------------- |
+| `same-origin` | Web              | iframe                       |
+| `extension`   | Web              | Atmos Inspector extension    |
+| `desktop`     | Electron desktop | in-DOM `<webview>` (APP-053) |
 
 Desktop selection chrome uses the **same host** `SelectionPopover` + annotation overlays as web. Guest runtime injects with `showSelectionToolbar: false`.
 

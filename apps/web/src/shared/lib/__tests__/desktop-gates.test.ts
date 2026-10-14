@@ -2,11 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Window } from "happy-dom";
 
-import {
-  isDesktopRuntime,
-  isPublicTokPath,
-  isTauriRuntime,
-} from "../desktop-runtime";
+import { isDesktopRuntime, isPublicTokPath, isTauriRuntime } from "../desktop-runtime";
 
 /**
  * Contract: product desktop features must use isDesktopRuntime(), not Tauri-only,
@@ -57,8 +53,7 @@ describe("desktop runtime gates for dual-shell", () => {
   });
 
   it("cookieToolsAvailable formula is true on electron+Mac UA", () => {
-    const macUa =
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
+    const macUa = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
     const win = new Window({
       url: "https://app.atmos.land/",
     });
@@ -87,8 +82,7 @@ describe("desktop runtime gates for dual-shell", () => {
           ? navigator.userAgent
           : "";
     // Same formula as Preview.tsx cookieToolsAvailable
-    const cookieToolsAvailable =
-      isDesktopRuntime() && /Mac/i.test(ua);
+    const cookieToolsAvailable = isDesktopRuntime() && /Mac/i.test(ua);
     expect(isDesktopRuntime()).toBe(true);
     expect(/Mac/i.test(ua)).toBe(true);
     expect(cookieToolsAvailable).toBe(true);
@@ -102,4 +96,3 @@ describe("desktop runtime gates for dual-shell", () => {
     expect(isPublicTokPath("/")).toBe(false);
   });
 });
-

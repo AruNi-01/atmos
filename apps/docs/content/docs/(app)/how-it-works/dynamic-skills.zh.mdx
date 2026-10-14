@@ -9,11 +9,11 @@ description: 不用离开 Composer 或终端，就能临时对 Agent 隐藏技�
 
 ## 什么时候用
 
-| 场景 | Dynamic Skills 会做什么 |
-|------|-------------------------|
-| 项目技能总把 Agent 带偏 | 在项目里禁用；Skills 页面保持同步 |
-| Workspace 从项目同步了技能，但这次任务用不到 | 只在当前 **workplace** 禁用；项目里的副本不动 |
-| Agent session 已经在跑 | 禁用会去掉 live 路径上的 `SKILL.md`，当前 session 无法再加载该入口 |
+| 场景                                         | Dynamic Skills 会做什么                                            |
+| -------------------------------------------- | ------------------------------------------------------------------ |
+| 项目技能总把 Agent 带偏                      | 在项目里禁用；Skills 页面保持同步                                  |
+| Workspace 从项目同步了技能，但这次任务用不到 | 只在当前 **workplace** 禁用；项目里的副本不动                      |
+| Agent session 已经在跑                       | 禁用会去掉 live 路径上的 `SKILL.md`，当前 session 无法再加载该入口 |
 
 Global 技能在 Atmos 标记为可管理时仍可开关。System 与 Inside Project 技能保持只读。
 
@@ -125,10 +125,10 @@ project/.claude/skills/demo/SKILL.md         ← 不动
 
 启用会把 `.disabled` 里存的那一份原样搬回：
 
-| 技能如何进来 | `.disabled` 里通常是什么 | 启用后 |
-|--------------|--------------------------|--------|
-| Copy | 真实技能文件 | Live 路径上的真实文件 |
-| Symlink（物化后） | 指向项目的 symlink 节点 | 还是那个 symlink |
+| 技能如何进来      | `.disabled` 里通常是什么 | 启用后                |
+| ----------------- | ------------------------ | --------------------- |
+| Copy              | 真实技能文件             | Live 路径上的真实文件 |
+| Symlink（物化后） | 指向项目的 symlink 节点  | 还是那个 symlink      |
 
 被物化过的父目录（例如 `workplace/.claude` 变成真实目录）**不会**在启用时拼回最初那一个父 symlink。只有你开关过的那个技能会恢复。
 

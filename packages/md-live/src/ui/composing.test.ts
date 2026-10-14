@@ -1,9 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import {
-  isMdLiveComposing,
-  mdLiveCompositionDomHandlers,
-  mdLiveMarkComposing,
-} from "./composing";
+import { isMdLiveComposing, mdLiveCompositionDomHandlers, mdLiveMarkComposing } from "./composing";
 
 describe("md-live composing guard", () => {
   afterEach(() => {

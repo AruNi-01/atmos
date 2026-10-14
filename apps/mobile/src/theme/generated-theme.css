@@ -5,7 +5,7 @@
   --color-card-elevated: #ffffff;
   --color-card-subtle: rgba(10, 10, 11, 0.05);
   --color-card: #ffffff;
-  --color-control-border: rgba(10, 10, 11, 0.10);
+  --color-control-border: rgba(10, 10, 11, 0.1);
   --color-control-disabled: rgba(10, 10, 11, 0.045);
   --color-control-elevated: #ffffff;
   --color-control-glass-tint: rgba(255, 255, 255, 0.24);
@@ -18,7 +18,7 @@
   --color-glass-fallback: rgba(255, 255, 255, 0.82);
   --color-glass-tint: rgba(255, 255, 255, 0.24);
   --color-green-border: rgba(22, 163, 74, 0.22);
-  --color-green-surface: rgba(22, 163, 74, 0.10);
+  --color-green-surface: rgba(22, 163, 74, 0.1);
   --color-green: #16a34a;
   --color-label-inverse: #fafafa;
   --color-label: #111112;
@@ -26,7 +26,7 @@
   --color-primary-pressed: #242426;
   --color-primary: #111112;
   --color-red-border: rgba(220, 38, 38, 0.22);
-  --color-red-surface: rgba(220, 38, 38, 0.10);
+  --color-red-surface: rgba(220, 38, 38, 0.1);
   --color-red: #dc2626;
   --color-secondary-label: #52525b;
   --color-segmented-selected-border: rgba(10, 10, 11, 0.07);
@@ -41,7 +41,7 @@
   --color-terminal-elevated: #18181b;
   --color-terminal-fg: #f8f8f8;
   --color-terminal-keycap-pressed: rgba(248, 250, 252, 0.16);
-  --color-terminal-keycap: rgba(248, 250, 252, 0.10);
+  --color-terminal-keycap: rgba(248, 250, 252, 0.1);
   --color-terminal-muted: #a1a1aa;
   --color-terminal-scrollbar: rgba(161, 161, 170, 0.34);
   --color-terminal-status-error: #fca5a5;
@@ -51,7 +51,7 @@
   --color-workflow-status-in-progress: #3b82f6;
   --color-workflow-status-in-review: #10b981;
   --color-yellow-border: rgba(161, 98, 7, 0.22);
-  --color-yellow-surface: rgba(161, 98, 7, 0.10);
+  --color-yellow-surface: rgba(161, 98, 7, 0.1);
   --color-yellow: #a16207;
   --font-size-body: 14px;
   --font-size-body-small: 13px;

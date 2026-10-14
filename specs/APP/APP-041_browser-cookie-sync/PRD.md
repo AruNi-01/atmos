@@ -24,12 +24,12 @@ Primary focus is Cookie Sync; the other two are UI reorganization + small utilit
 
 ## 3. Users & stories
 
-| As a… | I want… | So that… |
-|-------|---------|----------|
-| Developer using Atmos Browser | to import my Chrome session for a site | I don't re-login to preview authenticated pages |
-| Agent operator | the built-in browser to already be logged in | agents can act on sites I'm authenticated to |
-| Privacy-conscious user | to clearly opt in, per browser, locally | my session cookies stay on my machine and out of Atmos telemetry |
-| Any user | a clean toolbar + a quick way to reset browser state | the browser stays usable and resettable |
+| As a…                         | I want…                                              | So that…                                                         |
+| ----------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------- |
+| Developer using Atmos Browser | to import my Chrome session for a site               | I don't re-login to preview authenticated pages                  |
+| Agent operator                | the built-in browser to already be logged in         | agents can act on sites I'm authenticated to                     |
+| Privacy-conscious user        | to clearly opt in, per browser, locally              | my session cookies stay on my machine and out of Atmos telemetry |
+| Any user                      | a clean toolbar + a quick way to reset browser state | the browser stays usable and resettable                          |
 
 ## 4. Core concept — the Atmos Browser store is isolated from the app
 
@@ -47,13 +47,13 @@ data must never touch Atmos's own app state. See [`TECH.md`](./TECH.md) §3.
   - **From** selector listing detected source browsers + profiles (e.g. "Google Chrome 用户1"). The
     selector shows only an opaque profile handle + display name — never a filesystem path.
   - A hint: **"Close <Browser> completely before importing."**
-  - A **Cookies** toggle (on by default). *(Passwords intentionally omitted — see Non-Goals.)*
+  - A **Cookies** toggle (on by default). _(Passwords intentionally omitted — see Non-Goals.)_
   - **Cancel** / **Import** actions; Import is disabled while an operation is in flight.
 - **MH-3** Supported sources on MVP (macOS): **Chrome, Edge, Brave** (Chromium family) and
   **Firefox**.
 - **MH-4** On Import: extract cookies locally, decrypt (Chromium via Keychain key; Firefox plain),
   and inject into the dedicated Atmos Browser store so all browser tabs/windows share them.
-- **MH-5** **Verified result feedback** inline in the dialog: a cookie counts only as *imported*
+- **MH-5** **Verified result feedback** inline in the dialog: a cookie counts only as _imported_
   after it is written **and** read back from the store by identity. The dialog reports
   imported-verified plus a breakdown of skipped/failed categories (expired, decrypt failure, parse
   failure, unsupported such as partitioned, injection failure). Errors (browser still open, Keychain
@@ -143,11 +143,11 @@ flowchart TD
 
 ## 10. Risks (product-level)
 
-| Risk | Impact | Mitigation |
-|------|--------|-----------|
-| Clearing browser data wipes app state | Data loss | Dedicated browsing store; clear never touches app store (MH-13) |
-| User leaves source browser open | Import fails | Explicit hint + clear retry error |
-| Keychain prompt confuses user | Abandoned import | Explain why in dialog copy; single prompt |
-| Some cookies fail / are unsupported | Partial session | Verified counts + skipped breakdown; safe-skip partitioned |
-| Users expect Windows/old-macOS support | Disappointment | Gate to macOS 14+; `UnsupportedPlatform` message |
-| Importing session cookies is sensitive | Trust | Local pipeline, explicit opt-in, per-profile, dedicated capability |
+| Risk                                   | Impact           | Mitigation                                                         |
+| -------------------------------------- | ---------------- | ------------------------------------------------------------------ |
+| Clearing browser data wipes app state  | Data loss        | Dedicated browsing store; clear never touches app store (MH-13)    |
+| User leaves source browser open        | Import fails     | Explicit hint + clear retry error                                  |
+| Keychain prompt confuses user          | Abandoned import | Explain why in dialog copy; single prompt                          |
+| Some cookies fail / are unsupported    | Partial session  | Verified counts + skipped breakdown; safe-skip partitioned         |
+| Users expect Windows/old-macOS support | Disappointment   | Gate to macOS 14+; `UnsupportedPlatform` message                   |
+| Importing session cookies is sensitive | Trust            | Local pipeline, explicit opt-in, per-profile, dedicated capability |

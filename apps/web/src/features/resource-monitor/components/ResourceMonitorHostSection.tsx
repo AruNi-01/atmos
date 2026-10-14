@@ -63,7 +63,7 @@ function MemoryMeter({
     <div className="space-y-1" data-resource-monitor-memory-meter={kind}>
       <div className="flex items-baseline justify-between gap-2 text-[11px]">
         <span className="text-muted-foreground">{label}</span>
-        <span className="tabular-nums text-foreground">
+        <span className="text-foreground tabular-nums">
           {missing ? unavailable : formatMemoryPair(value, total)}
         </span>
       </div>
@@ -86,11 +86,7 @@ function CpuDetailPanel({ host }: { host: ResourceHostMetrics }) {
       {host.cores.length === 0 ? (
         <p className="text-[11px] text-muted-foreground">{t("unavailable")}</p>
       ) : (
-        <ScrollArea
-          className="h-auto max-h-64"
-          scrollFade
-          viewportClassName="h-auto max-h-64"
-        >
+        <ScrollArea className="h-auto max-h-64" scrollFade viewportClassName="h-auto max-h-64">
           <div className="grid grid-cols-2 gap-x-3 gap-y-2">
             {host.cores.map((core) => (
               <div
@@ -102,9 +98,7 @@ function CpuDetailPanel({ host }: { host: ResourceHostMetrics }) {
                   <span className="text-muted-foreground">
                     {t("coreIndex", { index: core.index })}
                   </span>
-                  <span className="tabular-nums">
-                    {formatPercent(core.cpu_percent)}
-                  </span>
+                  <span className="tabular-nums">{formatPercent(core.cpu_percent)}</span>
                 </div>
                 <ResourceMonitorUsageBar
                   value={core.cpu_percent}
@@ -184,9 +178,7 @@ function MemoryDetailPanel({ host }: { host: ResourceHostMetrics }) {
 }
 
 function focusDetailTrigger(kind: "cpu" | "memory") {
-  document
-    .querySelector<HTMLButtonElement>(`[data-resource-monitor-details="${kind}"]`)
-    ?.focus();
+  document.querySelector<HTMLButtonElement>(`[data-resource-monitor-details="${kind}"]`)?.focus();
 }
 
 function HostDetailPopover({
@@ -265,9 +257,7 @@ export function ResourceMonitorHostSection({
 
   const cpu = host ? formatPercent(host.cpu_percent) : null;
   const memory = host ? formatMemoryBytes(host.memory_used_bytes) : null;
-  const coresInline = host
-    ? t("coresInline", { count: host.logical_cpu_count })
-    : null;
+  const coresInline = host ? t("coresInline", { count: host.logical_cpu_count }) : null;
   const ofTotal = host
     ? t("memoryOfTotal", { total: formatMemoryBytes(host.memory_total_bytes) })
     : null;
@@ -279,7 +269,7 @@ export function ResourceMonitorHostSection({
     <Collapsible
       open={hostOpen}
       onOpenChange={handleHostOpenChange}
-      className="min-w-0 w-full"
+      className="w-full min-w-0"
       data-resource-monitor-host=""
       data-resource-monitor-host-open={hostOpen ? "" : undefined}
     >
@@ -314,16 +304,8 @@ export function ResourceMonitorHostSection({
               memoryPercent={memoryPercent}
               cpuLabel={t("cpu")}
               memoryLabel={t("memory")}
-              cpuColor={resourceMonitorDitherColor(
-                ditherTheme,
-                "pressure",
-                host.cpu_percent,
-              )}
-              memoryColor={resourceMonitorDitherColor(
-                ditherTheme,
-                "pressure",
-                memoryPercent,
-              )}
+              cpuColor={resourceMonitorDitherColor(ditherTheme, "pressure", host.cpu_percent)}
+              memoryColor={resourceMonitorDitherColor(ditherTheme, "pressure", memoryPercent)}
               trackColor={resourceMonitorDitherTrackColor(ditherTheme)}
               theme={ditherTheme}
               formatValue={formatPercent}

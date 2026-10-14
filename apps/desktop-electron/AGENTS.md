@@ -6,11 +6,11 @@
 
 ## Where to change desktop code
 
-| Task | Location |
-|------|----------|
-| **All desktop shell work** (window, IPC, AppShot, preview, tunnel, cookies, packaging, branding, release) | **`apps/desktop-electron/**` (this package)** |
-| Deprecated Tauri shell | `apps/desktop/**` — **do not add features** |
-| Shared prepare-sidecar runtime layout (Server + web static) | `scripts/desktop/prepare-sidecar.sh` → still stages under `apps/desktop/src-tauri/binaries/runtime/current` for historical path; consumed by this package |
+| Task                                                                                                      | Location                                                                                                                                                  |
+| --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **All desktop shell work** (window, IPC, AppShot, preview, tunnel, cookies, packaging, branding, release) | **`apps/desktop-electron/**` (this package)**                                                                                                             |
+| Deprecated Tauri shell                                                                                    | `apps/desktop/**` — **do not add features**                                                                                                               |
+| Shared prepare-sidecar runtime layout (Server + web static)                                               | `scripts/desktop/prepare-sidecar.sh` → still stages under `apps/desktop/src-tauri/binaries/runtime/current` for historical path; consumed by this package |
 
 **Default rule:** if the change is “desktop app behavior or packaging”, implement it **here**, not in `apps/desktop`.
 
@@ -31,23 +31,23 @@ bun test
 
 ## Identity
 
-| | Production desktop | Deprecated Tauri (`apps/desktop`) |
-|--|--------------------|-------------------------------------|
-| Product name | `Atmos` | `Atmos (Tauri)` |
-| App id | `com.atmos.desktop` | `com.atmos.desktop.tauri` |
-| Dev bundle id | `com.atmos.desktop.dev` | `com.atmos.desktop.tauri.dev` |
-| Tag | `desktop-electron-<version>` | ~~`desktop-*` (do not ship)~~ |
-| Workflow | `release-desktop-electron.yml` | deprecated |
-| Artifacts | local: `Atmos.*` · release (CI rename): `Atmos_<version>_<arch>.*` | n/a |
+|               | Production desktop                                                 | Deprecated Tauri (`apps/desktop`) |
+| ------------- | ------------------------------------------------------------------ | --------------------------------- |
+| Product name  | `Atmos`                                                            | `Atmos (Tauri)`                   |
+| App id        | `com.atmos.desktop`                                                | `com.atmos.desktop.tauri`         |
+| Dev bundle id | `com.atmos.desktop.dev`                                            | `com.atmos.desktop.tauri.dev`     |
+| Tag           | `desktop-electron-<version>`                                       | ~~`desktop-*` (do not ship)~~     |
+| Workflow      | `release-desktop-electron.yml`                                     | deprecated                        |
+| Artifacts     | local: `Atmos.*` · release (CI rename): `Atmos_<version>_<arch>.*` | n/a                               |
 
 Shared data contracts:
 
-| Contract | Path |
-|----------|------|
+| Contract          | Path                                                                                                                              |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | Server shell data | `ATMOS_DATA_DIR` or `~/.atmos/data/desktop` (shell-only; product data stays under `~/.atmos/data/{token-usage,quota-usage,db,…}`) |
-| AppShot | `~/.atmos/appshots/records/<13-digit-ms>/` |
-| Protocol | `atmos://appshots/{timestamp}` (clipboard) · `atmos://open` (focus app from OAuth callback) |
-| Tunnel gateway | `http://127.0.0.1:30313` + `entry_token` |
+| AppShot           | `~/.atmos/appshots/records/<13-digit-ms>/`                                                                                        |
+| Protocol          | `atmos://appshots/{timestamp}` (clipboard) · `atmos://open` (focus app from OAuth callback)                                       |
+| Tunnel gateway    | `http://127.0.0.1:30313` + `entry_token`                                                                                          |
 
 Release notes: `releasenotes/Atmos Desktop <version>.md`.
 

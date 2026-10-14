@@ -58,6 +58,7 @@ The view is not a marketing page and not a decorative summary. Its main job is t
 Use when `file` is set. Read exactly one of `BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`.
 
 Recommended page structure:
+
 - Compact header: spec id, file type, source path, generated time.
 - Structured extraction for that file type, using the rules in **Content extraction contract** below.
 - Source document viewer: rendered Markdown + raw Markdown toggle.
@@ -71,6 +72,7 @@ Template: `assets/single-file-template.html`.
 Use when one spec is selected and no specific file is requested. Read all four standard files.
 
 Recommended page structure:
+
 - Compact header: spec id, title, lifecycle status, source path, generated time.
 - First viewport workbench: sticky top header, needs-attention summary, and structured visual panels derived from the spec contents. The main page should read like a better HTML representation of the specs, not like a Markdown reader.
 - Structured overview built from the real spec contents: decisions, requirements, architecture, test coverage, risks, unresolved questions.
@@ -86,6 +88,7 @@ Template: `assets/single-spec-template.html`.
 Use when the current conversation or the user explicitly names multiple specs. This is **not** the entire `./specs/` directory.
 
 Recommended page structure:
+
 - Compact header: session/spec set title and included target count.
 - Spec cards for only the included specs.
 - Comparison panels built from actual extracted fields: lifecycle state, unresolved questions, missing required sections, PRD→TECH→TEST alignment, implementation readiness.
@@ -104,6 +107,7 @@ Template: `assets/session-dashboard-template.html`.
 6. Treat design references as skins, not information architecture. A marketing-style reference such as Apple must not create a huge landing-page hero that hides the document and review controls. Specs-view is a workbench first.
 
 Known references currently include:
+
 - `references/apple-design.md`
 - `references/claude-design.md`
 - `references/cursor-design.md`
@@ -161,15 +165,13 @@ The rendered Markdown must be readable before any decorative styling:
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: "strict",
-    theme: "default"
+    theme: "default",
   });
   ```
 - For dark visual themes, use Mermaid's `"dark"` theme or explicit theme variables with sufficient contrast.
 - Render generated diagrams into dedicated containers such as:
   ```html
-  <div class="mermaid">flowchart TD
-    A[PRD Must Have] --> B[TECH module]
-  </div>
+  <div class="mermaid">flowchart TD A[PRD Must Have] --> B[TECH module]</div>
   ```
 - If Mermaid rendering fails, show the diagram source as readable code instead of leaving a blank panel.
 - Do not execute arbitrary HTML from Markdown to render diagrams. Only pass agent-generated Mermaid source strings into Mermaid.
@@ -212,6 +214,7 @@ Extract and display:
 - **Ready to promote**: PRD candidates and TECH candidates.
 
 Useful UI shape:
+
 - option comparison cards/table,
 - fork status board,
 - open-question checklist.
@@ -230,6 +233,7 @@ Extract and display:
 - **Milestones**.
 
 Useful UI shape:
+
 - requirements table grouped by Must Have / Nice to Have,
 - user scenario cards,
 - out-of-scope warnings,
@@ -251,6 +255,7 @@ Extract and display:
 - **Open questions**.
 
 Useful UI shape:
+
 - layer map (`infra → core-service → api → web`, etc.),
 - module change table,
 - rollout checklist,
@@ -258,6 +263,7 @@ Useful UI shape:
 - transport badge ("WS-first", "REST justified", "REST missing justification").
 
 Mermaid guidance for TECH:
+
 - Prefer Mermaid diagrams whenever they clarify architecture, dependency flow, rollout order, WebSocket message flow, data lifecycle, state transitions, or test coverage.
 - Convert existing ASCII architecture diagrams into Mermaid when the mapping is straightforward, while also preserving the original Markdown in the source viewer.
 - Good diagram types:
@@ -284,6 +290,7 @@ Extract and display:
 - **Coverage Status** if appended after implementation.
 
 Useful UI shape:
+
 - PRD requirement → TEST scenario matrix,
 - automated vs manual scenario split,
 - acceptance checklist,
@@ -421,8 +428,8 @@ Every generated view must implement these interactions:
 
 Use event delegation where possible, and generate DOM from escaped values. Do not build controls from raw, unsanitized Markdown.
 
-
 Allowed CDN dependencies:
+
 - CSS: `https://cdn.tailwindcss.com`
 - Icons: `https://unpkg.com/lucide@latest`
 - Charts: `https://cdn.jsdelivr.net/npm/chart.js`, `https://cdn.jsdelivr.net/npm/echarts`

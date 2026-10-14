@@ -21,12 +21,8 @@
       "skills/project-wiki/scripts/validate_todo.py",
       "skills/project-wiki/scripts/validate_todo.sh"
     ],
-    "project-wiki-update": [
-      "skills/project-wiki-update/SKILL.md"
-    ],
-    "project-wiki-specify": [
-      "skills/project-wiki-specify/SKILL.md"
-    ],
+    "project-wiki-update": ["skills/project-wiki-update/SKILL.md"],
+    "project-wiki-specify": ["skills/project-wiki-specify/SKILL.md"],
     "fullstack-reviewer": [
       "skills/code_review_skills/fullstack-reviewer/SKILL.md",
       "skills/code_review_skills/fullstack-reviewer/references/architecture-checklist.md",
@@ -49,9 +45,7 @@
       "skills/code_review_skills/typescript-react-reviewer/references/checklist.md",
       "skills/code_review_skills/typescript-react-reviewer/references/react19-patterns.md"
     ],
-    "git-commit": [
-      "skills/git-commit/SKILL.md"
-    ],
+    "git-commit": ["skills/git-commit/SKILL.md"],
     "atmos-review-fix": [
       "skills/atmos-review-fix/SKILL.md",
       "skills/atmos-review-fix/references/atmos-review-cli.md"
@@ -72,9 +66,7 @@
       "skills/atmos-desktop-use/SKILL.md",
       "skills/atmos-desktop-use/references/cli.md"
     ],
-    "atmos-browser-use": [
-      "skills/atmos-browser-use/SKILL.md"
-    ],
+    "atmos-browser-use": ["skills/atmos-browser-use/SKILL.md"],
     "atmos-device-preview": [
       "skills/atmos-device-preview/SKILL.md",
       "skills/atmos-device-preview/references/cli.md"

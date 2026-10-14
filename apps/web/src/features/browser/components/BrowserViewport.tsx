@@ -10,10 +10,7 @@ import { SelectionPopover } from "@/features/selection/components/SelectionPopov
 import type { SelectionInfo } from "@/shared/lib/format-selection-for-ai";
 import type { BrowserTransportMode } from "../lib/browser-bridge/types";
 import type { PreviewSelectionAnnotation } from "../hooks/use-browser-selection";
-import {
-  renderPreviewErrorCard,
-  type PreviewLoadError,
-} from "../lib/browser-utils";
+import { renderPreviewErrorCard, type PreviewLoadError } from "../lib/browser-utils";
 import { mapGuestRectToShellLocal } from "../lib/map-guest-rect";
 import type { PreviewViewMode } from "@/shared/lib/nuqs/searchParams";
 import type { DesktopBrowserAttachConfig } from "../lib/browser-transports/desktop-transport";
@@ -140,14 +137,16 @@ export function BrowserViewport({
       ) {
         return [];
       }
-      return [{
-        annotation,
-        rect: mapped,
-        left: mapped.x,
-        top: mapped.y,
-        width: Math.max(2, mapped.width),
-        height: Math.max(2, mapped.height),
-      }];
+      return [
+        {
+          annotation,
+          rect: mapped,
+          left: mapped.x,
+          top: mapped.y,
+          width: Math.max(2, mapped.width),
+          height: Math.max(2, mapped.height),
+        },
+      ];
     });
   }, [desktopViewportRef, iframeRef, isDesktop, selectionAnnotations]);
 
@@ -165,7 +164,8 @@ export function BrowserViewport({
       annotationMode={editingAnnotationId ? "edit" : "add"}
       initialNote={
         editingAnnotationId
-          ? selectionAnnotations.find((annotation) => annotation.id === editingAnnotationId)?.note ?? ""
+          ? (selectionAnnotations.find((annotation) => annotation.id === editingAnnotationId)
+              ?.note ?? "")
           : ""
       }
       onAddAnnotation={onAddSelectionAnnotation}
@@ -173,56 +173,58 @@ export function BrowserViewport({
     />
   );
 
-  const annotationLayer = annotationOverlays.map(({ annotation, rect, left, top, width, height }) => (
-    <div
-      key={annotation.id}
-      className="pointer-events-none absolute inset-0"
-      style={{ zIndex: BROWSER_Z.selection }}
-    >
+  const annotationLayer = annotationOverlays.map(
+    ({ annotation, rect, left, top, width, height }) => (
       <div
-        className="absolute rounded-md border-2 border-emerald-500 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.2)]"
-        style={{ left, top, width, height }}
-      />
-      <div
-        className="group absolute flex h-6 w-6 items-center justify-center overflow-hidden rounded-md border border-white/70 bg-emerald-500 text-white shadow-lg shadow-slate-950/25 transition-[width] duration-200 ease-out hover:w-[124px] hover:border-emerald-400/50 hover:bg-slate-950/95"
-        style={{
-          left: Math.max(6, left - 6),
-          top: Math.max(6, top - 14),
-          pointerEvents: "auto",
-        }}
+        key={annotation.id}
+        className="pointer-events-none absolute inset-0"
+        style={{ zIndex: BROWSER_Z.selection }}
       >
-        <MessageCirclePlus className="size-3.5 transition-all duration-150 group-hover:scale-75 group-hover:opacity-0" />
-        <div className="absolute inset-0 flex translate-x-[-4px] items-center justify-center opacity-0 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100">
-          <button
-            type="button"
-            className="inline-flex h-full flex-1 items-center justify-center gap-1 rounded-none px-0 text-[11px] font-semibold text-slate-100 hover:bg-white/10 hover:text-white active:bg-white/15"
-            aria-label="Edit annotation"
-            onClick={() => {
-              onEditSelectionAnnotation({
-                ...annotation,
-                info: {
-                  ...annotation.info,
-                  previewRect: rect,
-                },
-              });
-            }}
-          >
-            <Pencil className="size-3" />
-            Edit
-          </button>
-          <button
-            type="button"
-            className="inline-flex h-full flex-1 items-center justify-center gap-1 rounded-none px-0 text-[11px] font-semibold text-slate-100 hover:bg-red-500/20 hover:text-red-100 active:bg-red-500/25"
-            aria-label="Delete annotation"
-            onClick={() => onDeleteSelectionAnnotation(annotation.id)}
-          >
-            <Trash2 className="size-3" />
-            Delete
-          </button>
+        <div
+          className="absolute rounded-md border-2 border-emerald-500 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.2)]"
+          style={{ left, top, width, height }}
+        />
+        <div
+          className="group absolute flex h-6 w-6 items-center justify-center overflow-hidden rounded-md border border-white/70 bg-emerald-500 text-white shadow-lg shadow-slate-950/25 transition-[width] duration-200 ease-out hover:w-[124px] hover:border-emerald-400/50 hover:bg-slate-950/95"
+          style={{
+            left: Math.max(6, left - 6),
+            top: Math.max(6, top - 14),
+            pointerEvents: "auto",
+          }}
+        >
+          <MessageCirclePlus className="size-3.5 transition-all duration-150 group-hover:scale-75 group-hover:opacity-0" />
+          <div className="absolute inset-0 flex translate-x-[-4px] items-center justify-center opacity-0 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100">
+            <button
+              type="button"
+              className="inline-flex h-full flex-1 items-center justify-center gap-1 rounded-none px-0 text-[11px] font-semibold text-slate-100 hover:bg-white/10 hover:text-white active:bg-white/15"
+              aria-label="Edit annotation"
+              onClick={() => {
+                onEditSelectionAnnotation({
+                  ...annotation,
+                  info: {
+                    ...annotation.info,
+                    previewRect: rect,
+                  },
+                });
+              }}
+            >
+              <Pencil className="size-3" />
+              Edit
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-full flex-1 items-center justify-center gap-1 rounded-none px-0 text-[11px] font-semibold text-slate-100 hover:bg-red-500/20 hover:text-red-100 active:bg-red-500/25"
+              aria-label="Delete annotation"
+              onClick={() => onDeleteSelectionAnnotation(annotation.id)}
+            >
+              <Trash2 className="size-3" />
+              Delete
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  ));
+    ),
+  );
 
   return (
     <div
@@ -274,12 +276,7 @@ export function BrowserViewport({
             ) : null}
           </div>
         ) : hasIframeSrc ? (
-          <div
-            className={cn(
-              "relative h-full",
-              viewMode === "mobile" ? "w-[375px]" : "w-full",
-            )}
-          >
+          <div className={cn("relative h-full", viewMode === "mobile" ? "w-[375px]" : "w-full")}>
             <iframe
               key={iframeKey}
               ref={iframeRef}
@@ -293,7 +290,7 @@ export function BrowserViewport({
                 backgroundColor: guestColorScheme === "dark" ? "#0a0a0a" : "#ffffff",
               }}
               className={cn(
-                "block h-full w-full border-0 outline-none transition-all duration-300",
+                "block h-full w-full border-0 transition-all duration-300 outline-none",
                 guestColorScheme === "dark" ? "bg-neutral-950" : "bg-white",
                 ((requestedIframeUrl && requestedIframeUrl !== iframeSrc) || previewLoadError) &&
                   "pointer-events-none opacity-0",

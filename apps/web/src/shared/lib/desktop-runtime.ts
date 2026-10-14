@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
 import {
   desktopInvoke,
   isDesktopRuntime as bridgeIsDesktopRuntime,
   isTauriShell,
-} from './desktop-bridge';
-import { debugLog, errorLog } from './desktop-logger';
+} from "./desktop-bridge";
+import { debugLog, errorLog } from "./desktop-logger";
 
 export type ApiConfig = {
   host: string;
@@ -19,32 +19,28 @@ let cachedConfig: ApiConfig | null = null;
 let cachedHttpConfig: ApiConfig | null = null;
 let hostedRuntimeOverride: ApiConfig | null = null;
 
-export const HOSTED_ATMOS_APP_HOST = 'app.atmos.land';
-const forceHostedOnboarding =
-  process.env.NEXT_PUBLIC_FORCE_HOSTED_ONBOARDING === '1';
+export const HOSTED_ATMOS_APP_HOST = "app.atmos.land";
+const forceHostedOnboarding = process.env.NEXT_PUBLIC_FORCE_HOSTED_ONBOARDING === "1";
 const isDesktopBuild =
-  process.env.NEXT_PUBLIC_BUILD_TARGET === 'desktop' ||
-  process.env.BUILD_TARGET === 'desktop';
+  process.env.NEXT_PUBLIC_BUILD_TARGET === "desktop" || process.env.BUILD_TARGET === "desktop";
 
 function isLocalWebBuild(): boolean {
   return (
-    process.env.NEXT_PUBLIC_BUILD_TARGET === 'local-web' ||
-    process.env.BUILD_TARGET === 'local-web'
+    process.env.NEXT_PUBLIC_BUILD_TARGET === "local-web" || process.env.BUILD_TARGET === "local-web"
   );
 }
 
-const loopbackApiPort = (): number =>
-  parseInt(process.env.NEXT_PUBLIC_API_PORT || '30303', 10);
+const loopbackApiPort = (): number => parseInt(process.env.NEXT_PUBLIC_API_PORT || "30303", 10);
 
 function currentOriginApiConfig(token?: string): ApiConfig | null {
-  if (typeof window === 'undefined') return null;
-  const protocol = window.location.protocol.replace(':', '') || 'http';
-  if (protocol !== 'http' && protocol !== 'https') return null;
-  const defaultPort = protocol === 'https' ? '443' : '80';
+  if (typeof window === "undefined") return null;
+  const protocol = window.location.protocol.replace(":", "") || "http";
+  if (protocol !== "http" && protocol !== "https") return null;
+  const defaultPort = protocol === "https" ? "443" : "80";
   const port = parseInt(window.location.port || defaultPort, 10);
   if (!Number.isFinite(port)) return null;
   return {
-    host: window.location.hostname || '127.0.0.1',
+    host: window.location.hostname || "127.0.0.1",
     port,
     protocol,
     token,
@@ -55,7 +51,7 @@ function desktopBuildFallbackApiConfig(token?: string): ApiConfig {
   return currentOriginApiConfig(token) ?? loopbackApiConfig(token);
 }
 
-export function loopbackApiConfig(token?: string, host = '127.0.0.1'): ApiConfig {
+export function loopbackApiConfig(token?: string, host = "127.0.0.1"): ApiConfig {
   return {
     host,
     port: loopbackApiPort(),
@@ -64,10 +60,7 @@ export function loopbackApiConfig(token?: string, host = '127.0.0.1'): ApiConfig
 }
 
 export function getHostedLoopbackCandidates(token?: string): ApiConfig[] {
-  return [
-    loopbackApiConfig(token, '127.0.0.1'),
-    loopbackApiConfig(token, 'localhost'),
-  ];
+  return [loopbackApiConfig(token, "127.0.0.1"), loopbackApiConfig(token, "localhost")];
 }
 
 /**
@@ -103,16 +96,16 @@ export function isHostedAtmosOrigin(): boolean {
   }
 
   return (
-    typeof window !== 'undefined' &&
+    typeof window !== "undefined" &&
     (window.location.hostname === HOSTED_ATMOS_APP_HOST || forceHostedOnboarding)
   );
 }
 
 /** Public Token Usage / leaderboard share pages — no workbench WebSocket. */
 export function isPublicTokPath(
-  pathname = typeof window === 'undefined' ? '' : window.location.pathname,
+  pathname = typeof window === "undefined" ? "" : window.location.pathname,
 ): boolean {
-  return pathname === '/tok' || pathname.startsWith('/tok/');
+  return pathname === "/tok" || pathname.startsWith("/tok/");
 }
 
 export function setHostedRuntimeApiOverride(cfg: ApiConfig | null): void {
@@ -128,13 +121,13 @@ export function clearRuntimeApiConfigCache(): void {
 
 /** Build an HTTP base URL from the resolved config. */
 export function httpBase(cfg: ApiConfig): string {
-  const scheme = cfg.protocol ?? 'http';
+  const scheme = cfg.protocol ?? "http";
   return `${scheme}://${cfg.host}:${cfg.port}`;
 }
 
 /** Build a WebSocket base URL from the resolved config. */
 export function wsBase(cfg: ApiConfig): string {
-  const scheme = cfg.protocol === 'https' ? 'wss' : 'ws';
+  const scheme = cfg.protocol === "https" ? "wss" : "ws";
   return `${scheme}://${cfg.host}:${cfg.port}`;
 }
 
@@ -154,10 +147,10 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
     const startedAt = Date.now();
     while (true) {
       try {
-        debugLog('getRuntimeApiConfig: invoking get_api_config via desktop bridge...');
-        const result = await desktopInvoke<DesktopApiConfig>('get_api_config');
+        debugLog("getRuntimeApiConfig: invoking get_api_config via desktop bridge...");
+        const result = await desktopInvoke<DesktopApiConfig>("get_api_config");
         cachedConfig = {
-          host: result.host ?? '127.0.0.1',
+          host: result.host ?? "127.0.0.1",
           port: result.port,
           token: result.token,
         };
@@ -165,13 +158,13 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
         return cachedConfig;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        const apiNotReady = msg === 'API not ready' || msg.includes('API not ready');
+        const apiNotReady = msg === "API not ready" || msg.includes("API not ready");
         if (apiNotReady && Date.now() - startedAt < maxWaitMs) {
           await new Promise((resolve) => setTimeout(resolve, 200));
           continue;
         }
         errorLog(`getRuntimeApiConfig: invoke FAILED err=${msg}`);
-        console.warn('[desktop-runtime] invoke get_api_config failed:', e);
+        console.warn("[desktop-runtime] invoke get_api_config failed:", e);
         if (isDesktopBuild) {
           cachedConfig = desktopBuildFallbackApiConfig(
             process.env.NEXT_PUBLIC_API_TOKEN || undefined,
@@ -200,10 +193,10 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
   }
 
   // Production static/runtime: same-origin API (no token on loopback).
-  if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'development') {
-    const protocol = window.location.protocol.replace(':', '');
+  if (typeof window !== "undefined" && process.env.NODE_ENV !== "development") {
+    const protocol = window.location.protocol.replace(":", "");
     const host = window.location.hostname;
-    const defaultPort = protocol === 'https' ? '443' : '80';
+    const defaultPort = protocol === "https" ? "443" : "80";
     const port = parseInt(window.location.port || defaultPort, 10);
     cachedConfig = { host, port, protocol };
     debugLog(`getRuntimeApiConfig: same-origin ${protocol}://${host}:${port}`);
@@ -241,7 +234,9 @@ export async function getRuntimeHttpConfig(): Promise<ApiConfig> {
   }
 
   if (isDesktopBuild) {
-    cachedHttpConfig = desktopBuildFallbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+    cachedHttpConfig = desktopBuildFallbackApiConfig(
+      process.env.NEXT_PUBLIC_API_TOKEN || undefined,
+    );
     return cachedHttpConfig;
   }
 
@@ -255,18 +250,18 @@ export async function getRuntimeHttpConfig(): Promise<ApiConfig> {
     return cachedHttpConfig;
   }
 
-  if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'development') {
-    const protocol = window.location.protocol.replace(':', '');
+  if (typeof window !== "undefined" && process.env.NODE_ENV !== "development") {
+    const protocol = window.location.protocol.replace(":", "");
     const host = window.location.hostname;
-    const defaultPort = protocol === 'https' ? '443' : '80';
+    const defaultPort = protocol === "https" ? "443" : "80";
     const port = parseInt(window.location.port || defaultPort, 10);
     cachedHttpConfig = { host, port, protocol };
     return cachedHttpConfig;
   }
 
-  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-    const protocol = window.location.protocol.replace(':', '');
-    const defaultPort = protocol === 'https' ? '443' : '80';
+  if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+    const protocol = window.location.protocol.replace(":", "");
+    const defaultPort = protocol === "https" ? "443" : "80";
     const port = parseInt(window.location.port || defaultPort, 10);
     cachedHttpConfig = {
       host: window.location.hostname,

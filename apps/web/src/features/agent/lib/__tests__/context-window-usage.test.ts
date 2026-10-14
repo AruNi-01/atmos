@@ -24,18 +24,13 @@ describe("contextWindowStats", () => {
   test("clamps percent to 0–100", () => {
     const mid = contextWindowStats({ used: 50_000, context_window: 100_000 });
     expect(mid).toEqual({ used: 50_000, context_window: 100_000, percent: 50 });
-    expect(
-      contextWindowStats({ used: 200_000, context_window: 100_000 })?.percent,
-    ).toBe(100);
+    expect(contextWindowStats({ used: 200_000, context_window: 100_000 })?.percent).toBe(100);
   });
 });
 
 describe("mergeContextUsageUpdate", () => {
   test("keeps prior window when update omits it", () => {
-    const merged = mergeContextUsageUpdate(
-      { used: 10, context_window: 200_000 },
-      { used: 20 },
-    );
+    const merged = mergeContextUsageUpdate({ used: 10, context_window: 200_000 }, { used: 20 });
     expect(merged.used).toBe(20);
     expect(merged.context_window).toBe(200_000);
   });

@@ -1,9 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { CENTER_TOOL_TAB_VALUES } from "@/app-shell/center-tool-tabs";
-import {
-  FIXED_TABS,
-  shouldSkipLastTabRestoreForUrlTab,
-} from "@/app-shell/center-stage-fixed-tabs";
+import { FIXED_TABS, shouldSkipLastTabRestoreForUrlTab } from "@/app-shell/center-stage-fixed-tabs";
 
 describe("shouldSkipLastTabRestoreForUrlTab", () => {
   test("honors explicit tool tabs so last=files cannot clobber tab=changes", () => {

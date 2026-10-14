@@ -32,6 +32,7 @@ Atmos Desktop 2026.8.15 lets you publish a public Token Usage page, opens Settin
 - Full comparison: https://github.com/AruNi-01/atmos/compare/desktop-electron-2026.8.11...desktop-electron-2026.8.15
 
 <!-- atmos-desktop-contributors -->
+
 Thanks to @AruNi-01 and @cursoragent.
 
 <!-- atmos-desktop-download -->

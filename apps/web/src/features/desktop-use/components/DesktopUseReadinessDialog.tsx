@@ -12,13 +12,7 @@ import {
   DialogTitle,
   cn,
 } from "@workspace/ui";
-import {
-  Accessibility,
-  AlertCircle,
-  MonitorPlay,
-  Package,
-  type LucideIcon,
-} from "lucide-react";
+import { Accessibility, AlertCircle, MonitorPlay, Package, type LucideIcon } from "lucide-react";
 import {
   useOpenDesktopUseSettings,
   useOpenPermissionAccessSettings,
@@ -34,9 +28,7 @@ import type { DesktopUseReadinessReason } from "../lib/readiness";
 /** Ignore dismiss / clicks for this long after open (Popover→Dialog handoff race). */
 const OPEN_SETTLE_MS = 400;
 
-function reasonMessageKey(
-  reason: DesktopUseReadinessReason | null | undefined,
-): string {
+function reasonMessageKey(reason: DesktopUseReadinessReason | null | undefined): string {
   switch (reason) {
     case "web_only":
       return "reason.webOnly";
@@ -59,9 +51,7 @@ function reasonMessageKey(
   }
 }
 
-function isPermissionReason(
-  reason: DesktopUseReadinessReason | null | undefined,
-): boolean {
+function isPermissionReason(reason: DesktopUseReadinessReason | null | undefined): boolean {
   return (
     reason === "permission_accessibility" ||
     reason === "permission_screen_recording" ||
@@ -70,9 +60,7 @@ function isPermissionReason(
 }
 
 /** Primary CTA icon — permission figure/screen, not a generic settings gear. */
-function primaryCtaIcon(
-  reason: DesktopUseReadinessReason | null | undefined,
-): LucideIcon {
+function primaryCtaIcon(reason: DesktopUseReadinessReason | null | undefined): LucideIcon {
   switch (reason) {
     case "permission_accessibility":
     case "permission_both":
@@ -116,12 +104,9 @@ export function DesktopUseReadinessDialog() {
 
   const reason = state.readiness?.reason ?? null;
   const source = state.source ?? "generic";
-  const primaryLabel = isPermissionReason(reason)
-    ? t("grant")
-    : t("openSettings");
+  const primaryLabel = isPermissionReason(reason) ? t("grant") : t("openSettings");
 
-  const isWithinSettleWindow = () =>
-    Date.now() - openedAtRef.current < OPEN_SETTLE_MS;
+  const isWithinSettleWindow = () => Date.now() - openedAtRef.current < OPEN_SETTLE_MS;
 
   const onOpenSettings = () => {
     if (!settled || isWithinSettleWindow()) return;
@@ -156,14 +141,8 @@ export function DesktopUseReadinessDialog() {
       */}
       <DialogContent
         showCloseButton={settled}
-        className={cn(
-          "!z-[2147483647]",
-          !settled && "pointer-events-none",
-        )}
-        overlayClassName={cn(
-          "!z-[2147483647]",
-          !settled && "pointer-events-none",
-        )}
+        className={cn("!z-[2147483647]", !settled && "pointer-events-none")}
+        overlayClassName={cn("!z-[2147483647]", !settled && "pointer-events-none")}
         onOpenAutoFocus={(event) => {
           // Do not focus the primary CTA — avoids Enter/ghost activation.
           event.preventDefault();
@@ -193,11 +172,9 @@ export function DesktopUseReadinessDialog() {
           </div>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription asChild>
-            <div className="space-y-3 text-pretty text-sm text-muted-foreground">
+            <div className="space-y-3 text-sm text-pretty text-muted-foreground">
               <p>{t(`source.${source}`)}</p>
-              <p className="font-medium text-foreground">
-                {t(reasonMessageKey(reason))}
-              </p>
+              <p className="font-medium text-foreground">{t(reasonMessageKey(reason))}</p>
               <ul className="list-disc space-y-1.5 pl-5">
                 <li>{t("needs.cli")}</li>
                 <li>{t("needs.engine")}</li>

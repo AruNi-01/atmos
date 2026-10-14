@@ -40,7 +40,9 @@ describe("S2 extract/project", () => {
 
 describe("S19 stable mapping", () => {
   test("customData.pt.id stays run across project twice", () => {
-    const doc = parsePtx(`<page id="p"><button id="run" x="300" y="260" width="100" height="40"/></page>`);
+    const doc = parsePtx(
+      `<page id="p"><button id="run" x="300" y="260" width="100" height="40"/></page>`,
+    );
     const existing: HandleElement[] = [
       {
         id: "excal-keep",
@@ -84,7 +86,9 @@ describe("S36 project nested children", () => {
 
 describe("projectDocument mapping rules", () => {
   test("preserves freehand and drops absent mapped handles", () => {
-    const doc = parsePtx(`<page id="p"><button id="keep" x="8" y="9" width="10" height="11"/></page>`);
+    const doc = parsePtx(
+      `<page id="p"><button id="keep" x="8" y="9" width="10" height="11"/></page>`,
+    );
     const existing: HandleElement[] = [
       { id: "draw1", type: "rectangle", x: 9, y: 9, width: 1, height: 1, angle: 0 },
       {

@@ -1,18 +1,14 @@
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Keyboard,
-  Platform,
-  Pressable,
-  StyleSheet,
-  View,
-  type KeyboardEvent,
-} from "react-native";
+import { Keyboard, Platform, Pressable, StyleSheet, View, type KeyboardEvent } from "react-native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState, InlineError } from "@/ui/layout/app-screen";
-import { nativeCompactTitleOptions, nativeTerminalTitleOptions } from "@/ui/navigation/native-screen-options";
+import {
+  nativeCompactTitleOptions,
+  nativeTerminalTitleOptions,
+} from "@/ui/navigation/native-screen-options";
 import { TerminalShortcutBar } from "@/features/terminal/TerminalShortcutBar";
 import { TerminalHeadingTitle } from "@/features/terminal/TerminalHeadingTitle";
 import {
@@ -37,9 +33,13 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
   const { client, state } = useMobileWs();
   const recordWorkspaceVisit = useRecentWorkspacesStore((store) => store.recordWorkspaceVisit);
   const selectedServerId = useSessionStore((store) => store.selectedServerId);
-  const [terminalInsertHandler, setTerminalInsertHandler] = useState<TerminalInsertHandler | null>(null);
-  const [terminalKeyboardHandler, setTerminalKeyboardHandler] = useState<TerminalKeyboardHandler | null>(null);
-  const [terminalShortcutHandler, setTerminalShortcutHandler] = useState<TerminalShortcutHandler | null>(null);
+  const [terminalInsertHandler, setTerminalInsertHandler] = useState<TerminalInsertHandler | null>(
+    null,
+  );
+  const [terminalKeyboardHandler, setTerminalKeyboardHandler] =
+    useState<TerminalKeyboardHandler | null>(null);
+  const [terminalShortcutHandler, setTerminalShortcutHandler] =
+    useState<TerminalShortcutHandler | null>(null);
   const [heading, setHeading] = useState<TerminalHeading>({ title: "Terminal" });
   const headerActionsRef = useRef<TerminalHeaderActions | null>(null);
   const { keyboardInset, onKeyboardInsetTargetLayout, keyboardInsetTargetRef } = useKeyboardInset();
@@ -48,13 +48,19 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
     setTerminalInsertHandler(() => handler);
   }, []);
 
-  const handleTerminalKeyboardHandlerChange = useCallback((handler: TerminalKeyboardHandler | null) => {
-    setTerminalKeyboardHandler(() => handler);
-  }, []);
+  const handleTerminalKeyboardHandlerChange = useCallback(
+    (handler: TerminalKeyboardHandler | null) => {
+      setTerminalKeyboardHandler(() => handler);
+    },
+    [],
+  );
 
-  const handleTerminalShortcutHandlerChange = useCallback((handler: TerminalShortcutHandler | null) => {
-    setTerminalShortcutHandler(() => handler);
-  }, []);
+  const handleTerminalShortcutHandlerChange = useCallback(
+    (handler: TerminalShortcutHandler | null) => {
+      setTerminalShortcutHandler(() => handler);
+    },
+    [],
+  );
 
   const handleDisplayTitleChange = useCallback((next: TerminalHeading) => {
     setHeading((current) =>
@@ -80,13 +86,20 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
 
   const openedProject = useMemo(() => {
     if (workspace) return null;
-    return bootstrap.data?.projects.find((candidate) => candidate.guid === workspaceId && !candidate.is_deleted) ?? null;
+    return (
+      bootstrap.data?.projects.find(
+        (candidate) => candidate.guid === workspaceId && !candidate.is_deleted,
+      ) ?? null
+    );
   }, [bootstrap.data, workspace, workspaceId]);
 
   const project = useMemo(() => {
     if (openedProject) return openedProject;
     if (!workspace) return null;
-    return bootstrap.data?.projects.find((candidate) => candidate.guid === workspace.project_guid) ?? null;
+    return (
+      bootstrap.data?.projects.find((candidate) => candidate.guid === workspace.project_guid) ??
+      null
+    );
   }, [bootstrap.data, openedProject, workspace]);
 
   useEffect(() => {
@@ -137,7 +150,9 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
         />
         <WorkspaceStateScreen>
           <EmptyState title="Workspace unavailable" message="Select an online Computer." />
-          <InlineError message={bootstrap.error instanceof Error ? bootstrap.error.message : null} />
+          <InlineError
+            message={bootstrap.error instanceof Error ? bootstrap.error.message : null}
+          />
         </WorkspaceStateScreen>
       </>
     );
@@ -149,7 +164,9 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
       <Stack.Screen
         options={{
           ...nativeTerminalTitleOptions(heading.title, theme.colors),
-          headerTitle: () => <TerminalHeadingTitle agentId={heading.agentId} title={heading.title} />,
+          headerTitle: () => (
+            <TerminalHeadingTitle agentId={heading.agentId} title={heading.title} />
+          ),
           contentStyle: {
             backgroundColor: theme.colors.terminalBg,
           },
@@ -182,7 +199,11 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
         ref={keyboardInsetTargetRef}
         collapsable={false}
         onLayout={onKeyboardInsetTargetLayout}
-        style={[styles.root, styles.terminalRoot, { backgroundColor: theme.colors.terminalBg, paddingBottom: keyboardInset }]}
+        style={[
+          styles.root,
+          styles.terminalRoot,
+          { backgroundColor: theme.colors.terminalBg, paddingBottom: keyboardInset },
+        ]}
       >
         <View style={styles.terminalContent}>
           <TerminalScreen
@@ -219,7 +240,9 @@ function useKeyboardInset() {
     const targetFrame = targetFrameRef.current;
     if (!targetFrame) return;
 
-    setKeyboardInset(Math.max(0, Math.round(targetFrame.y + targetFrame.height - keyboardFrame.screenY)));
+    setKeyboardInset(
+      Math.max(0, Math.round(targetFrame.y + targetFrame.height - keyboardFrame.screenY)),
+    );
   }, []);
 
   const measureTarget = useCallback(() => {
@@ -266,11 +289,7 @@ function useKeyboardInset() {
   };
 }
 
-function WorkspaceStateScreen({
-  children,
-}: {
-  children: ReactNode;
-}) {
+function WorkspaceStateScreen({ children }: { children: ReactNode }) {
   const theme = useMobileTheme();
 
   return (

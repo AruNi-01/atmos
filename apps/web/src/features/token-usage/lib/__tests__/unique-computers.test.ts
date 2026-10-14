@@ -99,10 +99,7 @@ describe("uniqueComputers", () => {
       null,
       "aaaaaaa1-id",
     );
-    expect(devices.map((d) => d.label).sort()).toEqual([
-      "Studio · aaaaaaa1",
-      "Studio · bbbbbbb2",
-    ]);
+    expect(devices.map((d) => d.label).sort()).toEqual(["Studio · aaaaaaa1", "Studio · bbbbbbb2"]);
   });
 
   it("hides the select without sign-in or a second unique machine", () => {
@@ -110,9 +107,7 @@ describe("uniqueComputers", () => {
     expect(shouldShowComputerSelect({ signedIn: true, uniqueCount: 1 })).toBe(false);
     expect(shouldShowComputerSelect({ signedIn: true, uniqueCount: 2 })).toBe(true);
     expect(computerScopeHintKind({ signedIn: false, uniqueCount: 1 })).toBe("sign-in");
-    expect(computerScopeHintKind({ signedIn: true, uniqueCount: 1 })).toBe(
-      "add-computer",
-    );
+    expect(computerScopeHintKind({ signedIn: true, uniqueCount: 1 })).toBe("add-computer");
     expect(computerScopeHintKind({ signedIn: true, uniqueCount: 2 })).toBeNull();
     expect(ALL_COMPUTERS_VALUE).toBe("all");
   });

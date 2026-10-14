@@ -18,7 +18,11 @@ import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { useHostSessionPreview } from "@/features/agent-sessions/hooks/use-host-session-preview";
 import { useHostSessionListQuery } from "@/features/agent-sessions/hooks/use-host-session-list-query";
 import { useHostSessionSelection } from "@/features/agent-sessions/hooks/use-host-session-selection";
-import { FindHighlightProvider, FindPanel, useFindPanel } from "@/features/editor/components/FindPanel";
+import {
+  FindHighlightProvider,
+  FindPanel,
+  useFindPanel,
+} from "@/features/editor/components/FindPanel";
 import { TRANSCRIPT_FIND_SCOPE, type MarkdownFindQuery } from "@/features/editor/lib/markdown-find";
 import { HostSessionTranscript } from "@/features/agent-sessions/components/HostSessionTranscript";
 import {
@@ -91,11 +95,7 @@ function HostSessionResumeMenu({
     "relative flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm outline-hidden hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground";
 
   return (
-    <div
-      className="relative"
-      onPointerEnter={openMenu}
-      onPointerLeave={scheduleClose}
-    >
+    <div className="relative" onPointerEnter={openMenu} onPointerLeave={scheduleClose}>
       <Button
         type="button"
         size="sm"
@@ -114,7 +114,7 @@ function HostSessionResumeMenu({
         <div
           role="menu"
           aria-label={t("resume")}
-          className="absolute right-0 top-full z-50 mt-1 min-w-40 rounded-xl border bg-popover p-1 text-popover-foreground shadow-md"
+          className="absolute top-full right-0 z-50 mt-1 min-w-40 rounded-xl border bg-popover p-1 text-popover-foreground shadow-md"
         >
           <button
             type="button"
@@ -186,8 +186,9 @@ export function HostSessionDetailView({
   const composerSurfaceRef = useRef<HTMLDivElement | null>(null);
   const scrollToIndexRef = useRef<((index: number) => void) | null>(null);
   const timelineNavLockedRef = useRef(false);
-  const [aboveComposerOverlaysNode, setAboveComposerOverlaysNode] =
-    useState<HTMLDivElement | null>(null);
+  const [aboveComposerOverlaysNode, setAboveComposerOverlaysNode] = useState<HTMLDivElement | null>(
+    null,
+  );
   const [aboveComposerOverlayPadPx, setAboveComposerOverlayPadPx] = useState(0);
   const reduceOverlayPadMotion = Boolean(useReducedMotion());
 
@@ -198,10 +199,7 @@ export function HostSessionDetailView({
   );
   const grokGoal = preview?.grok_goal ?? null;
   const grokWorkflow = preview?.grok_workflow ?? null;
-  const currentPlan = useMemo(
-    () => parsePlan(currentPlanFromMessages(messages)),
-    [messages],
-  );
+  const currentPlan = useMemo(() => parsePlan(currentPlanFromMessages(messages)), [messages]);
   const grokChromeIds = useMemo(
     () => grokChromeAgentIds(grokGoal, grokWorkflow),
     [grokGoal, grokWorkflow],
@@ -214,9 +212,11 @@ export function HostSessionDetailView({
     [messages],
   );
   const showTimelineNav = userMessageIndices.length > 1;
-  const { open: findOpen, setOpen: setFindOpen, focusNonce: findFocusNonce } = useFindPanel(
-    messages.length > 0,
-  );
+  const {
+    open: findOpen,
+    setOpen: setFindOpen,
+    focusNonce: findFocusNonce,
+  } = useFindPanel(messages.length > 0);
   const handleFindQueryChange = useCallback((query: MarkdownFindQuery) => {
     setFindQuery(query);
   }, []);
@@ -225,9 +225,10 @@ export function HostSessionDetailView({
     [findSeed, messages],
   );
   const keepMessageIndexes = useMemo(
-    () => (findOpen
-      ? transcriptFindMessageIndexes(messages, findQuery.search.trim() ? findQuery : findSeed)
-      : []),
+    () =>
+      findOpen
+        ? transcriptFindMessageIndexes(messages, findQuery.search.trim() ? findQuery : findSeed)
+        : [],
     [findOpen, findQuery, findSeed, messages],
   );
   const locatorIndex = hostSessionMessageIndex(messages, { messageId, seq });
@@ -277,12 +278,15 @@ export function HostSessionDetailView({
     setFindRoot(host?.querySelector<HTMLElement>(".agent-chat-scroll") ?? host);
   }, [messages.length, selectedKey]);
 
-  const handleSelectTimelineMessage = useCallback((messageIndex: number) => {
-    if (!userMessageIndices.includes(messageIndex)) return;
-    timelineNavLockedRef.current = true;
-    scrollToIndexRef.current?.(messageIndex);
-    setMessageNavIndex(messageIndex);
-  }, [userMessageIndices]);
+  const handleSelectTimelineMessage = useCallback(
+    (messageIndex: number) => {
+      if (!userMessageIndices.includes(messageIndex)) return;
+      timelineNavLockedRef.current = true;
+      scrollToIndexRef.current?.(messageIndex);
+      setMessageNavIndex(messageIndex);
+    },
+    [userMessageIndices],
+  );
 
   const handleActiveTimelineMessage = useCallback((index: number) => {
     if (timelineNavLockedRef.current) return;
@@ -299,7 +303,10 @@ export function HostSessionDetailView({
       return;
     }
     const measure = () => {
-      const next = Math.max(0, Math.round(aboveComposerOverlaysNode.getBoundingClientRect().height));
+      const next = Math.max(
+        0,
+        Math.round(aboveComposerOverlaysNode.getBoundingClientRect().height),
+      );
       setAboveComposerOverlayPadPx((current) => (current === next ? current : next));
     };
     measure();
@@ -330,12 +337,10 @@ export function HostSessionDetailView({
     setResumeBusy("tui");
     setCopied(false);
     try {
-      const { result, launched } = await resumeHostSessionInTui(
-        selectedKey,
-        router,
-        projects,
-        { provider_id: session.provider_id, title: session.title },
-      );
+      const { result, launched } = await resumeHostSessionInTui(selectedKey, router, projects, {
+        provider_id: session.provider_id,
+        title: session.title,
+      });
       if (launched) {
         setTuiCommand(null);
         onNavigated?.();
@@ -415,9 +420,7 @@ export function HostSessionDetailView({
                 <span className="truncate">{hostSessionAgentLabel(session.provider_id)}</span>
                 <span className="text-border">·</span>
                 <Folder className="size-3 shrink-0" />
-                <span className="truncate">
-                  {hostSessionProjectLabel(session) || session.cwd}
-                </span>
+                <span className="truncate">{hostSessionProjectLabel(session) || session.cwd}</span>
               </p>
             </div>
           )}
@@ -449,12 +452,9 @@ export function HostSessionDetailView({
       {!session ? (
         <div className="min-h-0 flex-1" />
       ) : (
-        <SubagentOverlayProvider
-          selectedId={selectedSubagentId}
-          onSelect={setSelectedSubagentId}
-        >
+        <SubagentOverlayProvider selectedId={selectedSubagentId} onSelect={setSelectedSubagentId}>
           <div
-            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden [container-type:size] [container-name:agent-chat]"
+            className="[container-type:size] flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden [container-name:agent-chat]"
             data-agent-chat-column=""
           >
             <div
@@ -464,10 +464,7 @@ export function HostSessionDetailView({
               )}
             >
               {showTimelineNav ? (
-                <div
-                  data-agent-chat-timeline-nav=""
-                  className="relative w-8 shrink-0"
-                >
+                <div data-agent-chat-timeline-nav="" className="relative w-8 shrink-0">
                   <AgentMessageTimelineNav
                     activeAgent={{
                       id: hostSessionAgentIconId(session.provider_id),
@@ -481,87 +478,84 @@ export function HostSessionDetailView({
                 </div>
               ) : null}
               <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <div
-              ref={transcriptRef}
-              className="relative min-h-0 flex-1 overflow-hidden"
-            >
-              <FindHighlightProvider>
-              {messages.length === 0 ? (
-                <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-                  {t("emptyTranscript")}
-                </div>
-              ) : (
-                <HostSessionTranscript
-                  key={session.key}
-                  messages={messages}
-                  cwd={session.cwd}
-                  registryId={session.provider_id}
-                  transcriptRef={transcriptRef}
-                  overlayHost={aboveComposerOverlaysNode}
-                  overlayPadPx={transcriptBottomPadPx(aboveComposerOverlayPadPx)}
-                  overlayPadShrinking={false}
-                  reduceOverlayPadMotion={reduceOverlayPadMotion}
-                  subagentCardMode="transcript"
-                  excludeSubagentIds={grokChromeIds}
-                  userMessageIndices={userMessageIndices}
-                  onActiveUserMessage={handleActiveTimelineMessage}
-                  onUserScrollIntent={releaseTimelineNavLock}
-                  scrollToIndexRef={scrollToIndexRef}
-                  keepMessageIndexes={keepMessageIndexes}
-                  initialScrollIndex={initialScrollIndex}
-                />
-              )}
-              {messages.length > 0 ? (
-                <FindPanel
-                  open={findOpen}
-                  root={findRoot}
-                  seed={findSeed}
-                  resetKey={selectedKey}
-                  focusNonce={findFocusNonce}
-                  scopeSelector={TRANSCRIPT_FIND_SCOPE}
-                  onQueryChange={handleFindQueryChange}
-                  onClose={() => setFindOpen(false)}
-                />
-              ) : null}
-              {messages.length > 0 ? (
-                <AgentChatEdgeFades rootRef={transcriptRef} resetKey={selectedKey} />
-              ) : null}
-              </FindHighlightProvider>
-            </div>
-            <div
-              className="relative z-10 mx-auto w-full max-w-3xl shrink-0 px-3 pb-3 pt-px"
-              data-agent-chat-composer=""
-              onKeyDownCapture={(event) => {
-                if (event.key !== "Escape") return;
-                if (findOpen) return;
-                if (!selectedSubagentId) return;
-                event.preventDefault();
-                setSelectedSubagentId(null);
-              }}
-            >
-              <div ref={composerSurfaceRef} className="relative">
-                <AgentChatAboveComposerOverlays
-                  composerSurfaceRef={composerSurfaceRef}
-                  messages={messages}
-                  grokGoal={grokGoal}
-                  grokWorkflow={grokWorkflow}
-                  currentPlan={currentPlan}
-                  subagentTasks={{ items: [], tools: [] }}
-                  grokCardsDefaultOpen={false}
-                  subagentOverlay={
-                    selectedSubagentId ? (
-                      <SubagentConversationOverlay
+                <div ref={transcriptRef} className="relative min-h-0 flex-1 overflow-hidden">
+                  <FindHighlightProvider>
+                    {messages.length === 0 ? (
+                      <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+                        {t("emptyTranscript")}
+                      </div>
+                    ) : (
+                      <HostSessionTranscript
+                        key={session.key}
                         messages={messages}
-                        toolCallId={selectedSubagentId}
                         cwd={session.cwd}
-                        onClose={() => setSelectedSubagentId(null)}
+                        registryId={session.provider_id}
+                        transcriptRef={transcriptRef}
+                        overlayHost={aboveComposerOverlaysNode}
+                        overlayPadPx={transcriptBottomPadPx(aboveComposerOverlayPadPx)}
+                        overlayPadShrinking={false}
+                        reduceOverlayPadMotion={reduceOverlayPadMotion}
+                        subagentCardMode="transcript"
+                        excludeSubagentIds={grokChromeIds}
+                        userMessageIndices={userMessageIndices}
+                        onActiveUserMessage={handleActiveTimelineMessage}
+                        onUserScrollIntent={releaseTimelineNavLock}
+                        scrollToIndexRef={scrollToIndexRef}
+                        keepMessageIndexes={keepMessageIndexes}
+                        initialScrollIndex={initialScrollIndex}
                       />
-                    ) : null
-                  }
-                  onLaneNodeChange={setAboveComposerOverlaysNode}
-                />
-              </div>
-            </div>
+                    )}
+                    {messages.length > 0 ? (
+                      <FindPanel
+                        open={findOpen}
+                        root={findRoot}
+                        seed={findSeed}
+                        resetKey={selectedKey}
+                        focusNonce={findFocusNonce}
+                        scopeSelector={TRANSCRIPT_FIND_SCOPE}
+                        onQueryChange={handleFindQueryChange}
+                        onClose={() => setFindOpen(false)}
+                      />
+                    ) : null}
+                    {messages.length > 0 ? (
+                      <AgentChatEdgeFades rootRef={transcriptRef} resetKey={selectedKey} />
+                    ) : null}
+                  </FindHighlightProvider>
+                </div>
+                <div
+                  className="relative z-10 mx-auto w-full max-w-3xl shrink-0 px-3 pt-px pb-3"
+                  data-agent-chat-composer=""
+                  onKeyDownCapture={(event) => {
+                    if (event.key !== "Escape") return;
+                    if (findOpen) return;
+                    if (!selectedSubagentId) return;
+                    event.preventDefault();
+                    setSelectedSubagentId(null);
+                  }}
+                >
+                  <div ref={composerSurfaceRef} className="relative">
+                    <AgentChatAboveComposerOverlays
+                      composerSurfaceRef={composerSurfaceRef}
+                      messages={messages}
+                      grokGoal={grokGoal}
+                      grokWorkflow={grokWorkflow}
+                      currentPlan={currentPlan}
+                      subagentTasks={{ items: [], tools: [] }}
+                      grokCardsDefaultOpen={false}
+                      subagentOverlay={
+                        selectedSubagentId ? (
+                          <SubagentConversationOverlay
+                            messages={messages}
+                            toolCallId={selectedSubagentId}
+                            cwd={session.cwd}
+                            onClose={() => setSelectedSubagentId(null)}
+                          />
+                        ) : null
+                      }
+                      onLaneNodeChange={setAboveComposerOverlaysNode}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>

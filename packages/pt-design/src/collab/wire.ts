@@ -21,12 +21,16 @@ function envFlag(name: string): string | undefined {
 }
 
 export function collabFallbackDisabled(): boolean {
-  const raw = envFlag("PT_DESIGN_COLLAB_FALLBACK") ?? envFlag("NEXT_PUBLIC_PT_DESIGN_COLLAB_FALLBACK");
+  const raw =
+    envFlag("PT_DESIGN_COLLAB_FALLBACK") ?? envFlag("NEXT_PUBLIC_PT_DESIGN_COLLAB_FALLBACK");
   return raw === "0" || raw === "false";
 }
 
 export function isLoopbackHost(hostname: string): boolean {
-  const host = hostname.trim().toLowerCase().replace(/^\[|\]$/g, "");
+  const host = hostname
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "");
   return (
     host === "localhost" ||
     host === "127.0.0.1" ||
@@ -59,7 +63,10 @@ export function inferLocalCollabServer(): string | null {
   }
 }
 
-export function resolveCollabServers(explicit?: string): { primary: string; fallback: string | null } {
+export function resolveCollabServers(explicit?: string): {
+  primary: string;
+  fallback: string | null;
+} {
   const primary =
     explicit ||
     envFlag("PT_DESIGN_COLLAB_URL") ||

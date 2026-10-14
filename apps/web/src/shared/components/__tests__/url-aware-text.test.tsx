@@ -18,17 +18,12 @@ mock.module("@/shared/lib/link-preview-query", () => ({
   peekLinkPreview: () => null,
 }));
 
-const {
-  UrlAwareText,
-  linkifyReactChildren,
-  withLinkifiedMarkdownComponents,
-} = await import("@/shared/components/url-aware-text");
+const { UrlAwareText, linkifyReactChildren, withLinkifiedMarkdownComponents } =
+  await import("@/shared/components/url-aware-text");
 
 describe("UrlAwareText", () => {
   it("keeps typed user URLs as links instead of chips", () => {
-    const html = renderToStaticMarkup(
-      <UrlAwareText text="see https://example.com/a please" />,
-    );
+    const html = renderToStaticMarkup(<UrlAwareText text="see https://example.com/a please" />);
     expect(html).not.toContain("data-url-chip");
     expect(html).toContain("data-http-text-link");
     expect(html).toContain("https://example.com/a");
@@ -46,9 +41,7 @@ describe("UrlAwareText", () => {
   });
 
   it("leaves plain text unchanged", () => {
-    expect(renderToStaticMarkup(<UrlAwareText text="no links here" />)).toBe(
-      "no links here",
-    );
+    expect(renderToStaticMarkup(<UrlAwareText text="no links here" />)).toBe("no links here");
   });
 });
 
@@ -75,9 +68,7 @@ describe("withLinkifiedMarkdownComponents", () => {
   it("wraps paragraph components so bare URLs become chips", () => {
     const components = withLinkifiedMarkdownComponents({});
     const Paragraph = components.p;
-    const html = renderToStaticMarkup(
-      <Paragraph>read https://payloadcms.com/docs</Paragraph>,
-    );
+    const html = renderToStaticMarkup(<Paragraph>read https://payloadcms.com/docs</Paragraph>);
     expect(html).toContain("<p>");
     expect(html).toContain("data-url-chip");
     expect(html).toContain("payloadcms.com");

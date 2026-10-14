@@ -2,13 +2,7 @@
 
 import { cn } from "../../lib/utils";
 import { useReducedMotion } from "motion/react";
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 function useMonoInk(): string {
   const [ink, setInk] = useState("#ffffff");
@@ -31,9 +25,8 @@ function hexWithAlpha(hex: string, alpha: number): string {
   if (!hex.startsWith("#") || (hex.length !== 7 && hex.length !== 4)) {
     return hex;
   }
-  const normalize = hex.length === 4
-    ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
-    : hex;
+  const normalize =
+    hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex;
   const r = Number.parseInt(normalize.slice(1, 3), 16);
   const g = Number.parseInt(normalize.slice(3, 5), 16);
   const b = Number.parseInt(normalize.slice(5, 7), 16);
@@ -126,10 +119,7 @@ export function ShootingStars({
         speed: Math.random() * (maxSpeed - minSpeed) + minSpeed,
         distance: 0,
       });
-      timeoutId = window.setTimeout(
-        createStar,
-        Math.random() * (maxDelay - minDelay) + minDelay,
-      );
+      timeoutId = window.setTimeout(createStar, Math.random() * (maxDelay - minDelay) + minDelay);
     };
 
     createStar();
@@ -147,17 +137,10 @@ export function ShootingStars({
         if (!prevStar) return null;
         const width = svgRef.current?.clientWidth ?? 0;
         const height = svgRef.current?.clientHeight ?? 0;
-        const newX =
-          prevStar.x + prevStar.speed * Math.cos((prevStar.angle * Math.PI) / 180);
-        const newY =
-          prevStar.y + prevStar.speed * Math.sin((prevStar.angle * Math.PI) / 180);
+        const newX = prevStar.x + prevStar.speed * Math.cos((prevStar.angle * Math.PI) / 180);
+        const newY = prevStar.y + prevStar.speed * Math.sin((prevStar.angle * Math.PI) / 180);
         const newDistance = prevStar.distance + prevStar.speed;
-        if (
-          newX < -20 ||
-          newX > width + 20 ||
-          newY < -20 ||
-          newY > height + 20
-        ) {
+        if (newX < -20 || newX > width + 20 || newY < -20 || newY > height + 20) {
           return null;
         }
         return {
@@ -242,8 +225,7 @@ export function StarsBackground({
       const numStars = Math.floor(area * starDensity);
       return Array.from({ length: numStars }, () => {
         const shouldTwinkle =
-          !prefersReducedMotion &&
-          (allStarsTwinkle || Math.random() < twinkleProbability);
+          !prefersReducedMotion && (allStarsTwinkle || Math.random() < twinkleProbability);
         return {
           x: Math.random() * width,
           y: Math.random() * height,
@@ -297,8 +279,7 @@ export function StarsBackground({
         ctx.fillStyle = hexWithAlpha(resolvedStarColor, star.opacity);
         ctx.fill();
         if (star.twinkleSpeed !== null) {
-          star.opacity =
-            0.5 + Math.abs(Math.sin((Date.now() * 0.001) / star.twinkleSpeed) * 0.5);
+          star.opacity = 0.5 + Math.abs(Math.sin((Date.now() * 0.001) / star.twinkleSpeed) * 0.5);
         }
       }
       animationFrameId = requestAnimationFrame(render);
@@ -317,8 +298,7 @@ export function StarsBackground({
   );
 }
 
-export type ShootingStarsBackgroundProps = ShootingStarsProps &
-  StarsBackgroundProps;
+export type ShootingStarsBackgroundProps = ShootingStarsProps & StarsBackgroundProps;
 
 export function ShootingStarsBackground({
   className,

@@ -106,10 +106,7 @@ describe("gridSizesEqual", () => {
 
 describe("stable fit wiring", () => {
   it("fits xterm locally and holds shell PTY until settle", () => {
-    const terminal = readFileSync(
-      join(import.meta.dir, "../../components/Terminal.tsx"),
-      "utf8",
-    );
+    const terminal = readFileSync(join(import.meta.dir, "../../components/Terminal.tsx"), "utf8");
     expect(terminal).toContain("createStableGridScheduler");
     expect(terminal).toContain("hostResizePinRef.current.hold(size)");
     expect(terminal).toContain("hostResizePinRef.current.debounce(size)");

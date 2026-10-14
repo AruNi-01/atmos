@@ -14,23 +14,26 @@ export type ObserverStep = {
 };
 
 export function isObserverChromeToolName(name: string): boolean {
-  const n = name.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const n = name
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
   if (
-    n === "task"
-    || n === "subagent"
-    || n === "spawn_subagent"
-    || n === "spawn_agent"
-    || n === "agent_spawn"
+    n === "task" ||
+    n === "subagent" ||
+    n === "spawn_subagent" ||
+    n === "spawn_agent" ||
+    n === "agent_spawn"
   ) {
     return true;
   }
   return (
-    n.includes("get_command_or_subagent")
-    || n.includes("subagent_output")
-    || n.includes("task_output")
-    || n.includes("agent_output")
-    || n.includes("taskoutput")
-    || n.includes("agentoutput")
+    n.includes("get_command_or_subagent") ||
+    n.includes("subagent_output") ||
+    n.includes("task_output") ||
+    n.includes("agent_output") ||
+    n.includes("taskoutput") ||
+    n.includes("agentoutput")
   );
 }
 
@@ -42,9 +45,7 @@ export function isLeakedChildTurn(turn: AgentTurn, children: AgentChildActivity[
     const childPrompt = child.prompt?.trim();
     if (!childPrompt) return false;
     return (
-      childPrompt === prompt
-      || childPrompt.startsWith(prompt)
-      || prompt.startsWith(childPrompt)
+      childPrompt === prompt || childPrompt.startsWith(prompt) || prompt.startsWith(childPrompt)
     );
   });
 }
@@ -84,10 +85,10 @@ export function activityToSteps(activity: AgentActivity): ObserverStep[] {
   if (current && !isObserverChromeToolName(current.name)) {
     const already = steps.some(
       (step) =>
-        step.kind === "tool"
-        && step.label === current.name
-        && step.detail === (current.detail.trim() || undefined)
-        && step.state === current.state,
+        step.kind === "tool" &&
+        step.label === current.name &&
+        step.detail === (current.detail.trim() || undefined) &&
+        step.state === current.state,
     );
     if (!already) steps.push(toolStep(`current:${current.name}`, current));
   }
@@ -107,7 +108,10 @@ export function childToSteps(child: AgentChildActivity): ObserverStep[] {
   if (child.current_tool) {
     const current = child.current_tool;
     const already = tools.some(
-      (tool) => tool.name === current.name && tool.detail === current.detail && tool.state === current.state,
+      (tool) =>
+        tool.name === current.name &&
+        tool.detail === current.detail &&
+        tool.state === current.state,
     );
     if (!already) tools.push(current);
   }

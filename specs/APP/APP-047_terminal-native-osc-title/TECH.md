@@ -43,11 +43,11 @@ export function sanitizeNativeOscTitle(title: string | undefined): string {
 
 Before appending, `resolveDisplayOscTitle(osc, { autoDisplayTitle, dynamicTitle, toolbarAgent })` drops:
 
-| Filter | Example | Reason |
-|--------|---------|--------|
-| Shell host/cwd | `user@Host:~/…`, pure paths | Redundant with shim path; causes prompt flicker |
-| Agent CLI / brand | `claude`, `Claude Code`, `codex` | Toolbar already shows agent icon + label |
-| Equals dynamic title | OSC == `CMD_START` command | Same signal twice |
+| Filter               | Example                          | Reason                                          |
+| -------------------- | -------------------------------- | ----------------------------------------------- |
+| Shell host/cwd       | `user@Host:~/…`, pure paths      | Redundant with shim path; causes prompt flicker |
+| Agent CLI / brand    | `claude`, `Claude Code`, `codex` | Toolbar already shows agent icon + label        |
+| Equals dynamic title | OSC == `CMD_START` command       | Same signal twice                               |
 
 Helpers: `isNoisyShellOscTitle`, `isRedundantAgentOscTitle`.
 
@@ -55,11 +55,11 @@ Helpers: `isNoisyShellOscTitle`, `isRedundantAgentOscTitle`.
 
 Before appending, `resolveDisplayOscTitle(osc, { autoDisplayTitle, dynamicTitle, toolbarAgent })` drops:
 
-| Filter | Example | Reason |
-|--------|---------|--------|
-| Shell host/cwd | `user@Host:~/…`, pure paths | Redundant with shim path; causes prompt flicker |
-| Agent CLI / brand | `claude`, `Claude Code`, `codex` | Toolbar already shows agent icon + label |
-| Equals dynamic title | OSC == `CMD_START` command | Same signal twice |
+| Filter               | Example                          | Reason                                          |
+| -------------------- | -------------------------------- | ----------------------------------------------- |
+| Shell host/cwd       | `user@Host:~/…`, pure paths      | Redundant with shim path; causes prompt flicker |
+| Agent CLI / brand    | `claude`, `Claude Code`, `codex` | Toolbar already shows agent icon + label        |
+| Equals dynamic title | OSC == `CMD_START` command       | Same signal twice                               |
 
 Helpers: `isNoisyShellOscTitle`, `isRedundantAgentOscTitle`.
 
@@ -78,7 +78,7 @@ export function getTerminalDisplayMeta(options: {
   oscTitle?: string;
   /** User customLabel set — never append OSC. */
   suppressOscTitle?: boolean;
-}): { displayTitle: string; toolbarAgent: TAgent | undefined }
+}): { displayTitle: string; toolbarAgent: TAgent | undefined };
 ```
 
 Algorithm:
@@ -152,16 +152,16 @@ setOscTitle(workspaceId, paneId, oscTitle: string | undefined, terminalTabId?)
 - Local state `localOscTitle` for canvas/`none` write targets (same pattern as dynamic).
 - `onOscTitleChange` writes store `setOscTitle` when `storeWrite` is mosaic/tmux; never calls `setPaneAgent`.
 - `getTerminalDisplayMeta({ ..., oscTitle: mergedOsc, suppressOscTitle: !!customLabel?.trim() })`.
-- Custom label branch: keep existing ` · ` agent/cwd composition; **do not** append OSC.
+- Custom label branch: keep existing `·` agent/cwd composition; **do not** append OSC.
 
 ## 6. Other call sites
 
-| Site | Change |
-|------|--------|
-| `terminal-mosaic-scoped-pane-window` | Wire `onOscTitleChange` + pass `oscTitle` into meta |
-| `use-terminal-grid-canvas-pins` | Pass `pane.oscTitle` into meta when labeling pin |
-| `terminal-close-confirm-name` | Optional: omit OSC (confirm dialogs stay short) — **no OSC** |
-| Mobile `TerminalDomView` / store | Same capture + field if low cost |
+| Site                                 | Change                                                       |
+| ------------------------------------ | ------------------------------------------------------------ |
+| `terminal-mosaic-scoped-pane-window` | Wire `onOscTitleChange` + pass `oscTitle` into meta          |
+| `use-terminal-grid-canvas-pins`      | Pass `pane.oscTitle` into meta when labeling pin             |
+| `terminal-close-confirm-name`        | Optional: omit OSC (confirm dialogs stay short) — **no OSC** |
+| Mobile `TerminalDomView` / store     | Same capture + field if low cost                             |
 
 ## 7. Rollout
 
@@ -173,12 +173,12 @@ setOscTitle(workspaceId, paneId, oscTitle: string | undefined, terminalTabId?)
 
 ## 8. Risks
 
-| Risk | Mitigation |
-|------|------------|
-| Noisy OSC (version-only titles, spinners) | Cap length; user can set customLabel to suppress; accept spinner chars as agent intent |
-| OSC fights with document title | Only consume via xterm event; do not write `document.title` |
-| Stale OSC after agent crash without CMD_END | Empty OSC clear; next CMD_END; pane remount resets state |
-| Agent detection false positives from OSC text | Hard rule: never pass `oscTitle` into `resolveAgentForTitle` |
+| Risk                                          | Mitigation                                                                             |
+| --------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Noisy OSC (version-only titles, spinners)     | Cap length; user can set customLabel to suppress; accept spinner chars as agent intent |
+| OSC fights with document title                | Only consume via xterm event; do not write `document.title`                            |
+| Stale OSC after agent crash without CMD_END   | Empty OSC clear; next CMD_END; pane remount resets state                               |
+| Agent detection false positives from OSC text | Hard rule: never pass `oscTitle` into `resolveAgentForTitle`                           |
 
 ## 9. Out of scope (tech)
 

@@ -12,19 +12,19 @@ The phone needs the opposite grain: one row per session, because one workspace c
 
 ## What exists today
 
-| Fact | Where |
-|------|--------|
-| Four buckets, priority permission > running > task-complete attention > done | `workspace_agent_group.rs`, same rule in `workspace-agent-status.ts` |
-| Web group order is permission, attention, running, done | `WORKSPACE_AGENT_GROUP_ORDER` |
-| English labels: Need permission, Need attention, Running, Done | `apps/web/messages/en.json` `agent_*` |
-| Terminal identity in the status map is the pane `{context_id}:{tmux_window}`, not the CLI session id | hook `resolve_session_id` prefers `ATMOS_PANE_ID` |
-| Chat identity is `chat:{id}` on surface `chat` | `chat_status_session_id` |
-| Idle rows are swept (manual clear, and a ~30 min job). Attention latches survive the sweep. After ack, a finished session has **no** in-memory row | `clear_idle_sessions`, APP-058 (memory only, not SQLite) |
-| Status records have no human title | `AgentStatusRecord` |
-| Terminal list can return every workspace when `workspace_id` is omitted. Title is `terminal_name`. Time is `uptime_secs` since create, not last update | `terminal_session_list` |
-| Branch and a stored `github_pr` snapshot are on the workspace bootstrap row. Live “PR for this branch” is a separate GitHub list matched on `head_ref` | `WorkspaceModel`, `useWorkspacePrStatus` |
-| Mobile reaches the Computer over WS, and can HTTP the same gateway the web hooks client uses | `MobileWsClient`, `gateway_url` |
-| Expo SDK 56 native tabs import is `expo-router/unstable-native-tabs`. No NativeTabs in the app yet. Sheets and workspace push stay on the root Stack | `apps/mobile/package.json`, `app/_layout.tsx` |
+| Fact                                                                                                                                                   | Where                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| Four buckets, priority permission > running > task-complete attention > done                                                                           | `workspace_agent_group.rs`, same rule in `workspace-agent-status.ts` |
+| Web group order is permission, attention, running, done                                                                                                | `WORKSPACE_AGENT_GROUP_ORDER`                                        |
+| English labels: Need permission, Need attention, Running, Done                                                                                         | `apps/web/messages/en.json` `agent_*`                                |
+| Terminal identity in the status map is the pane `{context_id}:{tmux_window}`, not the CLI session id                                                   | hook `resolve_session_id` prefers `ATMOS_PANE_ID`                    |
+| Chat identity is `chat:{id}` on surface `chat`                                                                                                         | `chat_status_session_id`                                             |
+| Idle rows are swept (manual clear, and a ~30 min job). Attention latches survive the sweep. After ack, a finished session has **no** in-memory row     | `clear_idle_sessions`, APP-058 (memory only, not SQLite)             |
+| Status records have no human title                                                                                                                     | `AgentStatusRecord`                                                  |
+| Terminal list can return every workspace when `workspace_id` is omitted. Title is `terminal_name`. Time is `uptime_secs` since create, not last update | `terminal_session_list`                                              |
+| Branch and a stored `github_pr` snapshot are on the workspace bootstrap row. Live “PR for this branch” is a separate GitHub list matched on `head_ref` | `WorkspaceModel`, `useWorkspacePrStatus`                             |
+| Mobile reaches the Computer over WS, and can HTTP the same gateway the web hooks client uses                                                           | `MobileWsClient`, `gateway_url`                                      |
+| Expo SDK 56 native tabs import is `expo-router/unstable-native-tabs`. No NativeTabs in the app yet. Sheets and workspace push stay on the root Stack   | `apps/mobile/package.json`, `app/_layout.tsx`                        |
 
 Home currently draws a fake “Workspace” title plus text Filter / Settings gear. Native-nav rules want a real large title and icon-only header items. A tabs change should not copy that custom header.
 

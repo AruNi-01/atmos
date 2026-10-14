@@ -62,19 +62,12 @@ describe("getProjectModeProjects", () => {
       workspaces: [automationWorkspace],
     });
 
-    const projects = getProjectModeProjects(
-      [emptyProject, automationProject],
-      [],
-      {
-        hideProjectsWithoutVisibleWorkspaces: false,
-        shouldApplyWorkspaceFilter: true,
-      },
-    );
+    const projects = getProjectModeProjects([emptyProject, automationProject], [], {
+      hideProjectsWithoutVisibleWorkspaces: false,
+      shouldApplyWorkspaceFilter: true,
+    });
 
-    expect(projects).toEqual([
-      emptyProject,
-      { ...automationProject, workspaces: [] },
-    ]);
+    expect(projects).toEqual([emptyProject, { ...automationProject, workspaces: [] }]);
   });
 
   it("hides projects without matching workspaces when explicit filters are active", () => {

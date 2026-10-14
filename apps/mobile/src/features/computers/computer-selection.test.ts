@@ -1,7 +1,10 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, test } from "bun:test";
 import type { ComputerRow } from "@/api/types";
-import { getAutoConnectComputerId, selectableOnlineComputers } from "@/features/computers/computer-selection";
+import {
+  getAutoConnectComputerId,
+  selectableOnlineComputers,
+} from "@/features/computers/computer-selection";
 
 describe("computer auto selection", () => {
   test("selects the only computer even when it is offline or a previous choice is stale", () => {

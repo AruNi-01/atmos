@@ -26,26 +26,26 @@ apps/web Simulator panel  iframe that origin  (?device=<udid>)
 
 Layers:
 
-| Layer | Role |
-|-------|------|
-| `vendor/serve-sim/` | Forked source + Atmos patches |
-| `scripts/serve-sim/` | Pack + checksum + archive |
-| `.github/workflows/release-serve-sim.yml` | Tag-driven GitHub Release (no R2) |
-| `apps/api/src/simulator.rs` | Probe, download, spawn, kill, hide Simulator.app (local Server only) |
-| `apps/web/src/features/simulator/` | Tab + iframe; talks `/ws` `simulator_*` |
-| `crates/runtime-manager` layout helpers | Canonical `~/.atmos` paths |
+| Layer                                     | Role                                                                 |
+| ----------------------------------------- | -------------------------------------------------------------------- |
+| `vendor/serve-sim/`                       | Forked source + Atmos patches                                        |
+| `scripts/serve-sim/`                      | Pack + checksum + archive                                            |
+| `.github/workflows/release-serve-sim.yml` | Tag-driven GitHub Release (no R2)                                    |
+| `apps/api/src/simulator.rs`               | Probe, download, spawn, kill, hide Simulator.app (local Server only) |
+| `apps/web/src/features/simulator/`        | Tab + iframe; talks `/ws` `simulator_*`                              |
+| `crates/runtime-manager` layout helpers   | Canonical `~/.atmos` paths                                           |
 
 Control plane is the **local Atmos Server**. Web and Desktop are both `/ws` clients. A cloud API process is not on a Mac with Xcode — `simulator_start` returns `unsupported_platform` / `xcode_missing`.
 
 ## Upstream pin
 
-| Field | Value |
-|-------|--------|
-| Original upstream | https://github.com/EvanBacon/serve-sim (Apache-2.0) |
-| Pin repo / tag | `expo/serve-sim` `@expo/serve-sim@0.1.37` |
-| Commit | `b2c92534d373f2a2975a3c013c25a3ab3985f268` |
-| Atmos version | `0.1.37-atmos.1` (first fork of 0.1.37) |
-| License | Apache-2.0 — NOTICE entry for vendor source **and** redistributed binary |
+| Field             | Value                                                                    |
+| ----------------- | ------------------------------------------------------------------------ |
+| Original upstream | https://github.com/EvanBacon/serve-sim (Apache-2.0)                      |
+| Pin repo / tag    | `expo/serve-sim` `@expo/serve-sim@0.1.37`                                |
+| Commit            | `b2c92534d373f2a2975a3c013c25a3ab3985f268`                               |
+| Atmos version     | `0.1.37-atmos.1` (first fork of 0.1.37)                                  |
+| License           | Apache-2.0 — NOTICE entry for vendor source **and** redistributed binary |
 
 Record commit + sha256 in `vendor/serve-sim/UPSTREAM.md` and `apps/api/simulator/serve-sim-requirement.json`. Bumping the pin updates both.
 
@@ -104,11 +104,11 @@ Dev without a published release: `just pack-serve-sim --install` extracts into `
 
 ### `~/.atmos` layout
 
-| Kind | Path |
-|------|------|
-| Binary + addon | `~/.atmos/runtime/serve-sim/<version>/serve-sim` |
-| Native addon | `~/.atmos/runtime/serve-sim/<version>/native/serve-sim-native.node` |
-| Claims / lease | `~/.atmos/state/simulator/claims.json` |
+| Kind           | Path                                                                |
+| -------------- | ------------------------------------------------------------------- |
+| Binary + addon | `~/.atmos/runtime/serve-sim/<version>/serve-sim`                    |
+| Native addon   | `~/.atmos/runtime/serve-sim/<version>/native/serve-sim-native.node` |
+| Claims / lease | `~/.atmos/state/simulator/claims.json`                              |
 
 Never `~/.atmos/data/desktop/`. Add helpers on `runtime_manager::layout` (`serve_sim_runtime_dir`, `simulator_state_dir`) and document them in `agents/references/runtime/atmos-home-layout.md`.
 
@@ -132,12 +132,12 @@ Pin file (packaged with Desktop, not the downloaded archive):
 
 WebSocket only. Desktop is not special — it uses the same `/ws` as `just dev-web`.
 
-| Action | Args | Result |
-|--------|------|--------|
-| `simulator_probe` | `{}` | host probe (Xcode / arch / devices / helper) |
-| `simulator_start` | `{ workspace_id, udid? }` | downloads if needed, then `{ ready, url, udid }` or a setup `reason` |
-| `simulator_stop` | `{ workspace_id }` | `{ stopped: true }` |
-| `simulator_status` | `{ workspace_id }` | current claim or `null` |
+| Action             | Args                      | Result                                                               |
+| ------------------ | ------------------------- | -------------------------------------------------------------------- |
+| `simulator_probe`  | `{}`                      | host probe (Xcode / arch / devices / helper)                         |
+| `simulator_start`  | `{ workspace_id, udid? }` | downloads if needed, then `{ ready, url, udid }` or a setup `reason` |
+| `simulator_stop`   | `{ workspace_id }`        | `{ stopped: true }`                                                  |
+| `simulator_status` | `{ workspace_id }`        | current claim or `null`                                              |
 
 Event: `simulator_download_progress` → `{ workspace_id, downloaded, total }`
 

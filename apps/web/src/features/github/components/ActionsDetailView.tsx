@@ -24,18 +24,12 @@ import {
 } from "lucide-react";
 import { useGithubActionsDetail } from "@/features/github/hooks/use-github";
 import { useInvalidateGithubActions } from "@/features/github/hooks/use-github-pr-query";
-import {
-  formatActionTimestamp,
-  formatActionTimeAgo,
-} from "@/features/github/lib/action-run-time";
+import { formatActionTimestamp, formatActionTimeAgo } from "@/features/github/lib/action-run-time";
 import { cn } from "@/shared/lib/utils";
 import { type ActionRun } from "./ActionsPanel";
 import { useAgentFixContext } from "@/features/agent-fix/hooks/use-agent-fix-context";
 import { ActionsActionBar } from "./ActionsActionBar";
-import {
-  ActionsJobsList,
-  type ActionsJobsFocusRequest,
-} from "./ActionsJobsList";
+import { ActionsJobsList, type ActionsJobsFocusRequest } from "./ActionsJobsList";
 import { useActionsContextHeader } from "./use-actions-context-header";
 import { AgentFixButton } from "@/features/agent-fix/components/AgentFixButton";
 import type { AgentFixPromptSource } from "@/features/agent-fix/types";
@@ -70,8 +64,7 @@ const ReadOnlyCodeMirror = dynamic(
 );
 
 const ActionsWorkflowGraph = dynamic(
-  () =>
-    import("./ActionsWorkflowGraph").then((mod) => mod.ActionsWorkflowGraph),
+  () => import("./ActionsWorkflowGraph").then((mod) => mod.ActionsWorkflowGraph),
   {
     ssr: false,
     loading: () => <Skeleton className="h-80 w-full rounded-xl" />,
@@ -92,22 +85,18 @@ export function ActionsDetailView({
   const send = useWebSocketStore((s) => s.send);
   const invalidateActions = useInvalidateGithubActions();
   const [actionLoading, setActionLoading] = React.useState<boolean>(false);
-  const [activeTab, setActiveTab] = React.useState<"summary" | "workflow">(
-    "summary",
+  const [activeTab, setActiveTab] = React.useState<"summary" | "workflow">("summary");
+  const [jobsFocusRequest, setJobsFocusRequest] = React.useState<ActionsJobsFocusRequest | null>(
+    null,
   );
-  const [jobsFocusRequest, setJobsFocusRequest] =
-    React.useState<ActionsJobsFocusRequest | null>(null);
 
-  const handleWorkflowSelectJobs = React.useCallback(
-    (payload: { jobKeys: string[] }) => {
-      if (!payload.jobKeys.length) return;
-      setJobsFocusRequest({
-        jobKeys: payload.jobKeys,
-        nonce: Date.now(),
-      });
-    },
-    [],
-  );
+  const handleWorkflowSelectJobs = React.useCallback((payload: { jobKeys: string[] }) => {
+    if (!payload.jobKeys.length) return;
+    setJobsFocusRequest({
+      jobKeys: payload.jobKeys,
+      nonce: Date.now(),
+    });
+  }, []);
   const { resetContext, scrollRef } = useActionsContextHeader();
 
   const effectiveRunId = runId ?? run?.databaseId;
@@ -121,17 +110,11 @@ export function ActionsDetailView({
     [detail],
   );
   const annotations = React.useMemo(
-    () =>
-      Array.isArray(detail?.annotations)
-        ? (detail.annotations as ActionAnnotation[])
-        : [],
+    () => (Array.isArray(detail?.annotations) ? (detail.annotations as ActionAnnotation[]) : []),
     [detail],
   );
   const artifacts = React.useMemo(
-    () =>
-      Array.isArray(detail?.artifacts)
-        ? (detail.artifacts as ActionArtifact[])
-        : [],
+    () => (Array.isArray(detail?.artifacts) ? (detail.artifacts as ActionArtifact[]) : []),
     [detail],
   );
   const workflowFile = detail?.workflow_file as ActionWorkflowFile | undefined;
@@ -154,23 +137,11 @@ export function ActionsDetailView({
     const fromDetail = detail
       ? {
           databaseId: detail.databaseId ?? detail.id ?? effectiveRunId ?? 0,
-          workflowName: pick(
-            detail.workflowName,
-            detail.workflow_name,
-            detail.name,
-          ),
-          displayTitle: pick(
-            detail.displayTitle,
-            detail.display_title,
-            detail.name,
-          ),
+          workflowName: pick(detail.workflowName, detail.workflow_name, detail.name),
+          displayTitle: pick(detail.displayTitle, detail.display_title, detail.name),
           status: pick(detail.status),
           conclusion: detail.conclusion ?? "",
-          createdAt: pick(
-            detail.createdAt,
-            detail.created_at,
-            detail.run_started_at,
-          ),
+          createdAt: pick(detail.createdAt, detail.created_at, detail.run_started_at),
           url: pick(detail.url, detail.html_url),
           event: pick(detail.event),
           headBranch: pick(detail.headBranch, detail.head_branch),
@@ -265,9 +236,7 @@ export function ActionsDetailView({
   const runTitleMeta = (
     <>
       <div className="flex items-center gap-2">
-        <h3 className="text-base font-semibold text-foreground">
-          {effectiveRun.displayTitle}
-        </h3>
+        <h3 className="text-base font-semibold text-foreground">{effectiveRun.displayTitle}</h3>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <div className="flex shrink-0 items-center gap-1.5 rounded-md border border-border/50 bg-muted/50 px-1.5 py-0.5 shadow-sm">
@@ -280,7 +249,7 @@ export function ActionsDetailView({
         {detailLoading && !effectiveRun.event ? (
           <Skeleton className="mr-1 h-5 w-20 rounded bg-muted-foreground/20" />
         ) : effectiveRun.event ? (
-          <span className="mr-1 truncate rounded bg-primary/10 px-1.5 py-px font-mono capitalize text-primary shadow-sm">
+          <span className="mr-1 truncate rounded bg-primary/10 px-1.5 py-px font-mono text-primary capitalize shadow-sm">
             {effectiveRun.event}
           </span>
         ) : (
@@ -329,7 +298,7 @@ export function ActionsDetailView({
 
   const runTabs = (
     <Tabs
-      className="min-w-0 max-w-full"
+      className="max-w-full min-w-0"
       value={activeTab}
       variant="pill"
       onValueChange={(value) => {
@@ -337,7 +306,7 @@ export function ActionsDetailView({
         resetContext();
       }}
     >
-      <TabsList className="h-8 max-w-full gap-0.5 overflow-x-auto p-0.5 scrollbar-hide">
+      <TabsList className="scrollbar-hide h-8 max-w-full gap-0.5 overflow-x-auto p-0.5">
         <TabsTrigger className="h-7 gap-1.5 px-3 text-xs" value="summary">
           <ChartNoAxesCombined className="size-3.5 shrink-0" />
           {t("tabs.summary")}
@@ -355,18 +324,16 @@ export function ActionsDetailView({
       <div className="mx-auto w-full max-w-2xl shrink-0 px-6">
         <header
           className={cn(
-            "relative flex min-w-0 shrink-0 flex-row items-center gap-3 pb-4 pt-6",
+            "relative flex min-w-0 shrink-0 flex-row items-center gap-3 pt-6 pb-4",
             reserveClose && drawerCloseReserveClass,
           )}
         >
           <WorkflowIcon className="size-4.5 text-muted-foreground/60" />
           <div className="flex min-w-0 items-center gap-2.5">
-            <h2 className="whitespace-nowrap text-base font-bold">
+            <h2 className="text-base font-bold whitespace-nowrap">
               {t("title", { runId: effectiveRun.databaseId })}
             </h2>
-            <span className="select-none font-light text-muted-foreground/30">
-              |
-            </span>
+            <span className="font-light text-muted-foreground/30 select-none">|</span>
             <p
               className="truncate pt-0.5 text-[11px] font-medium text-muted-foreground/60"
               title={`${owner}/${repo}`}
@@ -378,15 +345,11 @@ export function ActionsDetailView({
       </div>
 
       {activeTab === "summary" ? (
-        <ScrollArea
-          scrollFade
-          className="min-h-0 w-full flex-1"
-          viewportRef={scrollRef}
-        >
+        <ScrollArea scrollFade className="min-h-0 w-full flex-1" viewportRef={scrollRef}>
           <div className="relative mx-auto w-full max-w-2xl px-6 pb-16">
             <div className="relative flex flex-col text-sm">
               <div className="min-w-0 pt-1 pb-4">{runTitleMeta}</div>
-              <div className="sticky top-0 z-20 border-t border-border/40 bg-background pb-3 pt-3">
+              <div className="sticky top-0 z-20 border-t border-border/40 bg-background pt-3 pb-3">
                 {runTabs}
               </div>
 
@@ -397,11 +360,7 @@ export function ActionsDetailView({
                   createdAtTimestamp={createdAtTimestamp}
                   success={isSuccess}
                   t={t}
-                  value={
-                    isCompleted
-                      ? effectiveRun.conclusion
-                      : effectiveRun.status
-                  }
+                  value={isCompleted ? effectiveRun.conclusion : effectiveRun.status}
                 />
                 <ActionsWorkflowGraph
                   jobs={jobs}
@@ -439,17 +398,12 @@ export function ActionsDetailView({
       ) : (
         // Workflow file: pin header/tabs; only the editor pane scrolls.
         <div className="flex min-h-0 w-full flex-1 flex-col">
-          <div className="mx-auto w-full max-w-2xl shrink-0 px-6 pb-2 pt-1 text-sm">
+          <div className="mx-auto w-full max-w-2xl shrink-0 px-6 pt-1 pb-2 text-sm">
             <div className="min-w-0 pb-4">{runTitleMeta}</div>
-            <div className="border-t border-border/40 bg-background pb-3 pt-3">
-              {runTabs}
-            </div>
+            <div className="border-t border-border/40 bg-background pt-3 pb-3">{runTabs}</div>
           </div>
-          <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col px-6 pb-4 pt-2">
-            <ActionsWorkflowFile
-              detailLoading={detailLoading}
-              workflowFile={workflowFile}
-            />
+          <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col px-6 pt-2 pb-4">
+            <ActionsWorkflowFile detailLoading={detailLoading} workflowFile={workflowFile} />
           </div>
         </div>
       )}
@@ -546,9 +500,7 @@ function ActionsWorkflowFile({
     <section className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex shrink-0 items-center gap-2 text-xs font-semibold text-muted-foreground">
         <FileCode2 className="size-3.5" />
-        <span className="truncate">
-          {workflowFile?.path ?? t("sections.workflowFile")}
-        </span>
+        <span className="truncate">{workflowFile?.path ?? t("sections.workflowFile")}</span>
       </div>
       {/* Fill remaining viewport; CodeMirror handles internal overflow scroll. */}
       <div className="min-h-0 flex-1 overflow-hidden rounded-xl border">
@@ -591,9 +543,7 @@ function ActionsAnnotations({
       family: "ci_job",
       context: agentFixContext,
       label: t("annotations.agentFixLabel"),
-      disabledReason: agentFixContext
-        ? null
-        : t("annotations.agentFixDisabled"),
+      disabledReason: agentFixContext ? null : t("annotations.agentFixDisabled"),
       getPrompt: () => ({
         prompt: buildGithubActionsAnnotationsFixPrompt({
           annotations,
@@ -617,19 +567,12 @@ function ActionsAnnotations({
           <FileWarning className="size-3.5" />{" "}
           {t("sections.annotations", { count: annotations.length })}
         </h4>
-        <AgentFixButton
-          source={agentFixSource}
-          mode="label"
-          appearance="subtle"
-        />
+        <AgentFixButton source={agentFixSource} mode="label" appearance="subtle" />
       </div>
       <div className="overflow-hidden rounded-xl border bg-background">
         <div className="flex flex-col divide-y divide-border">
           {annotations.map((annotation, index) => {
-            const level =
-              annotation.annotation_level ??
-              annotation.annotationLevel ??
-              "notice";
+            const level = annotation.annotation_level ?? annotation.annotationLevel ?? "notice";
             const line = annotation.start_line ?? annotation.startLine;
 
             return (
@@ -640,9 +583,7 @@ function ActionsAnnotations({
                 <AnnotationIcon level={level} />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                    {annotation.title && (
-                      <span className="font-medium">{annotation.title}</span>
-                    )}
+                    {annotation.title && <span className="font-medium">{annotation.title}</span>}
                     {(annotation.job_name ?? annotation.jobName) && (
                       <span className="text-muted-foreground">
                         {annotation.job_name ?? annotation.jobName}
@@ -688,8 +629,7 @@ function ActionsArtifacts({
   return (
     <section className="flex flex-col gap-3">
       <h4 className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-        <Package className="size-3.5" />{" "}
-        {t("sections.artifacts", { count: artifacts.length })}
+        <Package className="size-3.5" /> {t("sections.artifacts", { count: artifacts.length })}
       </h4>
       <div className="overflow-hidden rounded-xl border bg-background">
         <div className="flex flex-col divide-y divide-border">
@@ -713,7 +653,7 @@ function ActionsArtifacts({
                       {artifact.name ?? t("artifacts.unnamed")}
                     </p>
                     {artifact.expired && (
-                      <span className="shrink-0 rounded-full border border-border/60 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
+                      <span className="shrink-0 rounded-full border border-border/60 bg-muted/50 px-1.5 py-0.5 text-[10px] leading-none font-medium text-muted-foreground">
                         {t("artifacts.expired")}
                       </span>
                     )}

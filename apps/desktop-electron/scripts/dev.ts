@@ -29,14 +29,8 @@ async function prepareIfNeeded() {
     console.log("[dev] skip prepare");
     return;
   }
-  const apiBin = join(
-    repoRoot,
-    "apps/desktop/src-tauri/binaries/runtime/current/bin/Atmos Server",
-  );
-  const webIndex = join(
-    repoRoot,
-    "apps/desktop/src-tauri/binaries/runtime/current/web/index.html",
-  );
+  const apiBin = join(repoRoot, "apps/desktop/src-tauri/binaries/runtime/current/bin/Atmos Server");
+  const webIndex = join(repoRoot, "apps/desktop/src-tauri/binaries/runtime/current/web/index.html");
   if (
     existsSync(apiBin) &&
     existsSync(webIndex) &&

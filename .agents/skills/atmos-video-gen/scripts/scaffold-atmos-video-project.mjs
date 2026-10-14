@@ -586,11 +586,7 @@ await fs.mkdir(path.join(projectDir, "source"), { recursive: true });
 await fs.mkdir(path.join(hyperframesDir, "scripts"), { recursive: true });
 await fs.mkdir(path.join(hyperframesDir, "assets/audio"), { recursive: true });
 
-await writeFileOnce(
-  path.join(projectDir, "AGENTS.md"),
-  projectAgents(options),
-  options.force,
-);
+await writeFileOnce(path.join(projectDir, "AGENTS.md"), projectAgents(options), options.force);
 await writeFileOnce(
   path.join(hyperframesDir, ".gitignore"),
   "node_modules/\n.render-frames/\nassets/audio/*.wav\nassets/gsap.min.js\n",
@@ -616,11 +612,7 @@ await writeFileOnce(
   hyperframesJson(),
   options.force,
 );
-await writeFileOnce(
-  path.join(hyperframesDir, "index.html"),
-  indexHtml(options),
-  options.force,
-);
+await writeFileOnce(path.join(hyperframesDir, "index.html"), indexHtml(options), options.force);
 await writeFileOnce(
   path.join(hyperframesDir, "scripts/render-video.mjs"),
   renderScript(options),

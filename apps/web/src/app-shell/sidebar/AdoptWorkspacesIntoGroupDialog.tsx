@@ -24,13 +24,7 @@ export type AdoptWorkspacesIntoGroupPending = {
   workspaces: GroupedProjectWorkspace[];
 };
 
-function GroupNameBadge({
-  name,
-  className,
-}: {
-  name: string;
-  className?: string;
-}) {
+function GroupNameBadge({ name, className }: { name: string; className?: string }) {
   return (
     <Badge
       variant="secondary"
@@ -101,25 +95,15 @@ export function AdoptWorkspacesIntoGroupDialog({
                 key={workspace.workspaceId}
                 className="flex min-w-0 items-center justify-between gap-2"
               >
-                <span className="truncate text-foreground">
-                  {workspace.workspaceName}
-                </span>
-                <GroupNameBadge
-                  name={workspace.groupName}
-                  className="max-w-[45%] shrink-0"
-                />
+                <span className="truncate text-foreground">{workspace.workspaceName}</span>
+                <GroupNameBadge name={workspace.groupName} className="max-w-[45%] shrink-0" />
               </li>
             ))}
           </ul>
         ) : null}
 
         <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
-          <Button
-            type="button"
-            className="w-full"
-            disabled={busy}
-            onClick={onAdopt}
-          >
+          <Button type="button" className="w-full" disabled={busy} onClick={onAdopt}>
             {t("adoptWorkspaces.adopt", { count })}
           </Button>
           <Button

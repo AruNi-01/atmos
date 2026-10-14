@@ -41,10 +41,7 @@ import { areOpenTabIdListSourcesHydrated } from "@/app-shell/center-pane/center-
 import { shouldWithholdUnmeasuredPaneTerminal } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
 import { applyHorizontalTabStripWheel } from "@/app-shell/center-stage-tab-scroll";
 import { applySavedTabGroupOrder } from "@/app-shell/center-stage-tabs";
-import {
-  paneScopedTabGroupKey,
-  readPaneTabGroupOrder,
-} from "@/app-shell/center-stage-tab-groups";
+import { paneScopedTabGroupKey, readPaneTabGroupOrder } from "@/app-shell/center-stage-tab-groups";
 import {
   computeMountPlan,
   DEFAULT_SURFACE_BUDGETS,
@@ -53,14 +50,13 @@ import {
   resolveWorkspaceFrameActiveTabIds,
   terminalMountKey,
 } from "@/app-shell/workspace-surface-policies";
-import { workspaceCenterFramePropsAreEqual, type WorkspaceCenterFrameProps } from "@/app-shell/workspace-center-frame-equality";
+import {
+  workspaceCenterFramePropsAreEqual,
+  type WorkspaceCenterFrameProps,
+} from "@/app-shell/workspace-center-frame-equality";
 import type { MountPlan } from "@/app-shell/workspace-surface-policies";
 
-function splitWithSecondaryTab(
-  primaryTabs: string[],
-  primaryActive: string,
-  secondaryTab: string,
-) {
+function splitWithSecondaryTab(primaryTabs: string[], primaryActive: string, secondaryTab: string) {
   let layout = createDefaultLayout(primaryTabs, primaryActive);
   layout = splitPane(layout, { direction: "right" });
   const secondaryId = layout.order.find((id) => id !== DEFAULT_PANE_ID)!;
@@ -294,10 +290,7 @@ describe("pane-local close fallback", () => {
   });
 
   it("returns to any previously activated tab, not only Files", () => {
-    const layout = createDefaultLayout(
-      ["review", "future-tool", "terminal"],
-      "future-tool",
-    );
+    const layout = createDefaultLayout(["review", "future-tool", "terminal"], "future-tool");
     const fallback = resolvePaneLocalCloseFallback({
       layoutBefore: layout,
       closedTabIds: ["future-tool"],
@@ -573,11 +566,7 @@ describe("hydration-safe reconcile", () => {
     expect(afterHydration.panes).toHaveLength(2);
     expect(getPane(afterHydration, secondaryId)!.tabIds).toEqual(["src/a.ts"]);
 
-    const afterGenuineClose = reconcileOpenTabs(
-      layout,
-      ["terminal", "overview"],
-      "terminal",
-    );
+    const afterGenuineClose = reconcileOpenTabs(layout, ["terminal", "overview"], "terminal");
     expect(afterGenuineClose.panes).toHaveLength(1);
   });
 });
@@ -605,9 +594,9 @@ describe("independent pane order", () => {
     expect(getPane(pruned, DEFAULT_PANE_ID)!.tabIds).toEqual(["b", "a"]);
 
     const legacyStrip = ["a", "b", "c"];
-    expect(
-      resolvePaneTabStripOrder(getPane(pruned, DEFAULT_PANE_ID)!.tabIds, legacyStrip),
-    ).toEqual(["b", "a"]);
+    expect(resolvePaneTabStripOrder(getPane(pruned, DEFAULT_PANE_ID)!.tabIds, legacyStrip)).toEqual(
+      ["b", "a"],
+    );
 
     const merged = closePane(reordered, secondaryId);
     expect(getPane(merged, DEFAULT_PANE_ID)!.tabIds.slice(0, 2)).toEqual(["b", "a"]);
@@ -680,34 +669,22 @@ describe("independent pane strip scroll roots", () => {
       prevented: false,
     };
 
-    expect(
-      applyHorizontalTabStripWheel(
-        paneA as unknown as HTMLElement,
-        event,
-        targetA,
-      ),
-    ).toBe(true);
+    expect(applyHorizontalTabStripWheel(paneA as unknown as HTMLElement, event, targetA)).toBe(
+      true,
+    );
     expect(paneA.scrollLeft).toBe(40);
     expect(paneB.scrollLeft).toBe(0);
 
     event.prevented = false;
-    expect(
-      applyHorizontalTabStripWheel(
-        paneB as unknown as HTMLElement,
-        event,
-        targetB,
-      ),
-    ).toBe(true);
+    expect(applyHorizontalTabStripWheel(paneB as unknown as HTMLElement, event, targetB)).toBe(
+      true,
+    );
     expect(paneA.scrollLeft).toBe(40);
     expect(paneB.scrollLeft).toBe(40);
 
-    expect(
-      applyHorizontalTabStripWheel(
-        paneA as unknown as HTMLElement,
-        event,
-        targetB,
-      ),
-    ).toBe(false);
+    expect(applyHorizontalTabStripWheel(paneA as unknown as HTMLElement, event, targetB)).toBe(
+      false,
+    );
   });
 });
 
@@ -748,12 +725,8 @@ describe("context-keyed collapse strip persistence", () => {
         nextPaneCount: 2,
       }),
     ).toBe(false);
-    expect(shouldSnapPaneTilesOnContextChange("workspace-y", "workspace-x")).toBe(
-      true,
-    );
-    expect(shouldSnapPaneTilesOnContextChange("workspace-x", "workspace-x")).toBe(
-      false,
-    );
+    expect(shouldSnapPaneTilesOnContextChange("workspace-y", "workspace-x")).toBe(true);
+    expect(shouldSnapPaneTilesOnContextChange("workspace-x", "workspace-x")).toBe(false);
   });
 
   it("persists remaining pane order only for a same-context N→1 collapse", () => {
@@ -781,26 +754,20 @@ describe("legacy single-pane strip migration", () => {
     const stalePrefs = migrateLegacySinglePaneStripOrder(migrated, ["c", "b", "a"]);
     expect(getPane(stalePrefs, DEFAULT_PANE_ID)!.tabIds).toEqual(["a", "b", "c"]);
     expect(
-      resolvePaneTabStripOrder(
-        getPane(stalePrefs, DEFAULT_PANE_ID)!.tabIds,
-        ["c", "b", "a"],
-      ),
+      resolvePaneTabStripOrder(getPane(stalePrefs, DEFAULT_PANE_ID)!.tabIds, ["c", "b", "a"]),
     ).toEqual(["a", "b", "c"]);
   });
 
   it("does not snap back after a canonical pane reorder or collapse", () => {
-    const migrated = migrateLegacySinglePaneStripOrder(
-      createDefaultLayout(["b", "a", "c"], "a"),
-      ["a", "b"],
-    );
+    const migrated = migrateLegacySinglePaneStripOrder(createDefaultLayout(["b", "a", "c"], "a"), [
+      "a",
+      "b",
+    ]);
     const reordered = reorderPaneTabIds(migrated, DEFAULT_PANE_ID, ["c", "b", "a"]);
     expect(reordered.tabStripCanonical).toBe(true);
     expect(getPane(reordered, DEFAULT_PANE_ID)!.tabIds).toEqual(["c", "b", "a"]);
     expect(
-      getPane(
-        migrateLegacySinglePaneStripOrder(reordered, ["a", "b"]),
-        DEFAULT_PANE_ID,
-      )!.tabIds,
+      getPane(migrateLegacySinglePaneStripOrder(reordered, ["a", "b"]), DEFAULT_PANE_ID)!.tabIds,
     ).toEqual(["c", "b", "a"]);
     expect(
       resolvePaneTabStripOrder(getPane(reordered, DEFAULT_PANE_ID)!.tabIds, ["a", "b"]),
@@ -815,10 +782,8 @@ describe("legacy single-pane strip migration", () => {
     expect(collapsed.tabStripCanonical).toBe(true);
     expect(getPane(collapsed, DEFAULT_PANE_ID)!.tabIds).toEqual(["b", "a"]);
     expect(
-      getPane(
-        migrateLegacySinglePaneStripOrder(collapsed, ["a", "b", "c"]),
-        DEFAULT_PANE_ID,
-      )!.tabIds,
+      getPane(migrateLegacySinglePaneStripOrder(collapsed, ["a", "b", "c"]), DEFAULT_PANE_ID)!
+        .tabIds,
     ).toEqual(["b", "a"]);
   });
 });
@@ -854,9 +819,9 @@ describe("context-keyed strip ensure/migration/seed", () => {
     expect(getPane(later, DEFAULT_PANE_ID)!.tabIds).toEqual(
       getPane(migrated, DEFAULT_PANE_ID)!.tabIds,
     );
-    expect(
-      resolvePaneTabStripOrder(getPane(later, DEFAULT_PANE_ID)!.tabIds, orderA),
-    ).toEqual(getPane(migrated, DEFAULT_PANE_ID)!.tabIds);
+    expect(resolvePaneTabStripOrder(getPane(later, DEFAULT_PANE_ID)!.tabIds, orderA)).toEqual(
+      getPane(migrated, DEFAULT_PANE_ID)!.tabIds,
+    );
   });
 
   it("does not seed a new B layout from A's React strip order", () => {
@@ -869,9 +834,7 @@ describe("context-keyed strip ensure/migration/seed", () => {
     const seeded = applyLegacyStripOrder(openTabsB, strip);
     expect(seeded).toEqual(applyLegacyStripOrder(openTabsB, orderB));
     expect(seeded).not.toEqual(applyLegacyStripOrder(openTabsB, orderA));
-    expect(getPane(createDefaultLayout(seeded, "wiki"), DEFAULT_PANE_ID)!.tabIds).toEqual(
-      seeded,
-    );
+    expect(getPane(createDefaultLayout(seeded, "wiki"), DEFAULT_PANE_ID)!.tabIds).toEqual(seeded);
   });
 
   it("keeps tagged same-context React strip order without reading the other workspace", () => {
@@ -923,13 +886,13 @@ function fakeEl(
       if (selector === "[data-center-pane-owner]" && this.attrs["data-center-pane-owner"]) {
         return this;
       }
-      if (selector === "[data-workspace-frame]" && this.attrs["data-workspace-frame"] !== undefined) {
+      if (
+        selector === "[data-workspace-frame]" &&
+        this.attrs["data-workspace-frame"] !== undefined
+      ) {
         return this;
       }
-      if (
-        selector === "[data-atmos-browser-surface]" &&
-        this.attrs["data-atmos-browser-surface"]
-      ) {
+      if (selector === "[data-atmos-browser-surface]" && this.attrs["data-atmos-browser-surface"]) {
         return this;
       }
       return this.parent?.closest(selector) ?? null;
@@ -955,12 +918,8 @@ describe("browser host content-focus coverage", () => {
     expect(isBrowserHostFocusTarget(urlField)).toBe(true);
     expect(paneIdFromOverlayEventTarget(iframe as unknown as EventTarget)).toBe("pane-2");
     expect(paneIdFromOverlayEventTarget(webview as unknown as EventTarget)).toBe("pane-2");
-    expect(paneIdFromOverlayEventTarget(urlField as unknown as EventTarget)).toBe(
-      "pane-2",
-    );
-    expect(
-      shouldFocusOwningPane({ paneId: "pane-2", focusedPaneId: "pane-main" }),
-    ).toBe(true);
+    expect(paneIdFromOverlayEventTarget(urlField as unknown as EventTarget)).toBe("pane-2");
+    expect(shouldFocusOwningPane({ paneId: "pane-2", focusedPaneId: "pane-main" })).toBe(true);
   });
 
   it("maps maximized portal host chrome that sits outside a workspace frame", () => {

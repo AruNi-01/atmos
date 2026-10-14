@@ -190,7 +190,10 @@ if (permissionMode) {
     throw new Error(`configure failed: ${JSON.stringify(configured.payload)}`);
   }
   const next = configured.payload.data?.descriptor?.current_config ?? {};
-  console.log("configured", JSON.stringify({ permission_mode: next.permission_mode ?? permissionMode }));
+  console.log(
+    "configured",
+    JSON.stringify({ permission_mode: next.permission_mode ?? permissionMode }),
+  );
 }
 
 async function sendText(text, label) {
@@ -204,9 +207,7 @@ async function sendText(text, label) {
   if (!sent.payload?.success) {
     throw new Error(`${label} failed: ${JSON.stringify(sent.payload)}`);
   }
-  console.log(
-    `${label} ok turn_id=${sent.payload.data?.turn_id ?? sent.payload.data?.id ?? "?"}`,
-  );
+  console.log(`${label} ok turn_id=${sent.payload.data?.turn_id ?? sent.payload.data?.id ?? "?"}`);
   return sent;
 }
 
@@ -251,7 +252,10 @@ if (op && seedFirst) {
   const seeded = await waitChat(["turn_completed", "error"], "seed_turn");
   const seedPayload = chatEvent(seeded, chatId)?.payload ?? null;
   console.log("seed_terminal", JSON.stringify(seedPayload, null, 2));
-  if (isQuotaError(seedPayload) || seedPayload?.status === "failed" && isQuotaError(seedPayload?.error)) {
+  if (
+    isQuotaError(seedPayload) ||
+    (seedPayload?.status === "failed" && isQuotaError(seedPayload?.error))
+  ) {
     console.error("STOP: 402 quota on seed — not sending more turns");
     if (!flag("keep")) request(ws, "agent_chat_delete", { chat_id: chatId });
     ws.close();
@@ -288,12 +292,12 @@ if (!flag("no-permission")) {
     const options = last.payload.request?.options ?? [];
     const optionId = permissionOption
       ? options.find((opt) => opt.option_id === permissionOption)?.option_id
-      : options.find((opt) => {
+      : (options.find((opt) => {
           const key = `${opt.option_id ?? ""} ${opt.kind ?? ""} ${opt.name ?? ""}`.toLowerCase();
           return /allow|accept|once/.test(key) && !/reject|deny|decline|cancel|always/.test(key);
-        })?.option_id
-        ?? options.find((opt) => !/reject|deny|decline|cancel/i.test(`${opt.option_id} ${opt.kind}`))
-          ?.option_id;
+        })?.option_id ??
+        options.find((opt) => !/reject|deny|decline|cancel/i.test(`${opt.option_id} ${opt.kind}`))
+          ?.option_id);
     console.log(
       "permission_request",
       JSON.stringify(
@@ -444,13 +448,17 @@ if (op === "fork" || op === "rewind") {
   } else if (respond && last?.payload?.outcome === "failed") {
     process.exitCode = 2;
     console.error(`FAIL: ${provider} ${sendTextValue} ${last.payload.error ?? "failed"}`);
-  } else if (respond && !types.includes("session_op_resolved") && !types.includes("session_forked")) {
+  } else if (
+    respond &&
+    !types.includes("session_op_resolved") &&
+    !types.includes("session_forked")
+  ) {
     process.exitCode = 2;
     console.error("FAIL: no session_op_resolved / session_forked after respond");
   } else {
     console.log("OK");
   }
-  } else if (!types.includes("turn_completed")) {
+} else if (!types.includes("turn_completed")) {
   process.exitCode = 2;
   console.error("FAIL: no turn_completed");
 } else {

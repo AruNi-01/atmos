@@ -74,9 +74,8 @@ function ScrollArea({
           assignRef(viewportRef, node);
         }}
         className={cn(
-          "min-h-0 min-w-0 flex-1 rounded-[inherit] outline-none transition-shadows focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background data-has-overflow-x:overscroll-x-contain",
-          scrollbarGutter &&
-          "data-has-overflow-y:pe-2.5 data-has-overflow-x:pb-2.5",
+          "transition-shadows min-h-0 min-w-0 flex-1 rounded-[inherit] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background data-has-overflow-x:overscroll-x-contain",
+          scrollbarGutter && "data-has-overflow-x:pb-2.5 data-has-overflow-y:pe-2.5",
           viewportClassName,
         )}
         data-scroll-fade={scrollFade ? "" : undefined}
@@ -101,14 +100,14 @@ function ScrollBar({
   return (
     <ScrollAreaPrimitive.Scrollbar
       className={cn(
-        "z-50 opacity-0 transition-opacity delay-300 pointer-events-none",
+        "pointer-events-none z-50 opacity-0 transition-opacity delay-300",
         "data-hovering:pointer-events-auto data-scrolling:pointer-events-auto",
         "data-hovering:opacity-100 data-scrolling:opacity-100",
         "data-hovering:delay-0 data-scrolling:delay-0",
         "data-hovering:duration-100 data-scrolling:duration-100",
         "hidden",
         horizontal
-          ? "relative mx-1 mb-1 mt-0.5 h-1.5 w-auto flex-col data-[has-overflow-x]:flex"
+          ? "relative mx-1 mt-0.5 mb-1 h-1.5 w-auto flex-col data-[has-overflow-x]:flex"
           : "absolute m-1 w-1.5 data-[has-overflow-y]:flex",
         className,
       )}
@@ -137,8 +136,5 @@ function ScrollBar({
 }
 
 export { ScrollArea, ScrollBar };
-export {
-  applyStickyFadeInsets,
-  stickyFadeItemFromElement,
-} from "./scroll-area-fade";
+export { applyStickyFadeInsets, stickyFadeItemFromElement } from "./scroll-area-fade";
 export type { StickyFadeItem } from "./scroll-area-fade";

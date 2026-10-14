@@ -91,10 +91,7 @@ export function HostSessionDateMenuItem({
           <span className="max-w-[7rem] truncate text-[11px] text-muted-foreground">{summary}</span>
         ) : null}
       </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent
-        sideOffset={8}
-        className="w-auto overflow-visible rounded-3xl p-0"
-      >
+      <DropdownMenuSubContent sideOffset={8} className="w-auto overflow-visible rounded-3xl p-0">
         <DateRangePickerPanel
           value={value}
           locale={locale}

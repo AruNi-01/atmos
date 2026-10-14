@@ -9,35 +9,35 @@
 
 被审查提交（含 merge，按时间）：
 
-| Hash | Author | Message |
-| --- | --- | --- |
+| Hash        | Author   | Message                                                                                    |
+| ----------- | -------- | ------------------------------------------------------------------------------------------ |
 | `3b55c774d` | AruNi_Lu | feat(desktop-use): APP-052 Desktop Use Settings, CLI, and AppShot capture migration (#199) |
-| `47524de67` | AarynLu | feat(desktop-use): pin control engine package under Atmos Desktop Use host |
-| `613cee631` | AarynLu | fix(desktop-use): serve via Atmos Desktop Use.app for unified TCC |
-| `baa4f0fad` | AarynLu | fix(desktop-use): route AppShot capture through host engine when installed |
-| `cc55af201` | AarynLu | fix(desktop-use): rustfmt + silence unused host_app on non-macOS |
-| `6a46fe139` | AarynLu | docs(desktop-use): clarify Electron capture is pre-ensure fallback only |
-| `36fa5df9d` | AarynLu | fix(desktop-use): lock 0.17.0 screenshot protocol and real PNG extract |
-| `996b81a99` | AruNi_Lu | refactor: address daily quality findings for 2026-08-03 (#198) |
-| `3d7a42392` | AarynLu | feat(desktop): APP-053 browser via Electron webview, host selection UI |
-| `b369e2288` | AarynLu | fix(web): add missing browser.toolbar.actions.openBrowserWindow i18n |
-| `4a5c561d4` | AarynLu | feat(desktop-use): polish control UX, agent chrome, and compliance notices |
-| `4c265d64d` | AarynLu | fix(desktop): black screen when opening browser webview |
-| `9a2a5369e` | AarynLu | fix(web): remove unused ts-expect-error on Electron webview |
-| `8d82359b4` | AarynLu | fix(web): browser loading overlay and keep webview across tab switch |
-| `0f39ebe44` | AarynLu | test(web): fix layoutHidden structural assertion for webview mount |
-| `7f8adce60` | AarynLu | fix(desktop): harden multi-tab webview attach and canvas browser mount |
-| `6c6710ced` | AarynLu | feat(desktop-use): browser-use CDP surface, AX/pixel ladder, cursor-matched chrome |
-| `4c92f00c9` | AarynLu | fix(desktop): harden webview browser selection, nav, and bind |
-| `290442a7c` | AarynLu | fix(web): reverse browser refresh icon spin direction while loading |
-| `f0c5d0585` | AarynLu | fix(desktop): sync Atmos theme into browser guest color-scheme |
-| `91f96a877` | AarynLu | fix(web): Arc-style browser tabs and canvas webview clicks |
-| `3e73468b1` | AarynLu | fix(desktop-use): silence Linux Clippy and harden CLI/host capture |
-| `876bf59a1` | AarynLu | fix(desktop-use): address review quick-wins for install, capture, overlay |
-| `470693e97` | AarynLu | fix(web): polish browser tab chrome and selection popover placement |
-| `b949fe765` | AarynLu | fix(web): refine browser tab strip chrome and hover stability |
-| `9759c4306` | AruNi_Lu | feat(desktop): APP-053 browser via Electron webview + host selection UI (#203) |
-| `51332553b` | AruNi_Lu | Merge pull request #202 from AruNi-01/feat/app-052-control-engine-cua |
+| `47524de67` | AarynLu  | feat(desktop-use): pin control engine package under Atmos Desktop Use host                 |
+| `613cee631` | AarynLu  | fix(desktop-use): serve via Atmos Desktop Use.app for unified TCC                          |
+| `baa4f0fad` | AarynLu  | fix(desktop-use): route AppShot capture through host engine when installed                 |
+| `cc55af201` | AarynLu  | fix(desktop-use): rustfmt + silence unused host_app on non-macOS                           |
+| `6a46fe139` | AarynLu  | docs(desktop-use): clarify Electron capture is pre-ensure fallback only                    |
+| `36fa5df9d` | AarynLu  | fix(desktop-use): lock 0.17.0 screenshot protocol and real PNG extract                     |
+| `996b81a99` | AruNi_Lu | refactor: address daily quality findings for 2026-08-03 (#198)                             |
+| `3d7a42392` | AarynLu  | feat(desktop): APP-053 browser via Electron webview, host selection UI                     |
+| `b369e2288` | AarynLu  | fix(web): add missing browser.toolbar.actions.openBrowserWindow i18n                       |
+| `4a5c561d4` | AarynLu  | feat(desktop-use): polish control UX, agent chrome, and compliance notices                 |
+| `4c265d64d` | AarynLu  | fix(desktop): black screen when opening browser webview                                    |
+| `9a2a5369e` | AarynLu  | fix(web): remove unused ts-expect-error on Electron webview                                |
+| `8d82359b4` | AarynLu  | fix(web): browser loading overlay and keep webview across tab switch                       |
+| `0f39ebe44` | AarynLu  | test(web): fix layoutHidden structural assertion for webview mount                         |
+| `7f8adce60` | AarynLu  | fix(desktop): harden multi-tab webview attach and canvas browser mount                     |
+| `6c6710ced` | AarynLu  | feat(desktop-use): browser-use CDP surface, AX/pixel ladder, cursor-matched chrome         |
+| `4c92f00c9` | AarynLu  | fix(desktop): harden webview browser selection, nav, and bind                              |
+| `290442a7c` | AarynLu  | fix(web): reverse browser refresh icon spin direction while loading                        |
+| `f0c5d0585` | AarynLu  | fix(desktop): sync Atmos theme into browser guest color-scheme                             |
+| `91f96a877` | AarynLu  | fix(web): Arc-style browser tabs and canvas webview clicks                                 |
+| `3e73468b1` | AarynLu  | fix(desktop-use): silence Linux Clippy and harden CLI/host capture                         |
+| `876bf59a1` | AarynLu  | fix(desktop-use): address review quick-wins for install, capture, overlay                  |
+| `470693e97` | AarynLu  | fix(web): polish browser tab chrome and selection popover placement                        |
+| `b949fe765` | AarynLu  | fix(web): refine browser tab strip chrome and hover stability                              |
+| `9759c4306` | AruNi_Lu | feat(desktop): APP-053 browser via Electron webview + host selection UI (#203)             |
+| `51332553b` | AruNi_Lu | Merge pull request #202 from AruNi-01/feat/app-052-control-engine-cua                      |
 
 ## 2. 一份好代码应该是什么样
 
@@ -58,13 +58,13 @@ APP-052/053 在模块切分、纯函数协议层、attach policy 单测和上一
 
 ## 5. 分项评分
 
-| 维度 | 得分 | 扣分原因 |
-| --- | ---: | --- |
-| 设计与分层 | 24/30 | 正向：`drive_tools` / `engine_protocol` / `webview-attach-policy` / `browser-use` backends / #198 `child_lifecycle` 拆分。扣分：`DriveRequest` 约 40 可选字段成为全动作共用袋；`BrowserSurfaceManager` 同时管 attach 队列、guest bind、runtime inject、theme、detached window；`BrowserSession` 继续作为 transport+UI 总编排器承载 APP-053 新路径。 |
-| 可读性与复杂度 | 19/25 | `run_engine` / `screenshot_via_engine` 多阶段流水线可读但长；`createTransportHandlers` 约 190 行事件表；preview→browser 重命名后仍大量 `Preview*` / `previewT` 命名，扫描成本高。 |
-| 体量与内聚 | 13/20 | 日终：`control.rs` ~1081、`BrowserSession` ~1386（较旧 Preview 略减但仍是枢纽）、`surface-manager` ~957（自旧 preview manager 800 增长）、CLI `desktop_use.rs` ~912、`highlight.rs` ~752、`drive_tools.build_engine_call` ~340 行 match。 |
-| 可维护性与复用 | 12/15 | 正向：结构化 error_code、vendor scrub、fixtures、structural tests。扣分：CLI clap 类型与 `DriveRequest` 映射同文件；`DriveResult` 失败构造大量复制（审查时）；browser 命名债务未收敛。 |
-| 工程卫生 | 9/10 | 大量 review quick-win、clippy/CI 跟进、NOTICE/compliance、unit tests 充分；同日 ship 中 black-screen / tab bind 连续修补属过程抖动，轻微扣分。 |
+| 维度           |  得分 | 扣分原因                                                                                                                                                                                                                                                                                                                                            |
+| -------------- | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 设计与分层     | 24/30 | 正向：`drive_tools` / `engine_protocol` / `webview-attach-policy` / `browser-use` backends / #198 `child_lifecycle` 拆分。扣分：`DriveRequest` 约 40 可选字段成为全动作共用袋；`BrowserSurfaceManager` 同时管 attach 队列、guest bind、runtime inject、theme、detached window；`BrowserSession` 继续作为 transport+UI 总编排器承载 APP-053 新路径。 |
+| 可读性与复杂度 | 19/25 | `run_engine` / `screenshot_via_engine` 多阶段流水线可读但长；`createTransportHandlers` 约 190 行事件表；preview→browser 重命名后仍大量 `Preview*` / `previewT` 命名，扫描成本高。                                                                                                                                                                   |
+| 体量与内聚     | 13/20 | 日终：`control.rs` ~1081、`BrowserSession` ~1386（较旧 Preview 略减但仍是枢纽）、`surface-manager` ~957（自旧 preview manager 800 增长）、CLI `desktop_use.rs` ~912、`highlight.rs` ~752、`drive_tools.build_engine_call` ~340 行 match。                                                                                                           |
+| 可维护性与复用 | 12/15 | 正向：结构化 error_code、vendor scrub、fixtures、structural tests。扣分：CLI clap 类型与 `DriveRequest` 映射同文件；`DriveResult` 失败构造大量复制（审查时）；browser 命名债务未收敛。                                                                                                                                                              |
+| 工程卫生       |  9/10 | 大量 review quick-win、clippy/CI 跟进、NOTICE/compliance、unit tests 充分；同日 ship 中 black-screen / tab bind 连续修补属过程抖动，轻微扣分。                                                                                                                                                                                                      |
 
 ## 6. 主要问题清单
 

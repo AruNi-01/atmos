@@ -290,9 +290,7 @@ describe("isResourceMonitorSnapshot", () => {
           {
             ...project,
             other_usage: usage,
-            other_processes: [
-              { ...process, name: "Google Chrome for Testing", leaked: true },
-            ],
+            other_processes: [{ ...process, name: "Google Chrome for Testing", leaked: true }],
           },
         ],
       }),
@@ -476,14 +474,8 @@ describe("isResourceMonitorSnapshot", () => {
 
 describe("isResourceHostMetrics", () => {
   test("accepts empty cores or a unique stably ordered 0–100 core list", () => {
-    expect(
-      isResourceHostMetrics(
-        testHostMetrics({ logical_cpu_count: 8, cores: [] }),
-      ),
-    ).toBe(true);
-    expect(isResourceHostMetrics(testHostMetrics({ logical_cpu_count: 2 }))).toBe(
-      true,
-    );
+    expect(isResourceHostMetrics(testHostMetrics({ logical_cpu_count: 8, cores: [] }))).toBe(true);
+    expect(isResourceHostMetrics(testHostMetrics({ logical_cpu_count: 2 }))).toBe(true);
     expect(isResourceMemoryAccounting("btop_mach")).toBe(true);
     expect(TEST_ACCOUNTING).toHaveLength(4);
   });
@@ -640,11 +632,7 @@ describe("isResourceDiskMetrics", () => {
       mount_point: "/System/Volumes/Data",
     });
     expect(isResourceMonitorSnapshot({ ...valid, disks: [disk] })).toBe(true);
-    expect(isResourceMonitorSnapshot({ ...valid, disks: [disk, extra] })).toBe(
-      false,
-    );
-    expect(isResourceMonitorSnapshot({ ...valid, disks: [disk, disk] })).toBe(
-      false,
-    );
+    expect(isResourceMonitorSnapshot({ ...valid, disks: [disk, extra] })).toBe(false);
+    expect(isResourceMonitorSnapshot({ ...valid, disks: [disk, disk] })).toBe(false);
   });
 });

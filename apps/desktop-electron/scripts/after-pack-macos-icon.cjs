@@ -35,9 +35,8 @@ function checkActool26() {
     return { ok: false, reason: r.error?.message ?? `exit ${r.status}` };
   }
   const m =
-    out.match(
-      /short-bundle-version<\/key>\s*<string>([0-9]+(?:\.[0-9]+)*)<\/string>/i,
-    ) ?? out.match(/short-bundle-version["\s:=]+([0-9]+(?:\.[0-9]+)*)/i);
+    out.match(/short-bundle-version<\/key>\s*<string>([0-9]+(?:\.[0-9]+)*)<\/string>/i) ??
+    out.match(/short-bundle-version["\s:=]+([0-9]+(?:\.[0-9]+)*)/i);
   const version = m?.[1] ?? "";
   const major = Number.parseInt(version.split(".")[0] ?? "0", 10);
   if (!version || !Number.isFinite(major) || major < 26) {
@@ -120,11 +119,9 @@ function compileAssetsCar(iconPath) {
 
 function setPlistIconName(plistPath, iconName) {
   // Prefer plutil for binary/xml plists
-  const r = spawnSync(
-    "plutil",
-    ["-replace", "CFBundleIconName", "-string", iconName, plistPath],
-    { encoding: "utf8" },
-  );
+  const r = spawnSync("plutil", ["-replace", "CFBundleIconName", "-string", iconName, plistPath], {
+    encoding: "utf8",
+  });
   if (r.status !== 0) {
     // insert if missing
     const r2 = spawnSync(
@@ -133,9 +130,7 @@ function setPlistIconName(plistPath, iconName) {
       { encoding: "utf8" },
     );
     if (r2.status !== 0) {
-      throw new Error(
-        `failed to set CFBundleIconName: ${r.stderr || r2.stderr || r.stdout}`,
-      );
+      throw new Error(`failed to set CFBundleIconName: ${r.stderr || r2.stderr || r.stdout}`);
     }
   }
 }
@@ -159,9 +154,7 @@ module.exports = async function afterPack(context) {
   const forceLegacy = process.env.ATMOS_ELECTRON_ICON_LEGACY === "1";
 
   if (forceLegacy) {
-    console.log(
-      "[after-pack-macos-icon] ATMOS_ELECTRON_ICON_LEGACY=1 — skip Assets.car",
-    );
+    console.log("[after-pack-macos-icon] ATMOS_ELECTRON_ICON_LEGACY=1 — skip Assets.car");
     return;
   }
 
@@ -180,9 +173,7 @@ module.exports = async function afterPack(context) {
     return;
   }
 
-  console.log(
-    `[after-pack-macos-icon] compiling Liquid Glass with actool ${actool.version}`,
-  );
+  console.log(`[after-pack-macos-icon] compiling Liquid Glass with actool ${actool.version}`);
   const compiled = compileAssetsCar(iconPath);
   if (!compiled.ok) {
     const msg = `[after-pack-macos-icon] ${compiled.reason}`;

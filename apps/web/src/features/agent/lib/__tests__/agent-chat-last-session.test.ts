@@ -178,7 +178,7 @@ describe("agent chat last session", () => {
     expect(source).toContain("readAgentChatLastSessions");
     expect(source).toContain("resolveRestoredAgentChat");
     expect(source).toContain("prefsRestored");
-    expect(source).toContain("connectionState === \"connected\"");
+    expect(source).toContain('connectionState === "connected"');
     expect(source).not.toContain("resumeSession(");
     expect(source).toContain("agentChatApi.get");
     expect(source).toContain("agentChatApi.send");
@@ -194,7 +194,9 @@ describe("agent chat last session", () => {
     expect(source).toContain("composerSelection");
     expect(source).toContain("composerConfigOptions");
     expect(source).toContain("displayedComposerConfigValue");
-    expect(source).toContain("onUpdatedRef.current?.(id, { providerId: meta.provider_id ?? null })");
+    expect(source).toContain(
+      "onUpdatedRef.current?.(id, { providerId: meta.provider_id ?? null })",
+    );
     expect(source).not.toContain("created.meta");
     expect(source).toContain("isRestoringTranscript: isResumingHistory");
     expect(source).toContain("resumeTranscript");
@@ -209,7 +211,7 @@ describe("agent chat last session", () => {
     expect(source).toContain("keepComposerChrome");
     expect(source).not.toContain("agentApi.setDefaultConfig");
     expect(source).toContain("preferredConfigFromDefault");
-    expect(source).toContain("from \"@/features/agent/lib/agent-chat-prefs\"");
+    expect(source).toContain('from "@/features/agent/lib/agent-chat-prefs"');
     expect(source).not.toContain("restored.modelId");
     expect(source).not.toContain("restored.thinkingId");
   });

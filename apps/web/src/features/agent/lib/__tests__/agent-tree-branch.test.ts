@@ -142,10 +142,7 @@ describe("agent tree wiring", () => {
     expect(group).not.toContain("animate={streaming}");
     expect(group).not.toContain("useSequentialReveal(parts.length, streaming)");
     expect(group).not.toContain("useSequentialReveal(parts.length, autoOpen)");
-    const delays = readFileSync(
-      join(import.meta.dir, "../agent-tree-branch.ts"),
-      "utf8",
-    );
+    const delays = readFileSync(join(import.meta.dir, "../agent-tree-branch.ts"), "utf8");
     expect(delays).toContain("return TREE_STEP_MS");
     expect(delays).not.toContain("pending > 16");
     expect(TREE_LINE_MS).toBe(TREE_DRAW_MS);
@@ -192,7 +189,7 @@ describe("agent tree wiring", () => {
     expect(search).toContain("data-websearch-list");
     expect(search).toContain("data-websearch-stack");
     expect(search).toContain("layoutId");
-    expect(search).toContain("animate={{ height: visible ? \"auto\" : 0 }}");
+    expect(search).toContain('animate={{ height: visible ? "auto" : 0 }}');
     expect(search).not.toContain("useCountedReveal");
     expect(search).not.toContain("stackedRemaining");
     expect(body).not.toContain("WEBSEARCH_LINE_MS");

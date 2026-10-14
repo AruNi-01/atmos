@@ -48,15 +48,18 @@ crates/quota-usage/
 ## Coding Conventions
 
 ### Provider Pattern
+
 - Each AI platform has a dedicated provider in `providers/`
 - Providers implement a common trait/interface for usage extraction
 - Factory pattern in `providers/factory/` for provider instantiation
 
 ### Storage
+
 - Usage data stored locally with encrypted credentials
 - Each provider may have different storage locations and formats
 
 ### Service Layer
+
 - `service.rs` provides unified access to all providers
 - Use async/await for I/O operations
 
@@ -65,13 +68,14 @@ crates/quota-usage/
 ## Safety Rails
 
 ### NEVER
+
 - Hardcode API keys or credentials — use encrypted storage
 - Assume all providers have the same data format — each is unique
 - Expose provider-specific details outside this crate — keep abstracted
 
 ### ALWAYS
+
 - Handle provider errors gracefully (missing config, permissions, etc.)
 - Respect platform-specific security requirements
 - Keep provider implementations isolated and modular
 - Use the factory pattern for provider instantiation
-

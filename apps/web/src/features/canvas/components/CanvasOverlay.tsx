@@ -5,11 +5,7 @@ import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { useQueryState } from "nuqs";
 import { ChevronDown } from "lucide-react";
-import {
-  PUSH_PAGE_DURATION_MS,
-  cn,
-  usePushPageTransition,
-} from "@workspace/ui";
+import { PUSH_PAGE_DURATION_MS, cn, usePushPageTransition } from "@workspace/ui";
 import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
 import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
 import { CanvasOverlayActiveContext } from "@/features/canvas/lib/canvas-overlay-activity";
@@ -159,11 +155,7 @@ export function CanvasOverlay() {
         isKeepAliveHidden && "pointer-events-none",
       )}
       // Warm-hidden: stay mounted off-screen (no enter/exit class).
-      style={
-        isKeepAliveHidden
-          ? { transform: "translate3d(0, 100%, 0)" }
-          : undefined
-      }
+      style={isKeepAliveHidden ? { transform: "translate3d(0, 100%, 0)" } : undefined}
     >
       {/*
         Always keep CanvasView once mounted — do not gate on phase.
@@ -181,7 +173,7 @@ export function CanvasOverlay() {
         type="button"
         onClick={handleClose}
         tabIndex={isKeepAliveHidden ? -1 : undefined}
-        className="group absolute left-1/2 top-0 z-[160] flex -translate-x-1/2 cursor-pointer flex-col items-center gap-0 px-6 pb-0.5 text-muted-foreground/40 hover:text-muted-foreground"
+        className="group absolute top-0 left-1/2 z-[160] flex -translate-x-1/2 cursor-pointer flex-col items-center gap-0 px-6 pb-0.5 text-muted-foreground/40 hover:text-muted-foreground"
         style={needsTrafficLightsPadding ? { top: 32 } : undefined}
         aria-label={t("overlay.collapseCanvas")}
         title={t("overlay.collapseCanvas")}

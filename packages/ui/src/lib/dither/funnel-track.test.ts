@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-  FUNNEL_TRACK_ALPHA,
-  funnelValueWidth,
-  resolveFunnelTrack,
-} from "./funnel-track";
+import { FUNNEL_TRACK_ALPHA, funnelValueWidth, resolveFunnelTrack } from "./funnel-track";
 
 describe("resolveFunnelTrack", () => {
   test("omitted / empty color keeps the previous no-track behavior", () => {

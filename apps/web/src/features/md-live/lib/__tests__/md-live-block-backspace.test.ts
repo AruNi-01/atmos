@@ -1,12 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Window } from "happy-dom";
-import {
-  Editor,
-  commandsCtx,
-  defaultValueCtx,
-  editorViewCtx,
-  rootCtx,
-} from "@milkdown/kit/core";
+import { Editor, commandsCtx, defaultValueCtx, editorViewCtx, rootCtx } from "@milkdown/kit/core";
 import {
   commonmark,
   createCodeBlockCommand,
@@ -128,7 +122,9 @@ describe("md-live convert isolate", () => {
       const view = ctx.get(editorViewCtx);
       const start = textblockStart(view.state.doc, "paragraph");
       if (start == null) throw new Error("missing paragraph");
-      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, start + 6, start + 11)));
+      view.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, start + 6, start + 11)),
+      );
       const tr = isolateSelectedTextblock(view.state);
       expect(tr).not.toBeNull();
       if (tr) view.dispatch(tr);
@@ -194,8 +190,8 @@ describe("md-live editor caret", () => {
 
   test("focusEditorCaret end puts the caret at the end of the document", async () => {
     const editor = await createEditor("Hello world");
-    const expected = editor.action((ctx) =>
-      TextSelection.atEnd(ctx.get(editorViewCtx).state.doc).from,
+    const expected = editor.action(
+      (ctx) => TextSelection.atEnd(ctx.get(editorViewCtx).state.doc).from,
     );
     editor.action((ctx) => {
       focusEditorCaret(ctx, "end");

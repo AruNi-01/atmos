@@ -128,11 +128,7 @@ function collectFiles(node: TreeNode): DiffFileTreeItem[] {
   return Array.from(node.children.values()).flatMap(collectFiles);
 }
 
-function buildRows(
-  node: TreeNode,
-  openDirectories: ReadonlySet<string>,
-  depth = 0,
-): TreeRow[] {
+function buildRows(node: TreeNode, openDirectories: ReadonlySet<string>, depth = 0): TreeRow[] {
   const rows: TreeRow[] = [];
   const children = Array.from(node.children.values());
 
@@ -215,12 +211,8 @@ function changeCountDecoration(
       ref={options?.ref}
       className={cn("flex items-center gap-1 font-medium", options?.className)}
     >
-      {additions > 0 ? (
-        <span className="text-emerald-500">+{additions}</span>
-      ) : null}
-      {deletions > 0 ? (
-        <span className="text-red-500">-{deletions}</span>
-      ) : null}
+      {additions > 0 ? <span className="text-emerald-500">+{additions}</span> : null}
+      {deletions > 0 ? <span className="text-red-500">-{deletions}</span> : null}
     </div>
   );
 }
@@ -233,33 +225,29 @@ function defaultDecoration(
   },
 ) {
   const status = item.gitStatus === "?" ? "U" : item.gitStatus;
-  const changeCounts = item.isBinary
-    ? (
-        <div
-          ref={options?.changeCountsRef}
-          className={cn(
-            "flex items-center text-muted-foreground",
-            options?.hideChangeCounts && "hidden",
-          )}
-          title="Binary"
-          aria-label="Binary"
-        >
-          <Binary className="size-3.5 shrink-0" strokeWidth={2} />
-        </div>
-      )
-    : item.gitStatus !== "?"
-      ? changeCountDecoration(item.additions, item.deletions, {
-          ref: options?.changeCountsRef,
-          className: options?.hideChangeCounts ? "hidden" : undefined,
-        })
-      : null;
+  const changeCounts = item.isBinary ? (
+    <div
+      ref={options?.changeCountsRef}
+      className={cn(
+        "flex items-center text-muted-foreground",
+        options?.hideChangeCounts && "hidden",
+      )}
+      title="Binary"
+      aria-label="Binary"
+    >
+      <Binary className="size-3.5 shrink-0" strokeWidth={2} />
+    </div>
+  ) : item.gitStatus !== "?" ? (
+    changeCountDecoration(item.additions, item.deletions, {
+      ref: options?.changeCountsRef,
+      className: options?.hideChangeCounts ? "hidden" : undefined,
+    })
+  ) : null;
   if (!item.annotation && !changeCounts && !status) return null;
 
   return (
-    <div className="flex items-center gap-2 text-[11px] font-mono tabular-nums">
-      {item.annotation ? (
-        <span className="text-muted-foreground">{item.annotation}</span>
-      ) : null}
+    <div className="flex items-center gap-2 font-mono text-[11px] tabular-nums">
+      {item.annotation ? <span className="text-muted-foreground">{item.annotation}</span> : null}
       {changeCounts}
       {status ? (
         <span className={cn("w-3 text-center font-bold", statusClassName(item.gitStatus))}>
@@ -289,7 +277,7 @@ function defaultDirectoryDecoration(
   }
 
   return (
-    <div className="flex items-center gap-2 text-[11px] font-mono tabular-nums">
+    <div className="flex items-center gap-2 font-mono text-[11px] tabular-nums">
       {changeCounts}
       <span className="size-2 rounded-full bg-yellow-500/70" />
     </div>
@@ -347,11 +335,9 @@ function DiffFileTreeRow({
   onDoubleClickFile,
   onHover,
 }: DiffFileTreeRowProps) {
-  const showDirectoryActions =
-    !!directoryActions && (isHovered || isDirectoryActionActive);
+  const showDirectoryActions = !!directoryActions && (isHovered || isDirectoryActionActive);
   const file = row.type === "file" ? row.file : undefined;
-  const { nameRef, countsRef, shouldHideCounts } =
-    useShouldHideTreeChangeCounts(row.id);
+  const { nameRef, countsRef, shouldHideCounts } = useShouldHideTreeChangeCounts(row.id);
   const defaultFileDecoration =
     file && !decoration
       ? defaultDecoration(file, {
@@ -371,15 +357,11 @@ function DiffFileTreeRow({
       role="treeitem"
       data-diff-file-path={file?.path}
       aria-selected={isSelected || undefined}
-      aria-expanded={
-        row.type === "directory" ? openDirectories.has(row.path) : undefined
-      }
+      aria-expanded={row.type === "directory" ? openDirectories.has(row.path) : undefined}
       className={cn(
         "group/file relative flex h-7 min-w-0 items-center gap-1 rounded-md px-2 text-[13px] outline-none",
         file ? "cursor-pointer" : "cursor-default",
-        isSelected
-          ? "bg-sidebar-accent text-sidebar-foreground"
-          : "hover:bg-sidebar-accent/50",
+        isSelected ? "bg-sidebar-accent text-sidebar-foreground" : "hover:bg-sidebar-accent/50",
       )}
       draggable
       style={{ paddingLeft: indentOffset + 4 + row.depth * 12 }}
@@ -418,8 +400,7 @@ function DiffFileTreeRow({
             <div
               className={cn(
                 "ml-auto flex shrink-0 items-center justify-end transition-opacity",
-                directoryActions &&
-                  (showDirectoryActions ? "invisible" : undefined),
+                directoryActions && (showDirectoryActions ? "invisible" : undefined),
               )}
             >
               {directoryDecoration ?? defaultDirectoryDecorationNode}
@@ -429,9 +410,7 @@ function DiffFileTreeRow({
             <div
               className={cn(
                 "absolute right-2 z-10 flex items-center gap-1 rounded-md bg-sidebar-accent/95",
-                isDirectoryActionActive
-                  ? "opacity-100 pointer-events-auto"
-                  : undefined,
+                isDirectoryActionActive ? "pointer-events-auto opacity-100" : undefined,
               )}
             >
               {directoryActions}
@@ -445,17 +424,12 @@ function DiffFileTreeRow({
           <span ref={nameRef} className="min-w-0 flex-1 truncate text-foreground">
             {row.name}
           </span>
-          {inlineDecoration ? (
-            <span className="shrink-0">{inlineDecoration}</span>
-          ) : null}
+          {inlineDecoration ? <span className="shrink-0">{inlineDecoration}</span> : null}
           {decoration || defaultFileDecoration ? (
             <div
               className={cn(
                 "flex shrink-0 items-center justify-end transition-opacity",
-                actions &&
-                  (isActionActive
-                    ? "invisible"
-                    : "group-hover/file:invisible"),
+                actions && (isActionActive ? "invisible" : "group-hover/file:invisible"),
               )}
             >
               {decoration ?? defaultFileDecoration}
@@ -466,8 +440,8 @@ function DiffFileTreeRow({
               className={cn(
                 "absolute right-2 z-10 flex items-center gap-1 rounded-md bg-sidebar-accent/95 transition-opacity",
                 isActionActive
-                  ? "opacity-100 pointer-events-auto"
-                  : "opacity-0 pointer-events-none group-hover/file:pointer-events-auto group-hover/file:opacity-100",
+                  ? "pointer-events-auto opacity-100"
+                  : "pointer-events-none opacity-0 group-hover/file:pointer-events-auto group-hover/file:opacity-100",
               )}
             >
               {actions}
@@ -497,15 +471,10 @@ export function DiffFileTree({
   onDoubleClickFile,
 }: DiffFileTreeProps) {
   const root = useMemo(() => buildTree(items), [items]);
-  const [openDirectories, setOpenDirectories] = useState(() =>
-    getInitialOpenDirectories(root),
-  );
+  const [openDirectories, setOpenDirectories] = useState(() => getInitialOpenDirectories(root));
   const [hoveredRowPath, setHoveredRowPath] = useState<string | null>(null);
   const treeRef = useRef<HTMLDivElement>(null);
-  const rows = useMemo(
-    () => buildRows(root, openDirectories),
-    [openDirectories, root],
-  );
+  const rows = useMemo(() => buildRows(root, openDirectories), [openDirectories, root]);
 
   useEffect(() => {
     if (!selectedPath) return;
@@ -537,59 +506,51 @@ export function DiffFileTree({
       onMouseLeave={() => setHoveredRowPath(null)}
     >
       <AnimatePresence>
-      {rows.map((row) => {
-        const file = row.type === "file" ? row.file : undefined;
-        const isSelected = !!file && selectedPath === row.path;
-        const isActionActive =
-          file && isFileActionActive ? isFileActionActive(row.path) : false;
-        const directoryActionActive =
-          !file && isDirectoryActionActive
-            ? isDirectoryActionActive(row.files)
-            : false;
-        const directoryActions =
-          !file && renderDirectoryActions ? renderDirectoryActions(row.files) : null;
-        const actions = file && renderFileActions ? renderFileActions(file) : null;
-        const decoration =
-          file
-            ? (renderFileDecoration?.(file) ?? null)
-            : null;
-        const inlineDecoration =
-          file && renderFileInlineDecoration ? renderFileInlineDecoration(file) : null;
-        const directoryDecoration =
-          !file && renderDirectoryDecoration
-            ? renderDirectoryDecoration(row.files)
-            : null;
+        {rows.map((row) => {
+          const file = row.type === "file" ? row.file : undefined;
+          const isSelected = !!file && selectedPath === row.path;
+          const isActionActive = file && isFileActionActive ? isFileActionActive(row.path) : false;
+          const directoryActionActive =
+            !file && isDirectoryActionActive ? isDirectoryActionActive(row.files) : false;
+          const directoryActions =
+            !file && renderDirectoryActions ? renderDirectoryActions(row.files) : null;
+          const actions = file && renderFileActions ? renderFileActions(file) : null;
+          const decoration = file ? (renderFileDecoration?.(file) ?? null) : null;
+          const inlineDecoration =
+            file && renderFileInlineDecoration ? renderFileInlineDecoration(file) : null;
+          const directoryDecoration =
+            !file && renderDirectoryDecoration ? renderDirectoryDecoration(row.files) : null;
 
-        return (
-          <motion.div
-            key={`${row.type}:${row.id}`}
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            style={{ overflow: 'hidden' }}
-          >
-            <DiffFileTreeRow
-              row={row}
-              indentOffset={indentOffset}
-              isSelected={isSelected}
-              isHovered={hoveredRowPath === row.id}
-              isActionActive={isActionActive}
-              isDirectoryActionActive={directoryActionActive}
-              actions={actions}
-              directoryActions={directoryActions}
-              decoration={decoration}
-              directoryDecoration={directoryDecoration}
-              inlineDecoration={inlineDecoration}
-              openDirectories={openDirectories}
-              onToggleDirectory={toggleDirectory}
-              onSelectFile={onSelectFile}
-              onDoubleClickFile={onDoubleClickFile}
-              onHover={setHoveredRowPath}
-            />
-          </motion.div>
-        );
-      })}
+          return (
+            <motion.div
+              key={`${row.type}:${row.id}`}
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              style={{ overflow: "hidden" }}
+            >
+              <DiffFileTreeRow
+                row={row}
+                indentOffset={indentOffset}
+                isSelected={isSelected}
+                isHovered={hoveredRowPath === row.id}
+                isActionActive={isActionActive}
+                isDirectoryActionActive={directoryActionActive}
+                actions={actions}
+                directoryActions={directoryActions}
+                decoration={decoration}
+                directoryDecoration={directoryDecoration}
+                inlineDecoration={inlineDecoration}
+                openDirectories={openDirectories}
+                onToggleDirectory={toggleDirectory}
+                onSelectFile={onSelectFile}
+                onDoubleClickFile={onDoubleClickFile}
+                onHover={setHoveredRowPath}
+              />
+            </motion.div>
+          );
+        })}
       </AnimatePresence>
     </div>
   );

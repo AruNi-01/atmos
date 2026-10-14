@@ -46,8 +46,7 @@ export function useAutomationSetupLeaveGuard({
     }
   }, [agentId, mode, ready, setupSnapshot]);
 
-  const isDirty =
-    baselineRef.current !== null && baselineRef.current !== setupSnapshot;
+  const isDirty = baselineRef.current !== null && baselineRef.current !== setupSnapshot;
   isDirtyRef.current = isDirty;
 
   const requestLeave = React.useCallback((actions: LeaveActions) => {
@@ -138,21 +137,18 @@ export function useAutomationSetupLeaveGuard({
     pending?.discard();
   }, [setupSnapshot]);
 
-  const handleSaveAndLeave = React.useCallback(
-    async (save: () => Promise<unknown>) => {
-      const pending = pendingLeaveRef.current;
-      const saved = await save();
-      if (!saved) {
-        setLeaveDialogOpen(false);
-        pendingLeaveRef.current = null;
-        return;
-      }
+  const handleSaveAndLeave = React.useCallback(async (save: () => Promise<unknown>) => {
+    const pending = pendingLeaveRef.current;
+    const saved = await save();
+    if (!saved) {
       setLeaveDialogOpen(false);
       pendingLeaveRef.current = null;
-      pending?.afterSave();
-    },
-    [],
-  );
+      return;
+    }
+    setLeaveDialogOpen(false);
+    pendingLeaveRef.current = null;
+    pending?.afterSave();
+  }, []);
 
   return {
     isDirty,

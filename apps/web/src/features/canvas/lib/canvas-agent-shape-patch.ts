@@ -123,13 +123,15 @@ export function mergeShapeWithPartial(shape: TLShape, partial: TLShapePartial): 
     ...partial,
     id: shape.id,
     type: shape.type,
-    props: partial.props
-      ? ({ ...shape.props, ...partial.props } as TLShape["props"])
-      : shape.props,
+    props: partial.props ? ({ ...shape.props, ...partial.props } as TLShape["props"]) : shape.props,
   } as TLShape;
 }
 
-export function finalizeShapeForStore(editor: Editor, before: TLShape, partial: TLShapePartial): TLShape {
+export function finalizeShapeForStore(
+  editor: Editor,
+  before: TLShape,
+  partial: TLShapePartial,
+): TLShape {
   const merged = mergeShapeWithPartial(before, partial);
   const util = editor.getShapeUtil?.(before);
   return util?.onBeforeUpdate?.(before, merged) ?? merged;

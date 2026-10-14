@@ -1,11 +1,7 @@
 "use client";
 
 import { createTranslator } from "next-intl";
-import {
-  createShapeId,
-  type Editor,
-  type TLShapeId,
-} from "tldraw";
+import { createShapeId, type Editor, type TLShapeId } from "tldraw";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
@@ -42,7 +38,12 @@ type PlacementRect = {
 
 export type RelatedCanvasTerminalEditor = Pick<
   Editor,
-  "createShape" | "getCurrentPageShapes" | "getShape" | "getShapePageBounds" | "reparentShapes" | "updateShape"
+  | "createShape"
+  | "getCurrentPageShapes"
+  | "getShape"
+  | "getShapePageBounds"
+  | "reparentShapes"
+  | "updateShape"
 >;
 
 export type CreatedTerminalTabWithPane = {
@@ -79,11 +80,7 @@ function toRelatedCanvasTerminalSourceContext(
   source: RelatedCanvasTerminalSourceContext | RelatedCanvasTerminalSourceShape | null | undefined,
 ): RelatedCanvasTerminalSourceContext | null {
   const candidate =
-    source && "contextScope" in source
-      ? source
-      : source && "props" in source
-        ? source.props
-        : null;
+    source && "contextScope" in source ? source : source && "props" in source ? source.props : null;
 
   if (!candidate) {
     return null;
@@ -120,10 +117,14 @@ export function resolveRelatedCanvasTerminalFrameName(
 
   for (const project of projects) {
     if (sourceContext.contextScope === "project" && project.id === sourceContext.workspaceId) {
-      return project.name || sourceContext.projectName || relatedCanvasTerminalT("fallback.project");
+      return (
+        project.name || sourceContext.projectName || relatedCanvasTerminalT("fallback.project")
+      );
     }
 
-    const workspace = project.workspaces.find((candidate) => candidate.id === sourceContext.workspaceId);
+    const workspace = project.workspaces.find(
+      (candidate) => candidate.id === sourceContext.workspaceId,
+    );
     if (workspace) {
       return (
         workspace.displayName ||
@@ -137,7 +138,9 @@ export function resolveRelatedCanvasTerminalFrameName(
 
   return sourceContext.contextScope === "project"
     ? sourceContext.projectName || relatedCanvasTerminalT("fallback.project")
-    : sourceContext.workspaceName || sourceContext.projectName || relatedCanvasTerminalT("fallback.workspace");
+    : sourceContext.workspaceName ||
+        sourceContext.projectName ||
+        relatedCanvasTerminalT("fallback.workspace");
 }
 
 const RELATED_TERMINAL_GAP = 32;
@@ -234,20 +237,29 @@ function shiftRightSideTerminalShapes(
   currentShape: RelatedCanvasTerminalSourceShape,
   rightSlot: PlacementRect,
 ): TLShapeId[] {
-  const terminals = editor.getCurrentPageShapes()
-    .filter((candidate): candidate is RelatedCanvasShape & CanvasTerminalShape =>
-      candidate.id !== currentShape.id &&
-      candidate.parentId === currentShape.parentId &&
-      isCanvasTerminalShapeRecord(candidate),
+  const terminals = editor
+    .getCurrentPageShapes()
+    .filter(
+      (candidate): candidate is RelatedCanvasShape & CanvasTerminalShape =>
+        candidate.id !== currentShape.id &&
+        candidate.parentId === currentShape.parentId &&
+        isCanvasTerminalShapeRecord(candidate),
     )
     .map((candidate) => {
       const bounds = editor.getShapePageBounds(candidate.id as TLShapeId);
       return bounds ? { shape: candidate, rect: toPlacementRect(bounds) } : null;
     })
-    .filter((candidate): candidate is { shape: RelatedCanvasShape & CanvasTerminalShape; rect: PlacementRect } =>
-      Boolean(candidate),
+    .filter(
+      (
+        candidate,
+      ): candidate is { shape: RelatedCanvasShape & CanvasTerminalShape; rect: PlacementRect } =>
+        Boolean(candidate),
     )
-    .filter(({ rect }) => rect.x >= rightSlot.x - RELATED_TERMINAL_GAP && hasVerticalOverlap(rect, rightSlot, RELATED_TERMINAL_GAP));
+    .filter(
+      ({ rect }) =>
+        rect.x >= rightSlot.x - RELATED_TERMINAL_GAP &&
+        hasVerticalOverlap(rect, rightSlot, RELATED_TERMINAL_GAP),
+    );
 
   if (terminals.length === 0) {
     return [];
@@ -371,10 +383,22 @@ export function createRelatedCanvasTerminalShape({
       const shiftedBounds = placement.shiftedShapeIds
         .map((id) => editor.getShapePageBounds(id))
         .filter((candidate): candidate is CanvasTerminalPageBounds => Boolean(candidate));
-      const nextContentRight = Math.max(newBounds.maxX, ...shiftedBounds.map((candidate) => candidate.maxX));
-      const nextContentBottom = Math.max(newBounds.maxY, ...shiftedBounds.map((candidate) => candidate.maxY));
-      const nextFrameW = Math.max(frameProps.w ?? frameBounds.w, nextContentRight - frameBounds.x + 24);
-      const nextFrameH = Math.max(frameProps.h ?? frameBounds.h, nextContentBottom - frameBounds.y + 24);
+      const nextContentRight = Math.max(
+        newBounds.maxX,
+        ...shiftedBounds.map((candidate) => candidate.maxX),
+      );
+      const nextContentBottom = Math.max(
+        newBounds.maxY,
+        ...shiftedBounds.map((candidate) => candidate.maxY),
+      );
+      const nextFrameW = Math.max(
+        frameProps.w ?? frameBounds.w,
+        nextContentRight - frameBounds.x + 24,
+      );
+      const nextFrameH = Math.max(
+        frameProps.h ?? frameBounds.h,
+        nextContentBottom - frameBounds.y + 24,
+      );
       if (nextFrameW !== frameProps.w || nextFrameH !== frameProps.h) {
         editor.updateShape({
           id: parentShape.id as TLShapeId,

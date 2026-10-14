@@ -41,8 +41,13 @@ export function useTerminalCenterTabPresentation(options: {
   customTitle?: string | null;
   configuredAgents?: TerminalPaneAgent[];
 }): TerminalCenterTabPresentation {
-  const { contextId, tabId, fallbackTitle, customTitle: customTitleProp, configuredAgents = [] } =
-    options;
+  const {
+    contextId,
+    tabId,
+    fallbackTitle,
+    customTitle: customTitleProp,
+    configuredAgents = [],
+  } = options;
   const contestedOwners = useContestedCliOwners();
   const terminalTabId = tabId || FIXED_TERMINAL_TAB_VALUE;
   /** Sticky session topics per pane so realtime OSC churn does not resize the tab. */
@@ -61,7 +66,9 @@ export function useTerminalCenterTabPresentation(options: {
         };
       }
       const scopeKey = getScopeKey(contextId, terminalTabId);
-      const tab = getWorkspaceTerminalTabs(s, contextId).find((entry) => entry.id === terminalTabId);
+      const tab = getWorkspaceTerminalTabs(s, contextId).find(
+        (entry) => entry.id === terminalTabId,
+      );
       const livePanes = s.workspacePanes[scopeKey];
       const hasLivePanes = Boolean(livePanes && Object.keys(livePanes).length > 0);
       const persisted =
@@ -85,8 +92,7 @@ export function useTerminalCenterTabPresentation(options: {
     }),
   );
 
-  const customTitle =
-    customTitleProp !== undefined ? customTitleProp : live.storeCustomTitle;
+  const customTitle = customTitleProp !== undefined ? customTitleProp : live.storeCustomTitle;
   const resolvedFallback = live.storeFallbackTitle || fallbackTitle;
 
   return useMemo(() => {

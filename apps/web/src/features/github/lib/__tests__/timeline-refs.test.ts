@@ -166,9 +166,7 @@ describe("getTimelineReference", () => {
 
 describe("timeline ref event guards", () => {
   it("detects cross-referenced and connected events", () => {
-    expect(isTimelineCrossReferencedItem({ event: "cross-referenced" })).toBe(
-      true,
-    );
+    expect(isTimelineCrossReferencedItem({ event: "cross-referenced" })).toBe(true);
     expect(isTimelineConnectedItem({ event: "connected" })).toBe(true);
     expect(isTimelineConnectedItem({ event: "disconnected" })).toBe(true);
     expect(isTimelineConnectedItem({ event: "cross-referenced" })).toBe(false);

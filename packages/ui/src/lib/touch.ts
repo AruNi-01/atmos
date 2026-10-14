@@ -83,7 +83,5 @@ export function releasePointer(element: Element, pointerId: number) {
  * `lib/hooks/use-hover-gesture` does that, and hover surfaces should use it
  * rather than asking this question twice.
  */
-export const isHoveringPointer = (event: {
-  pointerType: string;
-  buttons: number;
-}) => event.pointerType !== "touch" && event.buttons === 0;
+export const isHoveringPointer = (event: { pointerType: string; buttons: number }) =>
+  event.pointerType !== "touch" && event.buttons === 0;

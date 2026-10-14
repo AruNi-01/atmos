@@ -82,17 +82,17 @@ pub fn cli_should_lazy_ensure(no_ensure: bool, needs_server: bool) -> bool;
 
 New module `apps/api/src/api/desktop_use.rs`, nest `/api/desktop-use`:
 
-| Method | Path | Handler |
-|--------|------|---------|
-| GET | `/status` | `DesktopUseManager::status` |
-| GET | `/doctor` | `permission_doctor` |
-| POST | `/driver/ensure` | `ensure_driver` |
-| POST | `/driver/stop` | `stop_driver` |
-| POST | `/driver/restart` | `restart_driver` |
-| POST | `/driver/check` | `runtime_check` |
-| POST | `/driver/uninstall` | `uninstall_driver` |
-| GET | `/prefs` | `load_prefs` |
-| PUT | `/prefs` | `update_prefs` |
+| Method | Path                | Handler                     |
+| ------ | ------------------- | --------------------------- |
+| GET    | `/status`           | `DesktopUseManager::status` |
+| GET    | `/doctor`           | `permission_doctor`         |
+| POST   | `/driver/ensure`    | `ensure_driver`             |
+| POST   | `/driver/stop`      | `stop_driver`               |
+| POST   | `/driver/restart`   | `restart_driver`            |
+| POST   | `/driver/check`     | `runtime_check`             |
+| POST   | `/driver/uninstall` | `uninstall_driver`          |
+| GET    | `/prefs`            | `load_prefs`                |
+| PUT    | `/prefs`            | `update_prefs`              |
 
 JSON `ApiResponse`. Blocking manager calls via `spawn_blocking`. `apps/api/Cargo.toml` depends on `desktop-use`.
 

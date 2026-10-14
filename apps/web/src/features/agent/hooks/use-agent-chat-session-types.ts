@@ -7,10 +7,7 @@ import type {
   AgentImplementationInfo,
 } from "@/api/rest-api";
 import type { RegistryAgent } from "@/api/ws-api";
-import type {
-  AgentConfigOption,
-  AgentPlan,
-} from "@/features/agent/lib/agent-chat-types";
+import type { AgentConfigOption, AgentPlan } from "@/features/agent/lib/agent-chat-types";
 import type { QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
 import type { AgentMessage, AgentSessionUsage } from "@atmos/api-types/ws/dto/agent-chat";
 import { assistantCopyText } from "@/features/agent/lib/agent-chat-events";
@@ -164,10 +161,7 @@ export interface UseAgentChatSessionReturn {
   messageNavIndex: number;
   setMessageNavIndex: React.Dispatch<React.SetStateAction<number>>;
   scrollToIndexRef: React.RefObject<((index: number) => void) | null>;
-  handleSubmit: (message: {
-    text: string;
-    files?: import("ai").FileUIPart[];
-  }) => Promise<void>;
+  handleSubmit: (message: { text: string; files?: import("ai").FileUIPart[] }) => Promise<void>;
   handleClose: () => void;
   handleLogoutAgent: () => Promise<void>;
   handlePermission: (optionKind: string) => void;
@@ -230,13 +224,14 @@ export function resolveAgentChatWikiPath(
   return null;
 }
 
-export function buildAgentChatExportableMessages(
-  messages: AgentMessage[],
-): ConversationMessage[] {
+export function buildAgentChatExportableMessages(messages: AgentMessage[]): ConversationMessage[] {
   return messages.flatMap<ConversationMessage>((message) => {
     if (message.role === "user") {
       const text = message.parts
-        .filter((part): part is Extract<AgentMessage["parts"][number], { type: "text" }> => part.type === "text")
+        .filter(
+          (part): part is Extract<AgentMessage["parts"][number], { type: "text" }> =>
+            part.type === "text",
+        )
         .map((part) => part.text)
         .join("\n")
         .trim();

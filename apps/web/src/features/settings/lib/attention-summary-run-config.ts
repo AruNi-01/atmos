@@ -20,9 +20,7 @@ export function attentionSummaryRunConfig(
   if (!model && !effort && extraArgs.length === 0) return null;
   const mode = reasoningSupportForAgent(agentId).mode;
   const reasoning =
-    effort && (mode === "enum" || mode === "encoded_in_model")
-      ? { mode, value: effort }
-      : null;
+    effort && (mode === "enum" || mode === "encoded_in_model") ? { mode, value: effort } : null;
   return {
     model: model || null,
     reasoning,

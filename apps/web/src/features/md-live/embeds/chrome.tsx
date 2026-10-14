@@ -1,25 +1,15 @@
 "use client";
 
 import { cloneElement, isValidElement } from "react";
-import {
-  Button,
-  Skeleton,
-  cn,
-} from "@workspace/ui";
+import { Button, Skeleton, cn } from "@workspace/ui";
 import { mdLiveCopy } from "../lib/md-live-copy";
 import type { MdLiveEmbedChromeProps } from "./types";
 
-function StateBadge({
-  label,
-  className,
-}: {
-  label: string;
-  className?: string;
-}) {
+function StateBadge({ label, className }: { label: string; className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center rounded-full border px-1.5 py-px text-[10px] font-medium leading-4",
+        "inline-flex shrink-0 items-center rounded-full border px-1.5 py-px text-[10px] leading-4 font-medium",
         className,
       )}
     >

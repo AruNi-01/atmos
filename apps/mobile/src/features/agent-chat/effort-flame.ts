@@ -193,13 +193,22 @@ function paintBody(data: Uint8Array, width: number, height: number, time: number
     const nWisp = fbm(advectPhase(uu, time, 6.8, 3.2, 11.2));
     const radius = Math.max(
       0.7,
-      height * 0.56 * env * (1 + turb * ((nRadius - 0.38) * 1.15 + (nRadius2 - 0.5) * (0.55 + 0.7 * uu))),
+      height *
+        0.56 *
+        env *
+        (1 + turb * ((nRadius - 0.38) * 1.15 + (nRadius2 - 0.5) * (0.55 + 0.7 * uu))),
     );
     const center = cy + (nShift - 0.5) * height * 0.34 * turb * env;
     const wispRadius = Math.max(0.45, height * 0.3 * env * (0.2 + turb * nWisp * 1.25));
     const wispCenter = cy + (nWisp - 0.46) * height * 0.5 * turb * env;
-    const y0 = Math.max(0, Math.floor(Math.min(center, wispCenter) - Math.max(radius, wispRadius) * 1.2));
-    const y1 = Math.min(height - 1, Math.ceil(Math.max(center, wispCenter) + Math.max(radius, wispRadius) * 1.2));
+    const y0 = Math.max(
+      0,
+      Math.floor(Math.min(center, wispCenter) - Math.max(radius, wispRadius) * 1.2),
+    );
+    const y1 = Math.min(
+      height - 1,
+      Math.ceil(Math.max(center, wispCenter) + Math.max(radius, wispRadius) * 1.2),
+    );
     for (let py = y0; py <= y1; py += 1) {
       const main = smoothstep(1.04, 0.32, Math.abs(py - center) / radius);
       const wisp = 0.62 * smoothstep(1.02, 0.3, Math.abs(py - wispCenter) / wispRadius);

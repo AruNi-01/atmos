@@ -15,26 +15,18 @@ describe("setOverlayVisibleOnAllWorkspaces", () => {
       return;
     }
 
-    const calls: Array<{ v: boolean; opts?: { visibleOnFullScreen?: boolean } }> =
-      [];
+    const calls: Array<{ v: boolean; opts?: { visibleOnFullScreen?: boolean } }> = [];
     const win = {
-      setVisibleOnAllWorkspaces: (
-        v: boolean,
-        opts?: { visibleOnFullScreen?: boolean },
-      ) => {
+      setVisibleOnAllWorkspaces: (v: boolean, opts?: { visibleOnFullScreen?: boolean }) => {
         calls.push({ v, opts });
       },
     };
     await setOverlayVisibleOnAllWorkspaces(win, true);
-    expect(calls).toEqual([
-      { v: true, opts: { visibleOnFullScreen: true } },
-    ]);
+    expect(calls).toEqual([{ v: true, opts: { visibleOnFullScreen: true } }]);
 
     calls.length = 0;
     await setOverlayVisibleOnAllWorkspaces(win, false);
-    expect(calls).toEqual([
-      { v: false, opts: { visibleOnFullScreen: false } },
-    ]);
+    expect(calls).toEqual([{ v: false, opts: { visibleOnFullScreen: false } }]);
   });
 
   it("restores dock after both enable and disable", async () => {

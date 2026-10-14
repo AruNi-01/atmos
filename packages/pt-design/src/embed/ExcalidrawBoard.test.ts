@@ -48,7 +48,9 @@ describe("ExcalidrawBoard live hydrate", () => {
     expect(src).toContain("skipInkAfterImmediate");
     expect(src).toMatch(/if \(isSkipInkAfterImmediate\(liveApi\)\) return;/);
     expect(src).not.toContain("api.scrollToContent(target");
-    expect(src).not.toMatch(/React\.useEffect\(\(\) => \{\s*const api = apiRef\.current;\s*if \(!api \|\| handedOffRef\.current\) return;/);
+    expect(src).not.toMatch(
+      /React\.useEffect\(\(\) => \{\s*const api = apiRef\.current;\s*if \(!api \|\| handedOffRef\.current\) return;/,
+    );
   });
 });
 
@@ -57,9 +59,13 @@ describe("ExcalidrawBoard keyboard → History", () => {
     expect(editModeHandlesKeyboardGlobally(false)).toBe(true);
     expect(editModeHandlesKeyboardGlobally(true)).toBe(false);
     const src = readFileSync(new URL("./ExcalidrawBoard.tsx", import.meta.url), "utf8");
-    expect(src).toContain("handleKeyboardGlobally={editModeHandlesKeyboardGlobally(viewModeEnabled)}");
+    expect(src).toContain(
+      "handleKeyboardGlobally={editModeHandlesKeyboardGlobally(viewModeEnabled)}",
+    );
     expect(src).not.toContain("handleKeyboardGlobally={false}");
-    expect(src).toContain("onFocusCapture={viewModeEnabled ? undefined : stealEditFocusFromOverlay}");
+    expect(src).toContain(
+      "onFocusCapture={viewModeEnabled ? undefined : stealEditFocusFromOverlay}",
+    );
     expect(src).toContain("onKeyDownCapture={viewModeEnabled ? undefined : captureEditUndoHotkey}");
     expect(src).toContain("[data-pt-overlay-id]");
     const app = readFileSync(new URL("./PtDesignApp.tsx", import.meta.url), "utf8");
@@ -89,7 +95,9 @@ describe("ExcalidrawBoard keyboard → History", () => {
     expect(src).toContain("onApiRef.current(bindHostApi(api))");
     expect(src).not.toContain("onApiRef.current(bindHostApi(api, () => boardRef.current))");
     expect(src).toContain("stealEditFocusFromOverlay");
-    expect(src).toContain("handleKeyboardGlobally={editModeHandlesKeyboardGlobally(viewModeEnabled)}");
+    expect(src).toContain(
+      "handleKeyboardGlobally={editModeHandlesKeyboardGlobally(viewModeEnabled)}",
+    );
     expect(src).toContain('data-testid="button-undo"');
     const hotkey = src.slice(
       src.indexOf("const captureEditUndoHotkey"),
@@ -99,7 +107,7 @@ describe("ExcalidrawBoard keyboard → History", () => {
     expect(hotkey).toContain("sceneExtractPtx");
     expect(hotkey).toContain("api.getSceneElements()");
     expect(hotkey).toContain("queryUndoControl");
-    expect(hotkey).toContain("excalidrawHistoryButton(boardRef.current, \"button-undo\")");
+    expect(hotkey).toContain('excalidrawHistoryButton(boardRef.current, "button-undo")');
     expect(hotkey).toContain("requestAnimationFrame");
     expect(hotkey).toContain("stopImmediatePropagation");
     expect(hotkey).not.toContain("peelImmediateHistoryDecoy");
@@ -145,7 +153,9 @@ describe("ExcalidrawBoard keyboard → History", () => {
     expect(bindHost.slice(updateAt, clearAt)).not.toMatch(
       /requestAnimationFrame\(\(\) => \{[\s\S]*requestAnimationFrame\(/,
     );
-    expect(bindHost.slice(updateAt, clearAt)).not.toMatch(/queueMicrotask\(\(\) => \{[\s\S]*queueMicrotask\(/);
+    expect(bindHost.slice(updateAt, clearAt)).not.toMatch(
+      /queueMicrotask\(\(\) => \{[\s\S]*queueMicrotask\(/,
+    );
     const deferredEnd = bindHost.indexOf("scrollToContent:");
     const deferred = bindHost.slice(lastImmediateAt, deferredEnd);
     expect(deferred).toContain("recentlyImmediate = false");
@@ -159,7 +169,7 @@ describe("ExcalidrawBoard keyboard → History", () => {
     expect(deferred).not.toContain("historyButton(");
     expect(deferred).not.toContain('historyButton("button-undo")');
     expect(deferred).not.toContain('historyButton("button-redo")');
-    expect(src).toContain('querySelector(\'[data-testid="button-undo"]\')');
+    expect(src).toContain("querySelector('[data-testid=\"button-undo\"]')");
     expect(deferred).not.toContain("undoDisabled");
     expect(deferred).not.toMatch(/api\.updateScene\(\{[\s\S]*hydrateHandleElements/);
     expect(deferred).not.toContain("getSceneElementsIncludingDeleted");

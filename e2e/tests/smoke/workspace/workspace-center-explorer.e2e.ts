@@ -30,15 +30,10 @@ function clearWorkingTreeChange() {
 }
 
 function openExplorerSidecar(page: Page, kind: "files" | "changes") {
-  return page.locator(
-    `[data-center-explorer="${kind}"][data-center-explorer-open="true"]`,
-  );
+  return page.locator(`[data-center-explorer="${kind}"][data-center-explorer-open="true"]`);
 }
 
-async function expectSidecarOnRight(
-  page: Page,
-  kind: "files" | "changes",
-) {
+async function expectSidecarOnRight(page: Page, kind: "files" | "changes") {
   const sidecar = openExplorerSidecar(page, kind);
   const landing = page.locator(`[data-center-explorer-landing="${kind}"]`);
   const toggle = landing.locator(`[data-center-explorer-toggle="${kind}"]`);
@@ -59,10 +54,7 @@ async function expectSidecarOnRight(
   expect(side.x).toBeGreaterThan(host.x + host.width * 0.45);
   expect(side.x + side.width).toBeGreaterThan(host.x + host.width - 24);
 
-  const chrome = page
-    .locator("[data-center-explorer-chrome]")
-    .filter({ visible: true })
-    .first();
+  const chrome = page.locator("[data-center-explorer-chrome]").filter({ visible: true }).first();
   await expect(chrome).toBeVisible({ timeout: 10_000 });
   const chromeBox = await chrome.boundingBox();
   expect(chromeBox, `${kind} chrome box`).toBeTruthy();
@@ -73,9 +65,7 @@ async function expectSidecarOnRight(
 
 async function dismissHoverPlusMenu(page: Page) {
   await page.keyboard.press("Escape");
-  await expect(
-    page.locator("[data-center-stage-plus-menu][data-state='open']"),
-  ).toHaveCount(0);
+  await expect(page.locator("[data-center-stage-plus-menu][data-state='open']")).toHaveCount(0);
 }
 
 /**
@@ -87,10 +77,7 @@ async function moveMouseBelowTabStrip(page: Page, x: number, y: number) {
   const plus = page.locator("[data-center-stage-plus-trigger]").first();
   const plusBox = await plus.boundingBox();
   if (plusBox) {
-    await page.mouse.move(
-      Math.max(0, plusBox.x - 8),
-      plusBox.y + plusBox.height + 8,
-    );
+    await page.mouse.move(Math.max(0, plusBox.x - 8), plusBox.y + plusBox.height + 8);
   }
   await page.mouse.move(x, y);
 }
@@ -100,11 +87,7 @@ async function moveMouseBelowTabStrip(page: Page, x: number, y: number) {
  * combobox to `document.body`. Filling `[data-center-explorer-search]`
  * (a wrapper div) throws; type into the open overlay instead.
  */
-async function searchFilesLanding(
-  page: Page,
-  filesLanding: Locator,
-  query: string,
-) {
+async function searchFilesLanding(page: Page, filesLanding: Locator, query: string) {
   await dismissHoverPlusMenu(page);
   const trigger = filesLanding.locator("[data-morphing-search-trigger]");
   await expect(trigger).toBeVisible();
@@ -115,11 +98,7 @@ async function searchFilesLanding(
   return overlay;
 }
 
-async function resizeSidecar(
-  page: Page,
-  kind: "files" | "changes",
-  deltaX: number,
-) {
+async function resizeSidecar(page: Page, kind: "files" | "changes", deltaX: number) {
   const sidecar = openExplorerSidecar(page, kind);
   const box = await sidecar.boundingBox();
   expect(box, `${kind} sidecar box before resize`).toBeTruthy();
@@ -142,9 +121,7 @@ async function resizeSidecar(
 }
 
 function explorerToggleBeside(control: Locator, kind: "files" | "changes") {
-  return control.locator(
-    `xpath=following::button[@data-center-explorer-toggle="${kind}"][1]`,
-  );
+  return control.locator(`xpath=following::button[@data-center-explorer-toggle="${kind}"][1]`);
 }
 
 async function expectToggleRightOf(control: Locator, toggle: Locator) {
@@ -170,7 +147,7 @@ async function stubExplorerNoiseRoutes(page: Page) {
     await route.fulfill({
       status: 404,
       contentType: "application/json",
-      body: "{\"error\":\"missing\"}",
+      body: '{"error":"missing"}',
     });
   });
 }
@@ -190,208 +167,209 @@ test.describe("smoke workspace center explorer", () => {
     "@smoke @stateful docks files and changes as a shared right sidecar",
     { timeout: 180_000 },
     async ({ page }) => {
-    seedWorkingTreeChange();
-    await stubComputerClientSettingsApi(page);
-    await stubExplorerNoiseRoutes(page);
-    await connectLocalComputer(page, { locale: "en" });
+      seedWorkingTreeChange();
+      await stubComputerClientSettingsApi(page);
+      await stubExplorerNoiseRoutes(page);
+      await connectLocalComputer(page, { locale: "en" });
 
-    const contextUrl = withSearchParams(await buildProjectWorkspaceDeepLink(page), {
-      activeSettingTab: null,
-    });
-    await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "files" }), {
-      locale: "en",
-    });
+      const contextUrl = withSearchParams(await buildProjectWorkspaceDeepLink(page), {
+        activeSettingTab: null,
+      });
+      await gotoContextRoute(page, withSearchParams(contextUrl, { tab: "files" }), {
+        locale: "en",
+      });
 
-    await expect(page.getByRole("tab", { name: /^(Files|文件)$/ })).toBeVisible({
-      timeout: 45_000,
-    });
-    await page.getByRole("tab", { name: /^(Files|文件)$/ }).click();
-    await expect
-      .poll(async () => page.getByRole("tab", { name: /^(Files|文件)$/ }).getAttribute("aria-selected"))
-      .toBe("true");
-    const filesLanding = page.locator('[data-center-explorer-landing="files"]');
-    await expect(filesLanding.locator("[data-center-explorer-search]")).toBeVisible({
-      timeout: 20_000,
-    });
-    await expect(filesLanding.getByRole("button", { name: /New File|新建文件/ })).toBeVisible();
-    await expectSidecarOnRight(page, "files");
+      await expect(page.getByRole("tab", { name: /^(Files|文件)$/ })).toBeVisible({
+        timeout: 45_000,
+      });
+      await page.getByRole("tab", { name: /^(Files|文件)$/ }).click();
+      await expect
+        .poll(async () =>
+          page.getByRole("tab", { name: /^(Files|文件)$/ }).getAttribute("aria-selected"),
+        )
+        .toBe("true");
+      const filesLanding = page.locator('[data-center-explorer-landing="files"]');
+      await expect(filesLanding.locator("[data-center-explorer-search]")).toBeVisible({
+        timeout: 20_000,
+      });
+      await expect(filesLanding.getByRole("button", { name: /New File|新建文件/ })).toBeVisible();
+      await expectSidecarOnRight(page, "files");
 
-    const resized = await resizeSidecar(page, "files", -80);
-    expect(resized.after.width).toBeGreaterThan(resized.before.width + 40);
-    await page.screenshot({
-      path: `${ARTIFACTS_DIR}/files_sidecar_resized.png`,
-    });
-    await resizeSidecar(page, "files", 80);
+      const resized = await resizeSidecar(page, "files", -80);
+      expect(resized.after.width).toBeGreaterThan(resized.before.width + 40);
+      await page.screenshot({
+        path: `${ARTIFACTS_DIR}/files_sidecar_resized.png`,
+      });
+      await resizeSidecar(page, "files", 80);
 
-    const searchOverlay = await searchFilesLanding(page, filesLanding, ".agents");
-    await expect(
-      searchOverlay.getByRole("option", { name: ".agents", exact: true }),
-    ).toBeVisible({ timeout: 20_000 });
-    await page.screenshot({
-      path: `${ARTIFACTS_DIR}/files_sidecar_landing.png`,
-    });
-    await page.keyboard.press("Escape");
-    await expect(searchOverlay).toHaveCount(0);
-    await expect(filesLanding.getByRole("button", { name: /New File|新建文件/ })).toBeVisible();
+      const searchOverlay = await searchFilesLanding(page, filesLanding, ".agents");
+      await expect(searchOverlay.getByRole("option", { name: ".agents", exact: true })).toBeVisible(
+        { timeout: 20_000 },
+      );
+      await page.screenshot({
+        path: `${ARTIFACTS_DIR}/files_sidecar_landing.png`,
+      });
+      await page.keyboard.press("Escape");
+      await expect(searchOverlay).toHaveCount(0);
+      await expect(filesLanding.getByRole("button", { name: /New File|新建文件/ })).toBeVisible();
 
-    const filesSidecar = page.locator('[data-center-explorer="files"]');
-    await expect(filesSidecar).toHaveCount(1);
+      const filesSidecar = page.locator('[data-center-explorer="files"]');
+      await expect(filesSidecar).toHaveCount(1);
 
-    const appsFolder = filesSidecar.getByText("apps", { exact: true }).first();
-    await expect(appsFolder).toBeVisible({ timeout: 30_000 });
-    await appsFolder.click();
-    await expect(filesSidecar.getByText("web", { exact: true }).first()).toBeVisible({
-      timeout: 15_000,
-    });
+      const appsFolder = filesSidecar.getByText("apps", { exact: true }).first();
+      await expect(appsFolder).toBeVisible({ timeout: 30_000 });
+      await appsFolder.click();
+      await expect(filesSidecar.getByText("web", { exact: true }).first()).toBeVisible({
+        timeout: 15_000,
+      });
 
-    const agentsFile = filesSidecar.getByText("AGENTS.md", { exact: true }).first();
-    await expect(agentsFile).toBeVisible({ timeout: 20_000 });
-    await agentsFile.dblclick();
-    await expect(page.getByRole("tab", { name: /AGENTS\.md/ })).toBeVisible({
-      timeout: 30_000,
-    });
+      const agentsFile = filesSidecar.getByText("AGENTS.md", { exact: true }).first();
+      await expect(agentsFile).toBeVisible({ timeout: 20_000 });
+      await agentsFile.dblclick();
+      await expect(page.getByRole("tab", { name: /AGENTS\.md/ })).toBeVisible({
+        timeout: 30_000,
+      });
 
-    await page.getByRole("tab", { name: /^(Files|文件)$/ }).click();
-    await expect(filesLanding.locator("[data-center-explorer-search]")).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(filesLanding.getByText(/Recents|最近打开/)).toBeVisible();
-    await expect(
-      filesLanding.locator('[data-center-explorer-row="recent-file"]').filter({
-        hasText: "AGENTS.md",
-      }),
-    ).toBeVisible();
-    await page.screenshot({
-      path: `${ARTIFACTS_DIR}/files_landing_recents.png`,
-    });
+      await page.getByRole("tab", { name: /^(Files|文件)$/ }).click();
+      await expect(filesLanding.locator("[data-center-explorer-search]")).toBeVisible({
+        timeout: 15_000,
+      });
+      await expect(filesLanding.getByText(/Recents|最近打开/)).toBeVisible();
+      await expect(
+        filesLanding.locator('[data-center-explorer-row="recent-file"]').filter({
+          hasText: "AGENTS.md",
+        }),
+      ).toBeVisible();
+      await page.screenshot({
+        path: `${ARTIFACTS_DIR}/files_landing_recents.png`,
+      });
 
-    await page.getByRole("tab", { name: /AGENTS\.md/ }).click();
+      await page.getByRole("tab", { name: /AGENTS\.md/ }).click();
 
-    const editorSettings = page.getByRole("button", {
-      name: /Open editor settings|打开编辑器设置/,
-    });
-    const filesToggle = explorerToggleBeside(editorSettings, "files");
-    await expectToggleRightOf(editorSettings, filesToggle);
-    await expectSidecarOnRight(page, "files");
-    await expect(filesSidecar.getByText("web", { exact: true }).first()).toBeVisible();
-    const markdownToc = page.locator('[data-markdown-toc-side="left"]');
-    await expect(markdownToc).toBeVisible({ timeout: 20_000 });
-    const tocBox = await markdownToc.boundingBox();
-    const sidecarForToc = await filesSidecar.boundingBox();
-    expect(tocBox, "markdown outline box").toBeTruthy();
-    expect(sidecarForToc, "files sidecar box beside markdown").toBeTruthy();
-    expect(tocBox!.x + tocBox!.width).toBeLessThan(sidecarForToc!.x);
-    const activeFileRow = filesSidecar.locator(
-      '[data-file-tree-row$="/apps/AGENTS.md"]',
-    );
-    await expect(activeFileRow).toBeVisible();
-    const activeRowBox = await activeFileRow.boundingBox();
-    expect(activeRowBox, "active files tree row").toBeTruthy();
-    expect(activeRowBox!.x).toBeGreaterThan(sidecarForToc!.x + 6);
-    expect(activeRowBox!.x + activeRowBox!.width).toBeLessThan(
-      sidecarForToc!.x + sidecarForToc!.width - 6,
-    );
-    await page.screenshot({
-      path: `${ARTIFACTS_DIR}/files_sidecar_editor.png`,
-    });
-    await page.screenshot({
-      path: `${ARTIFACTS_DIR}/files_tree_row_inset.png`,
-    });
-    await page.screenshot({
-      path: `${ARTIFACTS_DIR}/markdown_preview_toc_left.png`,
-    });
+      const editorSettings = page.getByRole("button", {
+        name: /Open editor settings|打开编辑器设置/,
+      });
+      const filesToggle = explorerToggleBeside(editorSettings, "files");
+      await expectToggleRightOf(editorSettings, filesToggle);
+      await expectSidecarOnRight(page, "files");
+      await expect(filesSidecar.getByText("web", { exact: true }).first()).toBeVisible();
+      const markdownToc = page.locator('[data-markdown-toc-side="left"]');
+      await expect(markdownToc).toBeVisible({ timeout: 20_000 });
+      const tocBox = await markdownToc.boundingBox();
+      const sidecarForToc = await filesSidecar.boundingBox();
+      expect(tocBox, "markdown outline box").toBeTruthy();
+      expect(sidecarForToc, "files sidecar box beside markdown").toBeTruthy();
+      expect(tocBox!.x + tocBox!.width).toBeLessThan(sidecarForToc!.x);
+      const activeFileRow = filesSidecar.locator('[data-file-tree-row$="/apps/AGENTS.md"]');
+      await expect(activeFileRow).toBeVisible();
+      const activeRowBox = await activeFileRow.boundingBox();
+      expect(activeRowBox, "active files tree row").toBeTruthy();
+      expect(activeRowBox!.x).toBeGreaterThan(sidecarForToc!.x + 6);
+      expect(activeRowBox!.x + activeRowBox!.width).toBeLessThan(
+        sidecarForToc!.x + sidecarForToc!.width - 6,
+      );
+      await page.screenshot({
+        path: `${ARTIFACTS_DIR}/files_sidecar_editor.png`,
+      });
+      await page.screenshot({
+        path: `${ARTIFACTS_DIR}/files_tree_row_inset.png`,
+      });
+      await page.screenshot({
+        path: `${ARTIFACTS_DIR}/markdown_preview_toc_left.png`,
+      });
 
-    const editorSearch = page.locator("[data-editor-search]").first();
-    await expect(editorSearch).toBeVisible();
-    await editorSearch.click();
-    const findPanel = page.locator("[data-markdown-find-panel]");
-    await expect(findPanel).toBeVisible();
-    const findInput = page.locator("[data-markdown-find-input]");
-    await expect(findInput).toBeFocused();
-    await findInput.fill("Architecture");
-    await expect(page.locator("[data-markdown-find-count]")).toContainText("/");
-    await page.screenshot({
-      path: `${ARTIFACTS_DIR}/markdown_preview_find.png`,
-    });
-    await page.keyboard.press("Escape");
-    await expect(findPanel).toHaveCount(0);
-    await page.keyboard.press("ControlOrMeta+f");
-    await expect(page.locator("[data-markdown-find-panel]")).toBeVisible({
-      timeout: 5_000,
-    });
-    await page.keyboard.press("Escape");
-
-    const packageJson = filesSidecar.getByText("package.json", { exact: true }).first();
-    await expect(packageJson).toBeVisible();
-    await packageJson.dblclick();
-    await expect(page.getByRole("tab", { name: /package\.json/ })).toBeVisible({
-      timeout: 30_000,
-    });
-    await expect(filesSidecar).toHaveCount(1);
-    await expect(filesSidecar).toHaveAttribute("data-center-explorer-open", "true");
-    await expect(filesSidecar.getByText("web", { exact: true }).first()).toBeVisible();
-
-    await filesToggle.click();
-    await expect(filesSidecar).toHaveAttribute("data-center-explorer-open", "false");
-    await expect
-      .poll(async () => (await filesSidecar.boundingBox())?.width ?? 0, {
+      const editorSearch = page.locator("[data-editor-search]").first();
+      await expect(editorSearch).toBeVisible();
+      await editorSearch.click();
+      const findPanel = page.locator("[data-markdown-find-panel]");
+      await expect(findPanel).toBeVisible();
+      const findInput = page.locator("[data-markdown-find-input]");
+      await expect(findInput).toBeFocused();
+      await findInput.fill("Architecture");
+      await expect(page.locator("[data-markdown-find-count]")).toContainText("/");
+      await page.screenshot({
+        path: `${ARTIFACTS_DIR}/markdown_preview_find.png`,
+      });
+      await page.keyboard.press("Escape");
+      await expect(findPanel).toHaveCount(0);
+      await page.keyboard.press("ControlOrMeta+f");
+      await expect(page.locator("[data-markdown-find-panel]")).toBeVisible({
         timeout: 5_000,
-      })
-      .toBeLessThan(8);
-    await page.screenshot({
-      path: `${ARTIFACTS_DIR}/files_sidecar_collapsed.png`,
-    });
-    await filesToggle.click();
-    await expect(filesSidecar).toHaveAttribute("data-center-explorer-open", "true");
-    await expectSidecarOnRight(page, "files");
+      });
+      await page.keyboard.press("Escape");
 
-    await activateWorkspaceToolTab(page, /^(Changes|变更)$/);
-    const changesLanding = page.locator('[data-center-explorer-landing="changes"]');
-    await expect(
-      changesLanding.locator('[data-center-explorer-row="graph-history"]'),
-    ).toBeVisible({ timeout: 20_000 });
-    await expect(changesLanding.locator("[data-center-explorer-search]")).toHaveCount(0);
-    await expect(
-      page.getByRole("button", { name: /Select changes scope|选择变更范围/ }),
-    ).toBeVisible({ timeout: 45_000 });
-    await expectSidecarOnRight(page, "changes");
-    await expect(
-      changesLanding.locator('[data-center-explorer-row="recent-commit"]').first(),
-    ).toBeVisible({ timeout: 45_000 });
-    await page.screenshot({
-      path: `${ARTIFACTS_DIR}/changes_sidecar_landing.png`,
-    });
+      const packageJson = filesSidecar.getByText("package.json", { exact: true }).first();
+      await expect(packageJson).toBeVisible();
+      await packageJson.dblclick();
+      await expect(page.getByRole("tab", { name: /package\.json/ })).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(filesSidecar).toHaveCount(1);
+      await expect(filesSidecar).toHaveAttribute("data-center-explorer-open", "true");
+      await expect(filesSidecar.getByText("web", { exact: true }).first()).toBeVisible();
 
-    // Accessible name includes the close control: "Close tab Commit".
-    await changesLanding.locator('[data-center-explorer-row="recent-commit"]').first().click();
-    await expect(page.getByRole("tab", { name: /Commit|提交/ })).toBeVisible({
-      timeout: 20_000,
-    });
-    await page.screenshot({
-      path: `${ARTIFACTS_DIR}/changes_landing_commit.png`,
-    });
+      await filesToggle.click();
+      await expect(filesSidecar).toHaveAttribute("data-center-explorer-open", "false");
+      await expect
+        .poll(async () => (await filesSidecar.boundingBox())?.width ?? 0, {
+          timeout: 5_000,
+        })
+        .toBeLessThan(8);
+      await page.screenshot({
+        path: `${ARTIFACTS_DIR}/files_sidecar_collapsed.png`,
+      });
+      await filesToggle.click();
+      await expect(filesSidecar).toHaveAttribute("data-center-explorer-open", "true");
+      await expectSidecarOnRight(page, "files");
 
-    await activateWorkspaceToolTab(page, /^(Changes|变更)$/);
+      await activateWorkspaceToolTab(page, /^(Changes|变更)$/);
+      const changesLanding = page.locator('[data-center-explorer-landing="changes"]');
+      await expect(
+        changesLanding.locator('[data-center-explorer-row="graph-history"]'),
+      ).toBeVisible({ timeout: 20_000 });
+      await expect(changesLanding.locator("[data-center-explorer-search]")).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: /Select changes scope|选择变更范围/ }),
+      ).toBeVisible({ timeout: 45_000 });
+      await expectSidecarOnRight(page, "changes");
+      await expect(
+        changesLanding.locator('[data-center-explorer-row="recent-commit"]').first(),
+      ).toBeVisible({ timeout: 45_000 });
+      await page.screenshot({
+        path: `${ARTIFACTS_DIR}/changes_sidecar_landing.png`,
+      });
 
-    // Each Changes fold scope (landing vs diff-group://commit) keeps a sidecar
-    // node; only the active surface is open.
-    const changesSidecar = openExplorerSidecar(page, "changes");
-    await expect(changesSidecar).toHaveCount(1);
-    const changeFile = changesSidecar.getByText(CHANGE_SEED_RELATIVE, { exact: true });
-    await expect(changeFile).toBeVisible({ timeout: 45_000 });
-    await changeFile.click();
+      // Accessible name includes the close control: "Close tab Commit".
+      await changesLanding.locator('[data-center-explorer-row="recent-commit"]').first().click();
+      await expect(page.getByRole("tab", { name: /Commit|提交/ })).toBeVisible({
+        timeout: 20_000,
+      });
+      await page.screenshot({
+        path: `${ARTIFACTS_DIR}/changes_landing_commit.png`,
+      });
 
-    const diffSettings = page.getByTitle(/View options|视图选项/).first();
-    const changesToggle = explorerToggleBeside(diffSettings, "changes");
-    await expectToggleRightOf(diffSettings, changesToggle);
-    await expectSidecarOnRight(page, "changes");
-    await page.screenshot({
-      path: `${ARTIFACTS_DIR}/changes_sidecar_diff.png`,
-    });
+      await activateWorkspaceToolTab(page, /^(Changes|变更)$/);
 
-    await expect(changesSidecar).toHaveCount(1);
-    await changeFile.click();
-    await expect(changesSidecar).toHaveCount(1);
-    await expect(changesSidecar).toHaveAttribute("data-center-explorer-open", "true");
-  });
+      // Each Changes fold scope (landing vs diff-group://commit) keeps a sidecar
+      // node; only the active surface is open.
+      const changesSidecar = openExplorerSidecar(page, "changes");
+      await expect(changesSidecar).toHaveCount(1);
+      const changeFile = changesSidecar.getByText(CHANGE_SEED_RELATIVE, { exact: true });
+      await expect(changeFile).toBeVisible({ timeout: 45_000 });
+      await changeFile.click();
+
+      const diffSettings = page.getByTitle(/View options|视图选项/).first();
+      const changesToggle = explorerToggleBeside(diffSettings, "changes");
+      await expectToggleRightOf(diffSettings, changesToggle);
+      await expectSidecarOnRight(page, "changes");
+      await page.screenshot({
+        path: `${ARTIFACTS_DIR}/changes_sidecar_diff.png`,
+      });
+
+      await expect(changesSidecar).toHaveCount(1);
+      await changeFile.click();
+      await expect(changesSidecar).toHaveCount(1);
+      await expect(changesSidecar).toHaveAttribute("data-center-explorer-open", "true");
+    },
+  );
 });

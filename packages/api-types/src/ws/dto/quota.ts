@@ -43,20 +43,10 @@ export type QuotaAutoRefreshRequest = {
   interval_minutes?: number | null;
 };
 
-export type QuotaDetailRowTone =
-  | "default"
-  | "muted"
-  | "success"
-  | "warning"
-  | "danger";
+export type QuotaDetailRowTone = "default" | "muted" | "success" | "warning" | "danger";
 export type QuotaProviderKind = "cli" | "desktop" | "api" | "hybrid";
 export type QuotaAuthStateStatus = "detected" | "missing" | "unsupported";
-export type QuotaFetchStateStatus =
-  | "ready"
-  | "unavailable"
-  | "partial"
-  | "error"
-  | "unsupported";
+export type QuotaFetchStateStatus = "ready" | "unavailable" | "partial" | "error" | "unsupported";
 
 export type QuotaDetailRowResponse = {
   label: string;

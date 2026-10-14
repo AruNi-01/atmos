@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  hostSessionApi,
-  type HostSessionGetResponse,
-} from "@/api/ws/host-session-api";
+import { hostSessionApi, type HostSessionGetResponse } from "@/api/ws/host-session-api";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { isCancelledError } from "@/shared/lib/is-cancelled-error";
 

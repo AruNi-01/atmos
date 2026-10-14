@@ -19,10 +19,7 @@ import { useBrowserAgentTabBridge } from "../hooks/use-browser-agent-tab-bridge"
 import { useBrowserState } from "../hooks/use-browser-state";
 import { useBrowserSessionMapStore } from "../store/use-browser-session-map";
 import { openBrowserWindow } from "../lib/desktop-browser-window";
-import {
-  BrowserSession,
-  type BrowserCanvasViewportController,
-} from "./BrowserSession";
+import { BrowserSession, type BrowserCanvasViewportController } from "./BrowserSession";
 
 interface BrowserPanelProps {
   workspaceId: string | null;
@@ -86,28 +83,23 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
     isActive,
     tabCount: browserState.tabs.length,
   });
-  const handleSessionReady = useCallback((tabId: string, sessionId: string | null) => {
-    handleBrowserSessionReady(tabId, sessionId);
-    if (sessionId) {
-      useBrowserSessionMapStore.getState().bindSession(
-        resolvedBrowserContextId,
-        tabId,
-        sessionId,
-      );
-    } else {
-      useBrowserSessionMapStore.getState().unbindTab(tabId);
-    }
-  }, [handleBrowserSessionReady, resolvedBrowserContextId]);
+  const handleSessionReady = useCallback(
+    (tabId: string, sessionId: string | null) => {
+      handleBrowserSessionReady(tabId, sessionId);
+      if (sessionId) {
+        useBrowserSessionMapStore
+          .getState()
+          .bindSession(resolvedBrowserContextId, tabId, sessionId);
+      } else {
+        useBrowserSessionMapStore.getState().unbindTab(tabId);
+      }
+    },
+    [handleBrowserSessionReady, resolvedBrowserContextId],
+  );
   // Per-instance handoff so opening one browser in a Desktop window does not
   // pause every other browser (sidebar / other center instances).
   const standaloneSurfaceKey = useMemo(
-    () =>
-      makeStandaloneSurfaceKey(
-        "browser",
-        workspaceId,
-        projectId,
-        resolvedBrowserContextId,
-      ),
+    () => makeStandaloneSurfaceKey("browser", workspaceId, projectId, resolvedBrowserContextId),
     [projectId, resolvedBrowserContextId, workspaceId],
   );
 
@@ -132,8 +124,7 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
     };
   }, [allowStandaloneWindow, reloadBrowserStateFromPrefs, standaloneSurfaceKey]);
 
-  const effectiveIsPreviewStandaloneOpen =
-    allowStandaloneWindow && isPreviewStandaloneOpen;
+  const effectiveIsPreviewStandaloneOpen = allowStandaloneWindow && isPreviewStandaloneOpen;
   const tabsToRender = useMemo(
     () =>
       keepInactiveTabsMounted
@@ -142,35 +133,36 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
     [browserState.activeTabId, keepInactiveTabsMounted, previewTabsToRender],
   );
 
-  const handleOpenPreviewBrowserWindow = useCallback(async (targetUrl: string) => {
-    if (!allowStandaloneWindow) return;
+  const handleOpenPreviewBrowserWindow = useCallback(
+    async (targetUrl: string) => {
+      if (!allowStandaloneWindow) return;
 
-    setIsPreviewMaximized(false);
-    persistBrowserState();
-    await openBrowserWindow({
-      url: targetUrl,
-      workspaceId,
+      setIsPreviewMaximized(false);
+      persistBrowserState();
+      await openBrowserWindow({
+        url: targetUrl,
+        workspaceId,
+        projectId,
+        browserContextId: resolvedBrowserContextId,
+      });
+      markStandaloneSurfaceOpen(standaloneSurfaceKey);
+      setIsPreviewStandaloneOpen(true);
+    },
+    [
+      allowStandaloneWindow,
+      persistBrowserState,
       projectId,
-      browserContextId: resolvedBrowserContextId,
-    });
-    markStandaloneSurfaceOpen(standaloneSurfaceKey);
-    setIsPreviewStandaloneOpen(true);
-  }, [
-    allowStandaloneWindow,
-    persistBrowserState,
-    projectId,
-    resolvedBrowserContextId,
-    standaloneSurfaceKey,
-    workspaceId,
-  ]);
+      resolvedBrowserContextId,
+      standaloneSurfaceKey,
+      workspaceId,
+    ],
+  );
 
   const handleReturnPreviewToEmbedded = useCallback(() => {
     reloadBrowserStateFromPrefs();
     restoreStandaloneSurface(standaloneSurfaceKey);
     setIsPreviewStandaloneOpen(false);
   }, [reloadBrowserStateFromPrefs, standaloneSurfaceKey]);
-
-
 
   const browserContent = effectiveIsPreviewStandaloneOpen ? (
     <PreviewStandalonePaused
@@ -182,60 +174,56 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
       returnLabel={previewToolbarT("standalone.returnHere")}
       title={previewToolbarT("standalone.embeddedTitle")}
     />
-  ) : tabsToRender.map((tab) => {
-    const isActiveTab = tab.id === browserState.activeTabId;
+  ) : (
+    tabsToRender.map((tab) => {
+      const isActiveTab = tab.id === browserState.activeTabId;
 
-    return (
-      <div
-        key={tab.id}
-        aria-hidden={!isActiveTab}
-        className={cn(
-          "absolute inset-0 min-h-0",
-          isActiveTab ? "z-10 opacity-100" : "pointer-events-none z-0 opacity-0",
-        )}
-      >
-        <BrowserSession
-          url={tab.url}
-          setUrl={(nextUrl) => setBrowserTabPreviewUrl(tab.id, nextUrl)}
-          activeUrl={tab.activeUrl}
-          setActiveUrl={(nextUrl) =>
-            setBrowserTabActivePreviewUrl(tab.id, nextUrl)
-          }
-          isActive={isActive && isActiveTab}
-          keepGuestPainted={keepGuestPainted && isActiveTab}
-          isMaximized={isPreviewMaximized}
-          isMaximizedLayoutManaged
-          setIsMaximized={setIsPreviewMaximized}
-          workspaceId={workspaceId}
-          projectId={projectId}
-          allowMaximize={allowMaximize}
-          isPreviewStandaloneOpen={effectiveIsPreviewStandaloneOpen}
-          canvasViewportControllerRef={canvasViewportControllerRef}
-          onOpenPreviewBrowserWindow={
-            allowStandaloneWindow ? handleOpenPreviewBrowserWindow : undefined
-          }
+      return (
+        <div
+          key={tab.id}
+          aria-hidden={!isActiveTab}
+          className={cn(
+            "absolute inset-0 min-h-0",
+            isActiveTab ? "z-10 opacity-100" : "pointer-events-none z-0 opacity-0",
+          )}
+        >
+          <BrowserSession
+            url={tab.url}
+            setUrl={(nextUrl) => setBrowserTabPreviewUrl(tab.id, nextUrl)}
+            activeUrl={tab.activeUrl}
+            setActiveUrl={(nextUrl) => setBrowserTabActivePreviewUrl(tab.id, nextUrl)}
+            isActive={isActive && isActiveTab}
+            keepGuestPainted={keepGuestPainted && isActiveTab}
+            isMaximized={isPreviewMaximized}
+            isMaximizedLayoutManaged
+            setIsMaximized={setIsPreviewMaximized}
+            workspaceId={workspaceId}
+            projectId={projectId}
+            allowMaximize={allowMaximize}
+            isPreviewStandaloneOpen={effectiveIsPreviewStandaloneOpen}
+            canvasViewportControllerRef={canvasViewportControllerRef}
+            onOpenPreviewBrowserWindow={
+              allowStandaloneWindow ? handleOpenPreviewBrowserWindow : undefined
+            }
 
-          onPageTitleChange={(title, pageUrl) =>
-            handlePreviewTitleChange(tab.id, title, pageUrl)
-          }
-          onPageIconChange={(faviconUrl) =>
-            handlePreviewIconChange(tab.id, faviconUrl)
-          }
-          onOpenPageInNewTab={handleOpenBrowserTab}
-          onSessionReady={(sessionId) => handleSessionReady(tab.id, sessionId)}
-          requestUrlFocus={urlFocusTabId === tab.id}
-          browserTabBarProps={{
-            tabs: browserState.tabs,
-            activeTabId: browserState.activeTabId,
-            onAddTab: handleAddBrowserTab,
-            onCloseTab: handleCloseBrowserTab,
-            onSelectTab: handleSelectBrowserTab,
-            onReorderTabs: handleReorderBrowserTabs,
-          }}
-        />
-      </div>
-    );
-  });
+            onPageTitleChange={(title, pageUrl) => handlePreviewTitleChange(tab.id, title, pageUrl)}
+            onPageIconChange={(faviconUrl) => handlePreviewIconChange(tab.id, faviconUrl)}
+            onOpenPageInNewTab={handleOpenBrowserTab}
+            onSessionReady={(sessionId) => handleSessionReady(tab.id, sessionId)}
+            requestUrlFocus={urlFocusTabId === tab.id}
+            browserTabBarProps={{
+              tabs: browserState.tabs,
+              activeTabId: browserState.activeTabId,
+              onAddTab: handleAddBrowserTab,
+              onCloseTab: handleCloseBrowserTab,
+              onSelectTab: handleSelectBrowserTab,
+              onReorderTabs: handleReorderBrowserTabs,
+            }}
+          />
+        </div>
+      );
+    })
+  );
 
   const panelShellClassName = cn(
     "relative h-full min-h-0 w-full overflow-hidden bg-background",
@@ -255,7 +243,7 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
           <div
             data-atmos-browser-surface-overlay="true"
             {...browserSurfaceProps}
-            className="fixed inset-0 z-[1000] h-screen w-screen overflow-hidden bg-background animate-in fade-in zoom-in-95 slide-in-from-bottom-2"
+            className="fixed inset-0 z-[1000] h-screen w-screen animate-in overflow-hidden bg-background zoom-in-95 fade-in slide-in-from-bottom-2"
           >
             {browserContent}
           </div>,
@@ -298,19 +286,15 @@ function PreviewStandalonePaused({
           type="button"
           aria-label={minimizeLabel}
           title={minimizeLabel}
-          className="absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
+          className="absolute top-3 right-3 inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
           onClick={onMinimize}
         >
           <Minimize className="size-4" />
         </button>
       ) : null}
       <div className="max-w-sm">
-        <div className="text-sm font-medium text-foreground">
-          {title}
-        </div>
-        <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          {description}
-        </div>
+        <div className="text-sm font-medium text-foreground">{title}</div>
+        <div className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</div>
         <button
           type="button"
           className="mt-4 inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm hover:bg-accent"

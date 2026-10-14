@@ -82,7 +82,7 @@ export function LocalServiceRow({
         disabled={!openable}
         title={openable ? t("row.openTitle", { url: service.display_url }) : service.display_url}
       >
-        <div className="absolute left-2 top-2 flex gap-1">
+        <div className="absolute top-2 left-2 flex gap-1">
           <span className="size-1.5 rounded-full bg-red-400" />
           <span className="size-1.5 rounded-full bg-amber-400" />
           <span className="size-1.5 rounded-full bg-emerald-400" />
@@ -90,14 +90,16 @@ export function LocalServiceRow({
         <div className={cn("mt-3.5 w-[72%] space-y-1.5", compact && "space-y-1")}>
           <div
             className={cn(
-              "truncate text-[8px] font-semibold leading-none text-foreground",
+              "truncate text-[8px] leading-none font-semibold text-foreground",
               compact && "text-[8px]",
             )}
           >
             {service.display_url}
           </div>
           <div className="space-y-1">
-            <Skeleton className={cn("h-1.5 w-full rounded bg-muted-foreground/25", compact && "h-1")} />
+            <Skeleton
+              className={cn("h-1.5 w-full rounded bg-muted-foreground/25", compact && "h-1")}
+            />
             <Skeleton
               className={cn("h-1.5 w-2/3 rounded bg-muted-foreground/25", compact && "h-1 w-1/2")}
             />
@@ -165,7 +167,9 @@ export function LocalServiceRow({
                   {t.rich("row.stopConfirmDescription", {
                     url: service.display_url,
                     port: service.port,
-                    strong: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+                    strong: (chunks) => (
+                      <span className="font-medium text-foreground">{chunks}</span>
+                    ),
                   })}
                 </p>
               </div>
@@ -188,7 +192,11 @@ export function LocalServiceRow({
                   onClick={() => void confirmStop()}
                   disabled={stopPending}
                 >
-                  {stopPending ? <Loader2 className="size-3 animate-spin" /> : <Square className="size-3" />}
+                  {stopPending ? (
+                    <Loader2 className="size-3 animate-spin" />
+                  ) : (
+                    <Square className="size-3" />
+                  )}
                   {t("row.stop")}
                 </Button>
               </div>
@@ -262,7 +270,7 @@ function LocalServiceCommandMeta({
       </TooltipTrigger>
       <TooltipContent
         side="top"
-        className="z-[80] max-w-xs select-text break-all text-left font-mono text-[11px] leading-snug text-pretty"
+        className="z-[80] max-w-xs text-left font-mono text-[11px] leading-snug text-pretty break-all select-text"
       >
         {tooltip}
       </TooltipContent>

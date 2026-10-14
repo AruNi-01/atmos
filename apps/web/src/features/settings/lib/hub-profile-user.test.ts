@@ -1,23 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  hubProfileImageUrl,
-  hubProfileUser,
-} from "./hub-profile-user";
+import { hubProfileImageUrl, hubProfileUser } from "./hub-profile-user";
 
 const settingsRoot = join(import.meta.dir, "..");
 
 describe("hubProfileImageUrl", () => {
   test("keeps https GitHub and Google avatars", () => {
-    expect(
-      hubProfileImageUrl("https://avatars.githubusercontent.com/u/76934779?v=4"),
-    ).toBe("https://avatars.githubusercontent.com/u/76934779?v=4");
-    expect(
-      hubProfileImageUrl(
-        "https://lh3.googleusercontent.com/a/ACg8ocKexample",
-      ),
-    ).toBe("https://lh3.googleusercontent.com/a/ACg8ocKexample");
+    expect(hubProfileImageUrl("https://avatars.githubusercontent.com/u/76934779?v=4")).toBe(
+      "https://avatars.githubusercontent.com/u/76934779?v=4",
+    );
+    expect(hubProfileImageUrl("https://lh3.googleusercontent.com/a/ACg8ocKexample")).toBe(
+      "https://lh3.googleusercontent.com/a/ACg8ocKexample",
+    );
   });
 
   test("rejects empty, non-https, and invalid values", () => {
@@ -109,11 +104,8 @@ describe("account profile avatar wiring", () => {
   });
 
   test("Auth UI renders OAuth avatars as no-referrer imgs", () => {
-    const source = readFileSync(
-      join(settingsRoot, "components/HubAuthUIProvider.tsx"),
-      "utf8",
-    );
-    expect(source).toContain("referrerPolicy=\"no-referrer\"");
+    const source = readFileSync(join(settingsRoot, "components/HubAuthUIProvider.tsx"), "utf8");
+    expect(source).toContain('referrerPolicy="no-referrer"');
     expect(source).toContain("avatar={{ Image: HubAvatarImage }}");
   });
 });

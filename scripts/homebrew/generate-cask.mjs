@@ -173,7 +173,9 @@ async function fetchJson(url) {
   const response = await fetch(url, { headers });
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}${body ? `\n${body}` : ""}`);
+    throw new Error(
+      `Failed to fetch ${url}: ${response.status} ${response.statusText}${body ? `\n${body}` : ""}`,
+    );
   }
 
   return response.json();
@@ -271,7 +273,9 @@ async function main() {
   const tag = ensure(release.tag_name, "Release payload does not contain tag_name");
   const { version, tagPrefix } = extractVersionFromTag(tag);
 
-  const dmgAssets = (release.assets || []).filter((asset) => String(asset.name || "").endsWith(".dmg"));
+  const dmgAssets = (release.assets || []).filter((asset) =>
+    String(asset.name || "").endsWith(".dmg"),
+  );
   const armAsset = dmgAssets.find((asset) => inferDmgArch(asset.name) === "arm");
   const intelAsset = dmgAssets.find((asset) => inferDmgArch(asset.name) === "intel");
 
@@ -294,7 +298,9 @@ async function main() {
   const intelAssetVersion = extractAssetVersion(intelAsset.name);
 
   if (!armAssetVersion || !intelAssetVersion) {
-    throw new Error(`Could not extract DMG version from asset names: "${armAsset.name}", "${intelAsset.name}"`);
+    throw new Error(
+      `Could not extract DMG version from asset names: "${armAsset.name}", "${intelAsset.name}"`,
+    );
   }
 
   if (armAssetVersion !== intelAssetVersion) {

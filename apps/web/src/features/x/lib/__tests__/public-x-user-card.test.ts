@@ -25,8 +25,7 @@ const sampleBody = {
     description: "Designer and Developer",
     location: "127.0.0.1",
     banner_url: "https://pbs.twimg.com/profile_banners/1/2",
-    avatar_url:
-      "https://pbs.twimg.com/profile_images/1/zsBLZA-__normal.jpg",
+    avatar_url: "https://pbs.twimg.com/profile_images/1/zsBLZA-__normal.jpg",
     joined: "Sat Jan 06 16:40:44 +0000 2024",
     following: 321,
     followers: 1_250_000,
@@ -39,9 +38,7 @@ describe("normalizeXUsername", () => {
     expect(normalizeXUsername(" @srbh_here ")).toBe("srbh_here");
     expect(normalizeXUsername("https://x.com/srbh_here")).toBe("srbh_here");
     expect(normalizeXUsername("twitter.com/srbh_here/")).toBe("srbh_here");
-    expect(normalizeXUsername("https://x.com/srbh_here/status/1")).toBe(
-      "srbh_here",
-    );
+    expect(normalizeXUsername("https://x.com/srbh_here/status/1")).toBe("srbh_here");
     expect(normalizeXUsername("")).toBeNull();
     expect(normalizeXUsername("not valid")).toBeNull();
   });
@@ -49,19 +46,15 @@ describe("normalizeXUsername", () => {
 
 describe("upgradeXAvatarUrl", () => {
   it("requests the larger Twitter avatar size", () => {
-    expect(
-      upgradeXAvatarUrl(
-        "https://pbs.twimg.com/profile_images/1/photo_normal.jpg",
-      ),
-    ).toBe("https://pbs.twimg.com/profile_images/1/photo_400x400.jpg");
+    expect(upgradeXAvatarUrl("https://pbs.twimg.com/profile_images/1/photo_normal.jpg")).toBe(
+      "https://pbs.twimg.com/profile_images/1/photo_400x400.jpg",
+    );
   });
 });
 
 describe("formatXJoinedDate", () => {
   it("formats Twitter joined timestamps in the app locale", () => {
-    expect(formatXJoinedDate("Sat Jan 06 16:40:44 +0000 2024", "en")).toBe(
-      "January 2024",
-    );
+    expect(formatXJoinedDate("Sat Jan 06 16:40:44 +0000 2024", "en")).toBe("January 2024");
     expect(formatXJoinedDate("not-a-date", "en")).toBeNull();
   });
 });
@@ -79,8 +72,7 @@ describe("parsePublicXUserCard", () => {
     expect(card).toEqual({
       username: "srbh_here",
       name: "Saurabh Sharma",
-      avatar_url:
-        "https://pbs.twimg.com/profile_images/1/zsBLZA-__400x400.jpg",
+      avatar_url: "https://pbs.twimg.com/profile_images/1/zsBLZA-__400x400.jpg",
       banner_url: "https://pbs.twimg.com/profile_banners/1/2",
       bio: "Designer and Developer",
       following: 321,
@@ -95,9 +87,7 @@ describe("parsePublicXUserCard", () => {
     expect(() => parsePublicXUserCard({ code: 404 }, "missing")).toThrow(
       "X user 'missing' not found",
     );
-    expect(() => parsePublicXUserCard(null, "x")).toThrow(
-      "Invalid X user payload",
-    );
+    expect(() => parsePublicXUserCard(null, "x")).toThrow("Invalid X user payload");
   });
 });
 
@@ -119,11 +109,7 @@ describe("fetchPublicXUserCard", () => {
   });
 
   it("rejects blank or invalid usernames", async () => {
-    await expect(fetchPublicXUserCard("")).rejects.toThrow(
-      "X username is required",
-    );
-    await expect(fetchPublicXUserCard("not valid")).rejects.toThrow(
-      "X username is required",
-    );
+    await expect(fetchPublicXUserCard("")).rejects.toThrow("X username is required");
+    await expect(fetchPublicXUserCard("not valid")).rejects.toThrow("X username is required");
   });
 });

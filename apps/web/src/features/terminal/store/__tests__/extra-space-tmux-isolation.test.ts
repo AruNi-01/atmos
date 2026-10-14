@@ -1,10 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  DEFAULT_CENTER_SPACE_ID,
-  makeCenterSpaceKey,
-} from "@/app-shell/center-space/center-space";
+import { DEFAULT_CENTER_SPACE_ID, makeCenterSpaceKey } from "@/app-shell/center-space/center-space";
 import {
   CODE_REVIEW_WINDOW_NAME,
   PROJECT_WIKI_WINDOW_NAME,
@@ -19,10 +16,7 @@ import {
   stableAgentPaneId,
   tmuxWindowsForPaintContext,
 } from "../terminal-store-helpers";
-import {
-  getTerminalWorkspaceScopeKey,
-  useTerminalStore,
-} from "../use-terminal-store";
+import { getTerminalWorkspaceScopeKey, useTerminalStore } from "../use-terminal-store";
 
 const initialState = useTerminalStore.getInitialState();
 
@@ -42,21 +36,15 @@ describe("extra-space tmux window isolation", () => {
     expect(namespacedTmuxWindowName("ws-1", "1")).toBe("1");
     expect(extraCenterSpaceTmuxWindowPrefix(extra)).toBe("cs__space-abc__");
     expect(namespacedTmuxWindowName(extra, "1")).toBe("cs__space-abc__1");
-    expect(namespacedTmuxWindowName(extra, "Claude Code")).toBe(
-      "cs__space-abc__Claude Code",
-    );
+    expect(namespacedTmuxWindowName(extra, "Claude Code")).toBe("cs__space-abc__Claude Code");
     expect(namespacedTmuxWindowName(extra, "run-main")).toBe("cs__space-abc__run-main");
     expect(namespacedTmuxWindowName(extra, "run-3")).toBe("cs__space-abc__run-3");
     expect(namespacedTmuxWindowName("ws-1", "run-main")).toBe("run-main");
-    expect(namespacedTmuxWindowName(extra, "cs__space-abc__1")).toBe(
-      "cs__space-abc__1",
-    );
+    expect(namespacedTmuxWindowName(extra, "cs__space-abc__1")).toBe("cs__space-abc__1");
     expect(namespacedTmuxWindowName(extra, PROJECT_WIKI_WINDOW_NAME)).toBe(
       PROJECT_WIKI_WINDOW_NAME,
     );
-    expect(namespacedTmuxWindowName(extra, CODE_REVIEW_WINDOW_NAME)).toBe(
-      CODE_REVIEW_WINDOW_NAME,
-    );
+    expect(namespacedTmuxWindowName(extra, CODE_REVIEW_WINDOW_NAME)).toBe(CODE_REVIEW_WINDOW_NAME);
   });
 
   it("marks extra-space window names without matching host numeric names", () => {
@@ -83,9 +71,7 @@ describe("extra-space tmux window isolation", () => {
     expect(pane.label).toBe("1");
     expect(pane.workspaceId).toBe("ws-1");
     expect(pane.tmuxWindowName).toBe("cs__space-abc__1");
-    expect(createTerminalPane("ws-1", "1", { isNewPane: true }).tmuxWindowName).toBe(
-      "1",
-    );
+    expect(createTerminalPane("ws-1", "1", { isNewPane: true }).tmuxWindowName).toBe("1");
   });
 
   it("filters host tmux windows away from extra-space paint contexts", () => {
@@ -103,9 +89,12 @@ describe("extra-space tmux window isolation", () => {
     expect(tmuxWindowsForPaintContext(extra, windows).map((win) => win.name)).toEqual([
       "cs__space-abc__1",
     ]);
-    expect(tmuxWindowsForPaintContext(extra, windows.filter((win) => win.name !== "cs__space-abc__1"))).toEqual(
-      [],
-    );
+    expect(
+      tmuxWindowsForPaintContext(
+        extra,
+        windows.filter((win) => win.name !== "cs__space-abc__1"),
+      ),
+    ).toEqual([]);
   });
 
   it("does not fold extra-space windows into the default space tmux layout", () => {
@@ -178,9 +167,7 @@ describe("createTerminalTab extra-space panes", () => {
     });
 
     const extraTab = useTerminalStore.getState().createTerminalTab(extra);
-    const extraPane = Object.values(
-      useTerminalStore.getState().getPanes(extra, extraTab.id),
-    )[0];
+    const extraPane = Object.values(useTerminalStore.getState().getPanes(extra, extraTab.id))[0];
 
     expect(extraPane?.label).toBe("1");
     expect(extraPane?.tmuxWindowName).toBe("cs__space-abc__1");
@@ -188,9 +175,9 @@ describe("createTerminalTab extra-space panes", () => {
     expect(useTerminalStore.getState().workspaceTerminalTabs[extra]?.map((tab) => tab.id)).toEqual([
       extraTab.id,
     ]);
-    expect(useTerminalStore.getState().workspaceTerminalTabs["ws-1"]?.map((tab) => tab.id)).toEqual([
-      "terminal",
-    ]);
+    expect(useTerminalStore.getState().workspaceTerminalTabs["ws-1"]?.map((tab) => tab.id)).toEqual(
+      ["terminal"],
+    );
   });
 
   it("filters fetched tmux windows to the paint before extra-space hydrate", () => {

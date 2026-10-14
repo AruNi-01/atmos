@@ -13,10 +13,7 @@ export type LiveResourceSessionPane = {
   tmuxWindowName?: string | null;
 };
 
-export type LiveResourceSessionPanes = Record<
-  string,
-  Record<string, LiveResourceSessionPane>
->;
+export type LiveResourceSessionPanes = Record<string, Record<string, LiveResourceSessionPane>>;
 
 export type LiveResourceSessionLocation = {
   hostId: string;
@@ -165,10 +162,7 @@ export function shouldShowResourceLocateRing(args: {
     tmuxWindowName?: string | null;
   };
 }): boolean {
-  return (
-    args.phase === "active" &&
-    matchesLiveResourceLocateTarget(args.target, args.candidate)
-  );
+  return args.phase === "active" && matchesLiveResourceLocateTarget(args.target, args.candidate);
 }
 
 /**

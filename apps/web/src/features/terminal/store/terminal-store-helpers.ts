@@ -153,10 +153,11 @@ type TerminalPersistenceState = TerminalLookupState & {
 /** Generate next available window name (1, 2, 3, ...) for numeric names */
 export function getNextWindowName(existingPanes: Record<string, TerminalPaneProps>): string {
   const values = Object.values(existingPanes);
-  const usedNames = new Set([
-    ...values.map((pane) => pane.tmuxWindowName),
-    ...values.map((pane) => pane.label),
-  ].filter(Boolean));
+  const usedNames = new Set(
+    [...values.map((pane) => pane.tmuxWindowName), ...values.map((pane) => pane.label)].filter(
+      Boolean,
+    ),
+  );
 
   let num = 1;
   while (usedNames.has(String(num))) {
@@ -182,10 +183,11 @@ export function getUniqueAgentName(
   }
 
   const values = Object.values(existingPanes);
-  const usedNames = new Set([
-    ...values.map((pane) => pane.tmuxWindowName),
-    ...values.map((pane) => pane.label),
-  ].filter(Boolean));
+  const usedNames = new Set(
+    [...values.map((pane) => pane.tmuxWindowName), ...values.map((pane) => pane.label)].filter(
+      Boolean,
+    ),
+  );
 
   if (!usedNames.has(baseName)) {
     return baseName;
@@ -267,9 +269,7 @@ export function panesMissingTmuxWindows(
  */
 const EXTRA_SPACE_TMUX_WINDOW_MARK = "cs__";
 
-export function extraCenterSpaceTmuxWindowPrefix(
-  paintContextId: string,
-): string | null {
+export function extraCenterSpaceTmuxWindowPrefix(paintContextId: string): string | null {
   const { spaceId } = parseCenterSpaceKey(paintContextId);
   if (spaceId === DEFAULT_CENTER_SPACE_ID) return null;
   return `${EXTRA_SPACE_TMUX_WINDOW_MARK}${spaceId}__`;
@@ -292,9 +292,7 @@ export function tmuxWindowsForPaintContext<T extends { name: string }>(
 }
 
 /** Default space windows are unprefixed; extra spaces use `cs__{spaceId}__{local}`. */
-export function spaceIdFromTmuxWindowName(
-  name: string | null | undefined,
-): string {
+export function spaceIdFromTmuxWindowName(name: string | null | undefined): string {
   if (!name || !name.startsWith(EXTRA_SPACE_TMUX_WINDOW_MARK)) {
     return DEFAULT_CENTER_SPACE_ID;
   }
@@ -305,17 +303,11 @@ export function spaceIdFromTmuxWindowName(
 }
 
 /** Agent hook / attention key. Always the host workspace id, never a paint id. */
-export function stableAgentPaneId(
-  paintOrHostId: string,
-  tmuxWindowName: string,
-): string {
+export function stableAgentPaneId(paintOrHostId: string, tmuxWindowName: string): string {
   return `${hostIdFromCenterKey(paintOrHostId)}:${tmuxWindowName}`;
 }
 
-export function namespacedTmuxWindowName(
-  paintContextId: string,
-  localName: string,
-): string {
+export function namespacedTmuxWindowName(paintContextId: string, localName: string): string {
   if (
     !localName ||
     localName === PROJECT_WIKI_WINDOW_NAME ||
@@ -437,9 +429,7 @@ function findPaneIdsInWorkspacePanes(
         return {
           paneId,
           terminalTabId:
-            scopeKey === workspaceId
-              ? FIXED_TERMINAL_TAB_VALUE
-              : scopeKey.slice(prefix.length),
+            scopeKey === workspaceId ? FIXED_TERMINAL_TAB_VALUE : scopeKey.slice(prefix.length),
         };
       }
     }
@@ -473,14 +463,14 @@ export function findWorkspacePaneIdsByTmuxWindowName(
     }
   }
 
-  const liveHit = findPaneIdsInWorkspacePanes(
-    state.workspacePanes,
-    workspaceId,
-    tmuxWindowName,
-  );
+  const liveHit = findPaneIdsInWorkspacePanes(state.workspacePanes, workspaceId, tmuxWindowName);
   if (liveHit) return liveHit;
 
-  const persistedTabs = getPersistedTerminalLayoutForWorkspace(state, workspaceId, isProjectContext)?.tabs;
+  const persistedTabs = getPersistedTerminalLayoutForWorkspace(
+    state,
+    workspaceId,
+    isProjectContext,
+  )?.tabs;
   if (persistedTabs) {
     for (const tab of persistedTabs) {
       for (const [paneId, pane] of Object.entries(tab.panes ?? {})) {
@@ -621,22 +611,20 @@ export function hydratePersistedTab(
     // `title` is the legacy field name (before the label/tmuxWindowName split).
     // Fall back to it so old persisted layouts still resolve the correct window name.
     const legacyTitle = (pane as unknown as { title?: string }).title;
-    const windowName = pane.tmuxWindowName || pane.label || legacyTitle || getNextWindowName(validatedPanes);
+    const windowName =
+      pane.tmuxWindowName || pane.label || legacyTitle || getNextWindowName(validatedPanes);
     const live = livePanes?.[id];
     // Match live pane by id first, then by tmux window name (ids can churn).
     const liveByWindow =
       live ??
       (livePanes
         ? Object.values(livePanes).find(
-            (candidate) =>
-              (candidate.tmuxWindowName || candidate.label) === windowName,
+            (candidate) => (candidate.tmuxWindowName || candidate.label) === windowName,
           )
         : undefined);
 
     const oscTitle =
-      liveByWindow?.oscTitle ??
-      pane.oscTitle ??
-      readCachedOscTitle(workspaceId, windowName);
+      liveByWindow?.oscTitle ?? pane.oscTitle ?? readCachedOscTitle(workspaceId, windowName);
     // Copy leftover layout OSC into localStorage so later layout saves
     // (which no longer include oscTitle) do not drop the topic.
     if (oscTitle) writeCachedOscTitle(workspaceId, windowName, oscTitle);
@@ -695,8 +683,7 @@ export function createInitialLayout(
   layout: TerminalLayoutNode<string>;
 } {
   const initialId = uuidv4();
-  const windowName =
-    Object.keys(existingPanes).length > 0 ? getNextWindowName(existingPanes) : "1";
+  const windowName = Object.keys(existingPanes).length > 0 ? getNextWindowName(existingPanes) : "1";
   return {
     panes: {
       [initialId]: createTerminalPane(workspaceId, windowName, {
@@ -998,14 +985,14 @@ export function buildPersistedTerminalWorkspaceLayout(
     const layout = state.workspaceLayouts[scopeKey];
     if (!panes || !layout) {
       const cachedTab = persistedCache?.tabs.find((persistedTab) => persistedTab.id === tab.id);
-        if (cachedTab) {
-          persistedTabs.push({
-            ...cachedTab,
-            title: tab.id === FIXED_TERMINAL_TAB_VALUE ? terminalT("tab.fixedTitle") : tab.title,
-            closable: true,
-            customTitle: tab.customTitle,
-          });
-        }
+      if (cachedTab) {
+        persistedTabs.push({
+          ...cachedTab,
+          title: tab.id === FIXED_TERMINAL_TAB_VALUE ? terminalT("tab.fixedTitle") : tab.title,
+          closable: true,
+          customTitle: tab.customTitle,
+        });
+      }
       continue;
     }
 
@@ -1053,7 +1040,7 @@ export function buildPersistedTerminalWorkspaceLayout(
     activeTabId:
       activeTerminalTabId && persistedTabs.some((tab) => tab.id === activeTerminalTabId)
         ? activeTerminalTabId
-        : persistedTabs[0]?.id ?? null,
+        : (persistedTabs[0]?.id ?? null),
     tabs: persistedTabs,
   };
 }

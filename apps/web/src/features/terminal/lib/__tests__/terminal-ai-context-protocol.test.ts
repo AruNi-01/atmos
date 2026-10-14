@@ -27,7 +27,9 @@ describe("terminal AI context protocol", () => {
   };
 
   it("formats and parses protocol tokens", () => {
-    expect(parseTerminalSelectionProtocolToken(formatTerminalSelectionProtocol("selection-123"))).toEqual({
+    expect(
+      parseTerminalSelectionProtocolToken(formatTerminalSelectionProtocol("selection-123")),
+    ).toEqual({
       contextId: "selection-123",
     });
     expect(parseSideChatProtocolToken(formatSideChatProtocol("capture-123"))).toEqual({
@@ -41,8 +43,12 @@ describe("terminal AI context protocol", () => {
   });
 
   it("requires a known context id for side chat protocol activation", () => {
-    expect(hasKnownSideChatCommand(formatSideChatProtocol("missing"), [selectionContext])).toBe(false);
-    expect(hasKnownSideChatCommand(formatSideChatProtocol("selection-123"), [selectionContext])).toBe(true);
+    expect(hasKnownSideChatCommand(formatSideChatProtocol("missing"), [selectionContext])).toBe(
+      false,
+    );
+    expect(
+      hasKnownSideChatCommand(formatSideChatProtocol("selection-123"), [selectionContext]),
+    ).toBe(true);
   });
 
   it("expands selection chips into explicit context blocks", () => {

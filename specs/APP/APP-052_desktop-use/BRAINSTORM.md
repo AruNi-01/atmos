@@ -18,21 +18,21 @@ Atmos can orchestrate terminal agents and capture AppShot context, but:
 
 ## Options considered
 
-| Option | Pros | Cons | Decision |
-|--------|------|------|----------|
-| A. Agent-facing raw third-party MCP | Fast for Claude | Brand leak, multi-agent config, no Atmos control plane | Reject |
-| B. Nest under `atmos computer` | One CLI tree | Collides with APP-016 machine identity | Reject |
-| C. **Desktop Use** capability + sidecar/helper + CLI + Settings | Clear naming, Atmos owns control plane, optional engine download | More packaging work | **Accept** |
-| D. Keep capture in Electron forever | Less move | Split permission owners | Reject for production path |
+| Option                                                          | Pros                                                             | Cons                                                   | Decision                   |
+| --------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------ | -------------------------- |
+| A. Agent-facing raw third-party MCP                             | Fast for Claude                                                  | Brand leak, multi-agent config, no Atmos control plane | Reject                     |
+| B. Nest under `atmos computer`                                  | One CLI tree                                                     | Collides with APP-016 machine identity                 | Reject                     |
+| C. **Desktop Use** capability + sidecar/helper + CLI + Settings | Clear naming, Atmos owns control plane, optional engine download | More packaging work                                    | **Accept**                 |
+| D. Keep capture in Electron forever                             | Less move                                                        | Split permission owners                                | Reject for production path |
 
 ## Settled product language
 
-| Concept | Name |
-|---------|------|
-| Remote machine + Relay | `computer` / `atmos computer` (unchanged) |
-| Local desktop interaction capability | **Desktop Use** |
-| Process / crate / dirs | `desktop-use` |
-| CLI | `atmos desktop-use` |
+| Concept                              | Name                                      |
+| ------------------------------------ | ----------------------------------------- |
+| Remote machine + Relay               | `computer` / `atmos computer` (unchanged) |
+| Local desktop interaction capability | **Desktop Use**                           |
+| Process / crate / dirs               | `desktop-use`                             |
+| CLI                                  | `atmos desktop-use`                       |
 
 ## Architecture sketch
 

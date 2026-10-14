@@ -11,9 +11,7 @@ import {
 
 describe("scriptsAreDirty", () => {
   test("is clean before the initial snapshot exists", () => {
-    expect(
-      scriptsAreDirty({ setup: "npm i", run: "", purge: "" }, null),
-    ).toBe(false);
+    expect(scriptsAreDirty({ setup: "npm i", run: "", purge: "" }, null)).toBe(false);
   });
 
   test("detects any phase change", () => {

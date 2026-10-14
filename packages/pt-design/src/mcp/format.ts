@@ -73,7 +73,8 @@ export function toolError(error: unknown): ToolResult {
 }
 
 export function toolSuccess(data: unknown, format: ResponseFormat = "json"): ToolResult {
-  const record = data && typeof data === "object" ? (data as Record<string, unknown>) : { value: data };
+  const record =
+    data && typeof data === "object" ? (data as Record<string, unknown>) : { value: data };
   const text =
     format === "markdown" ? clipText(toMarkdown(data)) : clipText(JSON.stringify(data, null, 2));
   return {
@@ -87,7 +88,12 @@ export function toolSuccess(data: unknown, format: ResponseFormat = "json"): Too
 function toMarkdown(data: unknown): string {
   if (!data || typeof data !== "object") return String(data);
   const rec = data as Record<string, unknown>;
-  if (Array.isArray(rec.types) && rec.types[0] && typeof rec.types[0] === "object" && "xmlExample" in (rec.types[0] as object)) {
+  if (
+    Array.isArray(rec.types) &&
+    rec.types[0] &&
+    typeof rec.types[0] === "object" &&
+    "xmlExample" in (rec.types[0] as object)
+  ) {
     return catalogMarkdown(rec);
   }
   if (typeof rec.ptx === "string") {

@@ -95,16 +95,14 @@ export function AgentChatHistorySidebarFrame({
             {children}
           </AgentChatHistoryPeekShell>
         ) : (
-          <div className="h-full min-h-0 overflow-hidden">
-            {children}
-          </div>
+          <div className="h-full min-h-0 overflow-hidden">{children}</div>
         )}
       </div>
       {!collapsed ? (
         <div
           role="separator"
           aria-orientation="vertical"
-          className="relative h-full w-3 -mx-1.5 shrink-0 cursor-col-resize overflow-visible bg-transparent touch-none"
+          className="relative -mx-1.5 h-full w-3 shrink-0 cursor-col-resize touch-none overflow-visible bg-transparent"
           onMouseDown={onResizeStart}
         >
           <ResizeFollowMark axis="vertical" dragging={isResizing} />
@@ -150,7 +148,7 @@ function AgentChatHistoryPeekShell({
           variant="ghost"
           size="icon"
           className={cn(
-            "absolute left-2 top-2 z-50 size-8 rounded-md bg-background/75 text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-md hover:bg-muted hover:text-foreground",
+            "absolute top-2 left-2 z-50 size-8 rounded-md bg-background/75 text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-md hover:bg-muted hover:text-foreground",
             panelFoldCursorClass("left", true),
           )}
           aria-label={expandLabel}

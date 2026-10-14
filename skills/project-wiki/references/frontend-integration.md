@@ -5,6 +5,7 @@ This guide explains how to render an ATMOS Project Wiki in a frontend applicatio
 ## Overview
 
 The frontend integration consists of four steps:
+
 1. Read `_catalog.json` to obtain the navigation structure
 2. Render a navigation tree from the catalog
 3. Load and render Markdown documents on demand
@@ -15,11 +16,11 @@ The frontend integration consists of four steps:
 ## 1. Read Catalog Structure
 
 ```typescript
-import fs from 'fs';
-import path from 'path';
+import fs from "fs";
+import path from "path";
 
-const catalogPath = path.join(process.cwd(), '.atmos/wiki/_catalog.json');
-const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf-8'));
+const catalogPath = path.join(process.cwd(), ".atmos/wiki/_catalog.json");
+const catalog = JSON.parse(fs.readFileSync(catalogPath, "utf-8"));
 ```
 
 ## 2. Render Navigation Tree
@@ -28,7 +29,7 @@ const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf-8'));
 function WikiNav({ catalog }: { catalog: CatalogItem[] }) {
   return (
     <nav>
-      {catalog.map(item => (
+      {catalog.map((item) => (
         <NavItem key={item.id} item={item} />
       ))}
     </nav>
@@ -41,7 +42,7 @@ function NavItem({ item }: { item: CatalogItem }) {
       <Link href={`/wiki/${item.path}`}>{item.title}</Link>
       {item.children.length > 0 && (
         <ul>
-          {item.children.map(child => (
+          {item.children.map((child) => (
             <NavItem key={child.id} item={child} />
           ))}
         </ul>
@@ -54,9 +55,9 @@ function NavItem({ item }: { item: CatalogItem }) {
 ## 3. Render Markdown Documents
 
 ```tsx
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { Mermaid } from 'mdx-mermaid/Mermaid';
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Mermaid } from "mdx-mermaid/Mermaid";
 
 function WikiPage({ content }: { content: string }) {
   return (
@@ -64,15 +65,19 @@ function WikiPage({ content }: { content: string }) {
       remarkPlugins={[remarkGfm]}
       components={{
         code({ node, inline, className, children, ...props }) {
-          const match = /language-(\w+)/.exec(className || '');
-          const lang = match ? match[1] : '';
+          const match = /language-(\w+)/.exec(className || "");
+          const lang = match ? match[1] : "";
 
-          if (lang === 'mermaid') {
+          if (lang === "mermaid") {
             return <Mermaid chart={String(children)} />;
           }
 
-          return <code className={className} {...props}>{children}</code>;
-        }
+          return (
+            <code className={className} {...props}>
+              {children}
+            </code>
+          );
+        },
       }}
     >
       {content}
@@ -103,9 +108,9 @@ function validateCatalog(catalog: any): boolean {
   return catalog.catalog.length > 0;
 }
 
-const catalog = JSON.parse(fs.readFileSync('.atmos/wiki/_catalog.json', 'utf-8'));
+const catalog = JSON.parse(fs.readFileSync(".atmos/wiki/_catalog.json", "utf-8"));
 if (!validateCatalog(catalog)) {
-  console.error('Invalid catalog structure');
+  console.error("Invalid catalog structure");
   return;
 }
 renderWiki(catalog);
@@ -115,11 +120,11 @@ renderWiki(catalog);
 
 ## Recommended Libraries
 
-| Purpose | Library | Notes |
-|---------|---------|-------|
-| Markdown Rendering | `react-markdown` + `remark-gfm` | Supports GFM tables, strikethrough, etc. |
-| Mermaid Diagrams | `mermaid` or `mdx-mermaid` | Handle `language-mermaid` code blocks |
-| Code Highlighting | `prism-react-renderer` or `highlight.js` | Syntax highlighting for code blocks |
+| Purpose            | Library                                  | Notes                                    |
+| ------------------ | ---------------------------------------- | ---------------------------------------- |
+| Markdown Rendering | `react-markdown` + `remark-gfm`          | Supports GFM tables, strikethrough, etc. |
+| Mermaid Diagrams   | `mermaid` or `mdx-mermaid`               | Handle `language-mermaid` code blocks    |
+| Code Highlighting  | `prism-react-renderer` or `highlight.js` | Syntax highlighting for code blocks      |
 
 ## Key Considerations
 

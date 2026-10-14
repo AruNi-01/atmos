@@ -1,6 +1,9 @@
 /** Pure helpers and constants for the Task GitHub list panel. */
 
-import type { TaskGithubFilters, TaskGithubStateFilter } from "@/features/task/components/TaskGithubFilterMenu";
+import type {
+  TaskGithubFilters,
+  TaskGithubStateFilter,
+} from "@/features/task/components/TaskGithubFilterMenu";
 import type { TaskGithubSortParam } from "@/shared/lib/nuqs/searchParams";
 
 export const TASK_GITHUB_PAGE_SIZE = 20;

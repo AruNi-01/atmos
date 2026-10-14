@@ -107,10 +107,7 @@ describe("center stage fullscreen geometry", () => {
 
 describe("center stage fullscreen wiring", () => {
   it("puts layout first and fullscreen last in the plus menu layout tab", () => {
-    const tabBar = readFileSync(
-      join(import.meta.dir, "../CenterStageTabBar.tsx"),
-      "utf8",
-    );
+    const tabBar = readFileSync(join(import.meta.dir, "../CenterStageTabBar.tsx"), "utf8");
     const menuBlock = tabBar.slice(
       tabBar.indexOf("function CenterStageNewTabMenu"),
       tabBar.indexOf("function SpecialTerminalTab"),
@@ -118,7 +115,9 @@ describe("center stage fullscreen wiring", () => {
     const layoutAt = menuBlock.indexOf("{layoutLabel}");
     const splitRightAt = menuBlock.indexOf("{splitRightLabel}");
     const splitDownAt = menuBlock.indexOf("{splitDownLabel}");
-    const fullscreenAt = menuBlock.indexOf("{isCenterFullscreen ? exitFullscreenLabel : fullscreenLabel}");
+    const fullscreenAt = menuBlock.indexOf(
+      "{isCenterFullscreen ? exitFullscreenLabel : fullscreenLabel}",
+    );
     expect(layoutAt).toBeGreaterThan(0);
     expect(fullscreenAt).toBeGreaterThan(0);
     expect(splitRightAt).toBeGreaterThan(layoutAt);
@@ -131,15 +130,9 @@ describe("center stage fullscreen wiring", () => {
   });
 
   it("puts a pane fullscreen toggle to the right of the plus button when split", () => {
-    const tabBar = readFileSync(
-      join(import.meta.dir, "../CenterStageTabBar.tsx"),
-      "utf8",
-    );
+    const tabBar = readFileSync(join(import.meta.dir, "../CenterStageTabBar.tsx"), "utf8");
     const stage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
-    const list = readFileSync(
-      join(import.meta.dir, "../center-stage-shared-tabs.tsx"),
-      "utf8",
-    );
+    const list = readFileSync(join(import.meta.dir, "../center-stage-shared-tabs.tsx"), "utf8");
     const plusAt = tabBar.indexOf("<CenterStageNewTabMenu");
     const fullscreenAt = tabBar.indexOf("<CenterStagePaneFullscreenButton");
     const groupsAt = tabBar.indexOf("<CenterStageTabGroupPopover");
@@ -159,10 +152,7 @@ describe("center stage fullscreen wiring", () => {
 
   it("persists pane fullscreen on the mosaic layout instead of clearing it on workspace hop", () => {
     const stage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
-    const hook = readFileSync(
-      join(import.meta.dir, "../use-center-stage-fullscreen.ts"),
-      "utf8",
-    );
+    const hook = readFileSync(join(import.meta.dir, "../use-center-stage-fullscreen.ts"), "utf8");
     const layout = readFileSync(
       join(import.meta.dir, "../center-pane/center-pane-layout.ts"),
       "utf8",
@@ -192,16 +182,17 @@ describe("center stage fullscreen wiring", () => {
       contextId: null,
     });
     try {
-      const layoutA = splitPane(
-        createDefaultLayout(["terminal"], "terminal"),
-        { direction: "right" },
-      );
+      const layoutA = splitPane(createDefaultLayout(["terminal"], "terminal"), {
+        direction: "right",
+      });
       const paneId = layoutA.order.find((id) => id !== DEFAULT_PANE_ID)!;
       useCenterPaneLayoutStore.getState().setLayout(contextA, layoutA);
-      useCenterPaneLayoutStore.getState().setLayout(
-        contextB,
-        splitPane(createDefaultLayout(["files"], "files"), { direction: "right" }),
-      );
+      useCenterPaneLayoutStore
+        .getState()
+        .setLayout(
+          contextB,
+          splitPane(createDefaultLayout(["files"], "files"), { direction: "right" }),
+        );
 
       useCenterStageFullscreenStore.getState().syncFromLayout(contextA, null);
       useCenterStageFullscreenStore.getState().toggleFullscreen(paneId);
@@ -210,17 +201,15 @@ describe("center stage fullscreen wiring", () => {
       );
 
       const layoutB = useCenterPaneLayoutStore.getState().getLayout(contextB);
-      useCenterStageFullscreenStore.getState().syncFromLayout(
-        contextB,
-        layoutB?.fullscreenPaneId ?? null,
-      );
+      useCenterStageFullscreenStore
+        .getState()
+        .syncFromLayout(contextB, layoutB?.fullscreenPaneId ?? null);
       expect(useCenterStageFullscreenStore.getState().isFullscreen).toBe(false);
 
       const restored = useCenterPaneLayoutStore.getState().getLayout(contextA);
-      useCenterStageFullscreenStore.getState().syncFromLayout(
-        contextA,
-        restored?.fullscreenPaneId ?? null,
-      );
+      useCenterStageFullscreenStore
+        .getState()
+        .syncFromLayout(contextA, restored?.fullscreenPaneId ?? null);
       expect(useCenterStageFullscreenStore.getState().isFullscreen).toBe(true);
       expect(useCenterStageFullscreenStore.getState().paneId).toBe(paneId);
     } finally {
@@ -236,10 +225,7 @@ describe("center stage fullscreen wiring", () => {
   });
 
   it("keeps floating-card gutters while a pane is fullscreen", () => {
-    const css = readFileSync(
-      join(import.meta.dir, "../center-pane/center-pane-grid.css"),
-      "utf8",
-    );
+    const css = readFileSync(join(import.meta.dir, "../center-pane/center-pane-grid.css"), "utf8");
     expect(css).not.toContain("padding: 0 !important");
     expect(css).not.toContain("Eat the floating-card gutters");
     const stage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
@@ -254,18 +240,12 @@ describe("center stage fullscreen wiring", () => {
     expect(stage).toContain("fullscreenPaneId={activeFullscreenPaneId}");
     expect(stage).not.toContain("APP_SHELL_CENTER_COLUMN_ATTR");
 
-    const hook = readFileSync(
-      join(import.meta.dir, "../use-center-stage-fullscreen.ts"),
-      "utf8",
-    );
+    const hook = readFileSync(join(import.meta.dir, "../use-center-stage-fullscreen.ts"), "utf8");
     expect(hook).not.toContain("APP_SHELL_CENTER_COLUMN_ATTR");
     expect(hook).not.toContain("APP_SHELL_PANEL_LAYOUT_ATTR");
     expect(hook).toContain("paneId");
 
-    const grid = readFileSync(
-      join(import.meta.dir, "../center-pane/CenterPaneGrid.tsx"),
-      "utf8",
-    );
+    const grid = readFileSync(join(import.meta.dir, "../center-pane/CenterPaneGrid.tsx"), "utf8");
     expect(grid).toContain("centerPaneFullscreenTileStyle");
     expect(grid).toContain("data-center-pane-fullscreen");
 

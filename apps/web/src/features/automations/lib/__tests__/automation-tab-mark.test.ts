@@ -50,10 +50,9 @@ describe("automation-tab-mark", () => {
       ),
     ).toBeNull();
     expect(
-      resolveAutomationTabMark(
-        { kind: "chat", chatId: "chat-other" },
-        [run({ execute_mode: "chat", surface_kind: "chat", surface_session_id: "chat-1" })],
-      ),
+      resolveAutomationTabMark({ kind: "chat", chatId: "chat-other" }, [
+        run({ execute_mode: "chat", surface_kind: "chat", surface_session_id: "chat-1" }),
+      ]),
     ).toBeNull();
   });
 
@@ -85,16 +84,12 @@ describe("automation-tab-mark", () => {
       surface_session_id: "chat-9",
     });
     expect(
-      resolveAutomationTabMark(
-        { kind: "chat", chatId: "chat-9", source: "automation" },
-        [chatRun],
-      )?.run.guid,
+      resolveAutomationTabMark({ kind: "chat", chatId: "chat-9", source: "automation" }, [chatRun])
+        ?.run.guid,
     ).toBe("abcdefghijkl");
     expect(
-      resolveAutomationTabMark(
-        { kind: "chat", automationRunGuid: "abcdefghijkl" },
-        [chatRun],
-      )?.tooltip,
+      resolveAutomationTabMark({ kind: "chat", automationRunGuid: "abcdefghijkl" }, [chatRun])
+        ?.tooltip,
     ).toBe("Daily health · abcdefgh");
   });
 });

@@ -54,9 +54,9 @@ describe("agent chat working directory", () => {
 
   it("treats empty ids as thread mode", () => {
     expect(isThreadWorkingDirectory(THREAD_WORKING_DIRECTORY)).toBe(true);
-    expect(
-      isThreadWorkingDirectory({ workspaceId: null, projectId: "p1", cwd: "/tmp" }),
-    ).toBe(false);
+    expect(isThreadWorkingDirectory({ workspaceId: null, projectId: "p1", cwd: "/tmp" })).toBe(
+      false,
+    );
   });
 
   it("labels thread, project, and workspace selections", () => {
@@ -91,7 +91,9 @@ describe("agent chat working directory", () => {
     });
     expect(filterWorkingDirectoryMenu(projects, "thread", "Thread").showThread).toBe(true);
     expect(filterWorkingDirectoryMenu(projects, "atmos", "Thread").showThread).toBe(false);
-    expect(filterWorkingDirectoryMenu(projects, "feat", "Thread").projects[0]?.workspaces).toHaveLength(1);
+    expect(
+      filterWorkingDirectoryMenu(projects, "feat", "Thread").projects[0]?.workspaces,
+    ).toHaveLength(1);
     expect(filterWorkingDirectoryMenu(projects, "missing", "Thread")).toEqual({
       showThread: false,
       projects: [],

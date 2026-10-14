@@ -22,7 +22,12 @@ export function normalizeCanvasPageRect(
   }
   const w = Math.abs(brush.w);
   const h = Math.abs(brush.h);
-  if (!Number.isFinite(brush.x) || !Number.isFinite(brush.y) || !Number.isFinite(w) || !Number.isFinite(h)) {
+  if (
+    !Number.isFinite(brush.x) ||
+    !Number.isFinite(brush.y) ||
+    !Number.isFinite(w) ||
+    !Number.isFinite(h)
+  ) {
     return null;
   }
   return {

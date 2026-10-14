@@ -66,7 +66,9 @@ describe("estimateTranscriptTotalSize", () => {
   });
 
   it("starts the first paint at the bottom of a long transcript", () => {
-    const roles = Array.from({ length: 40 }, (_, index) => (index % 2 === 0 ? "user" : "assistant"));
+    const roles = Array.from({ length: 40 }, (_, index) =>
+      index % 2 === 0 ? "user" : "assistant",
+    );
     const total = estimateTranscriptTotalSize(roles);
     expect(estimateTranscriptInitialOffset(roles, 600)).toBe(total - 600);
     expect(estimateTranscriptInitialOffset(["user"], 800)).toBe(0);
@@ -182,7 +184,9 @@ describe("transcript virtual list wiring", () => {
     expect(panel).toContain("AgentChatTranscriptList");
     expect(panel).toContain("scrollToIndexRef");
     expect(panel).toContain(`scrollClassName={AGENT_CHAT_SCROLL_CLASS}`);
-    expect(panel).toContain('resize={!surfaceVisible || isRestoringTranscript ? "instant" : "smooth"}');
+    expect(panel).toContain(
+      'resize={!surfaceVisible || isRestoringTranscript ? "instant" : "smooth"}',
+    );
     expect(panel).toContain("transcriptBottomPadStyle");
     expect(panel).toContain("overlayPadShrinking");
     expect(panel).not.toContain("shouldMountTranscriptMessage");
@@ -196,15 +200,19 @@ describe("transcript virtual list wiring", () => {
     expect(list).toContain("useVirtualizer");
     expect(list).toContain("measureElement");
     expect(list).toContain("useAnimationFrameWithResizeObserver: true");
-    expect(list).toContain("anchorTo: \"end\"");
+    expect(list).toContain('anchorTo: "end"');
     expect(list).toContain("scrollEndThreshold: TRANSCRIPT_END_SLACK_PX");
     expect(list).toContain("shouldAdjustTranscriptScrollOnItemSizeChange");
     expect(list).toContain("virtualizer.shouldAdjustScrollPositionOnItemSizeChange");
     expect(list).toContain("stableAgentMessageKey");
     expect(list).toContain("getItemKey");
-    expect(list).toContain("virtualizer.scrollToIndex(index, { align: \"start\", behavior: \"smooth\" })");
+    expect(list).toContain(
+      'virtualizer.scrollToIndex(index, { align: "start", behavior: "smooth" })',
+    );
     expect(list).toContain("stayPinnedToEndRef.current = false");
-    expect(list).toContain("virtualizer.scrollToIndex(messages.length - 1, { align: \"end\", behavior: \"auto\" })");
+    expect(list).toContain(
+      'virtualizer.scrollToIndex(messages.length - 1, { align: "end", behavior: "auto" })',
+    );
     expect(list).not.toContain("key={index}");
     expect(list).not.toContain("key={i}");
     expect(list).not.toContain("RESTORE_REPLAY_BATCH_SIZE");
@@ -237,7 +245,9 @@ describe("transcript virtual list wiring", () => {
     expect(list).not.toContain("invisible pointer-events-none");
     expect(list).not.toContain("stickyUserPinLayout");
     expect(list).not.toContain("pin?.translateY");
-    expect(panel).toContain("relative z-0 min-h-0 flex-1 overflow-hidden data-[agent-chat-own-send]:z-20");
+    expect(panel).toContain(
+      "relative z-0 min-h-0 flex-1 overflow-hidden data-[agent-chat-own-send]:z-20",
+    );
     expect(panel).toContain("<AgentChatEdgeFades");
     expect(list).toContain("StickToBottomStop");
     expect(list).toContain("skipEndAnchorRef");

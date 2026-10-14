@@ -1,11 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  writeFileSync,
-  statSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -74,16 +68,11 @@ describe("desktop-use host branding", () => {
     const resources = join(app, "Contents", "Resources");
     mkdirSync(resources, { recursive: true });
     const src = join(root, "icon.icns");
-    const fake = Buffer.concat([
-      Buffer.from("icns"),
-      Buffer.alloc(32, 7),
-    ]);
+    const fake = Buffer.concat([Buffer.from("icns"), Buffer.alloc(32, 7)]);
     writeFileSync(src, fake);
 
     expect(applyHostAppIcon(app, src)).toBe(true);
-    expect(readFileSync(join(resources, "AppIcon.icns")).equals(fake)).toBe(
-      true,
-    );
+    expect(readFileSync(join(resources, "AppIcon.icns")).equals(fake)).toBe(true);
     expect(applyHostAppIcon(app, src)).toBe(false);
 
     const other = join(root, "other.icns");

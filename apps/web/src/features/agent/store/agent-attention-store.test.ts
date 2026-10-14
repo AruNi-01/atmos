@@ -100,9 +100,7 @@ describe("agent-attention-store", () => {
     jest.advanceTimersByTime(ATTENTION_AUTO_CLEAR_MS - 1);
     expect(store.hasPaneAttention("ws-1:main")).toBe(true);
     jest.advanceTimersByTime(1);
-    expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(
-      false,
-    );
+    expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(false);
   });
 
   test("deferred auto-focus never clears pending permission_request", () => {
@@ -115,9 +113,7 @@ describe("agent-attention-store", () => {
     });
     store.notifyPaneFocused("ws-1:main", { ack: "deferred" });
     jest.advanceTimersByTime(ATTENTION_AUTO_CLEAR_MS + 1000);
-    expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(
-      true,
-    );
+    expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(true);
   });
 
   test("user click clears a deferred auto-focus ring immediately", () => {
@@ -145,9 +141,7 @@ describe("agent-attention-store", () => {
     store.notifyPaneFocused("ws-1:main", { ack: "deferred" });
     store.notifyPaneFocused("ws-1:other", { ack: "deferred" });
     jest.advanceTimersByTime(ATTENTION_AUTO_CLEAR_MS);
-    expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(
-      true,
-    );
+    expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(true);
   });
 
   test("deferred auto-focus clears task_complete latched under a session alias", () => {
@@ -162,9 +156,7 @@ describe("agent-attention-store", () => {
     store.notifyPaneFocused("ws-1:main", { ack: "deferred" });
     expect(store.hasPaneAttention("agent-session-uuid")).toBe(true);
     jest.advanceTimersByTime(ATTENTION_AUTO_CLEAR_MS);
-    expect(
-      useAgentAttentionStore.getState().hasPaneAttention("agent-session-uuid"),
-    ).toBe(false);
+    expect(useAgentAttentionStore.getState().hasPaneAttention("agent-session-uuid")).toBe(false);
   });
 
   test("raise while focused auto-clears after the dwell window", () => {
@@ -178,9 +170,7 @@ describe("agent-attention-store", () => {
     });
     expect(store.hasPaneAttention("ws-1:main")).toBe(true);
     jest.advanceTimersByTime(ATTENTION_AUTO_CLEAR_MS);
-    expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(
-      false,
-    );
+    expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(false);
   });
 
   test("raise permission while focused stays latched", () => {
@@ -193,9 +183,7 @@ describe("agent-attention-store", () => {
       reason: "permission_request",
     });
     jest.advanceTimersByTime(ATTENTION_AUTO_CLEAR_MS + 1000);
-    expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(
-      true,
-    );
+    expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(true);
     expect(useAgentAttentionStore.getState().getAttentionCount()).toBe(1);
   });
 
@@ -211,9 +199,7 @@ describe("agent-attention-store", () => {
     jest.advanceTimersByTime(1000);
     store.notifyPaneFocused("ws-1:main", { ack: "deferred" });
     jest.advanceTimersByTime(ATTENTION_AUTO_CLEAR_MS - 1000);
-    expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(
-      false,
-    );
+    expect(useAgentAttentionStore.getState().hasPaneAttention("ws-1:main")).toBe(false);
   });
 
   test("deferred auto-focus does not drop idle status until the dwell window", () => {
@@ -242,9 +228,7 @@ describe("agent-attention-store", () => {
     });
     store.notifyPaneFocused("ws-1:main");
     expect(store.hasPaneAttention("ws-1:main")).toBe(false);
-    expect(
-      useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1"),
-    ).toBe(true);
+    expect(useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1")).toBe(true);
   });
 
   test("clearing permission does not start a grouping hold", () => {
@@ -257,9 +241,7 @@ describe("agent-attention-store", () => {
     // Focus alone must not clear permission; explicit clear simulates resolve.
     store.clearPane("ws-1:main");
     expect(store.hasPaneAttention("ws-1:main")).toBe(false);
-    expect(
-      useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1"),
-    ).toBe(false);
+    expect(useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1")).toBe(false);
   });
 
   test("grouping hold waits until the last task_complete latch on the context is gone", () => {
@@ -275,14 +257,10 @@ describe("agent-attention-store", () => {
       reason: "task_complete",
     });
     store.notifyPaneFocused("ws-1:a");
-    expect(
-      useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1"),
-    ).toBe(false);
+    expect(useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1")).toBe(false);
     expect(store.hasContextAttention("ws-1")).toBe(true);
     store.notifyPaneFocused("ws-1:b");
-    expect(
-      useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1"),
-    ).toBe(true);
+    expect(useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1")).toBe(true);
   });
 
   test("unacknowledged task_complete does not start a grouping hold", () => {
@@ -291,12 +269,8 @@ describe("agent-attention-store", () => {
       contextId: "ws-1",
       reason: "task_complete",
     });
-    expect(
-      useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1"),
-    ).toBe(false);
-    expect(useAgentAttentionStore.getState().hasContextAttention("ws-1")).toBe(
-      true,
-    );
+    expect(useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1")).toBe(false);
+    expect(useAgentAttentionStore.getState().hasContextAttention("ws-1")).toBe(true);
   });
 
   test("grouping hold survives ack and expires after the dwell window", () => {
@@ -308,16 +282,12 @@ describe("agent-attention-store", () => {
     });
     attention.notifyPaneFocused("ws-1:main");
     expect(attention.getContextReason("ws-1")).toBeNull();
-    expect(
-      useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1"),
-    ).toBe(true);
+    expect(useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1")).toBe(true);
 
     useWorkspaceAgentGroupingHoldStore
       .getState()
       .expireDue(Date.now() + WORKSPACE_AGENT_GROUPING_HOLD_MS + 1);
-    expect(
-      useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1"),
-    ).toBe(false);
+    expect(useWorkspaceAgentGroupingHoldStore.getState().isHoldActive("ws-1")).toBe(false);
   });
 
   test("notifyPaneFocused acknowledges the pane so idle agent status can drop", () => {
@@ -346,9 +316,9 @@ describe("agent-attention-store", () => {
     });
     store.notifyPaneFocused("ws-1:main");
     expect(store.hasPaneAttention("ws-1:main")).toBe(false);
-    expect(
-      useAgentAttentionSummaryStore.getState().getPane("ws-1:main")?.summary,
-    ).toBe("Shipped the recap.");
+    expect(useAgentAttentionSummaryStore.getState().getPane("ws-1:main")?.summary).toBe(
+      "Shipped the recap.",
+    );
   });
 
   test("notifyPaneFocused clears task_complete when focus key matches sessionId alias", () => {
@@ -482,10 +452,7 @@ describe("filterProjectsByAttention", () => {
     const projects = [
       {
         id: "p1",
-        workspaces: [
-          { id: "w1" },
-          { id: "w2" },
-        ],
+        workspaces: [{ id: "w1" }, { id: "w2" }],
       },
       {
         id: "p2",

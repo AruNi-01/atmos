@@ -5,8 +5,7 @@ import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
 export const BROWSER_USE_SLASH_COMMAND_ID = "browser-use";
 export const BROWSER_USE_SKILL_NAME = "atmos-browser-use";
 /** Fallback when skills_list has not synced the system skill yet. */
-export const BROWSER_USE_SKILL_FALLBACK_PATH =
-  "~/.atmos/skills/.system/atmos-browser-use";
+export const BROWSER_USE_SKILL_FALLBACK_PATH = "~/.atmos/skills/.system/atmos-browser-use";
 
 export function matchesBrowserUseSlashQuery(query: string): boolean {
   const q = query.trim().toLowerCase();

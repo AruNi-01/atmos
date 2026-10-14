@@ -1,9 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Keyboard,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TerminalBuiltinKeyboard } from "@/features/terminal/TerminalBuiltinKeyboard";
 import { terminalComposerInput } from "@/features/terminal/terminal-composer";
-import { shortcutEdgeFade, TERMINAL_SHORTCUT_BAR_COLOR } from "@/features/terminal/terminal-edge-fade";
+import {
+  shortcutEdgeFade,
+  TERMINAL_SHORTCUT_BAR_COLOR,
+} from "@/features/terminal/terminal-edge-fade";
 import type { TerminalKeyboardAction } from "@/features/terminal/terminal-keyboard";
 import type { TerminalKeyResult } from "@/features/terminal/terminal-key-encoding";
 import {
@@ -83,7 +95,10 @@ export function TerminalShortcutBar({
   const [draft, setDraft] = useState("");
   const [keyboardVisible, setKeyboardVisible] = useState(() => Keyboard.isVisible());
   const [panel, setPanel] = useState<KeyboardPanel>("hidden");
-  const shortcutsById = useMemo(() => new Map(terminalShortcuts.map((shortcut) => [shortcut.id, shortcut])), []);
+  const shortcutsById = useMemo(
+    () => new Map(terminalShortcuts.map((shortcut) => [shortcut.id, shortcut])),
+    [],
+  );
   const bottomPadding = keyboardVisible ? 6 : Math.max(insets.bottom, 8);
   const expanded = keyboardVisible || panel === "builtin";
   const canSend = draft.trim().length > 0;
@@ -167,7 +182,12 @@ export function TerminalShortcutBar({
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.terminalBg, paddingBottom: bottomPadding }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.colors.terminalBg, paddingBottom: bottomPadding },
+      ]}
+    >
       {composerOpen ? (
         <GlassPanel
           colorScheme="dark"
@@ -195,7 +215,10 @@ export function TerminalShortcutBar({
               accessibilityLabel="Close input"
               accessibilityRole="button"
               onPress={onChat}
-              style={({ pressed }) => [styles.composerIconButton, pressed && styles.composerIconPressed]}
+              style={({ pressed }) => [
+                styles.composerIconButton,
+                pressed && styles.composerIconPressed,
+              ]}
             >
               <XIcon color={theme.colors.terminalFg} size={16} strokeWidth={2.4} />
             </Pressable>
@@ -235,7 +258,11 @@ export function TerminalShortcutBar({
                       accessibilityRole="button"
                       key={shortcutId}
                       onPress={() => onShortcut(shortcut)}
-                      style={({ pressed }) => [styles.keycap, keycapStyle, pressed && keycapPressedStyle]}
+                      style={({ pressed }) => [
+                        styles.keycap,
+                        keycapStyle,
+                        pressed && keycapPressedStyle,
+                      ]}
                     >
                       <Text numberOfLines={1} style={[styles.keycapText, labelStyle]}>
                         {SHORTCUT_LABEL[shortcutId]}
@@ -244,20 +271,37 @@ export function TerminalShortcutBar({
                   );
                 })}
               </ScrollView>
-              <View pointerEvents="none" style={[styles.fade, styles.fadeLeft, { experimental_backgroundImage: LEFT_FADE }]} />
-              <View pointerEvents="none" style={[styles.fade, styles.fadeRight, { experimental_backgroundImage: RIGHT_FADE }]} />
+              <View
+                pointerEvents="none"
+                style={[styles.fade, styles.fadeLeft, { experimental_backgroundImage: LEFT_FADE }]}
+              />
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.fade,
+                  styles.fadeRight,
+                  { experimental_backgroundImage: RIGHT_FADE },
+                ]}
+              />
             </View>
             <View style={styles.actions}>
               <Pressable
                 accessibilityLabel={composerOpen ? "Close input" : "Terminal input"}
                 accessibilityRole="button"
                 onPress={onChat}
-                style={({ pressed }) => [styles.keycap, styles.iconKeycap, keycapStyle, pressed && keycapPressedStyle]}
+                style={({ pressed }) => [
+                  styles.keycap,
+                  styles.iconKeycap,
+                  keycapStyle,
+                  pressed && keycapPressedStyle,
+                ]}
               >
                 <MessageCircleIcon color={theme.colors.terminalFg} size={18} strokeWidth={2.2} />
               </Pressable>
               <Pressable
-                accessibilityLabel={panel === "builtin" ? "Use system keyboard" : "Use built-in keyboard"}
+                accessibilityLabel={
+                  panel === "builtin" ? "Use system keyboard" : "Use built-in keyboard"
+                }
                 accessibilityRole="button"
                 accessibilityState={{ selected: panel === "builtin" }}
                 onPress={onSwitchKeyboard}
@@ -275,7 +319,12 @@ export function TerminalShortcutBar({
                 accessibilityLabel={expanded ? "Hide keyboard" : "Show keyboard"}
                 accessibilityRole="button"
                 onPress={onChevron}
-                style={({ pressed }) => [styles.keycap, styles.iconKeycap, keycapStyle, pressed && keycapPressedStyle]}
+                style={({ pressed }) => [
+                  styles.keycap,
+                  styles.iconKeycap,
+                  keycapStyle,
+                  pressed && keycapPressedStyle,
+                ]}
               >
                 {expanded ? (
                   <ChevronDownIcon color={theme.colors.terminalFg} size={18} strokeWidth={2.2} />

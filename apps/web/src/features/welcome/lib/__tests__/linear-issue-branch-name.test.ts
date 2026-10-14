@@ -13,17 +13,14 @@ mock.module("@/app-shell/llm-providers-modal-utils", () => ({
   agentCliRouteLabel: (id: string) => id,
 }));
 
-const {
-  linearIssueToBranchName,
-  linearIssueToWorkspaceName,
-  regeneratePokemonSuffixBranch,
-} = await import("../welcome-page-helpers");
+const { linearIssueToBranchName, linearIssueToWorkspaceName, regeneratePokemonSuffixBranch } =
+  await import("../welcome-page-helpers");
 
 describe("linearIssueToWorkspaceName", () => {
   it("prefills identifier + title", () => {
-    expect(
-      linearIssueToWorkspaceName({ identifier: "LAN-48", title: "Ship tabs" }),
-    ).toBe("LAN-48 Ship tabs");
+    expect(linearIssueToWorkspaceName({ identifier: "LAN-48", title: "Ship tabs" })).toBe(
+      "LAN-48 Ship tabs",
+    );
   });
 });
 

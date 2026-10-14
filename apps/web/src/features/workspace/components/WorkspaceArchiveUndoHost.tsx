@@ -25,9 +25,7 @@ export function WorkspaceArchiveUndoHost() {
     return () => window.removeEventListener("pagehide", flush);
   }, []);
 
-  const name = pending
-    ? workspaceArchiveDisplayName(pending.workspace, t("common.untitled"))
-    : "";
+  const name = pending ? workspaceArchiveDisplayName(pending.workspace, t("common.untitled")) : "";
 
   return (
     <div
@@ -39,7 +37,9 @@ export function WorkspaceArchiveUndoHost() {
         open={pending != null}
         duration={WORKSPACE_ARCHIVE_UNDO_SECONDS}
         label={
-          pending ? t("store.messages.workspaceArchivedNamed", { name }) : t("store.messages.workspaceArchived")
+          pending
+            ? t("store.messages.workspaceArchivedNamed", { name })
+            : t("store.messages.workspaceArchived")
         }
         undoLabel={t("common.undo")}
         onUndo={() => {

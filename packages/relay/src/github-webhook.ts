@@ -1,7 +1,4 @@
-import {
-  dispatchExternalEventToServer,
-  type ExternalDispatchResult,
-} from "./event-dispatch";
+import { dispatchExternalEventToServer, type ExternalDispatchResult } from "./event-dispatch";
 import {
   githubMonthlyDispatchLimitExceeded,
   insertDelivery,
@@ -25,10 +22,7 @@ export function githubWebhookFanoutLimit(): number {
   return GITHUB_WEBHOOK_FANOUT_LIMIT;
 }
 
-export async function handleGithubWebhook(
-  request: Request,
-  env: Env,
-): Promise<Response> {
+export async function handleGithubWebhook(request: Request, env: Env): Promise<Response> {
   const webhookSecret = env.GITHUB_WEBHOOK_SECRET?.trim();
   if (!webhookSecret) {
     return json({ error: "github_webhook_not_configured" }, 503);
@@ -188,11 +182,7 @@ async function verifyGithubSignature(
     false,
     ["sign"],
   );
-  const digest = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    rawBody,
-  );
+  const digest = await crypto.subtle.sign("HMAC", key, rawBody);
   return timingSafeEqual(hexToBytes(expectedHex), new Uint8Array(digest));
 }
 

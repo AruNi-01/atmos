@@ -4,12 +4,12 @@ Chrome/Edge extension that bridges cross-port preview element selection for Atmo
 
 ## Files
 
-| File | Role |
-|------|------|
-| `manifest.json` | MV3 manifest — permissions, content script registration |
-| `background.js` | Service worker (minimal, install log only) |
-| `content.js` | Injected by Chrome into matching pages; loads `browser-runtime.js` and `injected.js` |
-| `injected.js` | Page-level glue — receives `host-init` from Atmos, creates runtime controller, relays messages |
+| File                 | Role                                                                                                                                         |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `manifest.json`      | MV3 manifest — permissions, content script registration                                                                                      |
+| `background.js`      | Service worker (minimal, install log only)                                                                                                   |
+| `content.js`         | Injected by Chrome into matching pages; loads `browser-runtime.js` and `injected.js`                                                         |
+| `injected.js`        | Page-level glue — receives `host-init` from Atmos, creates runtime controller, relays messages                                               |
 | `browser-runtime.js` | **Synced copy** of `packages/shared/browser/browser-runtime.js` (run `bun run extension/scripts/sync-browser-runtime.ts`). Do not hand-edit. |
 
 ## How It Works

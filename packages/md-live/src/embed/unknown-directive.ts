@@ -131,8 +131,8 @@ function expandUnknown(node: DirectiveMdast): DirectiveMdast[] {
 
 function keepAsEmbed(node: DirectiveMdast): boolean {
   return (
-    (node.type === "textDirective" || node.type === "leafDirective")
-    && isMdLiveDirectiveName(node.name)
+    (node.type === "textDirective" || node.type === "leafDirective") &&
+    isMdLiveDirectiveName(node.name)
   );
 }
 

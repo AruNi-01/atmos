@@ -120,7 +120,11 @@ describe("APP-074 CodeMirror git blame wiring", () => {
 
   test("S15 i18n keys exist in en and zh without ALL CAPS labels", () => {
     const en = JSON.parse(readFileSync(enPath, "utf8")) as {
-      Editor: { components: { codeMirror: { settings: { gitBlame: string }; gitBlame: { notCommittedYet: string } } } };
+      Editor: {
+        components: {
+          codeMirror: { settings: { gitBlame: string }; gitBlame: { notCommittedYet: string } };
+        };
+      };
       settings: { editorSection: { rows: { gitBlame: { title: string } } } };
     };
     const zh = JSON.parse(readFileSync(zhPath, "utf8")) as typeof en;

@@ -10,7 +10,18 @@ import {
   ScrollArea,
   toastManager,
 } from "@workspace/ui";
-import { AlertTriangle, ChevronRight, Clock, Eye, Frown, Loader2, Meh, Pencil, Save, Smile } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronRight,
+  Clock,
+  Eye,
+  Frown,
+  Loader2,
+  Meh,
+  Pencil,
+  Save,
+  Smile,
+} from "lucide-react";
 import { formatLocalDateTime } from "@atmos/shared";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import type { SelectionAttachedPayload } from "@/features/selection/components/SelectionPopover";
@@ -25,15 +36,17 @@ import { fsApi } from "@/api/ws-api";
 
 const CodeMirrorEditor = dynamic(
   () =>
-    import("@/features/editor/components/BaseCodeMirrorEditor").then((mod) => mod.BaseCodeMirrorEditor),
+    import("@/features/editor/components/BaseCodeMirrorEditor").then(
+      (mod) => mod.BaseCodeMirrorEditor,
+    ),
   {
     ssr: false,
     loading: () => (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex h-full items-center justify-center">
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
       </div>
     ),
-  }
+  },
 );
 
 /** Level badge config */
@@ -67,8 +80,7 @@ export const WikiContent: React.FC<WikiContentProps> = ({
 }) => {
   const t = useTranslations("wiki.content");
   const { workspaceId, projectId } = useContextParams();
-  const { activeContent, activePage, contentLoading, contentError } =
-    useWikiContext(contextId);
+  const { activeContent, activePage, contentLoading, contentError } = useWikiContext(contextId);
   const appendAgentChatDraft = useDialogStore((s) => s.appendAgentChatDraft);
   const topRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
@@ -119,12 +131,9 @@ export const WikiContent: React.FC<WikiContentProps> = ({
     return () => timers.forEach((t) => clearTimeout(t));
   }, [activePage, activeContent]);
 
-  const hasUnsavedChanges =
-    !!activeContent && !!localContent && localContent !== activeContent;
+  const hasUnsavedChanges = !!activeContent && !!localContent && localContent !== activeContent;
 
-  const fullFilePath = activePage
-    ? `${effectivePath}/.atmos/wiki/${activePage}.md`
-    : "";
+  const fullFilePath = activePage ? `${effectivePath}/.atmos/wiki/${activePage}.md` : "";
 
   const handleSave = useCallback(async () => {
     if (!fullFilePath || !localContent || !hasUnsavedChanges) return;
@@ -178,9 +187,7 @@ export const WikiContent: React.FC<WikiContentProps> = ({
 
     const range = selection.getRangeAt(0);
     const selectionTop = range.getBoundingClientRect().top;
-    const headings = Array.from(
-      root.querySelectorAll<HTMLElement>("h1,h2,h3,h4,h5,h6")
-    );
+    const headings = Array.from(root.querySelectorAll<HTMLElement>("h1,h2,h3,h4,h5,h6"));
     const sectionTitle = headings.reduce<string | undefined>((latest, heading) => {
       const headingTop = heading.getBoundingClientRect().top;
       if (headingTop <= selectionTop + 1) {
@@ -220,7 +227,7 @@ export const WikiContent: React.FC<WikiContentProps> = ({
   useEffect(() => {
     if (!isPreview || !selectionPopoverVisible) return;
     const viewport = previewContainerRef.current?.querySelector(
-      "[data-slot='scroll-area-viewport']"
+      "[data-slot='scroll-area-viewport']",
     );
     if (!viewport) return;
     const onScroll = () => dismissSelectionPopover();
@@ -228,27 +235,25 @@ export const WikiContent: React.FC<WikiContentProps> = ({
     return () => viewport.removeEventListener("scroll", onScroll);
   }, [dismissSelectionPopover, isPreview, selectionPopoverVisible]);
 
-  const handleWikiSelectionAttach = useCallback((payload: SelectionAttachedPayload) => {
-    const wroteToActiveComposer = writeToActiveAgentComposer(
-      workspaceId,
-      projectId,
-      "default",
-      payload.formattedText,
-    );
-
-    if (!wroteToActiveComposer) {
-      appendAgentChatDraft(
+  const handleWikiSelectionAttach = useCallback(
+    (payload: SelectionAttachedPayload) => {
+      const wroteToActiveComposer = writeToActiveAgentComposer(
         workspaceId,
         projectId,
         "default",
         payload.formattedText,
       );
-    }
-  }, [workspaceId, projectId, appendAgentChatDraft]);
+
+      if (!wroteToActiveComposer) {
+        appendAgentChatDraft(workspaceId, projectId, "default", payload.formattedText);
+      }
+    },
+    [workspaceId, projectId, appendAgentChatDraft],
+  );
 
   if (contentLoading && !activeContent) {
     return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
+      <div className="flex h-full items-center justify-center text-muted-foreground">
         {t("loadingPage")}
       </div>
     );
@@ -256,7 +261,7 @@ export const WikiContent: React.FC<WikiContentProps> = ({
 
   if (contentError && !activeContent) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
+      <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
         <AlertTriangle className="size-4 text-destructive" />
         <p className="text-sm">{contentError}</p>
       </div>
@@ -265,7 +270,7 @@ export const WikiContent: React.FC<WikiContentProps> = ({
 
   if (!activeContent) {
     return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
+      <div className="flex h-full items-center justify-center text-muted-foreground">
         {t("empty.selectPage")}
       </div>
     );
@@ -276,9 +281,7 @@ export const WikiContent: React.FC<WikiContentProps> = ({
   const title = (frontmatter.title as string) ?? activePage ?? t("untitled");
   const sources = (frontmatter.sources as string[]) ?? [];
   const levelConfig = getLevelConfig(frontmatter.level, t);
-  const readingTime = frontmatter.reading_time
-    ? Number(frontmatter.reading_time)
-    : undefined;
+  const readingTime = frontmatter.reading_time ? Number(frontmatter.reading_time) : undefined;
   const updatedAt = frontmatter.updated_at as string | undefined;
   const formattedUpdatedAt = (() => {
     if (!updatedAt) return null;
@@ -290,43 +293,39 @@ export const WikiContent: React.FC<WikiContentProps> = ({
   })();
 
   return (
-    <div className="flex flex-col h-full bg-background overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden bg-background">
       {/* Header with Edit/Preview toggle */}
-      <div className="h-10 shrink-0 px-4 border-b border-border bg-muted/20 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-          <h2 className="text-base font-semibold text-foreground truncate">{title}</h2>
+      <div className="flex h-10 shrink-0 items-center justify-between gap-3 border-b border-border bg-muted/20 px-4">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+          <h2 className="truncate text-base font-semibold text-foreground">{title}</h2>
           {levelConfig && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-[2px] leading-none shrink-0 bg-muted text-muted-foreground">
+            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-[2px] bg-muted px-1.5 py-0.5 text-[10px] leading-none font-medium text-muted-foreground">
               <levelConfig.icon className="size-2.5" />
               {levelConfig.label}
             </span>
           )}
           {readingTime && (
-            <span className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0">
+            <span className="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground">
               <Clock className="size-3" />
               {readingTime} min
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex shrink-0 items-center gap-1.5">
           {hasUnsavedChanges && (
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
+              className="flex cursor-pointer items-center gap-1.5 rounded bg-primary/10 px-2.5 py-1.5 text-xs text-primary hover:bg-primary/20"
               title={t("buttons.saveTitle")}
             >
-              {isSaving ? (
-                <Loader2 className="size-3 animate-spin" />
-              ) : (
-                <Save className="size-3" />
-              )}
+              {isSaving ? <Loader2 className="size-3 animate-spin" /> : <Save className="size-3" />}
               <span>{t("buttons.save")}</span>
             </button>
           )}
           <button
             onClick={() => setIsPreview(!isPreview)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded hover:bg-accent text-muted-foreground hover:text-foreground cursor-pointer"
+            className="flex cursor-pointer items-center gap-1.5 rounded px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
             title={isPreview ? t("buttons.switchToEdit") : t("buttons.switchToPreview")}
           >
             {isPreview ? (
@@ -345,9 +344,9 @@ export const WikiContent: React.FC<WikiContentProps> = ({
       </div>
 
       {/* Content: Preview or Editor */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-hidden">
         {isPreview ? (
-          <div ref={previewContainerRef} className="h-full relative">
+          <div ref={previewContainerRef} className="relative h-full">
             <SelectionPopover
               isVisible={selectionPopoverVisible}
               position={selectionPopoverPosition}
@@ -361,19 +360,19 @@ export const WikiContent: React.FC<WikiContentProps> = ({
             />
             <ScrollArea className="h-full">
               <div ref={topRef} />
-              <div ref={wikiContentRootRef} id="wiki-content-root" className="px-6 py-6 space-y-4">
+              <div ref={wikiContentRootRef} id="wiki-content-root" className="space-y-4 px-6 py-6">
                 {sources.length > 0 && (
                   <Collapsible defaultOpen={false} className="rounded-lg border border-border">
-                    <CollapsibleTrigger className="group flex items-center gap-2 w-full px-3 py-2.5 text-left text-sm font-medium text-foreground hover:bg-accent/30 cursor-pointer">
+                    <CollapsibleTrigger className="group flex w-full cursor-pointer items-center gap-2 px-3 py-2.5 text-left text-sm font-medium text-foreground hover:bg-accent/30">
                       <ChevronRight className="size-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-90" />
                       <span>{t("sourcesTitle")}</span>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
-                      <div className="flex flex-wrap gap-1.5 px-3 pt-2 pb-3 border-t border-border">
+                      <div className="flex flex-wrap gap-1.5 border-t border-border px-3 pt-2 pb-3">
                         {sources.map((src) => (
                           <span
                             key={src}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono"
+                            className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
                           >
                             {src}
                           </span>

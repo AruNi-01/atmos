@@ -8,12 +8,12 @@
 
 Atmos has four independent release lines:
 
-| Release line | Tag | GitHub Actions | Artifacts | Purpose |
-| --- | --- | --- | --- | --- |
-| CLI | `cli-<version>` | `.github/workflows/release-cli.yml` | `atmos-cli-<target>.tar.gz` | Standalone `atmos` command, used as the relay for agents and scripts |
-| Local Runtime | `local-web-runtime-<version>` | `.github/workflows/release-local-runtime.yml` | `atmos-local-runtime-<target>.tar.gz` | Local Web runtime package containing API, static Web assets, and system skills |
-| Local Model Runtime | `local-model-runtime-<version>` | `.github/workflows/release-local-model-runtime.yml` | `atmos-llama-server-<target>` archives and `manifest.json` | Local model server binaries and model manifest |
-| Desktop | `desktop-<version>` | `.github/workflows/release-desktop.yml` | Tauri desktop installers and updater manifest | Desktop application distribution |
+| Release line        | Tag                             | GitHub Actions                                      | Artifacts                                                  | Purpose                                                                        |
+| ------------------- | ------------------------------- | --------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| CLI                 | `cli-<version>`                 | `.github/workflows/release-cli.yml`                 | `atmos-cli-<target>.tar.gz`                                | Standalone `atmos` command, used as the relay for agents and scripts           |
+| Local Runtime       | `local-web-runtime-<version>`   | `.github/workflows/release-local-runtime.yml`       | `atmos-local-runtime-<target>.tar.gz`                      | Local Web runtime package containing API, static Web assets, and system skills |
+| Local Model Runtime | `local-model-runtime-<version>` | `.github/workflows/release-local-model-runtime.yml` | `atmos-llama-server-<target>` archives and `manifest.json` | Local model server binaries and model manifest                                 |
+| Desktop             | `desktop-<version>`             | `.github/workflows/release-desktop.yml`             | Tauri desktop installers and updater manifest              | Desktop application distribution                                               |
 
 Core principles:
 
@@ -404,15 +404,15 @@ Desktop uses the Tauri updater endpoint from `tauri.conf.json` and the desktop G
 
 ## Which Release Should I Use?
 
-| Goal | Use |
-| --- | --- |
-| Publish a new standalone `atmos` binary | CLI release |
-| Let agents or scripts use a new CLI capability | CLI release |
-| Publish a complete local Web runtime for the shell installer | Local Runtime release |
-| Update bundled API, Web, or system skills for local Web installs | Local Runtime release |
-| Publish the Tauri desktop app | Desktop release |
-| Test real release assets from a branch | workflow dispatch + prerelease |
-| Validate branch build without public release | workflow dispatch + `create_release=false` |
+| Goal                                                             | Use                                        |
+| ---------------------------------------------------------------- | ------------------------------------------ |
+| Publish a new standalone `atmos` binary                          | CLI release                                |
+| Let agents or scripts use a new CLI capability                   | CLI release                                |
+| Publish a complete local Web runtime for the shell installer     | Local Runtime release                      |
+| Update bundled API, Web, or system skills for local Web installs | Local Runtime release                      |
+| Publish the Tauri desktop app                                    | Desktop release                            |
+| Test real release assets from a branch                           | workflow dispatch + prerelease             |
+| Validate branch build without public release                     | workflow dispatch + `create_release=false` |
 
 ---
 

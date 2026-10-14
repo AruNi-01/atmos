@@ -6,10 +6,7 @@ import { cn } from "@workspace/ui";
 
 export const WORKSPACE_LIST_PAGE_SIZE = 10;
 
-export function useWorkspaceListVisibleCount(
-  total: number,
-  resetKey?: string | null,
-) {
+export function useWorkspaceListVisibleCount(total: number, resetKey?: string | null) {
   const [visibleCount, setVisibleCount] = useState(WORKSPACE_LIST_PAGE_SIZE);
 
   useEffect(() => {
@@ -20,9 +17,7 @@ export function useWorkspaceListVisibleCount(
   const canShowLess = visibleCount > WORKSPACE_LIST_PAGE_SIZE;
 
   const showMore = useCallback(() => {
-    setVisibleCount((current) =>
-      Math.min(current + WORKSPACE_LIST_PAGE_SIZE, total),
-    );
+    setVisibleCount((current) => Math.min(current + WORKSPACE_LIST_PAGE_SIZE, total));
   }, [total]);
 
   const showLess = useCallback(() => {

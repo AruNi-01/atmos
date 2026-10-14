@@ -95,17 +95,12 @@ describe("detectDesktopShell", () => {
 describe("invokeViaShell / desktopInvoke routing", () => {
   it("routes tauri invokes through the tauri adapter", async () => {
     const calls: Array<{ cmd: string; args: unknown }> = [];
-    const result = await invokeViaShell(
-      "tauri",
-      "get_api_config",
-      undefined,
-      {
-        tauriInvoke: async (cmd, args) => {
-          calls.push({ cmd, args });
-          return { host: "127.0.0.1", port: 30303 };
-        },
+    const result = await invokeViaShell("tauri", "get_api_config", undefined, {
+      tauriInvoke: async (cmd, args) => {
+        calls.push({ cmd, args });
+        return { host: "127.0.0.1", port: 30303 };
       },
-    );
+    });
     expect(result).toEqual({ host: "127.0.0.1", port: 30303 });
     expect(calls).toEqual([{ cmd: "get_api_config", args: undefined }]);
   });
@@ -124,15 +119,11 @@ describe("invokeViaShell / desktopInvoke routing", () => {
       },
     );
     expect(result).toBeNull();
-    expect(calls).toEqual([
-      { cmd: "write_log", args: { level: "info", message: "hi" } },
-    ]);
+    expect(calls).toEqual([{ cmd: "write_log", args: { level: "info", message: "hi" } }]);
   });
 
   it("rejects invoke when shell is none", async () => {
-    await expect(
-      invokeViaShell("none", "get_api_config"),
-    ).rejects.toMatchObject({
+    await expect(invokeViaShell("none", "get_api_config")).rejects.toMatchObject({
       code: "DESKTOP_SHELL_NONE",
       command: "get_api_config",
     });
@@ -155,9 +146,7 @@ describe("invokeViaShell / desktopInvoke routing", () => {
       },
     });
 
-    const cfg = await desktopInvoke<{ host: string; port: number }>(
-      "get_api_config",
-    );
+    const cfg = await desktopInvoke<{ host: string; port: number }>("get_api_config");
     expect(cfg.port).toBe(40404);
 
     let unsupported: unknown;
@@ -166,12 +155,8 @@ describe("invokeViaShell / desktopInvoke routing", () => {
     } catch (err) {
       unsupported = err;
     }
-    expect(isDesktopBridgeError(unsupported, DESKTOP_CMD_UNSUPPORTED)).toBe(
-      true,
-    );
-    expect((unsupported as { command?: string }).command).toBe(
-      "browser_bridge_open",
-    );
+    expect(isDesktopBridgeError(unsupported, DESKTOP_CMD_UNSUPPORTED)).toBe(true);
+    expect((unsupported as { command?: string }).command).toBe("browser_bridge_open");
   });
 
   it("surfaces unsupported command errors with stable code", () => {

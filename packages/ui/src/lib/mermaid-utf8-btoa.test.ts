@@ -10,7 +10,10 @@ describe("installMermaidUtf8Btoa", () => {
 
   test("encodes mermaid edge points that include CJK labels", () => {
     installMermaidUtf8Btoa();
-    const points = JSON.stringify([{ id: "User", label: "用户", x: 8, y: 66 }, { x: 33, y: 37 }]);
+    const points = JSON.stringify([
+      { id: "User", label: "用户", x: 8, y: 66 },
+      { x: 33, y: 37 },
+    ]);
     const encoded = btoa(points);
     const utf8Binary = String.fromCharCode(...new TextEncoder().encode(points));
     expect(encoded.length).toBeGreaterThan(0);

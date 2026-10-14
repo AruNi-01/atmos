@@ -52,7 +52,8 @@ export function writeToActiveAgentComposer(
   text: string,
 ): boolean {
   const key = getAgentPromptQueueKey(workspaceId, projectId, mode);
-  const composer = activeComposers.get(key) ?? (lastFocusedKey ? activeComposers.get(lastFocusedKey) : undefined);
+  const composer =
+    activeComposers.get(key) ?? (lastFocusedKey ? activeComposers.get(lastFocusedKey) : undefined);
   if (!composer) return false;
 
   composer.setDraft((previous) => {

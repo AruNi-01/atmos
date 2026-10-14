@@ -79,6 +79,7 @@
 ### 中
 
 1. 桌面 release 版本与 `Cargo.lock` 不一致
+
 - 提交：`fce195a9`
 - 文件：`apps/desktop/src-tauri/Cargo.toml:3`、`Cargo.lock:530`
 - 问题：`apps/desktop/src-tauri/Cargo.toml` 已将 `atmos-desktop` 升到 `1.2.0-beta.14`，但 `HEAD:Cargo.lock` 仍记录 `1.2.0-beta.13`。本次运行 `cargo test -p api terminal_` 时，Cargo 自动把 lockfile 改成 beta.14，暴露出主分支锁文件未同步。
@@ -86,6 +87,7 @@
 - 优化建议：将 `Cargo.lock` 中 `atmos-desktop` 版本同步到 `1.2.0-beta.14`，并在 desktop release workflow 中加入 `cargo metadata --locked` 或目标 `cargo test --locked` 检查，确保版本 bump 后不会漏提 lockfile。
 
 2. Creative scaffold 脚本用长模板字符串同时承载模板、渲染流程和文件写入
+
 - 提交：`3bc74156`
 - 文件：`.agents/skills/atmos-video-gen/scripts/scaffold-atmos-video-project.mjs:123`, `.agents/skills/atmos-video-gen/scripts/scaffold-atmos-video-project.mjs:254`, `.agents/skills/atmos-video-gen/scripts/scaffold-atmos-video-project.mjs:333`
 - 问题：`projectAgents`、`indexHtml`、`renderScript` 等函数在同一脚本中直接返回大块 Markdown、HTML、JS 模板；`renderScript` 又内嵌 Playwright 截帧、ffmpeg 编码和 consumer copy 逻辑。修改模板内容、渲染策略或 app 同步规则时必须编辑同一个 592 行脚本，且容易混淆生成器上下文与被生成脚本上下文。
@@ -93,6 +95,7 @@
 - 优化建议：把模板拆成 `.agents/skills/atmos-video-gen/templates/AGENTS.md.tmpl`、`DESIGN.md.tmpl`、`SCRIPT.md.tmpl`、`index.html.tmpl`、`render-video.mjs.tmpl`，脚本只负责参数解析、变量替换和文件写入；把 `consumerTargets` 的生成收敛成独立 `buildConsumerTargets(consumer, projectName)`，避免把 app copy 规则写在长模板中。
 
 3. Audio generator scaffold 把音频合成实现整段嵌入生成器
+
 - 提交：`3bc74156`
 - 文件：`.agents/skills/atmos-audio-gen/scripts/create-continuous-audio-script.mjs:137`, `.agents/skills/atmos-audio-gen/scripts/create-continuous-audio-script.mjs:191`
 - 问题：`generatorTemplate` 既定义 cue 数据，又直接返回完整的音频合成脚本。音色、节奏、混响、WAV 写入、输出路径等逻辑都藏在一个嵌套模板字符串中，后续想调整音频策略或复用 WAV 写入逻辑都需要在字符串内部改代码。
@@ -102,6 +105,7 @@
 ### 低
 
 4. 默认视频 scaffold 依赖 CDN 版 GSAP，降低离线可复现性
+
 - 提交：`3bc74156`
 - 文件：`.agents/skills/atmos-video-gen/scripts/scaffold-atmos-video-project.mjs:233`, `.agents/skills/atmos-video-gen/scripts/scaffold-atmos-video-project.mjs:319`
 - 问题：`packageJson` 声明了 `gsap` 依赖，但 `indexHtml` 模板加载 `https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js`。渲染脚本的 `ensureReady` 又等待 `window.gsap`，这会让新 scaffold 的本地 render 依赖外部网络。
@@ -109,6 +113,7 @@
 - 优化建议：生成项目时把 `node_modules/gsap/dist/gsap.min.js` 复制到 `hyperframes/assets/gsap.min.js`，模板改为 `<script src="./assets/gsap.min.js"></script>`；或者在 scaffold 中直接放置本地 vendor asset，并用 `npm run check` 校验存在性。
 
 5. 新增文件存在 diff 空白问题
+
 - 提交：`366ba7be`、`3bc74156`
 - 文件：`agents/references/design/components.md:183`、`agents/references/design/web-desktop.md:61`、`marketing/creative/projects/atmos-intro/hyperframes/assets/gsap.min.js:4`
 - 问题：`git diff --check` 报告两个 Markdown 文件末尾多空行，以及 vendored `gsap.min.js` 头部 trailing whitespace。

@@ -73,10 +73,10 @@ export function TerminalAgentInputShell({
         "grid w-full transition-[grid-template-rows,opacity,transform] duration-200 ease-out",
         (isOverlayVisible || isSendAnimating || isSendExiting) && "mb-1",
         isSendExiting
-          ? "grid-rows-[1fr] opacity-0 -translate-y-3"
+          ? "-translate-y-3 grid-rows-[1fr] opacity-0"
           : isOverlayVisible
-            ? "grid-rows-[1fr] opacity-100 translate-y-0"
-            : "grid-rows-[0fr] opacity-0 translate-y-2",
+            ? "translate-y-0 grid-rows-[1fr] opacity-100"
+            : "translate-y-2 grid-rows-[0fr] opacity-0",
       )}
     >
       <div className="min-h-0 overflow-hidden">
@@ -90,9 +90,7 @@ export function TerminalAgentInputShell({
             data-visible={hasHeader ? "true" : "false"}
           >
             <div className="min-h-0 overflow-hidden">
-              <div className="terminal-agent-input-header-content pb-1.5">
-                {header}
-              </div>
+              <div className="terminal-agent-input-header-content pb-1.5">{header}</div>
             </div>
           </div>
           <div className="relative z-10 flex items-end gap-2 overflow-hidden rounded-[1.25rem] bg-muted/30 px-4 py-2 dark:bg-[#0b0b0b]">
@@ -145,7 +143,7 @@ export function TerminalAgentInputShell({
             data-visible={hasFooterContent ? "true" : "false"}
           >
             <div className="min-h-0 overflow-hidden">
-              <div className="terminal-agent-input-footer-content flex items-end gap-2 px-3 pb-2 pt-1.5">
+              <div className="terminal-agent-input-footer-content flex items-end gap-2 px-3 pt-1.5 pb-2">
                 <AttachmentBar
                   attachments={attachments}
                   onRemove={handleAttachmentRemove}

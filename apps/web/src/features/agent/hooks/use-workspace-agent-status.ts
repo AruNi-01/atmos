@@ -70,14 +70,10 @@ export function useWorkspaceAgentGroupKeyMap(
   const occupancyKey = useAgentStatusStore((s) =>
     contextOccupancyFingerprint(s.sessions, contextIds),
   );
-  const serverWorkspaceGroupKeys = useAgentStatusStore(
-    (s) => s.serverWorkspaceGroupKeys,
-  );
+  const serverWorkspaceGroupKeys = useAgentStatusStore((s) => s.serverWorkspaceGroupKeys);
   const statusHydrated = useAgentStatusStore((s) => s.statusHydrated);
   const attentionRevision = useAgentAttentionStore((s) => s.revision);
-  const groupingHoldRevision = useWorkspaceAgentGroupingHoldStore(
-    (s) => s.revision,
-  );
+  const groupingHoldRevision = useWorkspaceAgentGroupingHoldStore((s) => s.revision);
   const idsKey = contextIds.join("\n");
 
   return useMemo(() => {

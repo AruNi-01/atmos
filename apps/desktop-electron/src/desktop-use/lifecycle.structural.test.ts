@@ -12,10 +12,7 @@ describe("desktop-use quit lifecycle", () => {
     const appshotAt = main.indexOf("appshotStatus");
     expect(brandingAt).toBeGreaterThan(-1);
     expect(appshotAt).toBeGreaterThan(brandingAt);
-    const branding = readFileSync(
-      join(root, "desktop-use/host-branding.ts"),
-      "utf8",
-    );
+    const branding = readFileSync(join(root, "desktop-use/host-branding.ts"), "utf8");
     expect(branding).toContain("AppIcon.icns");
     expect(branding).toContain("applyHostAppIcon");
   });
@@ -33,9 +30,7 @@ describe("desktop-use quit lifecycle", () => {
 
   it("driver stop uses a short quit-friendly timeout", () => {
     const client = readFileSync(join(root, "desktop-use/client.ts"), "utf8");
-    expect(client).toMatch(
-      /desktopUseDriverStop\([^)]*timeoutMs = 8_000/,
-    );
+    expect(client).toMatch(/desktopUseDriverStop\([^)]*timeoutMs = 8_000/);
     expect(client).toContain("DRIVER_RESTART_DEBOUNCE_MS");
     expect(client).toContain("driverRestartInFlight");
   });

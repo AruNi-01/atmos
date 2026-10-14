@@ -9,9 +9,7 @@ export type ResourceMonitorListedSession = ResourceSessionMetrics & {
   spaceId?: string | null;
 };
 
-export function parseResourceMonitorChatId(
-  sessionId: string | null | undefined,
-): string | null {
+export function parseResourceMonitorChatId(sessionId: string | null | undefined): string | null {
   const id = sessionId?.trim() ?? "";
   if (!id.startsWith("chat:")) return null;
   return id.slice("chat:".length) || null;
@@ -43,14 +41,11 @@ export function agentStatusForResourceMonitorChat(
     return listed.agentStatus;
   }
   const chatId =
-    listed.agentStatus?.surface_id?.trim() ||
-    parseResourceMonitorChatId(session.session_id);
+    listed.agentStatus?.surface_id?.trim() || parseResourceMonitorChatId(session.session_id);
   const contextId = hostId.trim();
   if (!chatId || !contextId) return null;
   return {
-    session_id: session.session_id.startsWith("chat:")
-      ? session.session_id
-      : `chat:${chatId}`,
+    session_id: session.session_id.startsWith("chat:") ? session.session_id : `chat:${chatId}`,
     tool: listed.agentStatus?.tool ?? "agent",
     state: listed.agentStatus?.state ?? "idle",
     timestamp: listed.agentStatus?.timestamp ?? new Date(0).toISOString(),

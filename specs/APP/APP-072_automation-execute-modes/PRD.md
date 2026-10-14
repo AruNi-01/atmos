@@ -10,18 +10,18 @@
 
 ## Settled forks (from BRAINSTORM)
 
-| Fork | Decision |
-|------|----------|
-| Who starts Terminal / Chat runs | **Server owns the run.** CLI may later expose the same verbs. The runner must **not** exec `atmos`. |
-| Scheduled / GitHub + Terminal / Chat | **Same mode as saved on the automation.** Manual, schedule, and GitHub all honor Execute Agent. |
-| Standalone + visible surface | **Do not disable.** Left sidebar uses a **virtual group** (not a real Project row): **Automations Standalone** at Project level; each standalone **job** is a Workspace-level row, with an Automation chip. |
-| Agent lists | **Two catalogs.** Headless / Terminal use the terminal-agent list. Agent Chat reuses the existing Agent Chat picker. |
-| Execute Agent on setup | **Persisted mode + try-run.** Clicking run starts a real run and jumps to the matching page. |
-| Tab reuse | **New tab every Terminal / Chat run.** Do not reuse a previous Automations tab. |
-| Project terminals | Create a **new Terminal tab under that Project** (same as opening `/project?id=…&tab=terminal` and adding a tab) and run the prompt there. |
-| Interactive completion | The agent finishes the Atmos job by following the **`atmos-automation` skill** and calling Atmos CLI (write `final.md`, update memory, mark the run complete). The runner does not parse TTY/chat stdout. |
-| Chip visual | Sidebar group + job rows: visible sentence-case **Automation** chip (reuse `create_source = "automation"` chrome). Terminal / Chat tabs: compact **icon + tooltip** (`{job name} · {short run id}`); also show the word `Automation` when tab chrome has room. No ALL CAPS / no CSS `uppercase`. |
-| Stale interactive run | After **1 hour** still `running`, **prompt/notify only**. Clicking the prompt **clears the notification** and does **not** change run status. No auto-fail, auto-complete, auto-cancel, or interrupt. Headless stays process-exit. |
+| Fork                                 | Decision                                                                                                                                                                                                                                                                                         |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Who starts Terminal / Chat runs      | **Server owns the run.** CLI may later expose the same verbs. The runner must **not** exec `atmos`.                                                                                                                                                                                              |
+| Scheduled / GitHub + Terminal / Chat | **Same mode as saved on the automation.** Manual, schedule, and GitHub all honor Execute Agent.                                                                                                                                                                                                  |
+| Standalone + visible surface         | **Do not disable.** Left sidebar uses a **virtual group** (not a real Project row): **Automations Standalone** at Project level; each standalone **job** is a Workspace-level row, with an Automation chip.                                                                                      |
+| Agent lists                          | **Two catalogs.** Headless / Terminal use the terminal-agent list. Agent Chat reuses the existing Agent Chat picker.                                                                                                                                                                             |
+| Execute Agent on setup               | **Persisted mode + try-run.** Clicking run starts a real run and jumps to the matching page.                                                                                                                                                                                                     |
+| Tab reuse                            | **New tab every Terminal / Chat run.** Do not reuse a previous Automations tab.                                                                                                                                                                                                                  |
+| Project terminals                    | Create a **new Terminal tab under that Project** (same as opening `/project?id=…&tab=terminal` and adding a tab) and run the prompt there.                                                                                                                                                       |
+| Interactive completion               | The agent finishes the Atmos job by following the **`atmos-automation` skill** and calling Atmos CLI (write `final.md`, update memory, mark the run complete). The runner does not parse TTY/chat stdout.                                                                                        |
+| Chip visual                          | Sidebar group + job rows: visible sentence-case **Automation** chip (reuse `create_source = "automation"` chrome). Terminal / Chat tabs: compact **icon + tooltip** (`{job name} · {short run id}`); also show the word `Automation` when tab chrome has room. No ALL CAPS / no CSS `uppercase`. |
+| Stale interactive run                | After **1 hour** still `running`, **prompt/notify only**. Clicking the prompt **clears the notification** and does **not** change run status. No auto-fail, auto-complete, auto-cancel, or interrupt. Headless stays process-exit.                                                               |
 
 ## Goals
 
@@ -91,7 +91,7 @@
   - Headless → Automations run detail / history for that run
   - Terminal Agent → the new terminal tab
   - Agent Chat → the new chat tab  
-  Unsaved required fields still block run with the existing validation.
+    Unsaved required fields still block run with the existing validation.
 
 - **M13 · Run now navigation**: From the Automations list / history, Run now uses the same landing rule as M12.
 

@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import type { ConnectionInstanceId } from '@/features/connection/lib/connection-instance';
-import { useUiPrefStore } from '@/shared/stores/use-ui-pref-store';
-import type { OpenFile } from '@/features/editor/store/use-editor-store';
+import type { ConnectionInstanceId } from "@/features/connection/lib/connection-instance";
+import { useUiPrefStore } from "@/shared/stores/use-ui-pref-store";
+import type { OpenFile } from "@/features/editor/store/use-editor-store";
 
 export interface WorkspaceStatePersisted {
   openFiles: OpenFile[];
@@ -31,15 +31,17 @@ export function partializeEditorState(state: {
       Object.entries(state.workspaceStates).map(([wsId, ws]) => [
         wsId,
         {
-          openFiles: ws.openFiles.filter((f) => !f.path.startsWith('untitled:')).map(f => ({
-            ...f,
-            content: '',
-            originalContent: '',
-            isLoading: true,
-            isDirty: false,
-            lastOpenedAt: f.lastOpenedAt ?? 0,
-            lastFocusedAt: f.lastFocusedAt ?? 0,
-          })),
+          openFiles: ws.openFiles
+            .filter((f) => !f.path.startsWith("untitled:"))
+            .map((f) => ({
+              ...f,
+              content: "",
+              originalContent: "",
+              isLoading: true,
+              isDirty: false,
+              lastOpenedAt: f.lastOpenedAt ?? 0,
+              lastFocusedAt: f.lastFocusedAt ?? 0,
+            })),
           activeFilePath: ws.activeFilePath,
         },
       ]),
@@ -50,11 +52,11 @@ export function partializeEditorState(state: {
 }
 
 export function readEditorUi(instanceId: ConnectionInstanceId): EditorUiPersisted {
-  return useUiPrefStore.getState().readSlice(instanceId, 'editor', EMPTY_EDITOR_UI);
+  return useUiPrefStore.getState().readSlice(instanceId, "editor", EMPTY_EDITOR_UI);
 }
 
 export function writeEditorUi(instanceId: ConnectionInstanceId, snapshot: EditorUiPersisted): void {
-  useUiPrefStore.getState().writeSlice(instanceId, 'editor', snapshot);
+  useUiPrefStore.getState().writeSlice(instanceId, "editor", snapshot);
 }
 
 let editorSaveTimer: ReturnType<typeof setTimeout> | null = null;

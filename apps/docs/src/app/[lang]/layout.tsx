@@ -1,10 +1,10 @@
-import { DocsRootProvider } from '@/components/docs-root-provider';
-import { PostHogProvider } from '@/components/posthog-provider';
-import { i18n } from '@/lib/i18n';
-import { Inter } from 'next/font/google';
+import { DocsRootProvider } from "@/components/docs-root-provider";
+import { PostHogProvider } from "@/components/posthog-provider";
+import { i18n } from "@/lib/i18n";
+import { Inter } from "next/font/google";
 
 const inter = Inter({
-  subsets: ['latin'],
+  subsets: ["latin"],
 });
 
 export default async function LangLayout({
@@ -25,7 +25,7 @@ export default async function LangLayout({
               locale: lang,
               locales: i18n.languages.map((l) => ({
                 locale: l,
-                name: l === 'zh' ? '中文' : 'English',
+                name: l === "zh" ? "中文" : "English",
               })),
             }}
           >

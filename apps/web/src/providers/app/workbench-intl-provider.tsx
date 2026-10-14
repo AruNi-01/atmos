@@ -75,10 +75,7 @@ export function WorkbenchIntlProvider({
     setLocaleState(nextLocale);
   }, []);
 
-  const value = React.useMemo(
-    () => ({ locale, setLocale }),
-    [locale, setLocale],
-  );
+  const value = React.useMemo(() => ({ locale, setLocale }), [locale, setLocale]);
 
   return (
     <WorkbenchIntlContext.Provider value={value}>

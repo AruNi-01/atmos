@@ -16,10 +16,7 @@ import { flattenInventory } from "../lib/simulator-inventory";
 
 export type InventoryRowAction = "boot" | "shutdown" | "delete" | "preview";
 
-export function useSimulatorInventory(input: {
-  workspaceId: string | null;
-  enabled: boolean;
-}) {
+export function useSimulatorInventory(input: { workspaceId: string | null; enabled: boolean }) {
   const { workspaceId, enabled } = input;
   const [inventory, setInventory] = React.useState<SimulatorInventory | null>(null);
   const [loading, setLoading] = React.useState(false);

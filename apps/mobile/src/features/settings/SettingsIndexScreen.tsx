@@ -21,12 +21,7 @@ import {
 } from "@/theme/theme-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { Row, Separator } from "@/ui/layout/row";
-import {
-  LaptopIcon,
-  LinkIcon,
-  QrCodeIcon,
-  SunMoonIcon,
-} from "@/ui/icons/lucide-native";
+import { LaptopIcon, LinkIcon, QrCodeIcon, SunMoonIcon } from "@/ui/icons/lucide-native";
 import { NativeSegmentedControl, NativeTextInput } from "@/ui/primitives/native-controls";
 import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
 import {
@@ -60,9 +55,7 @@ export function SettingsIndexScreen() {
           imageUrl={profile.data?.image}
           name={profile.data?.name}
           onPress={
-            settings.hasDeviceCredential
-              ? () => router.push("/settings/account")
-              : openSignIn
+            settings.hasDeviceCredential ? () => router.push("/settings/account") : openSignIn
           }
           signedIn={settings.hasDeviceCredential}
         />
@@ -83,25 +76,14 @@ export function SettingsIndexScreen() {
           onPress={() => router.push("/settings/computers")}
         />
         <Separator />
-        <SettingsListRow
-          Icon={QrCodeIcon}
-          title="Re-pair phone"
-          onPress={openSignIn}
-        />
+        <SettingsListRow Icon={QrCodeIcon} title="Re-pair phone" onPress={openSignIn} />
       </Section>
 
       <Section label="Preferences">
         <View style={{ gap: 12, paddingHorizontal: 16, paddingVertical: 14 }}>
           <View style={{ alignItems: "center", flexDirection: "row", gap: 12 }}>
             <SettingsIconWell Icon={SunMoonIcon} />
-            <Text
-              style={[
-                typography.rowTitle,
-                { color: theme.colors.label, flex: 1 },
-              ]}
-            >
-              Theme
-            </Text>
+            <Text style={[typography.rowTitle, { color: theme.colors.label, flex: 1 }]}>Theme</Text>
           </View>
           <NativeSegmentedControl<MobileThemePreference>
             onValueChange={theme.setPreference}

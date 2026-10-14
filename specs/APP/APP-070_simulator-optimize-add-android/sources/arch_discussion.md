@@ -12,13 +12,14 @@
 2. 增加 Android Emulator Preview，使用 `serve-avd`。
 3. `serve-avd` 的集成方式与 `serve-sim` 保持一致：
 
-   * vendor source
-   * 固定版本
-   * 编译本地 binary
-   * 发布 GitHub Release
-   * 按需下载到 `~/.atmos/runtime`
-   * Runtime Manager 管理
-   * Local Atmos Server 负责 spawn / lifecycle
+   - vendor source
+   - 固定版本
+   - 编译本地 binary
+   - 发布 GitHub Release
+   - 按需下载到 `~/.atmos/runtime`
+   - Runtime Manager 管理
+   - Local Atmos Server 负责 spawn / lifecycle
+
 4. 不要退回 `npx serve-sim` / `npx serve-avd` 的运行模式。
 5. 不要把 serve-sim / serve-avd 的 UI 当成 Atmos 产品 UI。
 6. Atmos 应该拥有自己的 Device Preview UI；serve-sim / serve-avd 主要作为底层 device bridge / preview runtime。
@@ -34,28 +35,28 @@
 
 属于一台本地电脑的全局资源：
 
-* Xcode
-* Android SDK
-* Simulator Device / Emulator Device
-* iOS Simulator Runtime
-* Android Emulator Runtime
-* vendored `serve-sim`
-* vendored `serve-avd`
-* Runtime Manager
-* Device Preview Manager
+- Xcode
+- Android SDK
+- Simulator Device / Emulator Device
+- iOS Simulator Runtime
+- Android Emulator Runtime
+- vendored `serve-sim`
+- vendored `serve-avd`
+- Runtime Manager
+- Device Preview Manager
 
 ### Workspace-level
 
 属于具体 Workspace 的资源：
 
-* project source
-* app build
-* app bundle
-* Metro / bundler
-* app process / launched app
-* device claim
-* workspace-specific preview state
-* workspace-specific port
+- project source
+- app build
+- app bundle
+- Metro / bundler
+- app process / launched app
+- device claim
+- workspace-specific preview state
+- workspace-specific port
 
 重要：
 
@@ -74,14 +75,14 @@ Computer
 └── DevicePreviewManager
 │
 ├── Device Registry
-│     ├── iOS Simulator Device
-│     ├── iOS Simulator Device
-│     ├── Android Emulator
-│     └── ...
+│ ├── iOS Simulator Device
+│ ├── iOS Simulator Device
+│ ├── Android Emulator
+│ └── ...
 │
 ├── Runtime Manager
-│     ├── serve-sim
-│     └── serve-avd
+│ ├── serve-sim
+│ └── serve-avd
 │
 └── Preview Server
 ├── iOS
@@ -195,13 +196,13 @@ Device {
 
 需要区分：
 
-* booted
-* shutdown
-* booting
-* shutting_down
-* unavailable
-* claimed
-* free
+- booted
+- shutdown
+- booting
+- shutting_down
+- unavailable
+- claimed
+- free
 
 不要把：
 
@@ -254,11 +255,11 @@ Workspace B parked
 
 不同 Workspace 不应该共享：
 
-* Metro process
-* app build
-* app process
-* debug session
-* app port
+- Metro process
+- app build
+- app process
+- debug session
+- app port
 
 例如：
 
@@ -322,13 +323,13 @@ GitHub Release
 
 要求继续支持：
 
-* version pin
-* sha256 verification
-* on-demand download
-* spawn
-* stop
-* crash detection
-* log capture
+- version pin
+- sha256 verification
+- on-demand download
+- spawn
+- stop
+- crash detection
+- log capture
 
 如果当前 serve-sim 代码里存在 Atmos 不需要的功能，例如 `/exec`，继续通过 source patch 移除。
 
@@ -403,19 +404,19 @@ Device ↔ Browser Preview Bridge
 
 Atmos 自己负责：
 
-* Workspace
-* Device selection
-* Device claim
-* Build
-* Install
-* Launch
-* Metro
-* App lifecycle
-* Preview UI
-* Agent integration
-* Device state
-* Errors
-* Notifications
+- Workspace
+- Device selection
+- Device claim
+- Build
+- Install
+- Launch
+- Metro
+- App lifecycle
+- Preview UI
+- Agent integration
+- Device state
+- Errors
+- Notifications
 
 也就是说：
 

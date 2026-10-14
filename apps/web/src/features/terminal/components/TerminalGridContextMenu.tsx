@@ -103,8 +103,7 @@ export function TerminalGridContextMenu({
   const [renameDraft, setRenameDraft] = React.useState(paneCustomLabel);
   // The Keep toggles are meaningful as soon as there is a name to keep — either a
   // committed label or a non-empty draft — so they light up while typing.
-  const hasCustomName =
-    renameDraft.trim().length > 0 || paneCustomLabel.trim().length > 0;
+  const hasCustomName = renameDraft.trim().length > 0 || paneCustomLabel.trim().length > 0;
 
   const skipBlurCommitRef = React.useRef(false);
 
@@ -158,11 +157,7 @@ export function TerminalGridContextMenu({
   ) => {
     if (quickOpenAgents.length === 0) {
       return (
-        <DropdownMenuItem
-          key={action}
-          onClick={() => onAction(action)}
-          className="cursor-pointer"
-        >
+        <DropdownMenuItem key={action} onClick={() => onAction(action)} className="cursor-pointer">
           {icon}
           <span>{label}</span>
           <DropdownMenuShortcut>{shortcut}</DropdownMenuShortcut>
@@ -186,10 +181,7 @@ export function TerminalGridContextMenu({
           onPointerEnter={() => onContextSplitSubmenuEnter(direction)}
           onPointerLeave={onContextSplitSubmenuLeave}
         >
-          <DropdownMenuItem
-            className="cursor-pointer"
-            onSelect={() => onAction(action)}
-          >
+          <DropdownMenuItem className="cursor-pointer" onSelect={() => onAction(action)}>
             {icon}
             <span>{label}</span>
             <DropdownMenuShortcut>{shortcut}</DropdownMenuShortcut>
@@ -218,15 +210,12 @@ export function TerminalGridContextMenu({
   // transforms / zoom cannot turn position:fixed into a mis-offset containing
   // block (same pattern as FileTreeContextMenu).
   const menu = (
-    <DropdownMenu
-      open={!!contextMenu}
-      onOpenChange={onOpenChange}
-    >
+    <DropdownMenu open={!!contextMenu} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
           aria-hidden
-          className="fixed size-0 pointer-events-none"
+          className="pointer-events-none fixed size-0"
           style={{
             left: contextMenu?.x ?? -9999,
             top: contextMenu?.y ?? -9999,
@@ -235,13 +224,13 @@ export function TerminalGridContextMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" sideOffset={4} className="z-[90] w-56">
         <DropdownMenuItem onClick={() => onAction("new-tab")} className="cursor-pointer">
-          <SquareTerminal className="size-4 mr-2 text-muted-foreground" />
+          <SquareTerminal className="mr-2 size-4 text-muted-foreground" />
           <span>{t("contextMenu.newTerminalTab")}</span>
           <DropdownMenuShortcut>⌘T</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => onAction("paste")} className="cursor-pointer">
-          <ClipboardPaste className="size-4 mr-2 text-muted-foreground" />
+          <ClipboardPaste className="mr-2 size-4 text-muted-foreground" />
           <span>{t("contextMenu.paste")}</span>
           <DropdownMenuShortcut>⌘V</DropdownMenuShortcut>
         </DropdownMenuItem>
@@ -250,7 +239,7 @@ export function TerminalGridContextMenu({
             <DropdownMenuSeparator />
             <DropdownMenuSub>
               <DropdownMenuSubTrigger className="cursor-pointer">
-                <Pencil className="size-4 mr-2 text-muted-foreground" />
+                <Pencil className="mr-2 size-4 text-muted-foreground" />
                 <span>{t("contextMenu.renameTitle")}</span>
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-64 space-y-1 p-2">
@@ -334,22 +323,20 @@ export function TerminalGridContextMenu({
           className={cn("cursor-pointer", isFocusedPanePinned && "bg-accent text-primary")}
           disabled={isFocusedPanePinned}
         >
-          <Pin className="size-4 mr-2 text-muted-foreground" />
+          <Pin className="mr-2 size-4 text-muted-foreground" />
           <span>
-            {isFocusedPanePinned
-              ? t("contextMenu.pinnedToCanvas")
-              : t("contextMenu.pinToCanvas")}
+            {isFocusedPanePinned ? t("contextMenu.pinnedToCanvas") : t("contextMenu.pinToCanvas")}
           </span>
           <DropdownMenuShortcut>⌘⇧P</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => onAction("previous-panel")} className="cursor-pointer">
-          <ArrowLeft className="size-4 mr-2 text-muted-foreground" />
+          <ArrowLeft className="mr-2 size-4 text-muted-foreground" />
           <span>{t("contextMenu.previousPanel")}</span>
           <DropdownMenuShortcut>⌘[</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onAction("next-panel")} className="cursor-pointer">
-          <ArrowRight className="size-4 mr-2 text-muted-foreground" />
+          <ArrowRight className="mr-2 size-4 text-muted-foreground" />
           <span>{t("contextMenu.nextPanel")}</span>
           <DropdownMenuShortcut>⌘]</DropdownMenuShortcut>
         </DropdownMenuItem>
@@ -357,14 +344,14 @@ export function TerminalGridContextMenu({
         {renderSplitMenuItem(
           "row",
           t("paneToolbar.splitHorizontal"),
-          <Columns className="size-4 mr-2 text-muted-foreground" />,
+          <Columns className="mr-2 size-4 text-muted-foreground" />,
           "⌘D",
           "split-horizontal",
         )}
         {renderSplitMenuItem(
           "column",
           t("paneToolbar.splitVertical"),
-          <Rows className="size-4 mr-2 text-muted-foreground" />,
+          <Rows className="mr-2 size-4 text-muted-foreground" />,
           "⌘⇧D",
           "split-vertical",
         )}
@@ -372,21 +359,24 @@ export function TerminalGridContextMenu({
         <DropdownMenuItem onClick={() => onAction("maximize")} className="cursor-pointer">
           {isAnyPaneMaximized ? (
             <>
-              <Minimize className="size-4 mr-2 text-muted-foreground" />
+              <Minimize className="mr-2 size-4 text-muted-foreground" />
               <span>{t("contextMenu.restoreTerminal")}</span>
               <DropdownMenuShortcut>⌘⇧F</DropdownMenuShortcut>
             </>
           ) : (
             <>
-              <Maximize className="size-4 mr-2 text-muted-foreground" />
+              <Maximize className="mr-2 size-4 text-muted-foreground" />
               <span>{t("contextMenu.maximizeTerminal")}</span>
               <DropdownMenuShortcut>⌘⇧F</DropdownMenuShortcut>
             </>
           )}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => onAction("close")} className="cursor-pointer text-destructive focus:text-destructive">
-          <X className="size-4 mr-2" />
+        <DropdownMenuItem
+          onClick={() => onAction("close")}
+          className="cursor-pointer text-destructive focus:text-destructive"
+        >
+          <X className="mr-2 size-4" />
           <span>{t("contextMenu.closeTerminal")}</span>
           <DropdownMenuShortcut>⌘W</DropdownMenuShortcut>
         </DropdownMenuItem>

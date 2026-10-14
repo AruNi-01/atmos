@@ -7,14 +7,11 @@ export function usePrContextHeader() {
     mainScrollRef.current?.scrollTo({ top: 0 });
   }, []);
 
-  const handleFilesCodeViewTopBoundaryWheel = React.useCallback(
-    (deltaY: number) => {
-      const scrollRoot = mainScrollRef.current;
-      if (!scrollRoot || deltaY >= 0) return;
-      scrollRoot.scrollTop = Math.max(0, scrollRoot.scrollTop + deltaY);
-    },
-    [],
-  );
+  const handleFilesCodeViewTopBoundaryWheel = React.useCallback((deltaY: number) => {
+    const scrollRoot = mainScrollRef.current;
+    if (!scrollRoot || deltaY >= 0) return;
+    scrollRoot.scrollTop = Math.max(0, scrollRoot.scrollTop + deltaY);
+  }, []);
 
   return {
     handleFilesCodeViewTopBoundaryWheel,

@@ -42,10 +42,7 @@ const LINE_VARIANTS: Variants = {
 };
 
 const BrandLmStudioIcon = forwardRef<AnimatedIconHandle, BrandLmStudioIconProps>(
-  (
-    { onMouseEnter, onMouseLeave, className, size = 24, color = "currentColor", ...props },
-    ref,
-  ) => {
+  ({ onMouseEnter, onMouseLeave, className, size = 24, color = "currentColor", ...props }, ref) => {
     const controls = useAnimation();
     const isControlledRef = useRef(false);
 

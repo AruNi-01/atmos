@@ -15,44 +15,44 @@ Rust owns porcelain parse, range coalescing, skip kinds, uncommitted `commit_has
 
 ## Coverage map
 
-| PRD item | Scenario IDs |
-|----------|--------------|
-| M1 | S1, S2, S14 |
-| M2 | S3, S4, S5 |
-| M3 | S6, S16 |
-| M4 | S7, S8, S9 |
-| M5 | S10, S11 |
-| M6 | S12, S13, S14 |
-| M7 | S15 |
-| M8 | S17, S18, S19 |
-| N1–N7 | deferred |
+| PRD item | Scenario IDs  |
+| -------- | ------------- |
+| M1       | S1, S2, S14   |
+| M2       | S3, S4, S5    |
+| M3       | S6, S16       |
+| M4       | S7, S8, S9    |
+| M5       | S10, S11      |
+| M6       | S12, S13, S14 |
+| M7       | S15           |
+| M8       | S17, S18, S19 |
+| N1–N7    | deferred      |
 
 ## Execution map
 
 This table is the hand-off from plan to implementation/testing. Keep `Status` as `planned` until `atmos-specs-test-run` updates Coverage Status after implementation.
 
-| Scenario | Level | Expected tool | Target command / method | Fixture / data | Signals | Status |
-|----------|-------|---------------|-------------------------|----------------|---------|--------|
-| S1 | Rust | `cargo test` | `core-engine` blame on committed file | temp git repo, 2 commits | ranges cover lines; commits map has author + subject + hash | planned |
-| S2 | Bun structural | `bun test` | `codemirror-git-blame` / `BaseCodeMirrorEditor` | sources | current-line widget / `Decoration.widget`; Compartment gated on `gitBlame` | planned |
-| S3 | Rust | `cargo test` | `commit_detail` shortstat parse | `git show` fixture output | files_changed, insertions, deletions, body | planned |
-| S4 | Bun | `bun test` | hover card builder / query enabled | SHA from blame cache | detail query **not** fired without hover SHA; card fields present | planned |
-| S5 | Bun | `bun test` | copy hash control | card module | clipboard write; no `toastManager` success on copy | planned |
-| S6 | Bun structural | `bun test` | blame tooltip DOM / classes | extension source | no `Separator`, no `border-t` / `divide-y` in card; `rounded-xl` or overlay radius | planned |
-| S7 | Bun | `bun test` | `editor-settings-store` | store + settings-api type | `gitBlame` default `true`; missing key → true; update key `git_blame` | planned |
-| S8 | Bun structural | `bun test` | `CodeMirrorEditor.tsx` header menu | editor source | Git blame row + `Switch` next to git integration in settings popover | planned |
-| S9 | Bun | `bun test` | persist round-trip | mocked `functionSettingsApi.update` | toggle off then load → false | planned |
-| S10 | Bun | `bun test` | independent flags | store | `gitBlame` true + `gitIntegration` false (and reverse) both representable | planned |
-| S11 | Bun structural | `bun test` | gutter vs blame files | `codemirror-git-gutter.ts` vs blame | change gutter still `gitIntegration`-only; blame not mounted from gutter module | planned |
-| S12 | Rust | `cargo test` | uncommitted line | worktree edit after commit | range `commit_hash` null; not in `commits` | planned |
-| S13 | Rust | `cargo test` | skip kinds | binary / >1.5MiB or >10k lines / untracked | `kind` binary \| too_large \| untracked; empty ranges; not Err | planned |
-| S14 | Rust / Bun | `cargo test` / `bun test` | dirty insert mapping | saved vs doc with inserted line | inserted line uncommitted; shifted committed line keeps SHA | planned |
-| S15 | Bun | `bun test` | i18n | `en.json` + `zh.json` | `gitBlame` keys in both; zh not English copy; no ALL CAPS labels | planned |
-| S16 | Bun structural | `bun test` | settings + card use `@workspace/ui` Switch/Button tokens | sources | header uses `Switch`; no raw checkbox | planned |
-| S17 | Bun | `bun test` | cache / no per-hover blame | query options / hook | blame query key is file+head+saved hash; hover does not change blame key | planned |
-| S18 | Rust | `cargo test` | coalesce | 10 lines same SHA | one range, not 10 | planned |
-| S19 | WS / api-types | `bun run --filter @atmos/api-types test` | contract | extract fixtures | `git_file_blame` and `git_commit_detail` mapped; no REST git blame | planned |
-| S20 | agent-browser | `agent-browser` | file tab + header gear | local web, fixture repo | annotation on current line; hover card no dividers; switch default on | planned |
+| Scenario | Level          | Expected tool                            | Target command / method                                  | Fixture / data                             | Signals                                                                            | Status  |
+| -------- | -------------- | ---------------------------------------- | -------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------- | ------- |
+| S1       | Rust           | `cargo test`                             | `core-engine` blame on committed file                    | temp git repo, 2 commits                   | ranges cover lines; commits map has author + subject + hash                        | planned |
+| S2       | Bun structural | `bun test`                               | `codemirror-git-blame` / `BaseCodeMirrorEditor`          | sources                                    | current-line widget / `Decoration.widget`; Compartment gated on `gitBlame`         | planned |
+| S3       | Rust           | `cargo test`                             | `commit_detail` shortstat parse                          | `git show` fixture output                  | files_changed, insertions, deletions, body                                         | planned |
+| S4       | Bun            | `bun test`                               | hover card builder / query enabled                       | SHA from blame cache                       | detail query **not** fired without hover SHA; card fields present                  | planned |
+| S5       | Bun            | `bun test`                               | copy hash control                                        | card module                                | clipboard write; no `toastManager` success on copy                                 | planned |
+| S6       | Bun structural | `bun test`                               | blame tooltip DOM / classes                              | extension source                           | no `Separator`, no `border-t` / `divide-y` in card; `rounded-xl` or overlay radius | planned |
+| S7       | Bun            | `bun test`                               | `editor-settings-store`                                  | store + settings-api type                  | `gitBlame` default `true`; missing key → true; update key `git_blame`              | planned |
+| S8       | Bun structural | `bun test`                               | `CodeMirrorEditor.tsx` header menu                       | editor source                              | Git blame row + `Switch` next to git integration in settings popover               | planned |
+| S9       | Bun            | `bun test`                               | persist round-trip                                       | mocked `functionSettingsApi.update`        | toggle off then load → false                                                       | planned |
+| S10      | Bun            | `bun test`                               | independent flags                                        | store                                      | `gitBlame` true + `gitIntegration` false (and reverse) both representable          | planned |
+| S11      | Bun structural | `bun test`                               | gutter vs blame files                                    | `codemirror-git-gutter.ts` vs blame        | change gutter still `gitIntegration`-only; blame not mounted from gutter module    | planned |
+| S12      | Rust           | `cargo test`                             | uncommitted line                                         | worktree edit after commit                 | range `commit_hash` null; not in `commits`                                         | planned |
+| S13      | Rust           | `cargo test`                             | skip kinds                                               | binary / >1.5MiB or >10k lines / untracked | `kind` binary \| too_large \| untracked; empty ranges; not Err                     | planned |
+| S14      | Rust / Bun     | `cargo test` / `bun test`                | dirty insert mapping                                     | saved vs doc with inserted line            | inserted line uncommitted; shifted committed line keeps SHA                        | planned |
+| S15      | Bun            | `bun test`                               | i18n                                                     | `en.json` + `zh.json`                      | `gitBlame` keys in both; zh not English copy; no ALL CAPS labels                   | planned |
+| S16      | Bun structural | `bun test`                               | settings + card use `@workspace/ui` Switch/Button tokens | sources                                    | header uses `Switch`; no raw checkbox                                              | planned |
+| S17      | Bun            | `bun test`                               | cache / no per-hover blame                               | query options / hook                       | blame query key is file+head+saved hash; hover does not change blame key           | planned |
+| S18      | Rust           | `cargo test`                             | coalesce                                                 | 10 lines same SHA                          | one range, not 10                                                                  | planned |
+| S19      | WS / api-types | `bun run --filter @atmos/api-types test` | contract                                                 | extract fixtures                           | `git_file_blame` and `git_commit_detail` mapped; no REST git blame                 | planned |
+| S20      | agent-browser  | `agent-browser`                          | file tab + header gear                                   | local web, fixture repo                    | annotation on current line; hover card no dividers; switch default on              | planned |
 
 ## Scenarios
 

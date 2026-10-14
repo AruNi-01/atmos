@@ -38,24 +38,16 @@ describe("observeShiftChordFromSamples (polling)", () => {
   it("triggers on second-side rising edge", () => {
     const state = createShiftChordState();
     // left down
-    expect(
-      observeShiftChordFromSamples(state, true, false, false, false),
-    ).toBe(false);
+    expect(observeShiftChordFromSamples(state, true, false, false, false)).toBe(false);
     // right rises while left held
-    expect(
-      observeShiftChordFromSamples(state, true, true, true, false),
-    ).toBe(true);
+    expect(observeShiftChordFromSamples(state, true, true, true, false)).toBe(true);
     // held
-    expect(
-      observeShiftChordFromSamples(state, true, true, true, true),
-    ).toBe(false);
+    expect(observeShiftChordFromSamples(state, true, true, true, true)).toBe(false);
   });
 
   it("triggers when both shifts rise in the same poll sample", () => {
     const state = createShiftChordState();
-    expect(
-      observeShiftChordFromSamples(state, true, true, false, false),
-    ).toBe(true);
+    expect(observeShiftChordFromSamples(state, true, true, false, false)).toBe(true);
   });
 
   it("rearms after full release", () => {
@@ -63,15 +55,9 @@ describe("observeShiftChordFromSamples (polling)", () => {
     observeShiftChordFromSamples(state, true, false, false, false);
     observeShiftChordFromSamples(state, true, true, true, false);
     // release both
-    expect(
-      observeShiftChordFromSamples(state, false, false, true, true),
-    ).toBe(false);
+    expect(observeShiftChordFromSamples(state, false, false, true, true)).toBe(false);
     // right then left again
-    expect(
-      observeShiftChordFromSamples(state, false, true, false, false),
-    ).toBe(false);
-    expect(
-      observeShiftChordFromSamples(state, true, true, false, true),
-    ).toBe(true);
+    expect(observeShiftChordFromSamples(state, false, true, false, false)).toBe(false);
+    expect(observeShiftChordFromSamples(state, true, true, false, true)).toBe(true);
   });
 });

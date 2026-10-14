@@ -236,19 +236,13 @@ export function AuthConnectContent({
   const signingIn = auth.signIn.isPending || auth.busy;
   // Page / dock stay inverted relative to each other (light page + dark dock,
   // dark page + elevated dock) so the rounded dock never melts into the page.
-  const heroBackground = isSheet
-    ? theme.colors.sheetBackground
-    : theme.colors.background;
+  const heroBackground = isSheet ? theme.colors.sheetBackground : theme.colors.background;
   const dockColor = theme.isDark ? theme.colors.cardElevated : DOCK_LIGHT;
   const dockSecondaryButton = theme.isDark ? "#48484a" : "#3a3a3c";
   const dockTertiaryButton = theme.isDark ? "#3a3a3c" : "#2c2c2e";
   const dockLabel = theme.isDark ? theme.colors.label : "#f5f5f7";
-  const dockMuted = theme.isDark
-    ? theme.colors.secondaryLabel
-    : "rgba(245, 245, 247, 0.55)";
-  const dockBadgeBg = theme.isDark
-    ? "rgba(255, 255, 255, 0.10)"
-    : "rgba(255, 255, 255, 0.12)";
+  const dockMuted = theme.isDark ? theme.colors.secondaryLabel : "rgba(245, 245, 247, 0.55)";
+  const dockBadgeBg = theme.isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(255, 255, 255, 0.12)";
 
   return (
     <View style={[styles.root, { backgroundColor: heroBackground }]}>
@@ -306,12 +300,7 @@ export function AuthConnectContent({
                 },
               ]}
             >
-              <View
-                style={[
-                  styles.scannerWrap,
-                  { width: cameraSize, height: cameraSize },
-                ]}
-              >
+              <View style={[styles.scannerWrap, { width: cameraSize, height: cameraSize }]}>
                 <PairQrScanner
                   disabled={auth.busy || !scannerOpen}
                   onScanned={(value) => {
@@ -364,9 +353,7 @@ export function AuthConnectContent({
                 disabled={auth.busy}
                 labelColor="#0a0a0b"
                 label="Scan QR"
-                leading={
-                  <QrCodeIcon color="#0a0a0b" size={20} strokeWidth={2.2} />
-                }
+                leading={<QrCodeIcon color="#0a0a0b" size={20} strokeWidth={2.2} />}
                 onPress={() => {
                   auth.setLocalError(null);
                   setScannerOpen(true);
@@ -398,9 +385,7 @@ export function AuthConnectContent({
             style={[styles.dockLayer, { opacity: stepsOpacity }]}
           >
             <View style={styles.stepsBlock}>
-              <Text style={[styles.stepsTitle, { color: dockMuted }]}>
-                How to pair
-              </Text>
+              <Text style={[styles.stepsTitle, { color: dockMuted }]}>How to pair</Text>
               {SCAN_STEPS.map((step, index) => (
                 <Animated.View
                   key={step}
@@ -408,23 +393,14 @@ export function AuthConnectContent({
                     styles.stepRow,
                     {
                       opacity: stepAnims[index]?.opacity,
-                      transform: [
-                        { translateY: stepAnims[index]?.translateY ?? 0 },
-                      ],
+                      transform: [{ translateY: stepAnims[index]?.translateY ?? 0 }],
                     },
                   ]}
                 >
-                  <View
-                    style={[styles.stepBadge, { backgroundColor: dockBadgeBg }]}
-                  >
-                    <Text style={[styles.stepBadgeText, { color: dockLabel }]}>
-                      {index + 1}
-                    </Text>
+                  <View style={[styles.stepBadge, { backgroundColor: dockBadgeBg }]}>
+                    <Text style={[styles.stepBadgeText, { color: dockLabel }]}>{index + 1}</Text>
                   </View>
-                  <Text
-                    numberOfLines={1}
-                    style={[styles.stepText, { color: dockLabel }]}
-                  >
+                  <Text numberOfLines={1} style={[styles.stepText, { color: dockLabel }]}>
                     {step}
                   </Text>
                 </Animated.View>
@@ -434,9 +410,7 @@ export function AuthConnectContent({
                 disabled={auth.busy}
                 labelColor="#0a0a0b"
                 label="Hide scanner"
-                leading={
-                  <QrCodeIcon color="#0a0a0b" size={20} strokeWidth={2.2} />
-                }
+                leading={<QrCodeIcon color="#0a0a0b" size={20} strokeWidth={2.2} />}
                 onPress={() => setScannerOpen(false)}
               />
             </View>
@@ -482,9 +456,7 @@ function DockButton({
       ) : (
         <View style={styles.dockButtonInner}>
           {leading ? <View style={styles.dockIcon}>{leading}</View> : null}
-          <Text style={[styles.dockButtonLabel, { color: labelColor }]}>
-            {label}
-          </Text>
+          <Text style={[styles.dockButtonLabel, { color: labelColor }]}>{label}</Text>
         </View>
       )}
     </Pressable>

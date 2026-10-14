@@ -84,18 +84,16 @@ describe("ai-context protocol", () => {
   });
 
   it("maps agent-fix sources to specific kinds", () => {
-    expect(
-      agentFixSourceToAiContextKind({ id: "diff-stashed:ws", family: "diff" }),
-    ).toBe("diff-prompt-stash");
+    expect(agentFixSourceToAiContextKind({ id: "diff-stashed:ws", family: "diff" })).toBe(
+      "diff-prompt-stash",
+    );
     expect(agentFixSourceToAiContextKind({ id: "diff:file", family: "diff" })).toBe(
       "diff-selection",
     );
-    expect(
-      agentFixSourceToAiContextKind({ id: "review", family: "review_session" }),
-    ).toBe("review-run");
-    expect(agentFixSourceToAiContextKind({ id: "x", family: "custom" })).toBe(
-      "agent-fix",
+    expect(agentFixSourceToAiContextKind({ id: "review", family: "review_session" })).toBe(
+      "review-run",
     );
+    expect(agentFixSourceToAiContextKind({ id: "x", family: "custom" })).toBe("agent-fix");
   });
 
   it("rejects non-protocol text", () => {

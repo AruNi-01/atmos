@@ -10,14 +10,7 @@
 
 import { Check, Copy } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   type AgentCodeLanguage,
   AgentCodeLine,
@@ -28,11 +21,7 @@ import { useSmoothStreamText } from "../ai-elements/smooth-stream-text";
 import { SPRING_PRESS } from "../../lib/ease";
 import { cn } from "../../lib/utils";
 import { truncateFileDiffLines } from "./file-diff-gift-lines";
-import type {
-  FileDiffGiftStatus,
-  FileDiffLine,
-  FileDiffLineType,
-} from "./file-diff-gift-types";
+import type { FileDiffGiftStatus, FileDiffLine, FileDiffLineType } from "./file-diff-gift-types";
 
 export type { FileDiffGiftStatus, FileDiffLine, FileDiffLineType };
 export { truncateFileDiffLines };
@@ -66,14 +55,8 @@ export function FileDiffGift({
   const streaming = status === "streaming";
   const resolvedLanguage = resolveAgentCodeLanguage(language);
   const canCopy = Boolean(copyText || onCopy);
-  const fullCode = useMemo(
-    () => lines.map((line) => line.content).join("\n"),
-    [lines],
-  );
-  const revealedCode = useSmoothStreamText(
-    fullCode,
-    smoothReveal && streaming && !reduce,
-  );
+  const fullCode = useMemo(() => lines.map((line) => line.content).join("\n"), [lines]);
+  const revealedCode = useSmoothStreamText(fullCode, smoothReveal && streaming && !reduce);
   const visibleLines = useMemo(() => {
     if (!(smoothReveal && streaming && !reduce)) return lines;
     if (revealedCode === fullCode) return lines;
@@ -146,19 +129,17 @@ export function FileDiffGift({
                   type === "removed" && "bg-rose-500/[0.07]",
                 )}
               >
-                <span className="select-none pr-2 text-right tabular-nums text-muted-foreground/40">
+                <span className="pr-2 text-right text-muted-foreground/40 tabular-nums select-none">
                   {line.oldLine}
                 </span>
-                <span className="select-none pr-2 text-right tabular-nums text-muted-foreground/40">
+                <span className="pr-2 text-right text-muted-foreground/40 tabular-nums select-none">
                   {line.newLine}
                 </span>
                 <span
                   className={cn(
-                    "select-none text-center text-muted-foreground/45",
-                    type === "added" &&
-                      "text-emerald-600 dark:text-emerald-400",
-                    type === "removed" &&
-                      "text-rose-600 dark:text-rose-400",
+                    "text-center text-muted-foreground/45 select-none",
+                    type === "added" && "text-emerald-600 dark:text-emerald-400",
+                    type === "removed" && "text-rose-600 dark:text-rose-400",
                   )}
                 >
                   {type === "added" ? "+" : type === "removed" ? "−" : ""}
@@ -166,7 +147,7 @@ export function FileDiffGift({
                 <AgentCodeLine
                   code={line.content}
                   tokens={tokens?.[index]}
-                  className="min-w-0 whitespace-pre px-1.5 text-foreground/85"
+                  className="min-w-0 px-1.5 whitespace-pre text-foreground/85"
                 />
               </div>
             );
@@ -175,7 +156,7 @@ export function FileDiffGift({
       </div>
 
       {canCopy ? (
-        <div className="flex justify-end px-2 pb-1.5 pt-1">
+        <div className="flex justify-end px-2 pt-1 pb-1.5">
           <motion.button
             type="button"
             aria-label={copied ? "Copied" : "Copy diff"}
@@ -185,13 +166,9 @@ export function FileDiffGift({
             }}
             whileTap={reduce ? undefined : { scale: 0.9 }}
             transition={SPRING_PRESS}
-            className="grid size-7 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-background/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-background/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
           >
-            {copied ? (
-              <Check className="size-3.5" />
-            ) : (
-              <Copy className="size-3.5" />
-            )}
+            {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
           </motion.button>
         </div>
       ) : null}

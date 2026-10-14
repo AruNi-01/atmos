@@ -118,10 +118,7 @@ export function AppShellMain() {
                 data-app-shell-center-column=""
                 className="flex h-full min-h-0 flex-col overflow-hidden bg-sidebar"
               >
-                <div
-                  data-center-stage-body
-                  className="relative min-h-0 flex-1 overflow-hidden"
-                >
+                <div data-center-stage-body className="relative min-h-0 flex-1 overflow-hidden">
                   <CenterSpaceOverviewLayer>
                     <CenterStage />
                   </CenterSpaceOverviewLayer>
@@ -138,9 +135,7 @@ export function AppShellMain() {
         </div>
       }
       overlay={
-        settingsPresented || isSettingsRoute ? (
-          <SettingsPage onLeave={handleLeaveSettings} />
-        ) : null
+        settingsPresented || isSettingsRoute ? <SettingsPage onLeave={handleLeaveSettings} /> : null
       }
       overlayKey="settings"
     />

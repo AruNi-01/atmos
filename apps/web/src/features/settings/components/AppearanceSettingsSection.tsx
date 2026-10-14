@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { useTranslations } from 'next-intl';
+import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Select,
   SelectContent,
@@ -10,25 +10,25 @@ import {
   SelectValue,
   TabsSubtle,
   TabsSubtleItem,
-} from '@workspace/ui';
-import { Laptop, Moon, Sun } from 'lucide-react';
-import { useWorkbenchLocale } from '@/providers/app/workbench-intl-provider';
-import { useTheme } from 'next-themes';
+} from "@workspace/ui";
+import { Laptop, Moon, Sun } from "lucide-react";
+import { useWorkbenchLocale } from "@/providers/app/workbench-intl-provider";
+import { useTheme } from "next-themes";
 import {
   SettingsGroup,
   SettingsGroupRow,
   SettingsSection,
-} from '@/features/settings/components/settings/SettingsGroupCard';
+} from "@/features/settings/components/settings/SettingsGroupCard";
 
 const THEME_OPTIONS = [
-  { id: 'light', icon: Sun },
-  { id: 'dark', icon: Moon },
-  { id: 'system', icon: Laptop },
+  { id: "light", icon: Sun },
+  { id: "dark", icon: Moon },
+  { id: "system", icon: Laptop },
 ] as const;
 
 export function AppearanceSettingsSection() {
-  const t = useTranslations('settings.appearanceSection');
-  const sectionT = useTranslations('settings.modal.sections');
+  const t = useTranslations("settings.appearanceSection");
+  const sectionT = useTranslations("settings.modal.sections");
   const { theme, setTheme } = useTheme();
   const { locale, setLocale } = useWorkbenchLocale();
   const [mounted, setMounted] = React.useState(false);
@@ -37,19 +37,17 @@ export function AppearanceSettingsSection() {
     setMounted(true);
   }, []);
 
-  const themeValue = mounted && (theme === 'light' || theme === 'dark' || theme === 'system')
-    ? theme
-    : 'system';
-  const themeIndex = Math.max(0, THEME_OPTIONS.findIndex((option) => option.id === themeValue));
+  const themeValue =
+    mounted && (theme === "light" || theme === "dark" || theme === "system") ? theme : "system";
+  const themeIndex = Math.max(
+    0,
+    THEME_OPTIONS.findIndex((option) => option.id === themeValue),
+  );
 
   return (
-    <SettingsSection id="appearance" title={sectionT('appearance.label')}>
+    <SettingsSection id="appearance" title={sectionT("appearance.label")}>
       <SettingsGroup>
-        <SettingsGroupRow
-          wide
-          title={t('theme.title')}
-          description={t('theme.description')}
-        >
+        <SettingsGroupRow wide title={t("theme.title")} description={t("theme.description")}>
           <TabsSubtle
             idPrefix="settings-theme"
             activeLabel
@@ -59,7 +57,7 @@ export function AppearanceSettingsSection() {
               if (next) setTheme(next.id);
             }}
             className="justify-end"
-            aria-label={t('theme.title')}
+            aria-label={t("theme.title")}
           >
             {THEME_OPTIONS.map((option, index) => (
               <TabsSubtleItem
@@ -72,29 +70,21 @@ export function AppearanceSettingsSection() {
           </TabsSubtle>
         </SettingsGroupRow>
 
-        <SettingsGroupRow
-          wide
-          title={t('language.title')}
-          description={t('language.description')}
-        >
+        <SettingsGroupRow wide title={t("language.title")} description={t("language.description")}>
           <Select
             value={locale}
             onValueChange={(next) => {
-              if (next === 'en' || next === 'zh') {
+              if (next === "en" || next === "zh") {
                 setLocale(next);
               }
             }}
           >
-            <SelectTrigger
-              size="sm"
-              className="w-[160px]"
-              aria-label={t('language.title')}
-            >
+            <SelectTrigger size="sm" className="w-[160px]" aria-label={t("language.title")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent align="end">
-              <SelectItem value="en">{t('language.en')}</SelectItem>
-              <SelectItem value="zh">{t('language.zh')}</SelectItem>
+              <SelectItem value="en">{t("language.en")}</SelectItem>
+              <SelectItem value="zh">{t("language.zh")}</SelectItem>
             </SelectContent>
           </Select>
         </SettingsGroupRow>

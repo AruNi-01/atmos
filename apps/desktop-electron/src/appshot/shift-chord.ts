@@ -35,10 +35,7 @@ export function observeShiftChord(
   }
 
   const shouldTrigger =
-    state.shiftActive &&
-    state.lastSide != null &&
-    state.lastSide !== side &&
-    !state.chordDown;
+    state.shiftActive && state.lastSide != null && state.lastSide !== side && !state.chordDown;
 
   state.shiftActive = true;
   state.lastSide = side;

@@ -73,8 +73,7 @@ const LAG = 2;
 const ROLL_FADE = 34;
 const ROLL_VELOCITY = 9;
 
-const clamp = (value: number, limit: number) =>
-  Math.max(-limit, Math.min(limit, value));
+const clamp = (value: number, limit: number) => Math.max(-limit, Math.min(limit, value));
 
 const digitOf = (value: number) => ((value % 10) + 10) % 10;
 
@@ -250,7 +249,7 @@ function CountBadge({
         >
           {!dot && (
             <span
-              className="flex font-semibold leading-none tracking-tight text-white"
+              className="flex leading-none font-semibold tracking-tight text-white"
               // digits need the same width or the columns shift
               style={{ fontVariantNumeric: "tabular-nums" }}
             >
@@ -276,12 +275,7 @@ function CountBadge({
 
 export type NotificationBellProps = Omit<
   ComponentProps<"button">,
-  | "children"
-  | "color"
-  | "onAnimationStart"
-  | "onDrag"
-  | "onDragStart"
-  | "onDragEnd"
+  "children" | "color" | "onAnimationStart" | "onDrag" | "onDragStart" | "onDragEnd"
 > & {
   count?: number;
   max?: number;
@@ -347,7 +341,7 @@ export function NotificationBell({
       type="button"
       data-slot="notification-bell"
       className={cn(
-        "relative grid place-items-center rounded-full outline-none transition-transform active:scale-90 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:active:scale-100",
+        "relative grid place-items-center rounded-full transition-transform outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-90 motion-reduce:active:scale-100",
         SURFACE,
         GLYPH,
         className,

@@ -3,10 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const modal = readFileSync(
-  join(import.meta.dir, "../TerminalSideChatModal.tsx"),
-  "utf8",
-);
+const modal = readFileSync(join(import.meta.dir, "../TerminalSideChatModal.tsx"), "utf8");
 
 describe("terminal side chat modal chrome", () => {
   it("does not steal terminal focus on header pointerdown", () => {

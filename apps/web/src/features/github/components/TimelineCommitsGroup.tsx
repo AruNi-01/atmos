@@ -37,8 +37,7 @@ interface TimelineCommitsGroupProps<T extends TimelineCommitLike> {
 
 // Shell matches other timeline events; glyph stays smaller so it isn't tight in the circle.
 // Rail width matches reviewer avatars (size-8) so the vertical line passes through center.
-const timelineIconRailClass =
-  "z-10 flex w-8 shrink-0 items-center justify-center";
+const timelineIconRailClass = "z-10 flex w-8 shrink-0 items-center justify-center";
 const timelineIconShellClass =
   "flex size-5 items-center justify-center rounded-full border border-border/50 bg-muted ring-4 ring-background";
 const timelineIconClass = "size-3 text-muted-foreground";
@@ -59,8 +58,7 @@ export function TimelineCommitsGroup<T extends TimelineCommitLike>({
   // Chronological list is oldest→newest; the batch "pushed at" time is the last commit.
   const summaryCommit = commits[commits.length - 1] ?? commits[0];
   const pusher = getTimelineCommitAuthor(summaryCommit);
-  const summaryTime =
-    summaryCommit.createdAt || summaryCommit.created_at || "";
+  const summaryTime = summaryCommit.createdAt || summaryCommit.created_at || "";
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
@@ -137,10 +135,7 @@ export function TimelineCommitsGroup<T extends TimelineCommitLike>({
                 <GitCommit className={timelineIconClass} />
               </div>
             </div>
-            <GithubUserHoverCard
-              username={author.login}
-              avatarUrl={author.avatarUrl}
-            >
+            <GithubUserHoverCard username={author.login} avatarUrl={author.avatarUrl}>
               <Avatar className="size-5 shrink-0 border border-border/50">
                 {author.avatarUrl ? (
                   <AvatarImage src={author.avatarUrl} alt={author.login} />

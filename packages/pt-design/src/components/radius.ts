@@ -37,7 +37,10 @@ export function isRadiusToken(value: unknown): value is PtRadiusToken {
   return value === "none" || value === "sm" || value === "md" || value === "lg";
 }
 
-export function parseRadiusToken(value: unknown, fallback: PtRadiusToken = PT_RADIUS_DEFAULT): PtRadiusToken {
+export function parseRadiusToken(
+  value: unknown,
+  fallback: PtRadiusToken = PT_RADIUS_DEFAULT,
+): PtRadiusToken {
   return isRadiusToken(value) ? value : fallback;
 }
 

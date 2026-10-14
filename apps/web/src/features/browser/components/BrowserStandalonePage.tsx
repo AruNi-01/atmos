@@ -53,26 +53,21 @@ export function BrowserStandalonePage() {
     isActive: true,
     tabCount: browserState.tabs.length,
   });
-  const handleSessionReady = useCallback((tabId: string, sessionId: string | null) => {
-    handleBrowserSessionReady(tabId, sessionId);
-    if (sessionId) {
-      useBrowserSessionMapStore.getState().bindSession(
-        resolvedBrowserContextId,
-        tabId,
-        sessionId,
-      );
-    } else {
-      useBrowserSessionMapStore.getState().unbindTab(tabId);
-    }
-  }, [handleBrowserSessionReady, resolvedBrowserContextId]);
+  const handleSessionReady = useCallback(
+    (tabId: string, sessionId: string | null) => {
+      handleBrowserSessionReady(tabId, sessionId);
+      if (sessionId) {
+        useBrowserSessionMapStore
+          .getState()
+          .bindSession(resolvedBrowserContextId, tabId, sessionId);
+      } else {
+        useBrowserSessionMapStore.getState().unbindTab(tabId);
+      }
+    },
+    [handleBrowserSessionReady, resolvedBrowserContextId],
+  );
   const standaloneSurfaceKey = useMemo(
-    () =>
-      makeStandaloneSurfaceKey(
-        "browser",
-        workspaceId,
-        projectId,
-        resolvedBrowserContextId,
-      ),
+    () => makeStandaloneSurfaceKey("browser", workspaceId, projectId, resolvedBrowserContextId),
     [projectId, resolvedBrowserContextId, workspaceId],
   );
 
@@ -121,9 +116,7 @@ export function BrowserStandalonePage() {
                   url={tab.url}
                   setUrl={(nextUrl) => setBrowserTabPreviewUrl(tab.id, nextUrl)}
                   activeUrl={tab.activeUrl}
-                  setActiveUrl={(nextUrl) =>
-                    setBrowserTabActivePreviewUrl(tab.id, nextUrl)
-                  }
+                  setActiveUrl={(nextUrl) => setBrowserTabActivePreviewUrl(tab.id, nextUrl)}
                   isActive={isActiveTab}
                   isMaximized={isActiveTab && isPreviewMaximized}
                   isStandaloneBrowserWindow
@@ -134,9 +127,7 @@ export function BrowserStandalonePage() {
                   onPageTitleChange={(title, pageUrl) =>
                     handlePreviewTitleChange(tab.id, title, pageUrl)
                   }
-                  onPageIconChange={(faviconUrl) =>
-                    handlePreviewIconChange(tab.id, faviconUrl)
-                  }
+                  onPageIconChange={(faviconUrl) => handlePreviewIconChange(tab.id, faviconUrl)}
                   onOpenPageInNewTab={handleOpenBrowserTab}
                   onSessionReady={(sessionId) => handleSessionReady(tab.id, sessionId)}
                   requestUrlFocus={urlFocusTabId === tab.id}

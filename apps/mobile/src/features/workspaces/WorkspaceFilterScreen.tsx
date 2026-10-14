@@ -169,7 +169,8 @@ export function WorkspaceFilterScreen() {
                       style={[
                         typography.rowMeta,
                         {
-                          color: selected.length > 0 ? theme.colors.label : theme.colors.secondaryLabel,
+                          color:
+                            selected.length > 0 ? theme.colors.label : theme.colors.secondaryLabel,
                           fontWeight: selected.length > 0 ? "600" : "400",
                           maxWidth: "42%",
                         },
@@ -177,7 +178,11 @@ export function WorkspaceFilterScreen() {
                     >
                       {filterSelectionLabel(labels)}
                     </Text>
-                    <ChevronRightIcon color={theme.colors.tertiaryLabel} size={18} strokeWidth={2.6} />
+                    <ChevronRightIcon
+                      color={theme.colors.tertiaryLabel}
+                      size={18}
+                      strokeWidth={2.6}
+                    />
                   </View>
                 </Pressable>
               </View>
@@ -216,7 +221,15 @@ export function WorkspaceFilterScreen() {
         onDismiss={() => setSheetKind(null)}
       >
         {sheetKind ? (
-          <View style={{ alignSelf: "stretch", flex: 1, justifyContent: "flex-start", paddingTop: 8, width: "100%" }}>
+          <View
+            style={{
+              alignSelf: "stretch",
+              flex: 1,
+              justifyContent: "flex-start",
+              paddingTop: 8,
+              width: "100%",
+            }}
+          >
             <Text
               style={[
                 typography.rowTitle,

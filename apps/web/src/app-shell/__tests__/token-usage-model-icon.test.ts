@@ -18,27 +18,17 @@ describe("resolveTokenUsageModelIconSrc", () => {
     expect(resolveTokenUsageModelIconSrc("anthropic", "claude-opus-4")).toBe(
       "/ai-provider/claude.svg",
     );
-    expect(resolveTokenUsageModelIconSrc("openai", "gpt-5")).toBe(
-      "/ai-provider/codex.svg",
-    );
+    expect(resolveTokenUsageModelIconSrc("openai", "gpt-5")).toBe("/ai-provider/codex.svg");
     expect(resolveTokenUsageModelIconSrc("google", "gemini-2.5-pro")).toBe(
       "/ai-provider/gemini.svg",
     );
-    expect(resolveTokenUsageModelIconSrc("xai", "grok-3")).toBe(
-      "/ai-provider/grok.svg",
-    );
-    expect(resolveTokenUsageModelIconSrc("moonshotai", "kimi-k2.5")).toBe(
-      "/ai-provider/kimi.svg",
-    );
+    expect(resolveTokenUsageModelIconSrc("xai", "grok-3")).toBe("/ai-provider/grok.svg");
+    expect(resolveTokenUsageModelIconSrc("moonshotai", "kimi-k2.5")).toBe("/ai-provider/kimi.svg");
   });
 
   test("infers provider from model id when provider is missing", () => {
-    expect(resolveTokenUsageModelIconSrc(null, "claude-sonnet-4")).toBe(
-      "/ai-provider/claude.svg",
-    );
-    expect(resolveTokenUsageModelIconSrc("", "gpt-4.1")).toBe(
-      "/ai-provider/codex.svg",
-    );
+    expect(resolveTokenUsageModelIconSrc(null, "claude-sonnet-4")).toBe("/ai-provider/claude.svg");
+    expect(resolveTokenUsageModelIconSrc("", "gpt-4.1")).toBe("/ai-provider/codex.svg");
     expect(resolveTokenUsageModelIconSrc(undefined, "gemini-2.0-flash")).toBe(
       "/ai-provider/gemini.svg",
     );
@@ -49,9 +39,7 @@ describe("resolveTokenUsageModelIconSrc", () => {
     expect(resolveTokenUsageModelIconSrc("openai, anthropic", "gpt-4o")).toBe(
       "/ai-provider/codex.svg",
     );
-    expect(resolveTokenUsageModelIconSrc("qwen", "qwen3-coder")).toBe(
-      "/agents/qwen-code.svg",
-    );
+    expect(resolveTokenUsageModelIconSrc("qwen", "qwen3-coder")).toBe("/agents/qwen-code.svg");
   });
 
   test("returns null for unknown families", () => {

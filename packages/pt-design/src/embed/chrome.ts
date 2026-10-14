@@ -40,12 +40,17 @@ export function chromeTokens(theme: "light" | "dark"): ChromeTokens {
   };
 }
 
-export function resolveBoardTheme(theme: "light" | "dark" | "system" | undefined): "light" | "dark" {
+export function resolveBoardTheme(
+  theme: "light" | "dark" | "system" | undefined,
+): "light" | "dark" {
   if (theme === "dark" || theme === "light") return theme;
   if (typeof document !== "undefined" && document.documentElement.classList.contains("dark")) {
     return "dark";
   }
-  if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
+  if (
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-color-scheme: dark)").matches
+  ) {
     return "dark";
   }
   return "light";

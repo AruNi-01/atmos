@@ -17,23 +17,27 @@ describe("wireToolKind", () => {
   });
 
   test("collapsed title keeps a human heading and skips a command echo", () => {
-    expect(collapsedToolTitle({
-      type: "tool_call",
-      tool_call_id: "t",
-      name: "run_terminal_command",
-      title: "Typecheck files-related web sources",
-      kind: "execute",
-      status: "completed",
-      params: { type: "execute", command: "cd apps/web && bunx tsc --noEmit", background: false },
-    })).toBe("Typecheck files-related web sources");
-    expect(collapsedToolTitle({
-      type: "tool_call",
-      tool_call_id: "t",
-      name: "`ls`",
-      title: "Execute `ls`",
-      kind: "execute",
-      status: "completed",
-      params: { type: "execute", command: "ls", background: false },
-    })).toBe("Run Script");
+    expect(
+      collapsedToolTitle({
+        type: "tool_call",
+        tool_call_id: "t",
+        name: "run_terminal_command",
+        title: "Typecheck files-related web sources",
+        kind: "execute",
+        status: "completed",
+        params: { type: "execute", command: "cd apps/web && bunx tsc --noEmit", background: false },
+      }),
+    ).toBe("Typecheck files-related web sources");
+    expect(
+      collapsedToolTitle({
+        type: "tool_call",
+        tool_call_id: "t",
+        name: "`ls`",
+        title: "Execute `ls`",
+        kind: "execute",
+        status: "completed",
+        params: { type: "execute", command: "ls", background: false },
+      }),
+    ).toBe("Run Script");
   });
 });

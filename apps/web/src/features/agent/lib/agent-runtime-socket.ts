@@ -176,13 +176,22 @@ export function mergeConfigOptions(
   const kind = (option: AgentConfigOption) => {
     const id = option.id.trim().toLowerCase();
     const category = option.category?.trim().toLowerCase() ?? "";
-    if (id === "model" || id === "models" || category === "model" || category === "models") return "model";
-    if (id === "mode" || id === "modes" || category === "mode" || category === "modes") return "mode";
+    if (id === "model" || id === "models" || category === "model" || category === "models")
+      return "model";
+    if (id === "mode" || id === "modes" || category === "mode" || category === "modes")
+      return "mode";
     if (
-      id === "thinking" || id === "think" || id === "thought_level"
-      || id === "effort" || id === "reasoning" || id === "reasoning_effort"
-      || id === "reasoning-effort" || id.includes("reason")
-      || category === "thinking" || category === "think" || category.includes("reason")
+      id === "thinking" ||
+      id === "think" ||
+      id === "thought_level" ||
+      id === "effort" ||
+      id === "reasoning" ||
+      id === "reasoning_effort" ||
+      id === "reasoning-effort" ||
+      id.includes("reason") ||
+      category === "thinking" ||
+      category === "think" ||
+      category.includes("reason")
     ) {
       return "thinking";
     }
@@ -224,7 +233,9 @@ export function parseAuthRequiredError(err: unknown): AgentAuthRequiredPayload |
       return null;
     }
     const methods: AgentAuthMethod[] = parsed.methods
-      .filter((m): m is AgentAuthMethod => !!m && typeof m.id === "string" && typeof m.name === "string")
+      .filter(
+        (m): m is AgentAuthMethod => !!m && typeof m.id === "string" && typeof m.name === "string",
+      )
       .map((m) => ({ id: m.id, name: m.name, description: m.description }));
     return {
       request_id: parsed.request_id,
@@ -255,7 +266,9 @@ interface RuntimeSocketCallbacks {
   onAgentInfoUpdate: (info: AgentImplementationInfo | null, message: AgentServerMessage) => void;
   onCapabilitiesUpdate: (capabilities: AgentCapabilities, message: AgentServerMessage) => void;
   onSessionReady: (message: Extract<AgentServerMessage, { type: "session_ready" }>) => void;
-  onSessionInfoUpdate: (message: Extract<AgentServerMessage, { type: "session_info_update" }>) => void;
+  onSessionInfoUpdate: (
+    message: Extract<AgentServerMessage, { type: "session_info_update" }>,
+  ) => void;
   onSessionClosed: (message: Extract<AgentServerMessage, { type: "session_closed" }>) => void;
   onConfigOptionsUpdate: (options: AgentConfigOption[]) => void;
   onAuthRequired: (payload: AgentAuthRequiredPayload | null, fallbackMessage: string) => void;

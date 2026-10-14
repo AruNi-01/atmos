@@ -8,7 +8,10 @@ export function StatArt({ color, kind }: { color: string; kind: StatArtKind }) {
     <Svg height={64} viewBox="0 0 80 80" width={64}>
       {kind === "messages" ? (
         <>
-          <Path d="M14 16h52a10 10 0 0 1 10 10v22a10 10 0 0 1-10 10H40L24 72V58H14A10 10 0 0 1 4 48V26A10 10 0 0 1 14 16z" fill={color} />
+          <Path
+            d="M14 16h52a10 10 0 0 1 10 10v22a10 10 0 0 1-10 10H40L24 72V58H14A10 10 0 0 1 4 48V26A10 10 0 0 1 14 16z"
+            fill={color}
+          />
           <Rect fill="transparent" height={5} rx={2} width={28} x={22} y={30} />
         </>
       ) : null}

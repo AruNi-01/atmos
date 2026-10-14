@@ -112,31 +112,29 @@ export type HostCaptureResult = {
  * Identity: System Events frontmost (true focus). Optional host list_windows
  * enrich is **off by default** on the dual-shift hot path.
  */
-export async function captureFrontmostViaHostEngine(options: {
-  selfAppNames?: Set<string>;
-  /** Reuse a frontmost identity already read for animation preflight. */
-  systemFrontmost?: DesktopUseFrontmost | null;
-  /**
-   * When true, also call `drive verify` to enrich title/bounds.
-   * Default false for dual-shift latency (System Events is enough for identity).
-   */
-  enrichFromWindowList?: boolean;
-} = {}): Promise<HostCaptureResult> {
+export async function captureFrontmostViaHostEngine(
+  options: {
+    selfAppNames?: Set<string>;
+    /** Reuse a frontmost identity already read for animation preflight. */
+    systemFrontmost?: DesktopUseFrontmost | null;
+    /**
+     * When true, also call `drive verify` to enrich title/bounds.
+     * Default false for dual-shift latency (System Events is enough for identity).
+     */
+    enrichFromWindowList?: boolean;
+  } = {},
+): Promise<HostCaptureResult> {
   const warnings: string[] = [];
   const selfNames =
-    options.selfAppNames ??
-    new Set(["Atmos", "Atmos Electron", "Atmos Desktop", "Electron"]);
+    options.selfAppNames ?? new Set(["Atmos", "Atmos Electron", "Atmos Desktop", "Electron"]);
 
   // 1) True focused app — System Events (or caller-provided, avoid double SE).
-  let systemFrontmost: DesktopUseFrontmost | null =
-    options.systemFrontmost ?? null;
+  let systemFrontmost: DesktopUseFrontmost | null = options.systemFrontmost ?? null;
   if (!systemFrontmost) {
     try {
       systemFrontmost = await desktopUseReadFrontmost();
     } catch (e) {
-      warnings.push(
-        `frontmost_identity_failed: ${e instanceof Error ? e.message : String(e)}`,
-      );
+      warnings.push(`frontmost_identity_failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   // Capturing Atmos itself is allowed (e.g. product UI for agents) — no warning.
@@ -185,8 +183,7 @@ export async function captureFrontmostViaHostEngine(options: {
     systemFrontmost,
     selfNames,
     warnings,
-    options.enrichFromWindowList === true ||
-      !hasUsableWindowBounds(systemFrontmost),
+    options.enrichFromWindowList === true || !hasUsableWindowBounds(systemFrontmost),
   );
 
   // 4) Window-only image: crop the host full-desktop PNG (Screen Recording is
@@ -194,11 +191,7 @@ export async function captureFrontmostViaHostEngine(options: {
   // here — that runs as Electron and often fails with
   // "could not create image from window" while still leaving a scary warning.
   if (png && png.length > 0) {
-    const cropped = await cropHostPngToFrontmostWindow(
-      png,
-      frontmost,
-      warnings,
-    );
+    const cropped = await cropHostPngToFrontmostWindow(png, frontmost, warnings);
     if (cropped) {
       png = cropped;
     } else if (hasUsableWindowBounds(frontmost)) {
@@ -219,11 +212,7 @@ export async function captureFrontmostViaHostEngine(options: {
         w.includes("crop_skipped") ||
         w.includes("Unable to determine focused window bounds"),
     );
-  const quality = hasPng
-    ? keptFull
-      ? "screenshot_only"
-      : "window"
-    : "metadata_only";
+  const quality = hasPng ? (keptFull ? "screenshot_only" : "window") : "metadata_only";
   const contextMarkdown = buildAppshotContextMarkdown(frontmost, warnings);
 
   return {
@@ -263,9 +252,7 @@ export async function resolveFrontmostWithHostBounds(
     const listed = await desktopUseDriveVerify();
     windows = extractWindows(listed);
   } catch (e) {
-    warnings.push(
-      `host_list_windows_failed: ${e instanceof Error ? e.message : String(e)}`,
-    );
+    warnings.push(`host_list_windows_failed: ${e instanceof Error ? e.message : String(e)}`);
     return systemFrontmost ?? hostWindowToFrontmost(null);
   }
 
@@ -279,9 +266,7 @@ export async function resolveFrontmostWithHostBounds(
   return mergeFrontmostIdentity(systemFrontmost, hostRow);
 }
 
-function hasUsableWindowBounds(
-  fm: DesktopUseFrontmost | null | undefined,
-): boolean {
+function hasUsableWindowBounds(fm: DesktopUseFrontmost | null | undefined): boolean {
   return (
     fm != null &&
     fm.x != null &&
@@ -340,9 +325,7 @@ export async function cropHostPngToFrontmostWindow(
   warnings: string[],
 ): Promise<Buffer | null> {
   if (!hasUsableWindowBounds(frontmost)) {
-    warnings.push(
-      "Unable to determine focused window bounds; kept full-display capture.",
-    );
+    warnings.push("Unable to determine focused window bounds; kept full-display capture.");
     return null;
   }
 
@@ -399,10 +382,7 @@ export async function cropHostPngToFrontmostWindow(
     const { screen } = await import("electron");
     // import("electron") can succeed outside a real app (null screen APIs).
     if (screen && typeof screen.getDisplayNearestPoint === "function") {
-      display = displayMetricsFromElectronScreen(
-        { x: bounds.x, y: bounds.y },
-        screen,
-      );
+      display = displayMetricsFromElectronScreen({ x: bounds.x, y: bounds.y }, screen);
     }
   } catch {
     /* fall through to PNG-inferred display */
@@ -421,9 +401,7 @@ export async function cropHostPngToFrontmostWindow(
 
   const rect = computeWindowCropPixels(bounds, pngW, pngH, display);
   if (!rect) {
-    warnings.push(
-      "window_crop_skipped: window bounds not mappable to display screenshot.",
-    );
+    warnings.push("window_crop_skipped: window bounds not mappable to display screenshot.");
     return null;
   }
 
@@ -436,8 +414,7 @@ export async function cropHostPngToFrontmostWindow(
 }
 
 /** Cache host-vs-electron route — dual-shift must not spawn `status` every chord. */
-let routeCache: { at: number; route: "host_engine" | "electron_fallback" } | null =
-  null;
+let routeCache: { at: number; route: "host_engine" | "electron_fallback" } | null = null;
 const ROUTE_CACHE_MS = 30_000;
 
 export function invalidateAppShotCaptureRouteCache(): void {
@@ -448,18 +425,14 @@ export function invalidateAppShotCaptureRouteCache(): void {
  * Resolve whether AppShot should use host engine for this capture.
  * Cached for {@link ROUTE_CACHE_MS}; fail-open to electron_fallback.
  */
-export async function resolveAppShotCaptureRoute(): Promise<
-  "host_engine" | "electron_fallback"
-> {
+export async function resolveAppShotCaptureRoute(): Promise<"host_engine" | "electron_fallback"> {
   const now = Date.now();
   if (routeCache && now - routeCache.at < ROUTE_CACHE_MS) {
     return routeCache.route;
   }
   try {
     const st = await desktopUseStatus();
-    const route = shouldUseHostEngineCapture(st)
-      ? "host_engine"
-      : "electron_fallback";
+    const route = shouldUseHostEngineCapture(st) ? "host_engine" : "electron_fallback";
     routeCache = { at: now, route };
     return route;
   } catch {

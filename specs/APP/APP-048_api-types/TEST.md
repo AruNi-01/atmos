@@ -4,44 +4,44 @@
 
 ## Test strategy
 
-| Level | Why |
-|-------|-----|
-| Package unit | Action uniqueness, frame structure, enum-backed drift |
-| Typecheck | contracts package + web + mobile |
-| Static rg | No dual authorities for frames/WsAction |
-| App unit | Existing mobile/web tests still pass after import path change |
-| Joint smoke | Owned by APP-049 after both land; not required for 048-alone done |
+| Level        | Why                                                               |
+| ------------ | ----------------------------------------------------------------- |
+| Package unit | Action uniqueness, frame structure, enum-backed drift             |
+| Typecheck    | contracts package + web + mobile                                  |
+| Static rg    | No dual authorities for frames/WsAction                           |
+| App unit     | Existing mobile/web tests still pass after import path change     |
+| Joint smoke  | Owned by APP-049 after both land; not required for 048-alone done |
 
 ## Coverage map
 
-| PRD | Scenarios |
-|-----|-----------|
-| M1, M9, M10 | T-PKG-01, T-DEP-01 |
-| M2 | T-FRAME-01, T-FRAME-02 |
+| PRD         | Scenarios                                  |
+| ----------- | ------------------------------------------ |
+| M1, M9, M10 | T-PKG-01, T-DEP-01                         |
+| M2          | T-FRAME-01, T-FRAME-02                     |
 | M3, M7, M13 | T-ACT-01, T-ACT-02, T-DRIFT-01, T-DRIFT-02 |
-| M4 | T-DTO-01, T-DTO-02 |
-| M5, M6 | T-WEB-01, T-MOB-01 |
-| M11 | T-HAND-01 |
-| M12 | T-SCOPE-01 |
+| M4          | T-DTO-01, T-DTO-02                         |
+| M5, M6      | T-WEB-01, T-MOB-01                         |
+| M11         | T-HAND-01                                  |
+| M12         | T-SCOPE-01                                 |
 
 ## Execution map
 
-| ID | Level | Command / method | Status |
-|----|-------|------------------|--------|
-| T-PKG-01 | unit | package typecheck | pending |
-| T-DEP-01 | static | package.json no react/transport | pending |
-| T-FRAME-01 | unit | frames discriminants exist | pending |
-| T-FRAME-02 | unit | required fields match TECH canon (or golden JSON) | pending |
-| T-ACT-01 | unit | WS_ACTIONS unique + covers union | pending |
-| T-ACT-02 | unit | includes server-known actions (e.g. any enum-only names found at seed) | pending |
-| T-DRIFT-01 | unit | extract fixture == WS_ACTIONS | pending |
-| T-DRIFT-02 | unit | intentional mismatch fails | pending |
-| T-DTO-01 | typecheck | both apps import shared DTOs from package | pending |
-| T-DTO-02 | static | one interface body per moved type name | pending |
-| T-WEB-01 | static+typecheck | no authoritative WsAction/frames under apps/web | pending |
-| T-MOB-01 | typecheck+bun | mobile tests green; no local frame authorities | pending |
-| T-HAND-01 | process | 049 can depend on Phase 1 only | pending |
-| T-SCOPE-01 | review | no action→response map; no UI/transport in package | pending |
+| ID         | Level            | Command / method                                                       | Status  |
+| ---------- | ---------------- | ---------------------------------------------------------------------- | ------- |
+| T-PKG-01   | unit             | package typecheck                                                      | pending |
+| T-DEP-01   | static           | package.json no react/transport                                        | pending |
+| T-FRAME-01 | unit             | frames discriminants exist                                             | pending |
+| T-FRAME-02 | unit             | required fields match TECH canon (or golden JSON)                      | pending |
+| T-ACT-01   | unit             | WS_ACTIONS unique + covers union                                       | pending |
+| T-ACT-02   | unit             | includes server-known actions (e.g. any enum-only names found at seed) | pending |
+| T-DRIFT-01 | unit             | extract fixture == WS_ACTIONS                                          | pending |
+| T-DRIFT-02 | unit             | intentional mismatch fails                                             | pending |
+| T-DTO-01   | typecheck        | both apps import shared DTOs from package                              | pending |
+| T-DTO-02   | static           | one interface body per moved type name                                 | pending |
+| T-WEB-01   | static+typecheck | no authoritative WsAction/frames under apps/web                        | pending |
+| T-MOB-01   | typecheck+bun    | mobile tests green; no local frame authorities                         | pending |
+| T-HAND-01  | process          | 049 can depend on Phase 1 only                                         | pending |
+| T-SCOPE-01 | review           | no action→response map; no UI/transport in package                     | pending |
 
 ## Scenarios
 

@@ -34,7 +34,10 @@ describe("resolveCenterOpenContextId", () => {
 
 describe("attachCenterTab isolation", () => {
   it("reveals the owning pane instead of openTabOnFocusedPane", () => {
-    const src = readFileSync(join(import.meta.dir, "../center-space/center-open-context.ts"), "utf8");
+    const src = readFileSync(
+      join(import.meta.dir, "../center-space/center-open-context.ts"),
+      "utf8",
+    );
     expect(src).toContain("planCenterTabAttach");
     expect(src).toContain("store.getLayout(contextId), tabId, opts");
     expect(src).toContain('if (plan.action === "reveal")');

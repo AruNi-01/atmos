@@ -30,7 +30,10 @@ export function WorkspaceSwitcherPopover({
           style={styles.workspaceTrigger}
           tint="dark"
         >
-          <Text numberOfLines={1} style={[styles.workspaceTriggerLabel, { color: theme.colors.terminalFg }]}>
+          <Text
+            numberOfLines={1}
+            style={[styles.workspaceTriggerLabel, { color: theme.colors.terminalFg }]}
+          >
             {currentName}
           </Text>
           <ChevronDownIcon color={theme.colors.terminalMuted} size={14} strokeWidth={2.4} />

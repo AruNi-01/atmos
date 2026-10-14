@@ -1,9 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
-import {
-  diskAnalyzerApi,
-  type DiskTreeResponse,
-} from "@/api/ws/disk-analyzer-api";
+import { diskAnalyzerApi, type DiskTreeResponse } from "@/api/ws/disk-analyzer-api";
 
 /** Match backend path-cache TTL (3 days). Client still revalidates via backend mtime. */
 export const DISK_ANALYZER_STALE_MS = 3 * 24 * 60 * 60 * 1000;

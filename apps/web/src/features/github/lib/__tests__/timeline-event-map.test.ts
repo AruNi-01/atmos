@@ -197,10 +197,7 @@ describe("REST-shaped extra field parsing", () => {
   });
 
   it("parses locked lock_reason", () => {
-    const mapped = mapTimelineEvent(
-      { event: "locked", lock_reason: "off-topic" },
-      CTX,
-    );
+    const mapped = mapTimelineEvent({ event: "locked", lock_reason: "off-topic" }, CTX);
     expect(mapped).toMatchObject({
       classification: "activity",
       copyId: "lockedWithReason",
@@ -316,10 +313,8 @@ describe("REST-shaped extra field parsing", () => {
       ).extras.label,
     ).toEqual({ name: "bug", color: "d73a4a" });
     expect(
-      mapTimelineEvent(
-        { event: "milestoned", milestone: { title: "v1.0" } },
-        CTX,
-      ).extras.milestoneTitle,
+      mapTimelineEvent({ event: "milestoned", milestone: { title: "v1.0" } }, CTX).extras
+        .milestoneTitle,
     ).toBe("v1.0");
     expect(
       mapTimelineEvent(
@@ -340,21 +335,15 @@ describe("REST-shaped extra field parsing", () => {
       ).extras.requestedReviewerLogin,
     ).toBe("core");
     expect(
-      mapTimelineEvent(
-        { event: "referenced", commit_id: "deadbeef0123" },
-        CTX,
-      ).extras.commitSha,
+      mapTimelineEvent({ event: "referenced", commit_id: "deadbeef0123" }, CTX).extras.commitSha,
     ).toBe("deadbeef0123");
-    expect(
-      mapTimelineEvent(
-        { event: "merged", commit_id: "cafebabe99" },
-        CTX,
-      ),
-    ).toMatchObject({ copyId: "merged", extras: { commitSha: "cafebabe99" } });
-    expect(
-      mapTimelineEvent({ event: "closed", state_reason: "not_planned" }, CTX)
-        .copyId,
-    ).toBe("closedNotPlanned");
+    expect(mapTimelineEvent({ event: "merged", commit_id: "cafebabe99" }, CTX)).toMatchObject({
+      copyId: "merged",
+      extras: { commitSha: "cafebabe99" },
+    });
+    expect(mapTimelineEvent({ event: "closed", state_reason: "not_planned" }, CTX).copyId).toBe(
+      "closedNotPlanned",
+    );
     expect(
       mapTimelineEvent(
         {
@@ -410,10 +399,7 @@ describe("REST-shaped extra field parsing", () => {
       extras: { issueTypeName: "Feature", prevIssueTypeName: "Bug" },
     });
     expect(
-      mapTimelineEvent(
-        { event: "issue_type_removed", prev_issue_type: { name: "Task" } },
-        CTX,
-      ),
+      mapTimelineEvent({ event: "issue_type_removed", prev_issue_type: { name: "Task" } }, CTX),
     ).toMatchObject({
       copyId: "issueTypeRemoved",
       extras: { issueTypeName: "Task" },
@@ -498,12 +484,12 @@ describe("REST-shaped extra field parsing", () => {
         CTX,
       ).copyId,
     ).toBe("removedFromProjectColumn");
-    expect(
-      mapTimelineEvent({ event: "converted_note_to_issue" }, CTX).copyId,
-    ).toBe("convertedNoteToIssue");
-    expect(
-      mapTimelineEvent({ event: "moved_column_in_project" }, CTX).canonicalEvent,
-    ).toBe("moved_columns_in_project");
+    expect(mapTimelineEvent({ event: "converted_note_to_issue" }, CTX).copyId).toBe(
+      "convertedNoteToIssue",
+    );
+    expect(mapTimelineEvent({ event: "moved_column_in_project" }, CTX).canonicalEvent).toBe(
+      "moved_columns_in_project",
+    );
   });
 
   it("maps live GitHub payloads from probe issues 269-271", () => {
@@ -520,16 +506,10 @@ describe("REST-shaped extra field parsing", () => {
     expect(renamed.copyId).toBe("renamed");
     expect(renamed.extras.renameTo).toContain("renamed");
 
-    const closed = mapTimelineEvent(
-      { event: "closed", state_reason: "not_planned" },
-      CTX,
-    );
+    const closed = mapTimelineEvent({ event: "closed", state_reason: "not_planned" }, CTX);
     expect(closed.copyId).toBe("closedNotPlanned");
 
-    const locked = mapTimelineEvent(
-      { event: "locked", lock_reason: "off-topic" },
-      CTX,
-    );
+    const locked = mapTimelineEvent({ event: "locked", lock_reason: "off-topic" }, CTX);
     expect(locked.copyId).toBe("lockedWithReason");
 
     const fromPr = mapTimelineEvent(

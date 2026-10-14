@@ -12,13 +12,13 @@ Locked (do not reopen): `capabilities.steer = Supported` via vendor `steer` (not
 
 ## Sources (research, then pin)
 
-| Source | Use |
-|--------|-----|
-| [pi.dev/docs/latest/rpc](https://pi.dev/docs/latest/rpc) | Normative wire. Same text as `packages/coding-agent/docs/rpc.md` in [earendil-works/pi](https://github.com/earendil-works/pi). |
+| Source                                                   | Use                                                                                                                                                                    |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [pi.dev/docs/latest/rpc](https://pi.dev/docs/latest/rpc) | Normative wire. Same text as `packages/coding-agent/docs/rpc.md` in [earendil-works/pi](https://github.com/earendil-works/pi).                                         |
 | [pi.dev/docs/latest/sdk](https://pi.dev/docs/latest/sdk) | **RPC alternative for Node in-process.** Atmos Server is Rust → **do not** embed the SDK. Docs: prefer RPC when integrating from another language / process isolation. |
-| Types | [rpc-types.ts](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/src/modes/rpc/rpc-types.ts) |
-| TS client (ideas only) | `packages/coding-agent/src/modes/rpc/rpc-client.ts` |
-| Community RPC client | [beyond5959/acp-adapter](https://github.com/beyond5959/acp-adapter) `internal/pi/client.go` — **copy RPC client ideas, not** `pkg/piacp` or `gate_extension.go` |
+| Types                                                    | [rpc-types.ts](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/src/modes/rpc/rpc-types.ts)                                                        |
+| TS client (ideas only)                                   | `packages/coding-agent/src/modes/rpc/rpc-client.ts`                                                                                                                    |
+| Community RPC client                                     | [beyond5959/acp-adapter](https://github.com/beyond5959/acp-adapter) `internal/pi/client.go` — **copy RPC client ideas, not** `pkg/piacp` or `gate_extension.go`        |
 
 Fixture pin: `@earendil-works/pi-coding-agent` **0.84.4** (2026-08-28). Record `pi --version` in `testdata/README.md`. Re-record when the published RPC page changes command/event shapes.
 
@@ -26,19 +26,19 @@ Third-party pages that call this “JSON-RPC” are wrong. Official protocol is 
 
 ## MUST / MUST NOT
 
-| MUST | MUST NOT |
-|------|----------|
-| Spawn Chat as `pi --mode rpc` (cwd = chat cwd) | Chat-spawn `pi -p` / `--print` / `--mode json`; edit `builtin_agents.json` `params` |
-| Frame JSONL: write `json + \n`; read split on `\n` only (strip trailing `\r`) | Node `readline` semantics; treat `U+2028`/`U+2029` as record breaks; parse as JSON-RPC |
+| MUST                                                                                                                                                            | MUST NOT                                                                                                                                                                    |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Spawn Chat as `pi --mode rpc` (cwd = chat cwd)                                                                                                                  | Chat-spawn `pi -p` / `--print` / `--mode json`; edit `builtin_agents.json` `params`                                                                                         |
+| Frame JSONL: write `json + \n`; read split on `\n` only (strip trailing `\r`)                                                                                   | Node `readline` semantics; treat `U+2028`/`U+2029` as record breaks; parse as JSON-RPC                                                                                      |
 | Commands: `prompt`, `steer`, `abort`, `get_state`, `set_model`, `get_available_models`, `set_thinking_level`, `get_available_thinking_levels`, `switch_session` | Chat actions: `compact`, `fork`, `clone`, `export_html`, `new_session`, `follow_up` (Atmos queue), `clear_queue` (Atmos queue), `cycle_*`, `get_messages` as transcript SOT |
-| Execute card from `tool_execution_*` | Direct RPC `bash` / `abort_bash` / `bash_execution_update` as the execute card |
-| Steer = `{type:"steer"}` (or idle-forbidden; see below) | Fake steer with `follow_up`, `prompt` without running turn, or Atmos queue |
-| Host turn complete on `agent_settled` | Treat vendor `turn_end` / `agent_end` as Atmos `turn_completed` |
-| Envelope `turn_id` = Atmos epoch | Persist Pi session/turn strings as Atmos `turn_id` |
-| Answer dialog `extension_ui_request` with `extension_ui_response` | Inject `acp-adapter` `--extension` gate; invent ACP `session/request_permission` |
-| Ignore `queue_update` for Atmos queue | Dual-write `queue.json` and Pi steering/follow-up arrays |
-| Unknown `type` → skip or one `Unknown`; session continues | Panic / fail the Chat turn on extra frames |
-| Unmapped `toolName` → `kind: other` | Hide the card; dual-write typed params + vendor sidecar |
+| Execute card from `tool_execution_*`                                                                                                                            | Direct RPC `bash` / `abort_bash` / `bash_execution_update` as the execute card                                                                                              |
+| Steer = `{type:"steer"}` (or idle-forbidden; see below)                                                                                                         | Fake steer with `follow_up`, `prompt` without running turn, or Atmos queue                                                                                                  |
+| Host turn complete on `agent_settled`                                                                                                                           | Treat vendor `turn_end` / `agent_end` as Atmos `turn_completed`                                                                                                             |
+| Envelope `turn_id` = Atmos epoch                                                                                                                                | Persist Pi session/turn strings as Atmos `turn_id`                                                                                                                          |
+| Answer dialog `extension_ui_request` with `extension_ui_response`                                                                                               | Inject `acp-adapter` `--extension` gate; invent ACP `session/request_permission`                                                                                            |
+| Ignore `queue_update` for Atmos queue                                                                                                                           | Dual-write `queue.json` and Pi steering/follow-up arrays                                                                                                                    |
+| Unknown `type` → skip or one `Unknown`; session continues                                                                                                       | Panic / fail the Chat turn on extra frames                                                                                                                                  |
+| Unmapped `toolName` → `kind: other`                                                                                                                             | Hide the card; dual-write typed params + vendor sidecar                                                                                                                     |
 
 ## Architecture
 
@@ -98,10 +98,10 @@ Public Chat API: `PiNativeProvider` via `providers::pi`. No Pi RPC types at `cra
 
 ## Spawn vs Terminal
 
-| Path | Argv | Why |
-|------|------|-----|
+| Path             | Argv                                                              | Why                                |
+| ---------------- | ----------------------------------------------------------------- | ---------------------------------- |
 | Terminal APP-024 | `pi -p` (`resources/terminal-agents/builtin_agents.json` id `pi`) | One-shot print. **Do not change.** |
-| Chat native | `pi --mode rpc` | Stateful host protocol. |
+| Chat native      | `pi --mode rpc`                                                   | Stateful host protocol.            |
 
 `spawn.rs`: resolve `cmd` the same way as today (PATH / provisioned binary). Ignore launch_spec.args and builtin `params`. `Command` cwd = chat cwd. `kill_on_drop(true)` like `acp_client/process.rs`. Stderr: debug log, not mixed into the JSONL codec.
 
@@ -188,21 +188,27 @@ Command bodies Chat actually writes (short):
 Failed command:
 
 ```json
-{"id":"pi-rpc-8","type":"response","command":"steer","success":false,"error":"Agent is not streaming"}
+{
+  "id": "pi-rpc-8",
+  "type": "response",
+  "command": "steer",
+  "success": false,
+  "error": "Agent is not streaming"
+}
 ```
 
 Map to `AgentActionError` / send error. Do not retry as `follow_up`.
 
 ## Runtime map
 
-| Atmos | Pi RPC |
-|-------|--------|
-| `send` | `{type:"prompt", message, images?}`. Attachments → `ImageContent` `{type:"image", data, mimeType}`. If `isStreaming`, **do not** send `prompt` (host should have queued). Never set `streamingBehavior:"followUp"`. |
-| `cancel` | `{type:"abort"}`. Stop means stop. If we already sent `steer` this host turn, send `{type:"clear_queue"}` **immediately before** `abort` so Pi does not continue leftover vendor steering (docs: abort continues queued messages). Discard `clear_queue.data` — **do not** write it to `queue.json`. |
-| `action(Steer)` | `{type:"steer", message, images?}`. Not `prompt` + `streamingBehavior` unless `steer` fails closed and the process is streaming — then `{type:"prompt", streamingBehavior:"steer"}` is the documented equivalent. Never `follow_up`. |
-| `action(SetConfig)` | `{type:"set_model", provider, modelId}` and/or `{type:"set_thinking_level", level}`. Split catalog id on first `/`. Refresh thinking levels after model change. No Chat `mode` picker (builtin `modes` empty). |
-| `action(RespondPermission)` | `{type:"extension_ui_response", id, …}` matching the pending dialog (below). |
-| `close` | kill process |
+| Atmos                       | Pi RPC                                                                                                                                                                                                                                                                                               |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `send`                      | `{type:"prompt", message, images?}`. Attachments → `ImageContent` `{type:"image", data, mimeType}`. If `isStreaming`, **do not** send `prompt` (host should have queued). Never set `streamingBehavior:"followUp"`.                                                                                  |
+| `cancel`                    | `{type:"abort"}`. Stop means stop. If we already sent `steer` this host turn, send `{type:"clear_queue"}` **immediately before** `abort` so Pi does not continue leftover vendor steering (docs: abort continues queued messages). Discard `clear_queue.data` — **do not** write it to `queue.json`. |
+| `action(Steer)`             | `{type:"steer", message, images?}`. Not `prompt` + `streamingBehavior` unless `steer` fails closed and the process is streaming — then `{type:"prompt", streamingBehavior:"steer"}` is the documented equivalent. Never `follow_up`.                                                                 |
+| `action(SetConfig)`         | `{type:"set_model", provider, modelId}` and/or `{type:"set_thinking_level", level}`. Split catalog id on first `/`. Refresh thinking levels after model change. No Chat `mode` picker (builtin `modes` empty).                                                                                       |
+| `action(RespondPermission)` | `{type:"extension_ui_response", id, …}` matching the pending dialog (below).                                                                                                                                                                                                                         |
+| `close`                     | kill process                                                                                                                                                                                                                                                                                         |
 
 `send()` returns the **Atmos** `turn_id` from `AgentPrompt`. Official `turn_start` is `{"type":"turn_start"}` with **no** vendor turn id. Unlike Codex, Pi `steer` has no `expectedTurnId`. Do not invent a vendor turn map for steer. Store `atmos_turn_id` on the runtime for envelopes until `agent_settled`.
 
@@ -214,21 +220,21 @@ Images: only Chat image attachments. Read bytes from the APP-067 attachments dir
 
 Vendor turn ≠ Atmos turn. One `prompt` can emit several `turn_start`/`turn_end` (assistant + tools loops). Envelope `turn_id` stays the host epoch.
 
-| Pi `type` | Atmos |
-|-----------|--------|
-| `turn_start` / `turn_end` | Omit as host turn boundaries. Optional: ignore. `turn_end.message` is not the live SOT. |
-| `message_update` | Deltas only. `text_delta` → `AssistantMessageDelta`; `thinking_*` → `ThinkingDelta` / completed (fold; **not** a tool). `toolcall_*` = model proposing a call — **buffer args**, do not emit the execute card yet. Docs: no cumulative `message`; assemble with `contentIndex`; **`message_end.message` is authoritative**. |
-| `message_start` | May open the assistant/thinking stream. |
-| `message_end` | `AssistantMessageCompleted` (full text from `message`). Prefer this over concatenated deltas if they disagree. |
-| `tool_execution_start\|update\|end` | `ToolCall*` via `tool_map.rs` |
-| `agent_settled` | Host **turn complete** (`TurnCompleted`). Docs: no automatic retry, compaction retry, or queued continuation remains. |
-| `agent_start` / `agent_end` | Omit (`agent_end` may precede retry/compaction). |
-| `queue_update` | **Ignore** for Atmos queue SOT. Do not emit host `queue_updated`. |
-| `extension_ui_request` | Dialog → `PermissionRequested`. Fire-and-forget → omit or status; **do not** wait for a response. |
-| `compaction_*` / `auto_retry_*` / `summarization_*` | Status or omit. Not Chat actions. |
-| `bash_execution_update` | Omit (host `bash` unused). |
-| `extension_error` | One `Unknown` or `TurnFailed` if it kills the run; never panic. |
-| other | Skip or `Unknown { event_type, payload }` |
+| Pi `type`                                           | Atmos                                                                                                                                                                                                                                                                                                                       |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `turn_start` / `turn_end`                           | Omit as host turn boundaries. Optional: ignore. `turn_end.message` is not the live SOT.                                                                                                                                                                                                                                     |
+| `message_update`                                    | Deltas only. `text_delta` → `AssistantMessageDelta`; `thinking_*` → `ThinkingDelta` / completed (fold; **not** a tool). `toolcall_*` = model proposing a call — **buffer args**, do not emit the execute card yet. Docs: no cumulative `message`; assemble with `contentIndex`; **`message_end.message` is authoritative**. |
+| `message_start`                                     | May open the assistant/thinking stream.                                                                                                                                                                                                                                                                                     |
+| `message_end`                                       | `AssistantMessageCompleted` (full text from `message`). Prefer this over concatenated deltas if they disagree.                                                                                                                                                                                                              |
+| `tool_execution_start\|update\|end`                 | `ToolCall*` via `tool_map.rs`                                                                                                                                                                                                                                                                                               |
+| `agent_settled`                                     | Host **turn complete** (`TurnCompleted`). Docs: no automatic retry, compaction retry, or queued continuation remains.                                                                                                                                                                                                       |
+| `agent_start` / `agent_end`                         | Omit (`agent_end` may precede retry/compaction).                                                                                                                                                                                                                                                                            |
+| `queue_update`                                      | **Ignore** for Atmos queue SOT. Do not emit host `queue_updated`.                                                                                                                                                                                                                                                           |
+| `extension_ui_request`                              | Dialog → `PermissionRequested`. Fire-and-forget → omit or status; **do not** wait for a response.                                                                                                                                                                                                                           |
+| `compaction_*` / `auto_retry_*` / `summarization_*` | Status or omit. Not Chat actions.                                                                                                                                                                                                                                                                                           |
+| `bash_execution_update`                             | Omit (host `bash` unused).                                                                                                                                                                                                                                                                                                  |
+| `extension_error`                                   | One `Unknown` or `TurnFailed` if it kills the run; never panic.                                                                                                                                                                                                                                                             |
+| other                                               | Skip or `Unknown { event_type, payload }`                                                                                                                                                                                                                                                                                   |
 
 Usage on `message_update.usage` → `UsageUpdated` when nonzero; do not dual-store on the assistant event.
 
@@ -250,18 +256,18 @@ Chat execute card = agent **tool** `bash` via `tool_execution_*`, not RPC `bash`
 
 `partialResult` is **accumulated** output (replace display; do not append). `toolCallId` correlates. Result text from `result.content[]` `type:text`. `isError` → `ToolCallFailed` / `result: Error`.
 
-| `toolName` (case-insensitive) | Atmos `kind` | Params / result |
-|-------------------------------|--------------|-----------------|
-| `bash` | `execute` | `command` from `args`; output + optional exit from `details` if present else `Text`/`Execute.output` |
-| `read` | `read` | `path` |
-| `write` / `edit` | `edit` | `path`; diff stats if present else `Text` |
-| `grep` / `find` / `ls` | `search` | `query` / `path` / `glob` via extractors; result `Text` (N1) |
-| `web_search` / `websearch` | `web_search` | `query` + `extract_links` else `Text` |
-| web fetch names (`web_fetch`, `webfetch`, `fetch` **url**) | `fetch` | `url` |
-| skill / subagent names | `skill` / `subagent` | matching extractors |
-| todo / plan | fold `PlanUpdated` | not a tool kind |
-| thinking tool names | fold `Thinking*` | not a tool kind |
-| else | `other` | `params`/`result` **are** `args` / `result` once |
+| `toolName` (case-insensitive)                              | Atmos `kind`         | Params / result                                                                                      |
+| ---------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------- |
+| `bash`                                                     | `execute`            | `command` from `args`; output + optional exit from `details` if present else `Text`/`Execute.output` |
+| `read`                                                     | `read`               | `path`                                                                                               |
+| `write` / `edit`                                           | `edit`               | `path`; diff stats if present else `Text`                                                            |
+| `grep` / `find` / `ls`                                     | `search`             | `query` / `path` / `glob` via extractors; result `Text` (N1)                                         |
+| `web_search` / `websearch`                                 | `web_search`         | `query` + `extract_links` else `Text`                                                                |
+| web fetch names (`web_fetch`, `webfetch`, `fetch` **url**) | `fetch`              | `url`                                                                                                |
+| skill / subagent names                                     | `skill` / `subagent` | matching extractors                                                                                  |
+| todo / plan                                                | fold `PlanUpdated`   | not a tool kind                                                                                      |
+| thinking tool names                                        | fold `Thinking*`     | not a tool kind                                                                                      |
+| else                                                       | `other`              | `params`/`result` **are** `args` / `result` once                                                     |
 
 `toolcall_end.toolCall` may prefill args; still start the card on `tool_execution_start` with the same `toolCallId` (one card). Drop unused vendor keys on mapped kinds.
 
@@ -288,12 +294,12 @@ Pi has **no** `can_use_tool`. Official RPC: extensions call `ctx.ui.confirm/sele
 
 Map:
 
-| `method` | Host | Response |
-|----------|------|----------|
-| `confirm` | permission (allow/deny) | `{confirmed: true\|false}` or `{cancelled: true}` |
-| `select` | permission options = `options[]` | `{value: "<option>"}` or `{cancelled: true}` |
-| `input` / `editor` | permission/question if Chat already has prompt chrome; else one `Unknown` **and still answer** (`cancelled` or empty `value`) so the process does not stall | `{value}` / `{cancelled:true}` |
-| notify / setStatus / setWidget / setTitle / set_editor_text | omit or status | **no** stdin reply |
+| `method`                                                    | Host                                                                                                                                                        | Response                                          |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `confirm`                                                   | permission (allow/deny)                                                                                                                                     | `{confirmed: true\|false}` or `{cancelled: true}` |
+| `select`                                                    | permission options = `options[]`                                                                                                                            | `{value: "<option>"}` or `{cancelled: true}`      |
+| `input` / `editor`                                          | permission/question if Chat already has prompt chrome; else one `Unknown` **and still answer** (`cancelled` or empty `value`) so the process does not stall | `{value}` / `{cancelled:true}`                    |
+| notify / setStatus / setWidget / setTitle / set_editor_text | omit or status                                                                                                                                              | **no** stdin reply                                |
 
 `RespondPermission.request_id` = request `id`. Do not translate to ACP option ids on the wire.
 
@@ -327,7 +333,7 @@ Pi `follow_up` / `set_follow_up_mode` / `queue_update.followUp` are **not** Atmo
 `queue_update` example — parse so S22 does not crash, then drop:
 
 ```json
-{"type":"queue_update","steering":["Focus on error handling"],"followUp":["Summarize"]}
+{ "type": "queue_update", "steering": ["Focus on error handling"], "followUp": ["Summarize"] }
 ```
 
 ## Security
@@ -346,13 +352,13 @@ Stdio only (no vendor HTTP). Session jsonl under Pi’s `sessionFile` may contai
 
 `cargo test -p agent` under `providers/pi`. Live `pi` binary is **manual**; CI uses recorded JSONL.
 
-| TEST.md | Fixture | Signals |
-|---------|---------|---------|
+| TEST.md | Fixture                                                              | Signals                                                                                                                                                                   |
+| ------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **S19** | `prompt` + `steer` + `abort` + `message_update` + `tool_execution_*` | `{type:"steer"}` encoded; bash → `execute` from `tool_execution_*`; **no** `follow_up` line on Atmos queue dispatch; `agent_settled` → turn complete; `turn_end` does not |
-| **S21** | `extension_ui_request` `confirm` | `PermissionRequested`; `RespondPermission` writes `extension_ui_response` `{confirmed}` with matching `id`; no gate extension argv |
-| **S23** | LF records; payload contains `U+2028` | one JSON value; not split. Classify `response` vs event. Reject a JSON-RPC `{jsonrpc,method,id}` as a command encoder output |
-| S22 | extra unknown `type` | session continues |
-| S24 | routing | `pi` → native; Terminal still `-p` |
+| **S21** | `extension_ui_request` `confirm`                                     | `PermissionRequested`; `RespondPermission` writes `extension_ui_response` `{confirmed}` with matching `id`; no gate extension argv                                        |
+| **S23** | LF records; payload contains `U+2028`                                | one JSON value; not split. Classify `response` vs event. Reject a JSON-RPC `{jsonrpc,method,id}` as a command encoder output                                              |
+| S22     | extra unknown `type`                                                 | session continues                                                                                                                                                         |
+| S24     | routing                                                              | `pi` → native; Terminal still `-p`                                                                                                                                        |
 
 Also: `set_model` splits `anthropic/claude-sonnet-4-20250514`; `switch_session` on resume; `queue_update` does not touch `queue.json`; RPC `bash` command is never emitted by `send`/`Steer`.
 

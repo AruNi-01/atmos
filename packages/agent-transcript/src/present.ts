@@ -1,6 +1,4 @@
-import type {
-  AgentToolParams,
-} from "@atmos/api-types/ws/dto/agent-chat";
+import type { AgentToolParams } from "@atmos/api-types/ws/dto/agent-chat";
 import { isEmptyToolJson, type AgentToolCallPart } from "./tool-kind";
 
 /** Same extensions Chromium can preview. TIFF is excluded on purpose. */
@@ -239,11 +237,7 @@ export function displayToolPath(path: string, cwd?: string | null): string {
   return pathRelativeToCwd(path, cwd);
 }
 
-export function displayToolTitle(
-  title: string,
-  cwd?: string | null,
-  path?: string | null,
-): string {
+export function displayToolTitle(title: string, cwd?: string | null, path?: string | null): string {
   if (!title) return title;
   let result = title;
   if (path) {
@@ -278,9 +272,7 @@ export function resolveTreeEntryPaths(entries: TreeEntry[]): string[] {
       stack.pop();
     }
     const parent = stack[stack.length - 1]?.path;
-    const path = parent
-      ? `${parent.replace(/[/\\]+$/, "")}/${entry.name}`
-      : entry.name;
+    const path = parent ? `${parent.replace(/[/\\]+$/, "")}/${entry.name}` : entry.name;
     if (entry.isDir) stack.push({ indent: entry.indent, path });
     return path;
   });
@@ -300,10 +292,7 @@ export function isImageToolPath(path: string | null | undefined): boolean {
   return isBrowserPreviewableImageFilename(name);
 }
 
-function shouldPreviewReadFromDisk(
-  part: AgentToolCallPart,
-  path: string | null,
-): boolean {
+function shouldPreviewReadFromDisk(part: AgentToolCallPart, path: string | null): boolean {
   if (part.kind !== "read" || !path) return false;
   const result = part.result;
   if (result?.type === "error") return false;
@@ -319,10 +308,10 @@ function shouldPreviewReadFromDisk(
 function looksLikePatch(text: string): boolean {
   const trimmed = text.trimStart();
   return (
-    trimmed.startsWith("--- ")
-    || trimmed.startsWith("diff --git ")
-    || trimmed.startsWith("*** ")
-    || /^@@ /.test(trimmed)
+    trimmed.startsWith("--- ") ||
+    trimmed.startsWith("diff --git ") ||
+    trimmed.startsWith("*** ") ||
+    /^@@ /.test(trimmed)
   );
 }
 
@@ -355,10 +344,12 @@ function lineRangeFromRead(params: AgentToolParams | undefined): ToolLineRange |
 function isTreeEntry(value: unknown): value is TreeEntry {
   if (!value || typeof value !== "object") return false;
   const entry = value as Record<string, unknown>;
-  return typeof entry.name === "string"
-    && typeof entry.indent === "number"
-    && typeof entry.isDir === "boolean"
-    && (entry.kind === "item" || entry.kind === "note");
+  return (
+    typeof entry.name === "string" &&
+    typeof entry.indent === "number" &&
+    typeof entry.isDir === "boolean" &&
+    (entry.kind === "item" || entry.kind === "note")
+  );
 }
 
 function isTodoItem(value: unknown): value is TodoItem {
@@ -374,10 +365,18 @@ function isTodoItem(value: unknown): value is TodoItem {
 function taggedPresentation(value: unknown): ToolPresentation | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
-  if (record.kind === "files" && Array.isArray(record.paths) && record.paths.every((path) => typeof path === "string")) {
+  if (
+    record.kind === "files" &&
+    Array.isArray(record.paths) &&
+    record.paths.every((path) => typeof path === "string")
+  ) {
     return { kind: "files", paths: record.paths };
   }
-  if (record.kind === "tree" && Array.isArray(record.entries) && record.entries.every(isTreeEntry)) {
+  if (
+    record.kind === "tree" &&
+    Array.isArray(record.entries) &&
+    record.entries.every(isTreeEntry)
+  ) {
     return { kind: "tree", entries: record.entries };
   }
   if (record.kind === "markdown" && typeof record.markdown === "string" && record.markdown.trim()) {
@@ -421,7 +420,10 @@ export function toolTitleLooksLikePath(title: string, path: string | null | unde
   if (trimmed === path) return true;
   const prefixed = /^(?:tool|read|edit|search|execute|fetch|write|delete):\s*(.*)$/i.exec(trimmed);
   if (prefixed?.[1] === path) return true;
-  return trimmed.endsWith(path) && (trimmed.length === path.length || /[:\s/]/.test(trimmed.slice(0, -path.length).slice(-1)));
+  return (
+    trimmed.endsWith(path) &&
+    (trimmed.length === path.length || /[:\s/]/.test(trimmed.slice(0, -path.length).slice(-1)))
+  );
 }
 
 /**
@@ -524,9 +526,7 @@ export function otherToolBodies(part: AgentToolCallPart): {
   resultBody: { kind: "json" | "text" | "error"; value: string } | null;
 } {
   const params = part.params;
-  const rawParams = params
-    ? (params.type === "other" ? params.value : params)
-    : null;
+  const rawParams = params ? (params.type === "other" ? params.value : params) : null;
   const title = (part.title || part.name || "").trim();
   const uncovered = paramsNotShownInTitle(title, rawParams);
   const paramsJson = isEmptyToolJson(uncovered) ? null : prettyJson(uncovered);
@@ -538,7 +538,10 @@ export function otherToolBodies(part: AgentToolCallPart): {
     return { paramsJson, resultBody: { kind: "error", value: result.message } };
   }
   if (result.type === "text") {
-    return { paramsJson, resultBody: result.text.trim() ? { kind: "text", value: result.text } : null };
+    return {
+      paramsJson,
+      resultBody: result.text.trim() ? { kind: "text", value: result.text } : null,
+    };
   }
   if (result.type === "other") {
     return {
@@ -551,16 +554,14 @@ export function otherToolBodies(part: AgentToolCallPart): {
   return { paramsJson, resultBody: { kind: "json", value: prettyJson(result) } };
 }
 
-export function preferredCollapsedToolTitle(
-  part: AgentToolCallPart,
-  fallback: string,
-): string {
+export function preferredCollapsedToolTitle(part: AgentToolCallPart, fallback: string): string {
   const title = (part.title || "").trim();
   const name = (part.name || "").trim();
   const command = part.params?.type === "execute" ? part.params.command.trim() : "";
-  const query = part.params?.type === "search" || part.params?.type === "web_search"
-    ? part.params.query.trim()
-    : "";
+  const query =
+    part.params?.type === "search" || part.params?.type === "web_search"
+      ? part.params.query.trim()
+      : "";
   for (const candidate of [title, name]) {
     if (!candidate) continue;
     if (command && toolTitleEchoesCommand(candidate, command)) continue;
@@ -592,7 +593,11 @@ function searchFieldsFromPart(part: AgentToolCallPart): {
   return { query: "" };
 }
 
-export function formatSearchScript(query: string, glob?: string | null, path?: string | null): string {
+export function formatSearchScript(
+  query: string,
+  glob?: string | null,
+  path?: string | null,
+): string {
   return [query.trim(), glob?.trim(), path?.trim()].filter(Boolean).join(" ");
 }
 
@@ -609,9 +614,10 @@ export function matchCountFromSearchSummary(text: string | undefined): number | 
 export function presentAgentTool(part: AgentToolCallPart): ParsedToolResult {
   const params = part.params;
   const result = part.result;
-  const path = (result && "path" in result && typeof result.path === "string" && result.path)
-    || pathFromParams(params)
-    || null;
+  const path =
+    (result && "path" in result && typeof result.path === "string" && result.path) ||
+    pathFromParams(params) ||
+    null;
   const lineRange = lineRangeFromRead(params);
 
   if (result?.type === "error") {
@@ -619,7 +625,12 @@ export function presentAgentTool(part: AgentToolCallPart): ParsedToolResult {
   }
 
   if (part.kind === "move" && params?.type === "move") {
-    return parsed(part, { kind: "move", from: params.from, to: params.to }, params.to || path, lineRange);
+    return parsed(
+      part,
+      { kind: "move", from: params.from, to: params.to },
+      params.to || path,
+      lineRange,
+    );
   }
   if (part.kind === "delete" && params?.type === "delete") {
     return parsed(part, { kind: "delete", path: params.path }, params.path, lineRange);
@@ -632,44 +643,66 @@ export function presentAgentTool(part: AgentToolCallPart): ParsedToolResult {
   if (!result || result.type === "empty") {
     if (part.kind === "search") {
       const fields = searchFieldsFromPart(part);
-      return parsed(part, {
-        kind: "search",
-        query: fields.query,
-        glob: fields.glob,
-        path: fields.path,
-        hits: [],
-      }, path, lineRange);
+      return parsed(
+        part,
+        {
+          kind: "search",
+          query: fields.query,
+          glob: fields.glob,
+          path: fields.path,
+          hits: [],
+        },
+        path,
+        lineRange,
+      );
     }
     return parsed(part, { kind: "empty" }, path, lineRange);
   }
 
   if (result.type === "file_content") {
-    return parsed(part, {
-      kind: "code",
-      path: result.path,
-      language: languageFromPath(result.path),
-      code: stripReadLineNumbers(result.text),
-    }, result.path, lineRange);
+    return parsed(
+      part,
+      {
+        kind: "code",
+        path: result.path,
+        language: languageFromPath(result.path),
+        code: stripReadLineNumbers(result.text),
+      },
+      result.path,
+      lineRange,
+    );
   }
 
   if (result.type === "diff_stats") {
-    return parsed(part, {
-      kind: "diff_stats",
-      path: result.path,
-      additions: result.additions,
-      deletions: result.deletions,
-    }, result.path, lineRange);
+    return parsed(
+      part,
+      {
+        kind: "diff_stats",
+        path: result.path,
+        additions: result.additions,
+        deletions: result.deletions,
+      },
+      result.path,
+      lineRange,
+    );
   }
 
   if (result.type === "diff") {
-    return parsed(part, {
-      kind: "diff",
-      files: [{
-        path: result.path,
-        oldContent: result.old_content ?? "",
-        newContent: result.new_content,
-      }],
-    }, result.path, lineRange);
+    return parsed(
+      part,
+      {
+        kind: "diff",
+        files: [
+          {
+            path: result.path,
+            oldContent: result.old_content ?? "",
+            newContent: result.new_content,
+          },
+        ],
+      },
+      result.path,
+      lineRange,
+    );
   }
 
   if (result.type === "execute") {
@@ -678,39 +711,54 @@ export function presentAgentTool(part: AgentToolCallPart): ParsedToolResult {
 
   if (result.type === "search_hits") {
     const fields = searchFieldsFromPart(part);
-    return parsed(part, {
-      kind: "search",
-      query: result.query || fields.query,
-      glob: fields.glob,
-      path: fields.path,
-      hits: result.hits.map((hit) => ({
-        path: hit.path,
-        ...(hit.line != null ? { line: hit.line } : {}),
-        text: hit.snippet ?? "",
-      })),
-    }, path, lineRange);
+    return parsed(
+      part,
+      {
+        kind: "search",
+        query: result.query || fields.query,
+        glob: fields.glob,
+        path: fields.path,
+        hits: result.hits.map((hit) => ({
+          path: hit.path,
+          ...(hit.line != null ? { line: hit.line } : {}),
+          text: hit.snippet ?? "",
+        })),
+      },
+      path,
+      lineRange,
+    );
   }
 
   if (result.type === "web_search") {
-    return parsed(part, {
-      kind: "web_search",
-      query: result.query,
-      links: result.links.map((link) => ({
-        url: link.url,
-        title: link.title,
-        snippet: link.snippet ?? undefined,
-      })),
-    }, path, lineRange);
+    return parsed(
+      part,
+      {
+        kind: "web_search",
+        query: result.query,
+        links: result.links.map((link) => ({
+          url: link.url,
+          title: link.title,
+          snippet: link.snippet ?? undefined,
+        })),
+      },
+      path,
+      lineRange,
+    );
   }
 
   if (result.type === "web_fetch") {
-    return parsed(part, {
-      kind: "web_fetch",
-      url: result.url,
-      title: result.title ?? undefined,
-      markdown: result.markdown ?? undefined,
-      text: result.text ?? undefined,
-    }, path, lineRange);
+    return parsed(
+      part,
+      {
+        kind: "web_fetch",
+        url: result.url,
+        title: result.title ?? undefined,
+        markdown: result.markdown ?? undefined,
+        text: result.text ?? undefined,
+      },
+      path,
+      lineRange,
+    );
   }
 
   if (result.type === "images") {
@@ -735,20 +783,30 @@ export function presentAgentTool(part: AgentToolCallPart): ParsedToolResult {
     }
     if (part.kind === "search") {
       const fields = searchFieldsFromPart(part);
-      return parsed(part, {
-        kind: "search",
-        query: fields.query,
-        glob: fields.glob,
-        path: fields.path,
-        hits: [],
-        summary: result.text,
-      }, path, lineRange);
+      return parsed(
+        part,
+        {
+          kind: "search",
+          query: fields.query,
+          glob: fields.glob,
+          path: fields.path,
+          hits: [],
+          summary: result.text,
+        },
+        path,
+        lineRange,
+      );
     }
     return parsed(part, { kind: "text", text: result.text }, path, lineRange);
   }
 
   if (result.type === "other") {
-    return parsed(part, taggedPresentation(result.value) ?? jsonPresentation(result.value), path, lineRange);
+    return parsed(
+      part,
+      taggedPresentation(result.value) ?? jsonPresentation(result.value),
+      path,
+      lineRange,
+    );
   }
 
   return parsed(part, { kind: "empty" }, path, lineRange);

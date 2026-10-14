@@ -23,14 +23,14 @@
 
 ## 📁 Application list
 
-| App | Role | AGENTS.md |
-|-----|------|-----------|
-| **api** | Atmos Server (HTTP/WS, relay ingest, manifest) | [api/AGENTS.md](api/AGENTS.md) |
-| **web** | Next.js UI (loopback / relay) | [web/AGENTS.md](web/AGENTS.md) |
+| App         | Role                                             | AGENTS.md                              |
+| ----------- | ------------------------------------------------ | -------------------------------------- |
+| **api**     | Atmos Server (HTTP/WS, relay ingest, manifest)   | [api/AGENTS.md](api/AGENTS.md)         |
+| **web**     | Next.js UI (loopback / relay)                    | [web/AGENTS.md](web/AGENTS.md)         |
 | **desktop** | Tauri shell; `runtime-manager` ensure shared API | [desktop/AGENTS.md](desktop/AGENTS.md) |
-| **cli** | `atmos runtime`, `computer`, `canvas`, … | [cli/AGENTS.md](cli/AGENTS.md) |
-| **docs** | Fumadocs site | [docs/AGENTS.md](docs/AGENTS.md) |
-| **landing** | Marketing | [landing/AGENTS.md](landing/AGENTS.md) |
+| **cli**     | `atmos runtime`, `computer`, `canvas`, …         | [cli/AGENTS.md](cli/AGENTS.md)         |
+| **docs**    | Fumadocs site                                    | [docs/AGENTS.md](docs/AGENTS.md)       |
+| **landing** | Marketing                                        | [landing/AGENTS.md](landing/AGENTS.md) |
 
 ---
 

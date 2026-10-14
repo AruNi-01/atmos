@@ -35,14 +35,15 @@
 - **M1: Grouping mode `agent`** — Add **By Agent Status** to the existing Group By menu (sidebar footer and Task kanban). Persist via `workspace_sidebar.grouping_mode`. Do not overload workflow **By Status**.
 - **M2: Four buckets** — Every workspace maps to exactly one bucket:
 
-  | Bucket key | Label | Rule |
-  |------------|-------|------|
-  | `permission` | Need permission | Live hook state is `permission_request`, **or** sticky attention reason is `permission_request` |
-  | `attention` | Need attention | Sticky attention reason is `task_complete` (running → idle / “down”), and the row is not in `permission` or `running` |
-  | `running` | Running | Live hook state is `running` and not `permission` |
-  | `idle` | Idle | Otherwise (no live activity, no sticky attention) |
+  | Bucket key   | Label           | Rule                                                                                                                  |
+  | ------------ | --------------- | --------------------------------------------------------------------------------------------------------------------- |
+  | `permission` | Need permission | Live hook state is `permission_request`, **or** sticky attention reason is `permission_request`                       |
+  | `attention`  | Need attention  | Sticky attention reason is `task_complete` (running → idle / “down”), and the row is not in `permission` or `running` |
+  | `running`    | Running         | Live hook state is `running` and not `permission`                                                                     |
+  | `idle`       | Idle            | Otherwise (no live activity, no sticky attention)                                                                     |
 
   Priority: permission > running > attention > idle. A still-running Agent with a leftover `task_complete` latch stays **Running** (need attention is “after down”).
+
 - **M3: No extra statuses in v1** — Do not add connecting / error / paused / queued buckets. Current list-surface Agent model only has idle, running, permission_request, plus sticky permission and task_complete.
 - **M4: Empty buckets visible** — Like workflow Status grouping, always show all four groups/columns even when empty.
 - **M5: Live rebucket + refresh hydrate** — When hook state or sticky attention changes, sidebar groups and kanban columns move the workspace without reload. After a browser refresh, buckets restore from API in-memory sessions + attention (same process; not SQLite).

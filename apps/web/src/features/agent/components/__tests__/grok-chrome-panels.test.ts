@@ -2,30 +2,15 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const goalPanel = readFileSync(
-  join(import.meta.dir, "../grok/GrokGoalPanel.tsx"),
-  "utf8",
-);
-const workflowPanel = readFileSync(
-  join(import.meta.dir, "../grok/GrokWorkflowPanel.tsx"),
-  "utf8",
-);
-const composer = readFileSync(
-  join(import.meta.dir, "../AgentPromptComposer.tsx"),
-  "utf8",
-);
+const goalPanel = readFileSync(join(import.meta.dir, "../grok/GrokGoalPanel.tsx"), "utf8");
+const workflowPanel = readFileSync(join(import.meta.dir, "../grok/GrokWorkflowPanel.tsx"), "utf8");
+const composer = readFileSync(join(import.meta.dir, "../AgentPromptComposer.tsx"), "utf8");
 const overlays = readFileSync(
   join(import.meta.dir, "../AgentChatAboveComposerOverlays.tsx"),
   "utf8",
 );
-const overlay = readFileSync(
-  join(import.meta.dir, "../SubagentConversationOverlay.tsx"),
-  "utf8",
-);
-const roster = readFileSync(
-  join(import.meta.dir, "../grok/GrokChromeRoster.tsx"),
-  "utf8",
-);
+const overlay = readFileSync(join(import.meta.dir, "../SubagentConversationOverlay.tsx"), "utf8");
+const roster = readFileSync(join(import.meta.dir, "../grok/GrokChromeRoster.tsx"), "utf8");
 
 describe("grok chrome panels", () => {
   it("sits in the above-composer overlay lane and reuses the subagent overlay", () => {
@@ -55,15 +40,17 @@ describe("grok chrome panels", () => {
     expect(goalPanel).not.toContain("icon={Flag}");
     expect(goalPanel).toContain("data-agent-grok-goal-panel");
     expect(goalPanel).toContain("data-agent-grok-goal-status");
-    expect(goalPanel).toContain('className="mb-2 flex items-center gap-2 px-1 text-xs leading-5 text-muted-foreground"');
+    expect(goalPanel).toContain(
+      'className="mb-2 flex items-center gap-2 px-1 text-xs leading-5 text-muted-foreground"',
+    );
     expect(goalPanel).toContain('className="ml-auto shrink-0 whitespace-nowrap"');
     expect(goalPanel).not.toContain("space-y-0.5 px-1");
     expect(goalPanel).toContain("<PlanBlockView");
     expect(overlays).toContain("plan={currentPlan}");
     expect(composer).toContain("currentPlan && !showGrokGoalCard");
     expect(workflowPanel).toContain("data-agent-grok-workflow-panel");
-    expect(overlays).toContain("grokGoal.status !== \"cleared\"");
-    expect(overlays).toContain("grokWorkflow.status !== \"cleared\"");
+    expect(overlays).toContain('grokGoal.status !== "cleared"');
+    expect(overlays).toContain('grokWorkflow.status !== "cleared"');
     expect(overlays).toContain("OVERLAY_CARD_MAX_HEIGHT_CLASS");
     expect(overlays).toContain("OVERLAY_CARD_MAX_HEIGHT_VAR");
     expect(overlays).toContain("capOverlayLane");

@@ -14,7 +14,10 @@ export type PtRendererProps = {
   }) => void;
 };
 
-export type PtInspectorField = { key: "title" | "description" | string; kind: "text" | "boolean" | "number" };
+export type PtInspectorField = {
+  key: "title" | "description" | string;
+  kind: "text" | "boolean" | "number";
+};
 
 export type PtComponentModule = {
   type: PtNodeType;

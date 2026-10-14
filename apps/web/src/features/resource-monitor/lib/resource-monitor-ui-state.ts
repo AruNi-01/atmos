@@ -41,9 +41,7 @@ export function resourceMonitorStatusBanners(
   return banners;
 }
 
-export function shouldRenderResourceMonitorSnapshot(
-  state: ResourceMonitorUiState,
-): boolean {
+export function shouldRenderResourceMonitorSnapshot(state: ResourceMonitorUiState): boolean {
   return state !== "disconnected" && state !== "loading";
 }
 
@@ -54,12 +52,7 @@ export function shouldShowProjectsEmptyCopy(
   return projectCount === 0 && state !== "empty";
 }
 
-export type ResourceMonitorStatusTone =
-  | "info"
-  | "warning"
-  | "muted"
-  | "secondary"
-  | "destructive";
+export type ResourceMonitorStatusTone = "info" | "warning" | "muted" | "secondary" | "destructive";
 
 /** Semantic badge tone. Info is only for live/ready status, never a gray catch-all. */
 export function resourceMonitorStatusTone(

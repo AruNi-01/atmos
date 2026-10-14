@@ -3,10 +3,7 @@
 import type { ILink, ILinkProvider, Terminal as XTerm } from "@xterm/xterm";
 
 import { fsApi } from "@/api/ws-api";
-import {
-  isSupportedExternalProtocol,
-  resolveExternalUrl,
-} from "@/shared/lib/desktop-external-url";
+import { isSupportedExternalProtocol, resolveExternalUrl } from "@/shared/lib/desktop-external-url";
 
 type LinkRoutingContext = {
   cwdPath?: string;
@@ -46,8 +43,8 @@ export type TerminalLinkContext = LinkRoutingContext;
 
 const TOKEN_REGEX = /[^\s"'`<>|]+/g;
 const TRAILING_PUNCTUATION = new Set([".", ",", ";", "!", "?"]);
-const LEADING_WRAPPERS = new Set(["(", "[", "{", "\"", "'"]);
-const TRAILING_WRAPPERS = new Set(["]", "}", "\"", "'"]);
+const LEADING_WRAPPERS = new Set(["(", "[", "{", '"', "'"]);
+const TRAILING_WRAPPERS = new Set(["]", "}", '"', "'"]);
 const EXPLICIT_EXTERNAL_PROTOCOL_REGEX = /^(https?:\/\/|mailto:|tel:)/i;
 
 function resolveSupportedExternalUrl(rawText: string): URL | null {
@@ -150,7 +147,8 @@ function splitLocationSuffix(raw: string): {
 function hasFileLikeShape(pathText: string, hasLocation: boolean): boolean {
   if (!pathText) return false;
   if (pathText.startsWith("file://")) return true;
-  if (pathText.startsWith("~/") || pathText.startsWith("./") || pathText.startsWith("../")) return true;
+  if (pathText.startsWith("~/") || pathText.startsWith("./") || pathText.startsWith("../"))
+    return true;
   if (isAbsolutePath(pathText)) return true;
   if (pathText.includes("/")) return true;
   if (pathText.includes("\\")) return true;
@@ -191,7 +189,8 @@ function normalizePath(path: string): string {
 function joinPaths(basePath: string, relativePath: string): string {
   const separator = detectSeparator(basePath);
   const base = normalizePath(basePath);
-  const relative = separator === "\\" ? relativePath.replace(/\//g, "\\") : toForwardSlashes(relativePath);
+  const relative =
+    separator === "\\" ? relativePath.replace(/\//g, "\\") : toForwardSlashes(relativePath);
   const trimmedBase = base.endsWith(separator) ? base.slice(0, -1) : base;
   return normalizePath(`${trimmedBase}${separator}${relative}`);
 }
@@ -206,9 +205,7 @@ function isWithinRoot(path: string, root: string): boolean {
 
   if (comparablePath === comparableRoot) return true;
 
-  const rootWithSlash = comparableRoot.endsWith("/")
-    ? comparableRoot
-    : `${comparableRoot}/`;
+  const rootWithSlash = comparableRoot.endsWith("/") ? comparableRoot : `${comparableRoot}/`;
 
   return comparablePath.startsWith(rootWithSlash);
 }
@@ -224,7 +221,7 @@ async function resolveInternalPath(
   context: LinkRoutingContext,
 ): Promise<ResolvedFileLink | ResolvedDirectoryLink | null> {
   const roots = Array.from(
-    new Set([context.cwdPath, context.projectRootPath].filter(Boolean) as string[])
+    new Set([context.cwdPath, context.projectRootPath].filter(Boolean) as string[]),
   );
   if (roots.length === 0 && !isAbsolutePath(pathText) && !pathText.startsWith("~/")) {
     return null;
@@ -364,7 +361,8 @@ export function createTerminalLinkProvider(
 ): ILinkProvider {
   return {
     provideLinks(bufferLineNumber, callback) {
-      const line = terminal.buffer.active.getLine(bufferLineNumber - 1)?.translateToString(true) ?? "";
+      const line =
+        terminal.buffer.active.getLine(bufferLineNumber - 1)?.translateToString(true) ?? "";
       if (!line) {
         callback(undefined);
         return;

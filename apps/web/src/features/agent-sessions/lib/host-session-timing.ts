@@ -38,8 +38,7 @@ export function fillHostSessionTurnTiming(
     }
     const start = [...messages.slice(0, index)]
       .reverse()
-      .find((item) => item.role === "user")
-      ?.created_at;
+      .find((item) => item.role === "user")?.created_at;
     const nextUserAt = messages.slice(index + 1).find((item) => item.role === "user")?.created_at;
     const startUsable = usableTimestamp(start);
     const startIsOld = Boolean(startUsable && now - Date.parse(startUsable) > 60_000);
@@ -49,13 +48,16 @@ export function fillHostSessionTurnTiming(
       end = undefined;
     }
     const keepServerWorked =
-      message.worked_ms != null
-      && message.worked_ms > 0
-      && !(startIsOld && isPreviewNow(message.completed_at, now));
+      message.worked_ms != null &&
+      message.worked_ms > 0 &&
+      !(startIsOld && isPreviewNow(message.completed_at, now));
     let worked = keepServerWorked ? message.worked_ms : promptToCompleteMs(start, end);
     if (worked == null) {
       worked = promptToCompleteMs(start, nextUserAt);
-      if (worked != null && !(usableTimestamp(message.completed_at) && !isPreviewNow(message.completed_at, now))) {
+      if (
+        worked != null &&
+        !(usableTimestamp(message.completed_at) && !isPreviewNow(message.completed_at, now))
+      ) {
         end = usableTimestamp(nextUserAt) ?? end;
       }
     }
@@ -70,15 +72,15 @@ export function fillHostSessionTurnTiming(
     const completedAt =
       (usableTimestamp(message.completed_at) && !isPreviewNow(message.completed_at, now)
         ? usableTimestamp(message.completed_at)
-        : undefined)
-      ?? end
-      ?? startUsable
-      ?? null;
+        : undefined) ??
+      end ??
+      startUsable ??
+      null;
     if (
-      !message.streaming
-      && message.completed_at === completedAt
-      && message.worked_ms === (worked ?? message.worked_ms)
-      && parts === message.parts
+      !message.streaming &&
+      message.completed_at === completedAt &&
+      message.worked_ms === (worked ?? message.worked_ms) &&
+      parts === message.parts
     ) {
       return message;
     }

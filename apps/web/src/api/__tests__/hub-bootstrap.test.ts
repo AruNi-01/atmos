@@ -14,11 +14,7 @@ describe("resolveWebHubUrl", () => {
   });
 
   test("explicit env wins", () => {
-    expect(resolveWebHubUrl("http://localhost:8787", "")).toBe(
-      "http://localhost:8787",
-    );
-    expect(resolveWebHubUrl("", "https://from-atmos.example")).toBe(
-      "https://from-atmos.example",
-    );
+    expect(resolveWebHubUrl("http://localhost:8787", "")).toBe("http://localhost:8787");
+    expect(resolveWebHubUrl("", "https://from-atmos.example")).toBe("https://from-atmos.example");
   });
 });

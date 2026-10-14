@@ -50,10 +50,7 @@ export function TerminalSideChatDots({
       )}
     >
       {isStarting ? (
-        <span
-          className="inline-flex h-3 w-8 items-end justify-center"
-          title={t("starting")}
-        >
+        <span className="inline-flex h-3 w-8 items-end justify-center" title={t("starting")}>
           <span className={cn(sideChatIndicatorClassName, "animate-pulse")} />
         </span>
       ) : null}

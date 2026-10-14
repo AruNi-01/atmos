@@ -1,7 +1,4 @@
-export type TokenUsageGroupBy =
-  | "model"
-  | "client_model"
-  | "client_provider_model";
+export type TokenUsageGroupBy = "model" | "client_model" | "client_provider_model";
 
 export type TokenUsageOverviewRequest = {
   refresh?: boolean;
@@ -95,11 +92,7 @@ export type MonthlyTokenUsageResponse = {
   models: string[];
 };
 
-export type BrowserCookieConsent =
-  | "not_applicable"
-  | "needed"
-  | "granted"
-  | "denied";
+export type BrowserCookieConsent = "not_applicable" | "needed" | "granted" | "denied";
 
 export type BrowserCookieAccessResponse = {
   provider_id: string;

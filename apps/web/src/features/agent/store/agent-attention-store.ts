@@ -1,10 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import {
-  agentStatusApi,
-  type AgentAttentionLatchDto,
-} from "@/api/rest-api";
+import { agentStatusApi, type AgentAttentionLatchDto } from "@/api/rest-api";
 import { useWorkspaceAgentGroupingHoldStore } from "@/features/agent/store/workspace-agent-grouping-hold";
 
 export type AttentionReason = "permission_request" | "task_complete";
@@ -64,10 +61,7 @@ type AgentAttentionStore = {
    * is auto-focus from a jump and keeps task-complete rings for
    * {@link ATTENTION_AUTO_CLEAR_MS}.
    */
-  notifyPaneFocused: (
-    stablePaneId: string | null,
-    options?: NotifyPaneFocusedOptions,
-  ) => void;
+  notifyPaneFocused: (stablePaneId: string | null, options?: NotifyPaneFocusedOptions) => void;
   /**
    * Replace local latches with the API memory snapshot (browser refresh recovery).
    * Does not touch filterMode / focused pane.
@@ -187,11 +181,7 @@ function acknowledgeableAttentionKeys(stablePaneId: string): string[] {
   });
 }
 
-function scheduleAutoClear(
-  stablePaneId: string,
-  restart = true,
-  dismissIdle = true,
-) {
+function scheduleAutoClear(stablePaneId: string, restart = true, dismissIdle = true) {
   if (!restart && autoClearTimers.has(stablePaneId)) return;
   clearAutoClearTimer(stablePaneId);
   const timer = setTimeout(() => {
@@ -206,9 +196,7 @@ function scheduleAutoClear(
     }
     // Do not wipe a remaining permission latch from API memory.
     const stillPendingPermission = matchingAttentionKeys(stablePaneId).some(
-      (id) =>
-        useAgentAttentionStore.getState().panes.get(id)?.reason ===
-        "permission_request",
+      (id) => useAgentAttentionStore.getState().panes.get(id)?.reason === "permission_request",
     );
     if (!stillPendingPermission) {
       clearAttentionOnServer(stablePaneId);
@@ -237,8 +225,7 @@ function toAttentionHostIdSet(
   attentionContextIds: ReadonlySet<string> | readonly string[],
 ): Set<string> {
   const out = new Set<string>();
-  const list =
-    attentionContextIds instanceof Set ? attentionContextIds : attentionContextIds;
+  const list = attentionContextIds instanceof Set ? attentionContextIds : attentionContextIds;
   for (const id of list) {
     const host = attentionHostId(id);
     if (host) out.add(host);
@@ -255,8 +242,7 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
   raise: (input) => {
     const stablePaneId = input.stablePaneId?.trim();
     if (!stablePaneId) return;
-    const contextId =
-      (input.contextId?.trim() || contextIdFromStablePaneId(stablePaneId)).trim();
+    const contextId = (input.contextId?.trim() || contextIdFromStablePaneId(stablePaneId)).trim();
     if (!contextId) return;
 
     set((state) => {
@@ -302,10 +288,7 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
       const filterMode = panes.size === 0 ? false : state.filterMode;
       return { panes, filterMode, revision: state.revision + 1 };
     });
-    if (
-      existing.reason === "task_complete" &&
-      !get().hasContextAttention(existing.contextId)
-    ) {
+    if (existing.reason === "task_complete" && !get().hasContextAttention(existing.contextId)) {
       useWorkspaceAgentGroupingHoldStore
         .getState()
         .beginHold(attentionHostId(existing.contextId) || existing.contextId);
@@ -332,10 +315,7 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
       const latch = latchFromDto(dto);
       if (!latch) continue;
       const existing = panes.get(latch.stablePaneId);
-      if (
-        existing &&
-        reasonPriority(existing.reason) > reasonPriority(latch.reason)
-      ) {
+      if (existing && reasonPriority(existing.reason) > reasonPriority(latch.reason)) {
         continue;
       }
       panes.set(latch.stablePaneId, latch);

@@ -6,9 +6,9 @@
 import {
   resolveRelayUrl,
   useAtmosComputerStore,
-} from '@/features/connection/lib/atmos-computer-store';
-import { getStoredDeviceCredential } from '@/api/hub-client';
-import { getLoopbackHttpBase, isHostedAtmosOrigin } from '@/shared/lib/desktop-runtime';
+} from "@/features/connection/lib/atmos-computer-store";
+import { getStoredDeviceCredential } from "@/api/hub-client";
+import { getLoopbackHttpBase, isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
 
 export interface ComputerClientSettingsDisk {
   path: string;
@@ -22,7 +22,7 @@ export interface ComputerClientSettingsDisk {
   relay_secret_key_configured?: boolean;
 }
 
-export type ComputerClientSettingsSaveLocation = 'api' | 'none';
+export type ComputerClientSettingsSaveLocation = "api" | "none";
 
 export interface ComputerClientSettingsSaveResult {
   persisted: boolean;
@@ -30,18 +30,17 @@ export interface ComputerClientSettingsSaveResult {
 }
 
 function credentialFromDisk(disk: ComputerClientSettingsDisk): string {
-  return (disk.device_credential || disk.access_token || '').trim();
+  return (disk.device_credential || disk.access_token || "").trim();
 }
 
 function apiTokenHeader(): Record<string, string> {
-  const token =
-    typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_API_TOKEN : undefined;
+  const token = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_API_TOKEN : undefined;
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 async function loopbackBase(): Promise<string | null> {
   try {
-    return (await getLoopbackHttpBase()).replace(/\/$/, '');
+    return (await getLoopbackHttpBase()).replace(/\/$/, "");
   } catch {
     return null;
   }
@@ -54,15 +53,11 @@ async function computerClientSettingsTarget(): Promise<{
   // Hosted web (app.atmos.land): never call loopback from the public origin —
   // browsers block/fail that fetch (CORS / private-network). Only the active
   // relay gateway can reach a Computer's local API.
-  if (typeof window !== 'undefined' && isHostedAtmosOrigin()) {
+  if (typeof window !== "undefined" && isHostedAtmosOrigin()) {
     const store = useAtmosComputerStore.getState();
-    if (
-      store.connectionMode === 'relay' &&
-      store.relayGatewayHttpBase &&
-      store.relayClientToken
-    ) {
+    if (store.connectionMode === "relay" && store.relayGatewayHttpBase && store.relayClientToken) {
       return {
-        base: store.relayGatewayHttpBase.replace(/\/$/, ''),
+        base: store.relayGatewayHttpBase.replace(/\/$/, ""),
         headers: { Authorization: `Bearer ${store.relayClientToken}` },
       };
     }
@@ -106,19 +101,19 @@ export async function loadComputerClientSettingsFromDisk(): Promise<ComputerClie
 export async function saveComputerClientSettings(
   deviceCredential: string,
   relayUrl: string,
-  relaySecretKey = '',
+  relaySecretKey = "",
   deviceId?: string | null,
 ): Promise<ComputerClientSettingsSaveResult> {
   const target = await computerClientSettingsTarget();
   if (!target) {
     // Expected on pure hosted web before a Computer relay session exists.
-    return { persisted: false, location: 'none' };
+    return { persisted: false, location: "none" };
   }
   const relaySecret = relaySecretKey.trim();
   const body: Record<string, unknown> = {
     relay_url: resolveRelayUrl(relayUrl),
   };
-  if (relaySecret || !(typeof window !== 'undefined' && isHostedAtmosOrigin())) {
+  if (relaySecret || !(typeof window !== "undefined" && isHostedAtmosOrigin())) {
     body.relay_secret_key = relaySecret;
   }
   const token = deviceCredential.trim();
@@ -130,31 +125,31 @@ export async function saveComputerClientSettings(
   }
   try {
     const res = await fetch(`${target.base}/api/system/computer-client-settings`, {
-      method: 'PUT',
+      method: "PUT",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...target.headers,
       },
       body: JSON.stringify(body),
     });
     if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      console.warn('[computer-client-settings] PUT failed', res.status, text);
-      return { persisted: false, location: 'none' };
+      const text = await res.text().catch(() => "");
+      console.warn("[computer-client-settings] PUT failed", res.status, text);
+      return { persisted: false, location: "none" };
     }
-    return { persisted: true, location: 'api' };
+    return { persisted: true, location: "api" };
   } catch (err) {
     // Network / CORS / offline Computer — never throw into WS bootstrap.
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn('[computer-client-settings] PUT network error', msg);
-    return { persisted: false, location: 'none' };
+    console.warn("[computer-client-settings] PUT network error", msg);
+    return { persisted: false, location: "none" };
   }
 }
 
 export async function saveComputerClientSettingsToDisk(
   deviceCredential: string,
   relayUrl: string,
-  relaySecretKey = '',
+  relaySecretKey = "",
   deviceId?: string | null,
 ): Promise<boolean> {
   const result = await saveComputerClientSettings(
@@ -173,9 +168,9 @@ export async function clearComputerClientSettingsOnDisk(): Promise<void> {
   }
   try {
     await fetch(`${target.base}/api/system/computer-client-settings`, {
-      method: 'PUT',
+      method: "PUT",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...target.headers,
       },
       body: JSON.stringify({ clear: true }),
@@ -194,7 +189,7 @@ let hydrateOnce: Promise<void> | null = null;
 
 /** Idempotent: safe to call from WebSocket connect and settings UI. */
 export function ensureComputerClientSettingsHydrated(): Promise<void> {
-  if (typeof window !== 'undefined' && isHostedAtmosOrigin()) {
+  if (typeof window !== "undefined" && isHostedAtmosOrigin()) {
     return hydrateComputerClientSettingsFromDisk();
   }
   if (!hydrateOnce) {
@@ -209,23 +204,22 @@ export async function hydrateComputerClientSettingsFromDisk(): Promise<void> {
   } catch (err) {
     // Never block WebSocket bootstrap on optional disk/Hub hydrate.
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn('[computer-client-settings] hydrate failed', msg);
+    console.warn("[computer-client-settings] hydrate failed", msg);
   }
 }
 
 async function hydrateComputerClientSettingsFromDiskImpl(): Promise<void> {
   const disk = await loadComputerClientSettingsFromDisk();
   const store = useAtmosComputerStore.getState();
-  const { applyIdentityBearingComputerSettings } = await import(
-    '@/features/connection/lib/query-identity-lifecycle'
-  );
+  const { applyIdentityBearingComputerSettings } =
+    await import("@/features/connection/lib/query-identity-lifecycle");
 
   if (disk) {
     const cred = credentialFromDisk(disk);
     if (disk.configured && cred.length >= 32) {
       await applyIdentityBearingComputerSettings({
         relayUrl: disk.relay_url,
-        relaySecretKey: disk.relay_secret_key ?? '',
+        relaySecretKey: disk.relay_secret_key ?? "",
         accessToken: cred,
         accessTokenConfigured: true,
       });
@@ -233,7 +227,7 @@ async function hydrateComputerClientSettingsFromDiskImpl(): Promise<void> {
     }
     await applyIdentityBearingComputerSettings({
       relayUrl: disk.relay_url,
-      relaySecretKey: disk.relay_secret_key ?? '',
+      relaySecretKey: disk.relay_secret_key ?? "",
       accessTokenConfigured: Boolean(store.accessToken.trim().length >= 32),
     });
   } else {
@@ -241,7 +235,7 @@ async function hydrateComputerClientSettingsFromDiskImpl(): Promise<void> {
   }
 
   // Prefer Hub browser enroll when disk has no credential yet.
-  const hubCred = getStoredDeviceCredential()?.trim() ?? '';
+  const hubCred = getStoredDeviceCredential()?.trim() ?? "";
   const memory = useAtmosComputerStore.getState().accessToken.trim();
   const next = hubCred.length >= 32 ? hubCred : memory;
   if (next.length >= 32) {
@@ -261,9 +255,8 @@ async function hydrateComputerClientSettingsFromDiskImpl(): Promise<void> {
   } else {
     // Cookie session without local device (e.g. re-login after sign-out): auto-mint.
     try {
-      const { ensureLocalHubDevice } = await import(
-        '@/features/connection/lib/ensure-local-hub-device'
-      );
+      const { ensureLocalHubDevice } =
+        await import("@/features/connection/lib/ensure-local-hub-device");
       await ensureLocalHubDevice();
     } catch {
       /* optional */

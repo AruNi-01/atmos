@@ -5,12 +5,12 @@ import {
   promoteRenderedShapeId,
   trimRenderedShapeIds,
 } from "../lib/canvas-terminal-rendering";
-import { createCanvasTerminalShapeProps, type CanvasTerminalShape } from "../lib/canvas-terminal-shape";
+import {
+  createCanvasTerminalShapeProps,
+  type CanvasTerminalShape,
+} from "../lib/canvas-terminal-shape";
 
-function createShape(
-  id: string,
-  lastAttachedAt: number | null,
-): CanvasTerminalShape {
+function createShape(id: string, lastAttachedAt: number | null): CanvasTerminalShape {
   return {
     id,
     typeName: "shape",

@@ -1,8 +1,8 @@
 import type { WorkspaceSetupProgress } from "@/features/project/store/use-project-store";
-import { createTranslator } from 'next-intl';
-import { currentAppLocale } from '@/shared/lib/current-app-locale';
-import enMessages from '../../../../messages/en.json';
-import zhMessages from '../../../../messages/zh.json';
+import { createTranslator } from "next-intl";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
 
 export type WorkspaceSetupStepKey = NonNullable<WorkspaceSetupProgress["stepKey"]>;
 type WorkspaceSetupStepSummary = {
@@ -10,18 +10,18 @@ type WorkspaceSetupStepSummary = {
   title: string;
 };
 
-let cachedRuntimeLocale: 'en' | 'zh' | null = null;
+let cachedRuntimeLocale: "en" | "zh" | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedRuntimeTranslator: any = null;
 
 function runtimeT(key: string): string {
-  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
+  const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
   if (!cachedRuntimeTranslator || cachedRuntimeLocale !== locale) {
     cachedRuntimeLocale = locale;
     cachedRuntimeTranslator = createTranslator({
       locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'project.runtime',
+      messages: locale === "zh" ? zhMessages : enMessages,
+      namespace: "project.runtime",
     });
   }
   return cachedRuntimeTranslator(key as never);
@@ -103,7 +103,7 @@ export function getWorkspaceSetupSteps(
   const steps: WorkspaceSetupStepSummary[] = [
     {
       id: "create_worktree",
-      title: runtimeT('workspaceSetup.steps.createWorkspace'),
+      title: runtimeT("workspaceSetup.steps.createWorkspace"),
     },
   ];
 
@@ -118,17 +118,17 @@ export function getWorkspaceSetupSteps(
     steps.push({
       id: "write_requirement",
       title: progress.setupContext?.hasGithubPr
-        ? runtimeT('workspaceSetup.steps.fillPrSpec')
+        ? runtimeT("workspaceSetup.steps.fillPrSpec")
         : progress.setupContext?.hasGithubIssue
-          ? runtimeT('workspaceSetup.steps.fillIssueSpec')
-          : runtimeT('workspaceSetup.steps.writeRequirementSpec'),
+          ? runtimeT("workspaceSetup.steps.fillIssueSpec")
+          : runtimeT("workspaceSetup.steps.writeRequirementSpec"),
     });
   }
 
   if (progress.setupContext?.autoExtractTodos) {
     steps.push({
       id: "extract_todos",
-      title: runtimeT('workspaceSetup.steps.extractTodos'),
+      title: runtimeT("workspaceSetup.steps.extractTodos"),
     });
   }
 
@@ -140,13 +140,13 @@ export function getWorkspaceSetupSteps(
   ) {
     steps.push({
       id: "run_setup_script",
-      title: runtimeT('workspaceSetup.steps.runSetupScript'),
+      title: runtimeT("workspaceSetup.steps.runSetupScript"),
     });
   }
 
   steps.push({
     id: "ready",
-    title: runtimeT('workspaceSetup.steps.ready'),
+    title: runtimeT("workspaceSetup.steps.ready"),
   });
 
   return steps;
@@ -169,10 +169,7 @@ export function getWorkspaceSetupProgressValue(progress: WorkspaceSetupProgress)
 
 const SETUP_POPOVER_VIEWPORT_GUTTER_PX = 24;
 
-export function getWorkspaceSetupPopoverWidth(
-  stepCount: number,
-  viewportWidth: number,
-): number {
+export function getWorkspaceSetupPopoverWidth(stepCount: number, viewportWidth: number): number {
   const ideal = stepCount <= 3 ? 720 : stepCount === 4 ? 840 : 960;
   return Math.min(ideal, Math.max(280, viewportWidth - SETUP_POPOVER_VIEWPORT_GUTTER_PX));
 }

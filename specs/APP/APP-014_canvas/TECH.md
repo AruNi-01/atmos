@@ -71,7 +71,7 @@ runtime terminal traffic
 ### Resolved decisions
 
 - **D1**: Canvas is an immersive full-screen overlay, not a route. It lives at the app layout level (next to `<WorkspaceCreationOverlay />`) and is opened by setting the `canvas=true` URL query param. Trigger is the **Canvas** item in Management Center.
-- **D2**: Canvas is *not* an embedded tab inside `/terminals`. The previous `manager / canvas` tab switch is removed; `/terminals` simplifies to just `TerminalManagerView`.
+- **D2**: Canvas is _not_ an embedded tab inside `/terminals`. The previous `manager / canvas` tab switch is removed; `/terminals` simplifies to just `TerminalManagerView`.
 - **D3**: tldraw is the canvas engine. We start from the quick-start React integration (`Tldraw` + `tldraw.css`) and layer Atmos-specific behavior via a custom shape util only. **No** `components` / `overrides` / `tools` filtering is applied — the full default tldraw UI ships (main menu, page menu, tools palette, style panel, minimap, helpers, …).
 - **D4**: V1 persists one logical board: `default`. The storage model allows rows, but the product surface only exposes one board.
 - **D5**: Only the **active** terminal card mounts a full live xterm instance by default. Other cards render a lightweight placeholder shell. This satisfies M7 while protecting M12.
@@ -343,7 +343,7 @@ export type CanvasTerminalSource =
       projectName: string;
       workspaceName: string;
       localPath?: string | null;
-      terminalTabId: string;  // Preserved to track source tab
+      terminalTabId: string; // Preserved to track source tab
       paneId?: string | null;
       tmuxWindowName: string;
       label: string;
@@ -354,7 +354,7 @@ export type CanvasTerminalSource =
       projectName: string;
       workspaceName: "Main";
       localPath?: string | null;
-      terminalTabId: string;  // Preserved to track source tab
+      terminalTabId: string; // Preserved to track source tab
       paneId?: string | null;
       tmuxWindowName: string;
       label: string;
@@ -392,6 +392,7 @@ The body uses three rendering modes:
 3. **broken reference card**: when the referenced tmux window no longer exists, displays an error state with a remove action
 
 **D9**: When a terminal card's referenced tmux window no longer exists (e.g., the window was deleted from tmux), the card enters a "broken reference" state. It should:
+
 - Display a clear visual error indicator
 - Show an error message explaining the window no longer exists
 - Provide a remove/delete action to clean up the broken card
@@ -541,7 +542,7 @@ interface TerminalCardShapeProps {
     projectName: string;
     workspaceName: string;
     localPath?: string | null;
-    terminalTabId: string;  // Preserved to track source tab
+    terminalTabId: string; // Preserved to track source tab
     paneId?: string | null;
     tmuxWindowName: string;
     label: string;

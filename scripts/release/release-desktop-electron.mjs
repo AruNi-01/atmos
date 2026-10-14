@@ -88,13 +88,11 @@ Workflow: .github/workflows/release-desktop-electron.yml
   const notesDir = resolve(repoRoot, "releasenotes");
   // Prefer product-facing "Atmos Desktop <version>.md"; keep legacy Electron filename as fallback.
   const notesPathPrimary = resolve(notesDir, `Atmos Desktop ${version}.md`);
-  const notesPathLegacy = resolve(
-    notesDir,
-    `Atmos Desktop Electron ${version}.md`,
-  );
-  const notesPath = existsSync(notesPathLegacy) && !existsSync(notesPathPrimary)
-    ? notesPathLegacy
-    : notesPathPrimary;
+  const notesPathLegacy = resolve(notesDir, `Atmos Desktop Electron ${version}.md`);
+  const notesPath =
+    existsSync(notesPathLegacy) && !existsSync(notesPathPrimary)
+      ? notesPathLegacy
+      : notesPathPrimary;
 
   console.log("=== Atmos Desktop release plan ===");
   console.log(`version:     ${version}`);
@@ -104,7 +102,9 @@ Workflow: .github/workflows/release-desktop-electron.yml
   console.log("");
 
   if (opts.dryRun) {
-    console.log("[dry-run] would bump package.json, write notes stub if missing, commit, tag, push");
+    console.log(
+      "[dry-run] would bump package.json, write notes stub if missing, commit, tag, push",
+    );
     console.log(`[dry-run] would trigger workflow on push of ${tag}`);
     if (!opts.allowDirty && !gitClean()) {
       console.log("[dry-run] note: working tree is currently dirty");
@@ -113,9 +113,7 @@ Workflow: .github/workflows/release-desktop-electron.yml
   }
 
   if (!opts.allowDirty && !gitClean()) {
-    throw new Error(
-      "Working tree is dirty. Commit/stash first or pass --allow-dirty.",
-    );
+    throw new Error("Working tree is dirty. Commit/stash first or pass --allow-dirty.");
   }
 
   run(process.execPath, [
@@ -125,11 +123,7 @@ Workflow: .github/workflows/release-desktop-electron.yml
 
   if (!existsSync(notesPath)) {
     mkdirSync(notesDir, { recursive: true });
-    writeFileSync(
-      notesPath,
-      defaultElectronReleaseNotes(version, tag),
-      "utf8",
-    );
+    writeFileSync(notesPath, defaultElectronReleaseNotes(version, tag), "utf8");
     console.log(`✅ Wrote release notes stub: ${notesPath}`);
   }
 
@@ -139,11 +133,7 @@ Workflow: .github/workflows/release-desktop-electron.yml
     capture: true,
   });
   if (staged) {
-    run("git", [
-      "commit",
-      "-m",
-      `chore(desktop-electron): release ${version}`,
-    ]);
+    run("git", ["commit", "-m", `chore(desktop-electron): release ${version}`]);
   } else {
     console.log("No staged changes (version may already match).");
   }
