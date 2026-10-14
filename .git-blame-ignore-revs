@@ -1,0 +1,3 @@
+# Commits to skip in git blame (enable with: git config blame.ignoreRevsFile .git-blame-ignore-revs)
+# oxfmt whole-repo JS/TS/CSS/JSON/MD
+a480be45aecc6edbfb2b9530b3c906784e5b6824
