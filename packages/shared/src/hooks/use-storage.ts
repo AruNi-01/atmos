@@ -32,7 +32,9 @@ export function useStorage<T>(
   const setValue = useCallback(
     (value: T | ((val: T) => T)) => {
       try {
-        const valueToStore = typeof value === "function" ? value(storedValue) : value;
+        // `typeof === "function"` does not narrow `T | updater` when T may be callable.
+        // oxlint-disable-next-line unicorn/no-instanceof-builtins
+        const valueToStore = value instanceof Function ? value(storedValue) : value;
         setStoredValue(valueToStore);
         storage.setItem(key, JSON.stringify(valueToStore));
       } catch (error) {
