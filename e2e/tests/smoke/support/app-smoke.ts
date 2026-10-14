@@ -399,7 +399,7 @@ function createProjectWorkspaceSeedData(page: Page): Promise<SmokeProjectSeed> {
         }
       }
 
-      let projects = await listProjects();
+      const projects = await listProjects();
       const candidateProjectPaths = [seedProjectPath, repoRoot].filter(
         (value): value is string => Boolean(value),
       );

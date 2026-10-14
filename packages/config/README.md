@@ -19,7 +19,7 @@ packages/config/
 └── README.md
 ```
 
-ESLint and Prettier are **not** owned here — apps use `eslint-config-next` / local configs; see [AGENTS.md](./AGENTS.md).
+JS/TS lint and format are **not** owned here — the repo uses root `oxlint` / `oxfmt` (`.oxlintrc.jsonc`, `.oxfmtrc.json`); see [AGENTS.md](./AGENTS.md).
 
 ---
 

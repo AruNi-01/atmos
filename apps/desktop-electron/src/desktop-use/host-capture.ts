@@ -181,7 +181,7 @@ export async function captureFrontmostViaHostEngine(options: {
   // System Events AX is empty for many custom-UI apps; host list_windows still
   // has CG bounds — match by **pid**, then largest content window.
   // Always list when geometry is incomplete (do not rely only on caller flag).
-  let frontmost = await resolveFrontmostWithHostBounds(
+  const frontmost = await resolveFrontmostWithHostBounds(
     systemFrontmost,
     selfNames,
     warnings,

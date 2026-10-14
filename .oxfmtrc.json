@@ -1,0 +1,43 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
+  "tabWidth": 2,
+  "useTabs": false,
+  "semi": true,
+  "singleQuote": false,
+  "jsxSingleQuote": false,
+  "trailingComma": "all",
+  "insertFinalNewline": true,
+  "proseWrap": "preserve",
+  "sortPackageJson": false,
+  "sortTailwindcss": {
+    "stylesheet": "./packages/ui/src/styles/globals.css",
+    "functions": ["cn", "clsx", "cva"]
+  },
+  "ignorePatterns": [
+    "vendor/**",
+    "marketing/**",
+    "skills/react-native-chart-kit",
+    "**/.expo/**",
+    "apps/mobile/ios/**",
+    "apps/mobile/android/**",
+    "**/.next/**",
+    "**/dist/**",
+    "**/out/**",
+    "**/build/**",
+    "**/.source/**",
+    "**/next-env.d.ts",
+    "**/coverage/**",
+    "**/.wrangler/**",
+    "**/.turbo/**",
+    "**/playwright-report/**",
+    "e2e/reports/**",
+    "e2e/test-results/**",
+    "target/**",
+    "**/node_modules/**",
+    "apps/desktop/src-tauri/**",
+    "patches/**",
+    "bun.lock",
+    "Cargo.lock"
+  ]
+}

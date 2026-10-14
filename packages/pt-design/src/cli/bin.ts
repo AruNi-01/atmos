@@ -13,7 +13,7 @@ type Parsed = {
 function parseArgs(argv: string[]): Parsed {
   const tokens: string[] = [];
   const flags: Record<string, string | boolean> = {};
-  let json = argv.includes("--json") || process.env.CI === "1";
+  const json = argv.includes("--json") || process.env.CI === "1";
   let file: string | undefined;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;

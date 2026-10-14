@@ -18,7 +18,7 @@ Atmos installs two TypeScript packages on purpose until TypeScript 7.1 ships a s
 | Package | Role | Version |
 |---------|------|---------|
 | `@typescript/native` (`npm:typescript@7`) | Native Go `tsc` binary (typecheck / CI) | 7.x |
-| `typescript` | Programmatic API for eslint / typescript-eslint | 6.x |
+| `typescript` | Programmatic API for Next and other JS tools | 6.x |
 
 With Bun, installing both makes `.bin/tsc` resolve to the **native 7** binary, while `require("typescript")` / `import "typescript"` still resolve to the **6.x API**.
 
@@ -73,10 +73,9 @@ The following have moved to `@workspace/ui`:
 - Styles → use `@workspace/ui/globals.css`
 - Tailwind → v4 requires no config file
 
-### ESLint
+### JS/TS lint and format
 
-- ESLint configuration is managed by individual apps (`eslint-config-next`).
-- ESLint must keep resolving the TypeScript **6** API via the `typescript` package name.
+Lint and format live at the repo root (`/.oxlintrc.jsonc`, `/.oxfmtrc.json`). This package does not own oxlint or oxfmt config.
 
 ---
 
@@ -84,10 +83,10 @@ The following have moved to `@workspace/ui`:
 
 ### NEVER
 
-- Put ESLint configs here — apps manage their own
+- Put oxlint / oxfmt / ESLint configs here — they live at the repo root
 - Put PostCSS/Tailwind configs here — they're in `@workspace/ui`
 - Reintroduce `ignoreDeprecations` or `baseUrl` to silence TS 7
-- Install only `typescript@7` without keeping a 6.x API package for eslint
+- Install only `typescript@7` without keeping a 6.x programmatic API package
 
 ### ALWAYS
 

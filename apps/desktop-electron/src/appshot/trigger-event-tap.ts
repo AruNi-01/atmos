@@ -118,7 +118,7 @@ function startElectronShiftHelper(onChord: () => void): TapHandle | null {
   }
 
   let buf = "";
-  let onChordRef = onChord;
+  const onChordRef = onChord;
 
   const handleLine = (line: string): void => {
     const trimmed = line.trim();

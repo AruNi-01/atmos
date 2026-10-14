@@ -36,7 +36,7 @@ try {
     );
     writeFileSync(dest, body);
     // Mirror version into shared so desktop inject reports the same build id.
-    let shared = readFileSync(src, "utf8");
+    const shared = readFileSync(src, "utf8");
     const nextShared = shared.replace(
       /var EXTENSION_VERSION = '[^']*';/,
       `var EXTENSION_VERSION = '${version}';`,

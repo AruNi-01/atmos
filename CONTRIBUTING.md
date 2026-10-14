@@ -16,6 +16,7 @@ bun test
 cargo test --workspace
 
 # Format
+bun run fmt
 cargo fmt --all
 ```
 
@@ -25,7 +26,7 @@ After `bun install`, [Husky](https://typicode.github.io/husky/) installs local G
 
 | Hook | What it does |
 |------|----------------|
-| `pre-commit` | `lint-staged`: `cargo fmt` on staged `*.rs`; package-boundary check when `packages/shared` TS changes |
+| `pre-commit` | `lint-staged`: `oxlint --fix` + `oxfmt` on staged JS/TS; `oxfmt` on staged CSS/JSON/MD; `cargo fmt` on staged `*.rs`; package-boundary check when `packages/shared` TS changes |
 | `commit-msg` | Require a [Conventional Commits](https://www.conventionalcommits.org/) subject line |
 
 Examples:

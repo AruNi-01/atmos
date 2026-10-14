@@ -215,10 +215,25 @@ just typecheck-bench    # Typecheck wall time vs QUALITY-005 baseline
 just test               # Run all tests
 just test-e2e-smoke     # Run fast Playwright smoke tests
 just test-e2e           # Run all Playwright E2E tests
-just lint               # Run all linters
+just lint               # oxlint (JS/TS) + cargo clippy
+just fmt                # oxfmt (JS/TS/CSS/JSON/MD) + cargo fmt
+just fmt-check          # check formatting without writing
 ```
 
-TypeScript note: `@typescript/native` (TS 7 `tsc`) is installed alongside `typescript@6` (eslint API). See [packages/config/AGENTS.md](packages/config/AGENTS.md).
+TypeScript note: `@typescript/native` (TS 7 `tsc`) is installed alongside `typescript@6` (programmatic API for Next and other tools). See [packages/config/AGENTS.md](packages/config/AGENTS.md).
+
+### JS/TS lint and format (oxc)
+
+Root configs are `.oxlintrc.jsonc` and `.oxfmtrc.json`. Do not add per-app ESLint or Prettier.
+
+**Agents:** each turn, run oxlint and oxfmt **only on files you changed**, not the whole repo:
+
+```bash
+bunx oxlint --fix path/to/changed.ts path/to/other.tsx
+bunx oxfmt path/to/changed.ts path/to/other.tsx
+```
+
+Do not run `just fmt` / `bun run fmt` on the whole tree unless the task is an explicit repo-wide format.
 
 For a fresh iOS/Android mobile environment, follow [agents/references/mobile/dev-setup.md](agents/references/mobile/dev-setup.md) before running native dev builds.
 
@@ -292,6 +307,10 @@ Before implementing:
 - If you write 200 lines and it could be 50, rewrite it.
 
 Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+### 3. JS/TS lint and format
+
+After editing JS/TS (and CSS/JSON/MD when you touched those files), run `oxlint --fix` and `oxfmt` **only on the changed paths** for that turn. Do not lint or format the whole monorepo as a matter of course.
 
 ---
 

@@ -5,12 +5,16 @@ on:
     branches: [main]
     paths:
       - "packages/**"
+      - ".oxlintrc.jsonc"
+      - ".oxfmtrc.json"
       - ".github/workflows/ci-packages.yml"
       - ".github/actions/setup-bun/**"
   pull_request:
     branches: [main]
     paths:
       - "packages/**"
+      - ".oxlintrc.jsonc"
+      - ".oxfmtrc.json"
       - ".github/workflows/ci-packages.yml"
       - ".github/actions/setup-bun/**"
 
@@ -24,9 +28,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-bun
-      # 各包暂无 eslint 配置，跳过 lint
       - name: Lint packages
-        run: echo "ℹ️ Skipping lint - no eslint configs in packages"
+        run: bunx oxlint packages
 
   typecheck:
     name: Typecheck

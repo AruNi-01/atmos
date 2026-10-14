@@ -86,7 +86,7 @@ export function AuthCheckEmailShowcasePage() {
             Use a different email
           </a>
           <p className="mt-3 text-muted-foreground text-xs leading-relaxed">
-            Didn't get the email? Check spam, then{" "}
+            Didn&apos;t get the email? Check spam, then{" "}
             <a
               href="#"
               className="inline-flex items-center gap-1 text-foreground underline-offset-4 hover:underline"

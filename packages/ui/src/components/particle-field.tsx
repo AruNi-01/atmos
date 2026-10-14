@@ -443,7 +443,7 @@ export function ParticleField({
       const mr = mouseRadiusV * dpr;
       const mr2 = mr * mr;
 
-      let typing = typingImpulseRef?.current ?? 0;
+      const typing = typingImpulseRef?.current ?? 0;
       if (typingImpulseRef && typing > 1e-4) {
         typingImpulseRef.current *= 0.93;
       }

@@ -179,7 +179,7 @@ export function DitherDonut({
         if (share <= 0) continue;
 
         const sweep = share * Math.PI * 2;
-        let aStart = startAngle + gap / 2;
+        const aStart = startAngle + gap / 2;
         let aEnd = startAngle + sweep - gap / 2;
         if (aEnd < aStart) aEnd = aStart;
 

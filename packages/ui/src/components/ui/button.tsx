@@ -75,7 +75,8 @@ export function Button({
 
   if (asChild && React.isValidElement(children)) {
     finalRender = children;
-    finalChildren = (children as React.ReactElement<any>).props.children;
+    finalChildren = (children as React.ReactElement<{ children?: React.ReactNode }>)
+      .props.children;
   }
 
   const defaultProps = {

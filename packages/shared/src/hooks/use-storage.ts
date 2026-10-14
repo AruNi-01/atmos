@@ -29,7 +29,7 @@ export function useStorage<T>(key: string, defaultValue: T): [T, (value: T | ((v
   const setValue = useCallback(
     (value: T | ((val: T) => T)) => {
       try {
-        const valueToStore = value instanceof Function ? value(storedValue) : value;
+        const valueToStore = typeof value === "function" ? value(storedValue) : value;
         setStoredValue(valueToStore);
         storage.setItem(key, JSON.stringify(valueToStore));
       } catch (error) {

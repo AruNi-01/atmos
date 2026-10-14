@@ -111,7 +111,7 @@ test.describe("APP-043 workspace surface cache", () => {
         project_guid: project.guid,
       });
 
-      let first = workspaces.find((w) => !w.is_archived) ?? workspaces[0] ?? null;
+      const first = workspaces.find((w) => !w.is_archived) ?? workspaces[0] ?? null;
       if (!first) throw new Error("no workspace A");
 
       let second =

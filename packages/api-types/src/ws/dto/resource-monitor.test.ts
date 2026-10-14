@@ -16,6 +16,8 @@ import type {
 } from "./resource-monitor";
 
 type OptionalKeys<T> = {
+  // `{} extends Pick<T, K>` is the standard "is K optional?" check.
+  // oxlint-disable-next-line typescript/no-empty-object-type
   [K in keyof T]-?: {} extends Pick<T, K> ? K : never;
 }[keyof T];
 type AssertNever<T extends never> = T;
